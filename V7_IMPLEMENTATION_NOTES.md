@@ -1,5 +1,13 @@
 # V7 implementation notes
 
+## 0.1.1 reliability update
+
+See [release-0.1.1.md](docs/release-0.1.1.md) for corrected event links,
+transaction rollback, durable UTC schedule claims, shared search/filtering,
+environment configuration, optional dependencies, packaged resources and the
+preview-first historical repair utility. The remaining queue/video limitations
+are listed explicitly there.
+
 This package adds a server-first V7 architecture on top of the existing `news2douyin_simplified` codebase.
 
 ## Implemented

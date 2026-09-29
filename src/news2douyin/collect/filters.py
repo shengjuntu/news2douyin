@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import urlparse
+
+from ..enrich.service import classify_categories
 
 
 def domain_matches(domain: str, allowed: set[str]) -> bool:
@@ -8,25 +11,34 @@ def domain_matches(domain: str, allowed: set[str]) -> bool:
     return any(domain == d or domain.endswith('.' + d) for d in allowed)
 
 
-def filter_items(items: list[dict[str, Any]], profile: dict[str, Any]) -> list[dict[str, Any]]:
-    """Rule-based filter: source whitelist/blacklist, keywords, categories."""
-    include = [k.lower() for k in profile.get('keywords_include', [])]
+def hard_filter_items(items: list[dict[str, Any]], profile: dict[str, Any]) -> list[dict[str, Any]]:
+    """Non-negotiable source/exclusion constraints, shared by all filter modes."""
     exclude = [k.lower() for k in profile.get('keywords_exclude', [])]
     whitelist = {d.lower() for d in profile.get('source_whitelist', [])}
     blacklist = {d.lower() for d in profile.get('source_blacklist', [])}
-    categories = [c.lower() for c in profile.get('categories', [])]
     out = []
     for item in items:
         text = f"{item.get('title','')}\n{item.get('content','')}".lower()
-        domain = (((item.get('source') or {}).get('domain')) or '').lower()
-        if whitelist and domain and not domain_matches(domain, whitelist):
+        domain = (((item.get('source') or {}).get('domain')) or urlparse(item.get('url') or '').hostname or '').lower().rstrip('.')
+        if whitelist and not domain_matches(domain, whitelist):
             continue
         if blacklist and domain and domain_matches(domain, blacklist):
             continue
-        if include and not any(k in text for k in include):
-            if categories and not any(c in text for c in categories):
-                continue
         if exclude and any(k in text for k in exclude):
             continue
+        out.append(item)
+    return out
+
+
+def filter_items(items: list[dict[str, Any]], profile: dict[str, Any]) -> list[dict[str, Any]]:
+    """Hard constraints followed by keyword-or-category relevance matching."""
+    include = [k.lower() for k in profile.get('keywords_include', [])]
+    categories = [c.lower() for c in profile.get('categories', [])]
+    out = []
+    for item in hard_filter_items(items, profile):
+        text = f"{item.get('title', '')}\n{item.get('content', '')}".lower()
+        if include or categories:
+            if not any(k in text for k in include) and not classify_categories(text, categories):
+                continue
         out.append(item)
     return out

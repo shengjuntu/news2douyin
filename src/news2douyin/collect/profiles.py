@@ -5,6 +5,10 @@ from typing import Any
 
 import yaml
 
+PROFILE_FIELDS = {'name', 'provider', 'country', 'language', 'categories',
+                  'keywords_include', 'keywords_exclude', 'source_whitelist',
+                  'source_blacklist', 'max_items', 'market_scope', 'market_tags'}
+
 
 def load_profile_file(path: str | Path) -> dict[str, Any]:
     p = Path(path)
@@ -13,7 +17,13 @@ def load_profile_file(path: str | Path) -> dict[str, Any]:
 
 
 def normalize_profile_dict(data: dict[str, Any]) -> dict[str, Any]:
-    profile = dict(data)
+    # REST exposes provider-specific options under `extra`; YAML historically
+    # puts them at the top level. Accept both, without shadowing core fields.
+    extra = data.get('extra') or {}
+    if not isinstance(extra, dict):
+        raise ValueError('profile.extra must be an object')
+    profile = {k: v for k, v in extra.items() if k not in PROFILE_FIELDS and k != 'extra'}
+    profile.update({k: v for k, v in data.items() if k != 'extra'})
     profile.setdefault('provider', 'worldnewsapi')
     profile.setdefault('country', 'us')
     profile.setdefault('language', 'en')

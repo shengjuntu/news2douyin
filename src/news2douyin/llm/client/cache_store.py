@@ -1,4 +1,5 @@
 import sqlite3
+from contextlib import contextmanager
 import json
 import hashlib
 import time
@@ -11,8 +12,14 @@ DB_PATH = Path(LLM_CACHE_DB)
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 
+@contextmanager
 def _get_conn():
-    return sqlite3.connect(DB_PATH, check_same_thread=False)
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+    try:
+        with conn:
+            yield conn
+    finally:
+        conn.close()
 
 
 def init_db():

@@ -9,6 +9,8 @@ from loguru import logger
 
 def render_markdown(template_path: str | Path, script_pack: dict) -> str:
     template_path = Path(template_path)
+    if not template_path.is_file() and template_path.parent == Path('templates/douyin'):
+        template_path = Path(__file__).parent / 'templates' / template_path.name
     env = Environment(loader=FileSystemLoader(str(template_path.parent)))
     tmpl = env.get_template(template_path.name)
     return tmpl.render(script=script_pack)

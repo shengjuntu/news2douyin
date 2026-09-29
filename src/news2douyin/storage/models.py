@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from sqlmodel import SQLModel, Field
 
 
 def utc_now_iso() -> str:
-    return datetime.utcnow().replace(microsecond=0).isoformat() + 'Z'
+    return datetime.now(timezone.utc).isoformat(timespec='seconds').replace('+00:00', 'Z')
 
 
 class CollectProfile(SQLModel, table=True):
@@ -59,6 +59,22 @@ class RunRecord(SQLModel, table=True):
     error_text: Optional[str] = None
     storage_path: Optional[str] = None
     created_at: str = Field(default_factory=utc_now_iso)
+
+
+class ScheduleOccurrence(SQLModel, table=True):
+    """Durable at-most-once claim for a job's scheduled UTC minute.
+
+    A crash may leave `claimed`; automatic crash recovery is a separate worker
+    concern. Keeping the claim prevents another process repeating its effects.
+    """
+    occurrence_key: str = Field(primary_key=True)
+    job_id: int = Field(index=True)
+    scheduled_at: str = Field(index=True)
+    status: str = Field(default='claimed', index=True)
+    run_id: Optional[int] = None
+    error_text: Optional[str] = None
+    created_at: str = Field(default_factory=utc_now_iso)
+    finished_at: Optional[str] = None
 
 
 class Article(SQLModel, table=True):

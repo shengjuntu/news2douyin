@@ -5,7 +5,6 @@ import json
 import sys
 from pathlib import Path
 
-from dotenv import load_dotenv
 from loguru import logger
 
 from .pipeline import run_all
@@ -19,7 +18,7 @@ from .collect.service import import_profile_file, run_collection
 from .search.service import search_articles, search_events
 from .video.service import build_script_package
 from .storage.utils import loads
-from .config import load_yaml
+from .config import load_environment, load_yaml
 
 
 def _find_latest_run(runs_root: Path = Path("runs")) -> Path | None:
@@ -64,7 +63,7 @@ def _upsert_jobs_from_yaml(session, path: str | Path) -> int:
 
 
 def main() -> None:
-    load_dotenv()
+    load_environment()
     ap = argparse.ArgumentParser(prog="news2douyin")
     sub = ap.add_subparsers(dest="cmd", required=True)
 

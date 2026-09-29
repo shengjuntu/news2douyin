@@ -121,7 +121,8 @@ def decide_duplicate(session: Session, item: dict[str, Any], before_id: int | No
     if best_row and best_score >= NEAR_DUP_THRESHOLD:
         return DedupDecision(norm, True, best_row.article_key, _resolve_root_group_id(session, best_row), 'near_duplicate', float(round(best_score, 3)), best_row.title_signature or best_row.content_signature)
 
-    if DEDUP_LLM_ENABLED and best_row is not None and GRAY_ZONE_LOW <= best_score < NEAR_DUP_THRESHOLD:
+    llm_enabled = os.getenv('DEDUP_LLM_ENABLED', str(int(DEDUP_LLM_ENABLED))).strip().lower() not in {'0', 'false', 'no', 'off'}
+    if llm_enabled and best_row is not None and GRAY_ZONE_LOW <= best_score < NEAR_DUP_THRESHOLD:
         verdict = llm_same_event(norm.normalized_title, norm.normalized_content, best_row.normalized_title, best_row.normalized_content)
         if verdict is True and not _title_kind_conflict(norm.normalized_title, best_row.normalized_title):
             return DedupDecision(norm, True, best_row.article_key, _resolve_root_group_id(session, best_row), 'llm_same_event', float(round(best_score, 3)), best_row.title_signature or best_row.content_signature)

@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 from pathlib import Path
+from contextlib import asynccontextmanager
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException
 from sqlmodel import select
 
-from ..collect.service import create_or_update_profile, get_profile, import_profile_file, run_collection
+from ..collect.service import create_or_update_profile, get_profile, import_profile_file, row_to_profile, run_collection
+from ..collect.profiles import PROFILE_FIELDS
 from ..editorial.service import build_editorial_pack
 from ..search.service import search_articles, search_events
 from ..scheduler.service import SchedulerConfig, SchedulerService
@@ -15,6 +17,7 @@ from ..storage.models import CollectProfile, CollectJob, RunRecord, Event, Scrip
 from ..storage.utils import loads
 from ..video.service import build_script_package
 from .schemas.common import ProfilePayload, JobPayload, RunNowPayload, ScriptBuildPayload
+from ..config import load_environment
 
 
 def _profile_to_dict(row: CollectProfile) -> dict:
@@ -31,7 +34,7 @@ def _profile_to_dict(row: CollectProfile) -> dict:
         'max_items': row.max_items,
         'market_scope': row.market_scope,
         'market_tags': loads(row.market_tags_json, []),
-        'extra': loads(row.extra_json, {}),
+        'extra': {k: v for k, v in row_to_profile(row).items() if k not in PROFILE_FIELDS},
         'updated_at': row.updated_at,
     }
 
@@ -69,22 +72,23 @@ def _run_to_dict(row: RunRecord) -> dict:
 
 
 def create_app(*, db_url: str = 'sqlite:///runs_v7/news2douyin_v7.db', storage_root: str = 'runs_v7') -> FastAPI:
-    app = FastAPI(title='news2douyin v7 server')
+    load_environment()
     engine = make_engine(db_url)
     init_db(engine)
     scheduler = SchedulerService(engine, SchedulerConfig(storage_root=storage_root))
+    @asynccontextmanager
+    async def lifespan(app):
+        Path(storage_root).mkdir(parents=True, exist_ok=True)
+        scheduler.start()
+        try:
+            yield
+        finally:
+            scheduler.stop()
+
+    app = FastAPI(title='news2douyin v7 server', lifespan=lifespan)
     app.state.engine = engine
     app.state.storage_root = storage_root
     app.state.scheduler = scheduler
-
-    @app.on_event('startup')
-    def _startup() -> None:
-        Path(storage_root).mkdir(parents=True, exist_ok=True)
-        scheduler.start()
-
-    @app.on_event('shutdown')
-    def _shutdown() -> None:
-        scheduler.stop()
 
     @app.get('/api/health')
     def health():

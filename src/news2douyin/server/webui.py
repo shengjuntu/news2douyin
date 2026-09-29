@@ -15,6 +15,7 @@ from sqlmodel import or_, select
 
 from ..collect.service import run_collection
 from ..report.html_report import build_html_report
+from ..search.service import search_articles, search_events
 from ..storage.db import session_scope
 from ..storage.models import Article, ArticleEventLink, CollectJob, CollectProfile, Event, RunRecord
 from ..storage.utils import loads
@@ -125,14 +126,6 @@ def register_webui_routes(app: FastAPI, engine, scheduler, storage_root: str) ->
     def page_articles(q: str = '', country: str = '', category: str = '', limit: int = 60):
         limit = max(1, min(int(limit or 60), 300))
         with session_scope(engine) as session:
-            stmt = select(Article).order_by(Article.fetched_at.desc()).limit(limit)
-            if q:
-                like = f'%{q}%'
-                stmt = stmt.where(or_(Article.title.like(like), Article.content.like(like)))
-            if country:
-                stmt = stmt.where(Article.country == country)
-            if category:
-                stmt = stmt.where(Article.category_tags_json.like(f'%{category}%'))
             rows = [
                 {
                     'title': r.title, 'url': r.url, 'domain': r.source_domain, 'country': r.country,
@@ -140,7 +133,7 @@ def register_webui_routes(app: FastAPI, engine, scheduler, storage_root: str) ->
                     'sentiment': r.sentiment, 'score': r.market_relevance_score,
                     'is_duplicate': r.is_duplicate, 'snippet': (r.content or '')[:200],
                 }
-                for r in session.exec(stmt).all()
+                for r in search_articles(session, query=q, country=country, category=category, limit=limit)
             ]
             countries = sorted({c for c in session.exec(select(Article.country)).all() if c})
         return render('articles.html', active='articles', articles=rows, q=q, country=country,
@@ -150,14 +143,6 @@ def register_webui_routes(app: FastAPI, engine, scheduler, storage_root: str) ->
     def page_events(q: str = '', country: str = '', topic: str = '', limit: int = 60):
         limit = max(1, min(int(limit or 60), 300))
         with session_scope(engine) as session:
-            stmt = select(Event).order_by(Event.last_seen_at.desc()).limit(limit)
-            if q:
-                like = f'%{q}%'
-                stmt = stmt.where(or_(Event.event_title.like(like), Event.summary.like(like)))
-            if country:
-                stmt = stmt.where(Event.countries_json.like(f'%{country}%'))
-            if topic:
-                stmt = stmt.where(Event.topic == topic)
             rows = [
                 {
                     'key': r.event_key, 'title': r.event_title, 'topic': r.topic,
@@ -165,7 +150,7 @@ def register_webui_routes(app: FastAPI, engine, scheduler, storage_root: str) ->
                     'importance': r.importance, 'sentiment': r.sentiment,
                     'last_seen_at': r.last_seen_at,
                 }
-                for r in session.exec(stmt).all()
+                for r in search_events(session, query=q, country=country, topic=topic, limit=limit)
             ]
         return render('events.html', active='events', events=rows, q=q, country=country,
                       topic=topic, limit=limit)
@@ -242,7 +227,7 @@ def register_webui_routes(app: FastAPI, engine, scheduler, storage_root: str) ->
             override['max_items'] = int(max_items)
         with session_scope(engine) as session:
             run = run_collection(session, profile_name.strip(), trigger_type='manual_webui',
-                                 override=override or None)
+                                 storage_root=storage_root, override=override or None)
         run_id = run.id
         return RedirectResponse(f'/runs/{run_id}', status_code=303)
 
@@ -351,13 +336,5 @@ def _run_articles_to_timeline_md(articles: list[dict], profile_name: str, run_ke
 
 
 def _llm_alive(timeout: float = 2.0) -> bool:
-    import os
-    import urllib.request
-    base = os.getenv('OPENAI_BASE_URL', '')
-    if not base:
-        return False
-    try:
-        with urllib.request.urlopen(base.rstrip('/') + '/models', timeout=timeout) as r:
-            return 200 <= r.status < 300
-    except Exception:
-        return False
+    from ..llm.settings import probe_endpoint
+    return probe_endpoint(timeout)

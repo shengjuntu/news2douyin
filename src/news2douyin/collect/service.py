@@ -1,14 +1,17 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
+from uuid import uuid4
 
 from loguru import logger
+from sqlalchemy import inspect
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
-from .profiles import normalize_profile_dict, load_profile_file
+from .profiles import PROFILE_FIELDS, normalize_profile_dict, load_profile_file
 from .providers.mock import fetch_mock_news
 from .providers.worldnewsapi import fetch_news as fetch_worldnewsapi
 from ..dedup.service import decide_duplicate
@@ -25,8 +28,11 @@ PROVIDERS = {
 
 
 def row_to_profile(row: CollectProfile) -> dict[str, Any]:
+    # Normalize legacy nested extras before applying the authoritative columns.
+    extras = normalize_profile_dict(loads(row.extra_json, {}))
     return normalize_profile_dict(
         {
+            **extras,
             'name': row.name,
             'provider': row.provider,
             'country': row.country,
@@ -39,7 +45,6 @@ def row_to_profile(row: CollectProfile) -> dict[str, Any]:
             'max_items': row.max_items,
             'market_scope': row.market_scope,
             'market_tags': loads(row.market_tags_json, []),
-            **loads(row.extra_json, {}),
         }
     )
 
@@ -69,7 +74,7 @@ def create_or_update_profile(session: Session, profile: dict[str, Any]) -> Colle
     row.max_items = int(profile.get('max_items', 100))
     row.market_scope = profile.get('market_scope', profile['country'])
     row.market_tags_json = dumps(profile.get('market_tags', []))
-    extra = {k: v for k, v in profile.items() if k not in {'name','provider','country','language','categories','keywords_include','keywords_exclude','source_whitelist','source_blacklist','max_items','market_scope','market_tags'}}
+    extra = {k: v for k, v in profile.items() if k not in PROFILE_FIELDS}
     row.extra_json = dumps(extra)
     row.updated_at = now
     session.add(row)
@@ -88,29 +93,54 @@ from .llm_filter import llm_filter_items  # noqa: E402
 
 
 def _make_run_dir(storage_root: str | Path) -> Path:
-    now = datetime.utcnow()
-    run_dir = Path(storage_root) / now.strftime('%Y-%m-%d') / f"run_{now.strftime('%H%M%S')}"
-    run_dir.mkdir(parents=True, exist_ok=True)
+    now = datetime.now(timezone.utc)
+    run_dir = Path(storage_root) / now.strftime('%Y-%m-%d') / f"run_{now.strftime('%H%M%S')}_{uuid4().hex}"
+    run_dir.mkdir(parents=True, exist_ok=False)
     return run_dir
 
 
-def _select_event_key(item: dict[str, Any], decision) -> str:
-    seed = decision.event_seed or decision.normalized.title_signature or decision.normalized.content_signature or item.get('title','')
+def _select_event_key(session: Session, item: dict[str, Any], decision) -> str:
+    # Prefer the original article's persisted event. Never recalculate its event
+    # from a different (title vs. content) signature on a duplicate path.
+    chain = []
+    key = decision.duplicate_of_article_key
+    while key and key not in chain:
+        chain.append(key)
+        parent = session.exec(select(Article).where(Article.article_key == key)).first()
+        key = parent.duplicate_of_article_key if parent else None
+    for key in reversed(chain):
+        event = session.exec(
+            select(Event).join(ArticleEventLink, Event.event_key == ArticleEventLink.event_key)
+            .where(ArticleEventLink.article_key == key).order_by(Event.id)
+        ).first()
+        if event:
+            return event.event_key
     country = (item.get('country') or 'us').lower()
-    return 'evt_' + stable_hash(country, seed, length=20)
+    return 'evt_' + stable_hash(country, decision.dedup_group_id, length=20)
+
+
+def _utc_timestamp(value: str, fallback: str) -> str:
+    try:
+        dt = datetime.fromisoformat(value.replace('Z', '+00:00'))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc).isoformat(timespec='seconds').replace('+00:00', 'Z')
+    except (ValueError, TypeError, AttributeError):
+        return fallback
 
 
 def _upsert_event(session: Session, item: dict[str, Any], event_key: str) -> Event:
-    row = session.exec(select(Event).where(Event.event_key == event_key)).first()
+    row = session.exec(select(Event).where(Event.event_key == event_key).execution_options(populate_existing=True)).first()
     now = utc_now_iso()
+    published = _utc_timestamp(item.get('published_at'), now)
     if not row:
         row = Event(
             event_key=event_key,
             event_title=item.get('title',''),
             topic=(item.get('sector_tags') or ['market'])[0] if item.get('sector_tags') else 'market',
             summary=item.get('content','')[:400],
-            first_seen_at=item.get('published_at') or now,
-            last_seen_at=item.get('published_at') or now,
+            first_seen_at=published,
+            last_seen_at=published,
             importance=float(item.get('market_relevance_score', 0.0)),
             sentiment=item.get('sentiment','neutral'),
             market_scope=item.get('country') or 'global',
@@ -121,14 +151,14 @@ def _upsert_event(session: Session, item: dict[str, Any], event_key: str) -> Eve
         )
         session.add(row)
     else:
-        row.last_seen_at = item.get('published_at') or now
+        row.first_seen_at = min(_utc_timestamp(row.first_seen_at, published), published)
+        row.last_seen_at = max(_utc_timestamp(row.last_seen_at, published), published)
         row.article_count += 1
         row.importance = max(row.importance, float(item.get('market_relevance_score', 0.0)))
         if len(item.get('content','')) > len(row.summary or ''):
             row.summary = item.get('content','')[:400]
     session.add(row)
-    session.commit()
-    session.refresh(row)
+    # The caller commits the article, link and event as one transaction.
     return row
 
 
@@ -149,20 +179,19 @@ def run_collection(session: Session, profile_name: str, *, storage_root: str | P
         if not fetcher:
             raise KeyError(f'unsupported provider: {provider}')
 
-        items = fetcher(profile)
-        raw_items = list(items)
+        raw_items = list(fetcher(profile))
+        write_jsonl(run_dir / 'raw.jsonl', raw_items)
+        write_json(run_dir / 'meta.json', {'run_key': run_key, 'profile': profile, 'status': 'running'})
         # LLM filter with automatic rule-based fallback (mode: llm | mixed | rules)
-        filtered, filter_mode = llm_filter_items(items, profile)
+        filtered, filter_mode = llm_filter_items(raw_items, profile)
 
         stored_articles = []
         dup_count = 0
         skipped_existing = 0
-        event_count_before = session.exec(select(Event)).all()
-        event_count_before_n = len(event_count_before)
+        created_events = 0
 
         for item in filtered:
-            item = enrich_item(item, profile)
-            decision = decide_duplicate(session, item)
+            item = enrich_item(dict(item), profile)
             article_key = stable_hash(item.get('url',''), item.get('title',''), item.get('published_at',''), length=24)
             if session.exec(select(Article).where(Article.article_key == article_key)).first() is not None:
                 # Already stored (re-fetched article): count as duplicate and skip
@@ -170,7 +199,8 @@ def run_collection(session: Session, profile_name: str, *, storage_root: str | P
                 dup_count += 1
                 skipped_existing += 1
                 continue
-            event_key = _select_event_key(item, decision)
+            decision = decide_duplicate(session, item)
+            event_key = _select_event_key(session, item, decision)
             row = Article(
                 article_key=article_key,
                 provider=provider,
@@ -200,11 +230,23 @@ def run_collection(session: Session, profile_name: str, *, storage_root: str | P
                 dedup_reason=decision.reason,
                 dedup_score=decision.score,
             )
-            session.add(row)
-            session.commit(); session.refresh(row)
-            session.add(ArticleEventLink(article_key=article_key, event_key=event_key, relation_type='duplicate' if decision.is_duplicate else 'primary'))
-            _upsert_event(session, item, event_key)
-            session.commit()
+            try:
+                session.add(row)
+                session.flush()
+                session.add(ArticleEventLink(article_key=article_key, event_key=event_key, relation_type='duplicate' if decision.is_duplicate else 'primary'))
+                event = _upsert_event(session, item, event_key)
+                is_new_event = event.id is None
+                session.commit()
+            except IntegrityError:
+                session.rollback()
+                # Another collector can win the deterministic article-key race.
+                # Only suppress that known race, never unrelated DB failures.
+                if session.exec(select(Article).where(Article.article_key == article_key)).first() is None:
+                    raise
+                dup_count += 1
+                skipped_existing += 1
+                continue
+            created_events += int(is_new_event)
             if decision.is_duplicate:
                 dup_count += 1
             stored_articles.append(row)
@@ -216,13 +258,12 @@ def run_collection(session: Session, profile_name: str, *, storage_root: str | P
             'stored_articles': len(stored_articles),
             'duplicates': dup_count,
             'skipped_existing': skipped_existing,
-            'events_delta': max(0, len(session.exec(select(Event)).all()) - event_count_before_n),
+            'events_delta': created_events,
             'provider': provider,
             'profile_name': profile_name,
         }
-        write_jsonl(run_dir / 'raw.jsonl', raw_items)
         write_jsonl(run_dir / 'articles.jsonl', [json.loads(a.raw_json) for a in stored_articles])
-        write_json(run_dir / 'meta.json', {'run_key': run_key, 'stats': stats, 'profile': profile})
+        write_json(run_dir / 'meta.json', {'run_key': run_key, 'stats': stats, 'profile': profile, 'status': 'succeeded'})
         run.status = 'succeeded'
         run.finished_at = utc_now_iso()
         run.stats_json = dumps(stats)
@@ -231,12 +272,21 @@ def run_collection(session: Session, profile_name: str, *, storage_root: str | P
         logger.info(f'run_collection done run_key={run.run_key} stats={stats}')
         return run
     except Exception as e:
-        # Mark the run as failed before propagating so RunRecord never stays 'running'.
-        fail_run(session, run, f'{type(e).__name__}: {e}')
+        try:
+            fail_run(session, run, f'{type(e).__name__}: {e}')
+            write_json(run_dir / 'meta.json', {'run_key': run_key, 'profile': profile,
+                                             'status': 'failed', 'error_text': run.error_text})
+        except Exception:
+            logger.exception('Could not persist failed run; preserving original exception')
         raise
 
 
 def fail_run(session: Session, run: RunRecord, error_text: str) -> RunRecord:
+    # Reading an expired ORM attribute before rollback can itself raise
+    # PendingRollbackError. The identity is available without touching the DB.
+    run_id = inspect(run).identity[0]
+    session.rollback()
+    run = session.get(RunRecord, run_id)
     run.status = 'failed'
     run.finished_at = utc_now_iso()
     run.error_text = error_text[:4000]

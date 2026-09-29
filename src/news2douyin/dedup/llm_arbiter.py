@@ -18,32 +18,27 @@ import json
 import os
 import re
 import time
-import urllib.request
 
 from loguru import logger
+from ..llm.settings import get_settings, probe_endpoint
 
-OPENAI_BASE_URL = os.getenv('OPENAI_BASE_URL', 'http://127.0.0.1:19993/v1')
-OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', 'vllm')
-MODEL = os.getenv('MODEL', 'MiniCPM5-2B')
-DEDUP_LLM_TIMEOUT = int(os.getenv('DEDUP_LLM_TIMEOUT', '30'))
 PROBE_TTL_SECONDS = 60.0
 MAX_SNIPPET_CHARS = 200
 MAX_TOKENS = 80
 
 _probe_at = 0.0
 _probe_alive = False
-_verdict_cache: dict[tuple[str, str], bool] = {}
+_probe_settings = None
+_verdict_cache: dict[tuple[str, ...], bool] = {}
 
 
 def endpoint_alive(force: bool = False) -> bool:
-    global _probe_at, _probe_alive
-    if force or (time.time() - _probe_at) > PROBE_TTL_SECONDS:
-        try:
-            with urllib.request.urlopen(OPENAI_BASE_URL.rstrip('/') + '/models', timeout=3.0) as r:
-                _probe_alive = 200 <= r.status < 300
-        except Exception:
-            _probe_alive = False
-        _probe_at = time.time()
+    global _probe_at, _probe_alive, _probe_settings
+    settings = get_settings()
+    if force or settings != _probe_settings or (time.monotonic() - _probe_at) > PROBE_TTL_SECONDS:
+        _probe_alive = probe_endpoint()
+        _probe_settings = settings
+        _probe_at = time.monotonic()
     return _probe_alive
 
 
@@ -118,25 +113,23 @@ def llm_same_event(a_title: str, a_content: str, b_title: str, b_content: str) -
     """
     if not endpoint_alive():
         return None
-    key = _pair_key(a_title, b_title)
-    if key in _verdict_cache:
-        return _verdict_cache[key]
     a_snip = re.sub(r'\s+', ' ', a_content or '').strip()[:MAX_SNIPPET_CHARS]
     b_snip = re.sub(r'\s+', ' ', b_content or '').strip()[:MAX_SNIPPET_CHARS]
+    settings = get_settings()
+    key = (settings.base_url, settings.model, *_pair_key(a_title + '\n' + a_snip, b_title + '\n' + b_snip))
+    if key in _verdict_cache:
+        return _verdict_cache[key]
     try:
         import requests
-        url = OPENAI_BASE_URL.rstrip('/') + '/chat/completions'
+        url = settings.base_url + '/chat/completions'
         payload = {
-            'model': MODEL,
+            'model': settings.model,
             'messages': [{'role': 'user', 'content': _prompt(a_title, a_snip, b_title, b_snip)}],
             'temperature': 0.0,
             'max_tokens': MAX_TOKENS,
             'chat_template_kwargs': {'enable_thinking': False},
         }
-        headers = {'Content-Type': 'application/json'}
-        if OPENAI_API_KEY:
-            headers['Authorization'] = f'Bearer {OPENAI_API_KEY}'
-        r = requests.post(url, json=payload, headers=headers, timeout=DEDUP_LLM_TIMEOUT)
+        r = requests.post(url, json=payload, headers=settings.headers, timeout=int(os.getenv('DEDUP_LLM_TIMEOUT', '30')))
         r.raise_for_status()
         text = r.json()['choices'][0]['message']['content'] or ''
     except Exception as e:

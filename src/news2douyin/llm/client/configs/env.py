@@ -1,10 +1,10 @@
-from dotenv import load_dotenv
+from ....config import load_environment
 from pathlib import Path
 import os
 
 # 设置根目录
 ROOT_PATH = "."
-load_dotenv(dotenv_path=os.path.join(ROOT_PATH, ".env"), verbose=True)
+load_environment()
 
 def _as_bool(x, default=False):
     if x is None:

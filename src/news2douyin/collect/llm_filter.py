@@ -8,21 +8,14 @@ scheduled collection never blocks or empties out.
 from __future__ import annotations
 
 import json
-import os
 import re
 import time
-import urllib.request
 from typing import Any
 
 from loguru import logger
 
-from .filters import filter_items
-
-# Read directly from the environment (systemd EnvironmentFile / load_dotenv),
-# avoiding the llm.client package import chain (which needs `toml`).
-OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "http://127.0.0.1:19993/v1")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "vllm")
-MODEL = os.getenv("MODEL", "MiniCPM5-2B")
+from .filters import filter_items, hard_filter_items
+from ..llm.settings import get_settings, probe_endpoint
 
 BATCH_SIZE = 12
 MAX_CONTENT_CHARS = 300
@@ -33,29 +26,22 @@ PROBE_TIMEOUT = 3.0
 
 
 def endpoint_alive(timeout: float = PROBE_TIMEOUT) -> bool:
-    url = OPENAI_BASE_URL.rstrip('/') + '/models'
-    try:
-        with urllib.request.urlopen(url, timeout=timeout) as r:
-            return 200 <= r.status < 300
-    except Exception:
-        return False
+    return probe_endpoint(timeout)
 
 
 def _llm_chat(messages: list[dict[str, str]], max_tokens: int = MAX_TOKENS, timeout: int = 90) -> str:
     """One chat completion with thinking disabled. Raises on failure."""
     import requests
-    url = OPENAI_BASE_URL.rstrip('/') + '/chat/completions'
+    settings = get_settings()
+    url = settings.base_url + '/chat/completions'
     payload = {
-        'model': MODEL,
+        'model': settings.model,
         'messages': messages,
         'temperature': 0.0,
         'max_tokens': max_tokens,
         'chat_template_kwargs': {'enable_thinking': False},
     }
-    headers = {'Content-Type': 'application/json'}
-    if OPENAI_API_KEY:
-        headers['Authorization'] = f'Bearer {OPENAI_API_KEY}'
-    r = requests.post(url, json=payload, headers=headers, timeout=timeout)
+    r = requests.post(url, json=payload, headers=settings.headers, timeout=timeout)
     r.raise_for_status()
     return r.json()['choices'][0]['message']['content'] or ''
 
@@ -131,7 +117,7 @@ def _extract_json(text: str) -> Any:
     return None
 
 
-def _parse_response(text: str, batch: list[dict[str, Any]]) -> list[dict[str, Any]] | None:
+def _parse_decisions(text: str, batch: list[dict[str, Any]]) -> dict[int, dict[str, Any]] | None:
     data = _extract_json(text)
     if data is None:
         return None
@@ -139,48 +125,52 @@ def _parse_response(text: str, batch: list[dict[str, Any]]) -> list[dict[str, An
     if not isinstance(entries, list):
         return None
     by_id: dict[int, dict[str, Any]] = {}
-    for pos, e in enumerate(entries):
+    for e in entries:
         if not isinstance(e, dict):
-            continue
-        try:
-            iid = int(e.get('id', pos + 1))
-        except Exception:
-            iid = pos + 1
+            return None
+        iid = e.get('id')
+        if type(iid) is not int or not 1 <= iid <= len(batch) or iid in by_id:
+            return None
+        if type(e.get('keep')) is not bool:
+            return None
+        cats = e.get('categories')
+        if not isinstance(cats, list) or any(not isinstance(c, str) or c not in VALID_CATEGORIES for c in cats):
+            return None
+        if not isinstance(e.get('sentiment'), str) or e['sentiment'] not in VALID_SENTIMENTS:
+            return None
         by_id[iid] = e
-    if not by_id:
+    return by_id or None
+
+
+def _apply_decision(item: dict[str, Any], decision: dict[str, Any]) -> dict[str, Any]:
+    return dict(item, category_tags=decision['categories'], sentiment=decision['sentiment'])
+
+
+def _parse_response(text: str, batch: list[dict[str, Any]]) -> list[dict[str, Any]] | None:
+    """Compatibility helper: incomplete/invalid batches require fallback."""
+    by_id = _parse_decisions(text, batch)
+    if by_id is None or len(by_id) != len(batch):
         return None
-    out = []
-    for i, item in enumerate(batch, start=1):
-        e = by_id.get(i)
-        if e is None:
-            continue
-        cats = [c for c in (e.get('categories') or []) if c in VALID_CATEGORIES]
-        sent = e.get('sentiment')
-        if sent not in VALID_SENTIMENTS:
-            sent = 'neutral'
-        new_item = dict(item)
-        if e.get('keep') is True:
-            new_item['category_tags'] = cats
-            new_item['sentiment'] = sent
-            out.append(new_item)
-    return out
+    return [_apply_decision(item, by_id[i]) for i, item in enumerate(batch, 1) if by_id[i]['keep']]
 
 
 def llm_filter_items(items: list[dict[str, Any]], profile: dict[str, Any]) -> tuple[list[dict[str, Any]], str]:
     """Filter items via LLM. Returns (kept_items, mode) with mode in {'llm','mixed','rules'}."""
+    items = hard_filter_items(items, profile)
     if not items:
         return [], 'rules'
     if not endpoint_alive():
-        logger.info(f'[LLM-FILTER] endpoint {OPENAI_BASE_URL} not alive, using rule filter')
+        logger.info('[LLM-FILTER] endpoint unavailable, using rule filter')
         return filter_items(items, profile), 'rules'
 
     kept: list[dict[str, Any]] = []
     llm_batches = 0
+    partial_fallback = False
     for i in range(0, len(items), BATCH_SIZE):
         batch = items[i:i + BATCH_SIZE]
         try:
             text = _generate_with_retry(_build_prompt(profile, batch))
-            res = _parse_response(text, batch)
+            res = _parse_decisions(text, batch)
         except Exception as e:
             logger.warning(f'[LLM-FILTER] batch failed: {e}')
             res = None
@@ -188,7 +178,13 @@ def llm_filter_items(items: list[dict[str, Any]], profile: dict[str, Any]) -> tu
             logger.warning('[LLM-FILTER] falling back to rule filter for remaining items')
             kept.extend(filter_items(items[i:], profile))
             return kept, 'mixed' if llm_batches else 'rules'
-        kept.extend(res)
+        for iid, item in enumerate(batch, 1):
+            decision = res.get(iid)
+            if decision is None:
+                kept.extend(filter_items([item], profile))
+                partial_fallback = True
+            elif decision['keep']:
+                kept.append(_apply_decision(item, decision))
         llm_batches += 1
 
     # enforce exclude keywords as a cheap safety net on top of LLM decisions
@@ -198,5 +194,5 @@ def llm_filter_items(items: list[dict[str, Any]], profile: dict[str, Any]) -> tu
             it for it in kept
             if not any(k in f"{it.get('title','')}\n{it.get('content','')}".lower() for k in exclude)
         ]
-    logger.info(f'[LLM-FILTER] model={MODEL} kept={len(kept)}/{len(items)} batches={llm_batches}')
-    return kept, 'llm'
+    logger.info(f'[LLM-FILTER] model={get_settings().model} kept={len(kept)}/{len(items)} batches={llm_batches}')
+    return kept, 'mixed' if partial_fallback else 'llm'

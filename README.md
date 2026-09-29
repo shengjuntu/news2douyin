@@ -1,8 +1,26 @@
 
 
-# V7 server-first quick start
+# news2douyin 0.1.1 — V7 server-first
 
 This repository now includes a V7 implementation focused on a long-running client/server workflow for market-impression news collection.
+
+Version 0.1.1 fixes event linkage, timezone scheduling, transaction rollback,
+search filtering, LLM result validation, configuration and wheel resources.
+See [release notes](docs/release-0.1.1.md) for changes, upgrade steps and limits.
+
+Python 3.10+ is required. The default install is the headless service. Optional
+features are installed explicitly:
+
+```bash
+pip install -e ".[llm]"          # legacy LLM scoring/story/script pipeline
+pip install -e ".[assets,tts]"   # legacy asset preparation and voice generation
+pip install -e ".[desktop]"      # PyQt clients
+pip install -e ".[dev,assets,llm]" # tests and release validation
+```
+
+The server loads `.env` from the working directory (or its parents), or the
+explicit `NEWS2DOUYIN_ENV_FILE` path. Existing environment variables take
+precedence. Never expose an unauthenticated instance to untrusted networks.
 
 ## What is new
 - Long-running FastAPI server (`news2douyin-server` or `news2douyin v7-serve`)
@@ -49,7 +67,8 @@ MVP pipeline:
 4) Build storyline packs per event
 5) Export Douyin-ready script packs (JSON + Markdown)
 
-**TTS removed** by design.
+V7 currently exports script packages. TTS remains available through the legacy
+CLI/GUI with the `tts` extra; V7 does not yet chain TTS or render finished videos.
 
 ## Quick start
 
@@ -65,11 +84,13 @@ Create `.env`:
 API_KEY=YOUR_WORLDNEWSAPI_KEY
 ```
 
-Edit `configs/pipeline.yaml` and connect your LLM via `uwen` (or edit `src/news2douyin/llm/client_factory.py`).
+Edit `configs/pipeline.yaml`, install the `llm` extra, and configure
+`OPENAI_BASE_URL`, `OPENAI_API_KEY` and `MODEL` for the bundled compatible client.
 
 #### Prompts (file-based)
 
-Prompts live under `prompts/` and are selected by `configs/pipeline.yaml`:
+Built-in prompts ship under `src/news2douyin/prompts/`. They are selected by
+`configs/pipeline.yaml`; a local `prompts/` directory overrides the built-ins:
 
 ```yaml
 prompts:
@@ -105,9 +126,11 @@ Outputs:
 
 The pipeline expects:
 `create_client_with_config(config_path)` -> client with method:
-`generate(prompt: str, temperature: float, max_tokens: int) -> str`
+`generate(prompt: str, max_tokens: int = 900) -> str`
 
-By default we try to import your existing `uwen.client.create_client_with_config`.
+The bundled client implements `generate(prompt, max_tokens=...)`; temperature
+is configured in its TOML options. The V7 filter uses the HTTP-compatible client
+configuration directly and does not require the `llm` extra.
 
 
 ## PyQt GUI
@@ -115,7 +138,7 @@ By default we try to import your existing `uwen.client.create_client_with_config
 Install deps and run:
 
 ```bash
-pip install -e .
+pip install -e ".[desktop,assets,tts,llm]"
 news2douyin-gui
 ```
 

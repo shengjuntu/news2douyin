@@ -7,9 +7,8 @@ class LLMClient(Protocol):
 def create_client_with_config(config_path: str) -> LLMClient:
     try:
         from .client import create_client_with_config as _cc  # type: ignore
-        return _cc(config_path)
-    except Exception as e:
+    except ImportError as e:
         raise RuntimeError(
-            "Missing LLM client. Provide `uwen` or edit this file to connect your LLM. "
-            "Expected: client.generate(prompt, temperature, max_tokens) -> str"
+            'Legacy LLM dependencies are missing. Install: pip install "news2douyin[llm]"'
         ) from e
+    return _cc(config_path)

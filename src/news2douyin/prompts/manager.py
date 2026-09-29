@@ -46,6 +46,10 @@ class PromptManager:
             raise KeyError(f"prompts.profiles[{profile!r}] missing prompt key={name!r}")
 
         path = (self.project_root / prompts_dir / Path(str(rel))).resolve()
+        if not path.is_file() and prompts_dir == Path('prompts'):
+            # Built-in prompts ship inside the package. A working-directory
+            # prompts/ tree remains a supported user override.
+            path = Path(__file__).parent / str(rel)
         return PromptRef(name=name, path=path)
 
     def get(self, name: str) -> str:
