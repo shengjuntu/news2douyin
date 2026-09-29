@@ -56,9 +56,13 @@ def main():
         if args.output_dir:
             output = Path(args.output_dir)
             output.mkdir(parents=True, exist_ok=True)
-            for name in ['video.mp4','cover.png','subtitles.srt','manifest.json']:
+            for name in ['video.mp4','cover.png','subtitles.srt','manifest.json','narration.wav','video_bundle.zip']:
                 path, _ = output_file(app.state.engine, queued['task_id'], name)
                 shutil.copyfile(path, output / name)
+            with Session(app.state.engine) as session:
+                exported = wb.export_script(session, package.package_key, expected_version=current['version'])
+                _, archive = wb.read_export(session, package.package_key, exported['export_key'])
+                (output / 'script_bundle.zip').write_bytes(archive)
         print(json.dumps({'status':'passed','checks':['offline_chinese_speech','sentence_timed_subtitles','real_h264_aac_encode','portrait_dimensions','artifact_checksums','video_page','http_range','full_video_audio_duration'], 'result':result['result']}, ensure_ascii=False))
         app.state.engine.dispose()
 

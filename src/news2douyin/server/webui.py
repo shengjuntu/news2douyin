@@ -40,6 +40,10 @@ def register_webui_routes(app: FastAPI, engine, scheduler, storage_root: str) ->
         page = env.get_template(name)
         return HTMLResponse(page.render(fmt_ts=_fmt_ts, active=ctx.pop('active', ''), **ctx))
 
+    @app.get('/handoff', response_class=HTMLResponse)
+    def video_app_handoff():
+        return render('handoff.html', active='videos')
+
     from urllib.parse import urlsplit
     def safe_url(value):
         try:

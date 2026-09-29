@@ -1,8 +1,10 @@
 
 
-# news2douyin 0.4.0 — V7 server-first
+# news2douyin 0.4.1 — V7 server-first
 
 This repository now includes a V7 implementation focused on a long-running client/server workflow for market-impression news collection.
+
+Version 0.4.1 adds a handoff guide and paired demo bundles for RunDesk Video App 0.3.0. See [cross-app handoff](docs/release-0.4.1.md).
 
 Version 0.4.0 adds a local video pipeline: approved script → speech or uploaded
 PCM WAV + SRT → captioned portrait frames → H.264/AAC MP4. Video tasks use the

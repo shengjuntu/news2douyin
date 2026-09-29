@@ -43,6 +43,7 @@ def main():
             with TestClient(app) as client:
                 assert client.get('/').status_code == 200
                 assert client.get('/videos').status_code == 200
+                assert client.get('/handoff').status_code == 200
                 assert client.get('/api/video/capabilities').status_code == 200
                 assert client.post('/api/profiles', json={'name': 'mock', 'provider': 'mock'}).status_code == 200
                 run = client.post('/api/collect/run-now', json={'profile_name': 'mock'})

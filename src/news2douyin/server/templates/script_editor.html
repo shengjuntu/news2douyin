@@ -16,6 +16,7 @@ button:disabled { opacity:.4; cursor:not-allowed; }
 </style>
 <div class="row" style="justify-content:space-between"><h1>脚本编辑</h1><div class="row"><a href="/events/{{ script.event_key }}">查看事件</a><a href="/scripts/{{ script.package_key }}/video">制作视频</a><a href="/scripts">全部脚本</a></div></div>
 <p class="muted small">{{ script.package_key }} · <span id="revision"></span> · <span id="status"></span> <span id="dirty"></span></p>
+<p class="muted small">审核通过后，可将导出的制作包交给独立 Go 视频 APP。<a href="/handoff">查看交接步骤</a></p>
 <div id="message" role="status" aria-live="polite"></div>
 {% if script.legacy %}
 <div class="card">

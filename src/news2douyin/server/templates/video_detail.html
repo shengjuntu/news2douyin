@@ -8,6 +8,7 @@
 <p><button id="cancel" type="button" class="ghost">取消任务</button> <button id="retry" type="button" class="ghost">重试</button></p>
 <div id="result" hidden><video id="player" controls preload="metadata" style="width:min(100%,420px);max-height:75vh;background:#000"></video><p id="specs" class="muted"></p><div id="downloads" class="row"></div></div>
 <p class="muted small">自动配音字幕依据分段音频时长，不是逐字强制对齐。请预览并检查发音、素材和字幕后再使用成片。</p>
+<p class="muted small">下载 video_bundle.zip，可交给 Go 视频 APP 中对应审核稿的项目。<a href="/handoff">查看交接步骤</a></p>
 <script>
 const taskId={{ video.task.task_id | tojson }};
 const el=id=>document.getElementById(id);
