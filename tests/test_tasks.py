@@ -244,7 +244,7 @@ def test_api_async_sse_replay_legacy_and_webui(tmp_path, monkeypatch):
         task_id = response.json()['task_id']
         assert entered.wait(3) and not release.is_set()
         assert c.get('/tasks/' + task_id).status_code == 200
-        assert '采集任务' in c.get('/tasks').text
+        assert '后台任务' in c.get('/tasks').text
         assert c.post('/api/tasks/collect', json={'profile_name': 'mock', 'idempotency_key': 'api', 'override': {'country': 'cn'}}).status_code == 409
         release.set()
         task = wait_terminal(app.state.tasks, task_id)

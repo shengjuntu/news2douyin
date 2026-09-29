@@ -10,7 +10,7 @@ from .service import TaskContext, TaskService
 
 
 class TaskWorker:
-    """One collection at a time per process; database leases support peers."""
+    """One collection or video task at a time per process; database leases support peers."""
     def __init__(self, engine, storage_root='runs_v7', *, lease_seconds=30, poll_seconds=0.5):
         if lease_seconds <= 0 or poll_seconds <= 0:
             raise ValueError('worker intervals must be positive')
@@ -66,10 +66,14 @@ class TaskWorker:
         thread = threading.Thread(target=heartbeat, daemon=True, name='news2douyin-heartbeat')
         thread.start()
         try:
-            with Session(self.service.engine) as session:
-                run_collection(session, task.profile_name, storage_root=self.storage_root,
-                               trigger_type=task.trigger_type, job_id=task.job_id,
-                               profile_snapshot=loads(task.profile_json, {}), control=context)
+            if task.trigger_type == 'video':
+                from ..video.render import run_video
+                run_video(self.service.engine, task, self.storage_root, context)
+            else:
+                with Session(self.service.engine) as session:
+                    run_collection(session, task.profile_name, storage_root=self.storage_root,
+                                   trigger_type=task.trigger_type, job_id=task.job_id,
+                                   profile_snapshot=loads(task.profile_json, {}), control=context)
         except TaskLeaseLost:
             logger.warning(f'Task ownership lost: {task.task_id}')
         except Exception as exc:

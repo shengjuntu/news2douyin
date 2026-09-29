@@ -151,3 +151,26 @@ class Client:
 
     def adopt_script(self, package_key: str):
         return self.post(f'/api/scripts/{package_key}/adopt')
+
+
+    def video_capabilities(self):
+        return self.get('/api/video/capabilities')
+
+    def upload_video_asset(self, package_key: str, path: str, *, kind: str = 'image'):
+        from pathlib import Path
+        with open(path, 'rb') as source:
+            response = requests.post(self.base_url + '/api/video/assets',
+                data={'package_key': package_key, 'kind': kind},
+                files={'file': (Path(path).name, source)}, timeout=120)
+        response.raise_for_status()
+        return response.json()
+
+    def submit_video(self, package_key: str, *, expected_version: int, options=None, idempotency_key=None):
+        return self.post('/api/video/tasks', {'package_key': package_key, 'expected_version': expected_version,
+                         'options': options or {}, 'idempotency_key': idempotency_key})
+
+    def get_video(self, task_id: str):
+        return self.get(f'/api/video/tasks/{task_id}')
+
+    def list_videos(self, package_key: str = '', limit: int = 50):
+        return self.get('/api/video/tasks', package_key=package_key, limit=limit)

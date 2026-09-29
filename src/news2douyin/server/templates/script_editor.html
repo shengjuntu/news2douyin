@@ -14,7 +14,7 @@ button:disabled { opacity:.4; cursor:not-allowed; }
 #history-preview { white-space:pre-wrap; max-height:300px; }
 @media(max-width:850px) { .workspace { grid-template-columns:1fr; } header { flex-wrap:wrap; } nav { flex-wrap:wrap; } }
 </style>
-<div class="row" style="justify-content:space-between"><h1>脚本编辑</h1><div class="row"><a href="/events/{{ script.event_key }}">查看事件</a><a href="/scripts">全部脚本</a></div></div>
+<div class="row" style="justify-content:space-between"><h1>脚本编辑</h1><div class="row"><a href="/events/{{ script.event_key }}">查看事件</a><a href="/scripts/{{ script.package_key }}/video">制作视频</a><a href="/scripts">全部脚本</a></div></div>
 <p class="muted small">{{ script.package_key }} · <span id="revision"></span> · <span id="status"></span> <span id="dirty"></span></p>
 <div id="message" role="status" aria-live="polite"></div>
 {% if script.legacy %}

@@ -1,12 +1,13 @@
 
 
-# news2douyin 0.3.0 — V7 server-first
+# news2douyin 0.4.0 — V7 server-first
 
 This repository now includes a V7 implementation focused on a long-running client/server workflow for market-impression news collection.
 
-Version 0.3.0 adds a script workbench: edit narration and visual notes, retain
-revision history and source snapshots, review a specific revision, and download
-an approved package with checksums. See [workbench and upgrade notes](docs/release-0.3.0.md).
+Version 0.4.0 adds a local video pipeline: approved script → speech or uploaded
+PCM WAV + SRT → captioned portrait frames → H.264/AAC MP4. Video tasks use the
+existing queue, cancellation and checkpoints. See [video setup and limits](docs/release-0.4.0.md).
+The [versioned script workbench from 0.3.0](docs/release-0.3.0.md) is included.
 [Persistent background tasks from 0.2.0](docs/release-0.2.0.md) are included.
 The [0.1.1 correctness and packaging fixes](docs/release-0.1.1.md) are included.
 
@@ -16,8 +17,9 @@ features are installed explicitly:
 ```bash
 pip install -e ".[llm]"          # legacy LLM scoring/story/script pipeline
 pip install -e ".[assets,tts]"   # legacy asset preparation and voice generation
+pip install -e ".[video,voice-offline]" # local video + offline preview speech
 pip install -e ".[desktop]"      # PyQt clients
-pip install -e ".[dev,assets,llm]" # tests and release validation
+pip install -e ".[dev,assets,llm,video,voice-offline]" # tests and release validation
 ```
 
 The server loads `.env` from the working directory (or its parents), or the
@@ -65,6 +67,9 @@ Main APIs:
 - `GET /api/scripts` / `GET|PUT /api/scripts/{package_key}`
 - `GET /api/scripts/{package_key}/revisions`
 - `POST /api/scripts/{package_key}/review` / `exports`
+- `GET /api/video/capabilities`
+- `POST /api/video/assets` / `GET /api/video/assets?package_key=...`
+- `POST /api/video/tasks` / `GET /api/video/tasks/{task_id}`
 
 # news2douyin
 
@@ -76,8 +81,11 @@ MVP pipeline:
 5) Export Douyin-ready script packs (JSON + Markdown)
 
 Open `/scripts` for the script workbench, or generate a draft from an event page.
-V7 currently exports script packages. TTS remains available through the legacy
-CLI/GUI with the `tts` extra; V7 does not yet chain TTS or render finished videos.
+V7 can render approved scripts as portrait MP4 videos. Install the `video` extra,
+FFmpeg/FFprobe (with libx264 and AAC), and a CJK font. Use `voice-offline` for
+mechanical preview speech, `tts` for Edge TTS (network required), or upload PCM
+WAV plus a matching SRT. Open the script's “制作视频” page.
+[Offline generated example](examples/video-demo.mp4) · [Reproduce it](tools/smoke_video.py).
 
 ## Quick start
 

@@ -3,3 +3,4 @@ recursive-include docs *.md
 recursive-include configs *.yaml *.toml
 recursive-include tools *.py *.md *.txt *.bat
 recursive-include tests *.py
+recursive-include examples *.md *.mp4 *.srt

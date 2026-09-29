@@ -69,6 +69,24 @@ def register_webui_routes(app: FastAPI, engine, scheduler, storage_root: str) ->
             key = package.package_key
         return RedirectResponse('/scripts/' + key, status_code=303)
 
+    from .video import video_call, list_productions
+    from ..video.production import production_detail
+
+    @app.get('/videos', response_class=HTMLResponse)
+    def page_videos():
+        return render('videos.html', active='videos', videos=list_productions(engine))
+
+    @app.get('/scripts/{package_key}/video', response_class=HTMLResponse)
+    def page_video_setup(package_key: str):
+        with session_scope(engine) as session:
+            script = video_call(script_workbench.script_detail, session, package_key)
+        return render('video_setup.html', active='videos', script=script)
+
+    @app.get('/videos/{task_id}', response_class=HTMLResponse)
+    def page_video_result(task_id: str):
+        video = video_call(production_detail, engine, task_id)
+        return render('video_detail.html', active='videos', video=video)
+
     # ------------------------------------------------------------------ pages
     @app.get('/', response_class=HTMLResponse)
     def page_dashboard():

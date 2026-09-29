@@ -42,6 +42,8 @@ def main():
             app = create_app(db_url=f'sqlite:///{root / "app.db"}', storage_root=str(root / 'runs'))
             with TestClient(app) as client:
                 assert client.get('/').status_code == 200
+                assert client.get('/videos').status_code == 200
+                assert client.get('/api/video/capabilities').status_code == 200
                 assert client.post('/api/profiles', json={'name': 'mock', 'provider': 'mock'}).status_code == 200
                 run = client.post('/api/collect/run-now', json={'profile_name': 'mock'})
                 assert run.status_code == 200 and run.json()['status'] == 'succeeded'
@@ -71,6 +73,7 @@ def main():
                 key = script['package_key']
                 assert client.get('/scripts').status_code == 200
                 assert client.get('/scripts/' + key).status_code == 200
+                assert client.get('/scripts/' + key + '/video').status_code == 200
                 script['document']['script_text'] = '离线核验后的口播。'
                 saved = client.put('/api/scripts/' + key, json={'expected_version': script['version'], 'document': script['document']})
                 assert saved.status_code == 200 and saved.json()['revision'] == 2
@@ -106,7 +109,7 @@ def main():
         assert prep_assets(legacy).is_dir()
         cli = subprocess.run([sys.executable, '-I', '-m', 'news2douyin.cli', '--help'], capture_output=True, text=True)
         assert cli.returncode == 0, cli.stderr
-        print(json.dumps({'status': 'passed', 'checks': ['wheel_webui', 'mock_collection', 'script_package', 'bundled_prompts', 'bundled_templates', 'legacy_llm_import', 'packaged_asset_worker', 'cli_entrypoint', 'task_pages', 'task_sse', 'async_collection', 'cancel_and_retry', 'script_workbench_pages', 'script_edit_review', 'approved_archive', 'script_revision_restore']}))
+        print(json.dumps({'status': 'passed', 'checks': ['wheel_webui', 'mock_collection', 'script_package', 'bundled_prompts', 'bundled_templates', 'legacy_llm_import', 'packaged_asset_worker', 'cli_entrypoint', 'task_pages', 'task_sse', 'async_collection', 'cancel_and_retry', 'script_workbench_pages', 'script_edit_review', 'approved_archive', 'script_revision_restore', 'video_pages', 'video_capabilities']}))
 
 
 if __name__ == '__main__':

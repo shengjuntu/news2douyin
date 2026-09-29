@@ -26,7 +26,7 @@ def task_dict(task: TaskRecord) -> dict:
     fields = ('task_id', 'profile_name', 'status', 'stage', 'progress_current',
               'progress_total', 'attempts', 'max_attempts', 'trigger_type', 'job_id',
               'run_id', 'error_text', 'created_at', 'updated_at', 'started_at', 'finished_at')
-    return {name: getattr(task, name) for name in fields}
+    return {name: getattr(task, name) for name in fields} | {'kind': 'video' if task.trigger_type == 'video' else 'collect'}
 
 
 def add_event(session, task, event_type):
@@ -315,11 +315,16 @@ class TaskContext:
             row = session.get(TaskCheckpoint, self.task_id + ':' + name)
             return loads(row.payload_json, None) if row else None
 
-    def save_checkpoint(self, name, value):
+    def save_checkpoint(self, name, value, *, replace=False):
         with Session(self.service.engine) as session:
             self.fence(session)
-            session.add(TaskCheckpoint(checkpoint_key=self.task_id + ':' + name,
-                                       task_id=self.task_id, payload_json=dumps(value)))
+            key = self.task_id + ':' + name
+            row = session.get(TaskCheckpoint, key) if replace else None
+            if row:
+                row.payload_json = dumps(value)
+            else:
+                row = TaskCheckpoint(checkpoint_key=key, task_id=self.task_id, payload_json=dumps(value))
+            session.add(row)
             session.commit()
 
     def item_done(self, session, index):
@@ -334,12 +339,13 @@ class TaskContext:
         return list(session.exec(select(TaskItem).where(TaskItem.task_id == self.task_id)
                                  .order_by(TaskItem.input_index)))
 
-    def complete(self, session, run):
+    def complete(self, session, run=None):
         task = self.fence(session)
         task.stage = 'complete'
         task.progress_current = task.progress_total
         # run and task success are committed by the pipeline in one transaction.
-        session.add(run)
+        if run is not None:
+            session.add(run)
         self.service._finish(session, task, 'succeeded')
 
     def terminate(self, status, error=None, interrupted=False):

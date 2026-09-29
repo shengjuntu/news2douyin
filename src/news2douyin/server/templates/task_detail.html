@@ -1,7 +1,7 @@
 {% extends "base.html" %}
-{% block title %}采集进度 · news2douyin{% endblock %}
+{% block title %}任务进度 · news2douyin{% endblock %}
 {% block content %}
-<h1>采集进度</h1>
+<h1>任务进度</h1>
 <p class="muted">{{ task.profile_name }} · {{ task.task_id }}</p>
 <div class="card" aria-live="polite">
   <p>状态：<strong id="status">{{ task.status }}</strong> · 阶段：<span id="stage">{{ task.stage }}</span></p>
@@ -11,11 +11,12 @@
   <div class="row">
     <button id="cancel" type="button">取消任务</button>
     <button id="retry" class="ghost" type="button">从已保存进度重试</button>
+    <a id="video" href="/videos/{{ task.task_id }}" {% if task.kind != 'video' %}hidden{% endif %}>查看视频结果</a>
     <a id="run" hidden>查看运行结果</a>
     <a href="/tasks">任务列表</a>
   </div>
 </div>
-<p class="muted small">取消在安全检查点生效；正在进行的网络请求会先返回或超时。重试保留已入库新闻，复用已完成的筛选结果。需要重新抓取时，请回仪表盘提交新任务。</p>
+{% if task.kind == 'video' %}<p class="muted small">视频任务取消时会终止正在运行的配音或编码子进程。重试复用校验通过的音频检查点。</p>{% else %}<p class="muted small">取消在安全检查点生效；正在进行的网络请求会先返回或超时。重试保留已入库新闻，复用已完成的筛选结果。需要重新抓取时，请回仪表盘提交新任务。</p>{% endif %}
 <p id="connection" class="muted small">正在连接进度流…</p>
 <h2>任务记录</h2>
 <pre id="events" style="max-height:350px" aria-label="任务记录"></pre>
@@ -23,7 +24,7 @@
 const initial = {{ task | tojson }};
 const base = '/api/tasks/' + encodeURIComponent(initial.task_id);
 const statuses = {queued:'排队中', running:'执行中', cancel_requested:'正在取消', cancelled:'已取消', succeeded:'已完成', failed:'失败'};
-const stages = {queued:'等待执行', starting:'准备', fetching:'抓取新闻', filtering:'筛选新闻', storing:'入库', exporting:'保存结果', complete:'完成'};
+const stages = {queued:'等待执行', starting:'准备', fetching:'抓取新闻', filtering:'筛选新闻', storing:'入库', exporting:'保存结果', complete:'完成', preparing:'准备视频', voice:'合成配音', subtitles:'生成字幕', frames:'绘制画面', rendering:'编码视频', verifying:'校验成片', packaging:'整理产物'};
 let stream, cursor = 0;
 function display(t) {
   document.getElementById('status').textContent = statuses[t.status] || t.status;

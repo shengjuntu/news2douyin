@@ -243,3 +243,26 @@ class ScriptExport(SQLModel, table=True):
     archive_path: str
     size_bytes: int
     created_at: str = Field(default_factory=utc_now_iso)
+
+
+class VideoAsset(SQLModel, table=True):
+    asset_id: str = Field(primary_key=True)
+    package_key: str = Field(index=True)
+    kind: str
+    original_name: str
+    storage_path: str
+    sha256: str
+    size_bytes: int
+    metadata_json: str = '{}'
+    created_at: str = Field(default_factory=utc_now_iso)
+
+
+class VideoProduction(SQLModel, table=True):
+    task_id: str = Field(primary_key=True)
+    package_key: str = Field(index=True)
+    revision: int
+    export_key: str
+    input_hash: str
+    spec_json: str
+    result_json: str = '{}'
+    created_at: str = Field(default_factory=utc_now_iso)

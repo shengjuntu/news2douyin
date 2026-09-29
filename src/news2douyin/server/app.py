@@ -273,6 +273,8 @@ def create_app(*, db_url: str = 'sqlite:///runs_v7/news2douyin_v7.db', storage_r
 
     from .scripts import register_script_routes
     register_script_routes(app, engine, storage_root)
+    from .video import register_video_routes
+    register_video_routes(app, engine, storage_root)
 
     # HTML WebUI pages (dashboard / runs / articles / events / timeline / reports)
     from .webui import register_webui_routes

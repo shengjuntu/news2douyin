@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block title %}视频制作 · news2douyin{% endblock %}
+{% block content %}
+<h1>视频制作</h1><p class="muted">在<a href="/scripts">脚本工作台</a>审核通过后，点击“制作视频”。</p>
+<table><tr><th>任务</th><th>脚本版本</th><th>状态</th><th>阶段</th><th>提交时间</th></tr>
+{% for v in videos %}<tr><td><a href="/videos/{{ v.task.task_id }}">{{ v.task.task_id[:12] }}</a></td><td><a href="/scripts/{{ v.package_key }}">{{ v.package_key[-8:] }} · r{{ v.revision }}</a></td><td>{{ v.task.status }}</td><td>{{ v.task.stage }}</td><td>{{ fmt_ts(v.task.created_at) }}</td></tr>
+{% else %}<tr><td colspan="5">还没有视频任务。</td></tr>{% endfor %}</table>
+{% endblock %}
