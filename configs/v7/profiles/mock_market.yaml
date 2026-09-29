@@ -1,0 +1,18 @@
+name: mock_market
+provider: mock
+country: us
+language: en
+categories:
+  - business
+  - technology
+keywords_include:
+  - fed
+  - semiconductor
+  - biotech
+keywords_exclude: []
+source_whitelist: []
+source_blacklist: []
+max_items: 20
+market_scope: us
+market_tags:
+  - smoke

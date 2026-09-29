@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}事件 · news2douyin v7{% endblock %}
+{% block content %}
+<h1>事件 <span class="muted small">（显示前 {{ events|length }} 个）</span></h1>
+<div class="card">
+<form method="get" action="/events" class="row">
+  <input name="q" value="{{ q }}" placeholder="关键词（标题/摘要）" style="width:260px">
+  <input name="country" value="{{ country }}" placeholder="国家 如 us / cn" style="width:140px">
+  <input name="topic" value="{{ topic }}" placeholder="主题" style="width:140px">
+  <input name="limit" value="{{ limit }}" style="width:70px">
+  <button type="submit">搜索</button>
+  <a href="/events"><button type="button" class="ghost">重置</button></a>
+</form>
+</div>
+<table style="margin-top:12px">
+<tr><th>事件</th><th>主题</th><th>文章数</th><th>重要度</th><th>情感</th><th>最近出现</th></tr>
+{% for e in events %}
+<tr>
+  <td><a href="/events/{{ e.key }}">{{ e.title }}</a><div class="snippet">{{ e.summary }}…</div></td>
+  <td class="muted small">{{ e.topic }}</td>
+  <td>{{ e.article_count }}</td>
+  <td>{{ '%.2f' % e.importance }}</td>
+  <td><span class="badge {{ 'pos' if e.sentiment=='positive' else ('neg' if e.sentiment=='negative' else '') }}">{{ e.sentiment }}</span></td>
+  <td class="small">{{ (e.last_seen_at or '')[:16] }}</td>
+</tr>
+{% else %}
+<tr><td colspan="6" class="muted">没有匹配的事件</td></tr>
+{% endfor %}
+</table>
+{% endblock %}

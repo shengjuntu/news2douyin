@@ -1,0 +1,101 @@
+project:
+  name: news2douyin
+  timezone: America/Montreal
+  language_for_script: zh
+  run_dir: runs
+  cache_dir: cache
+
+ingest:
+  provider: worldnewsapi
+  api_key_env: API_KEY
+  country: zh
+  language: zh
+  date_mode: today              # today | fixed
+  fixed_date: "2026-01-25"      # date_mode=fixed
+  max_items: 120
+  min_content_chars: 400
+  content_max_chars: 6000
+  source_cred_default: 0.6
+  cache_enabled: true
+  cache_dir: runs/http_cache/worldnewsapi
+  cache_ttl_sec: 3600
+  cache_force_refresh: false
+  cache_allow_stale_if_error: true
+
+
+
+
+triage_rules:
+  enable: true
+  drop_if_missing_url: true
+  drop_if_no_content: true
+  dedup:
+    by_url: true
+    by_title_similarity: true
+    title_similarity_threshold: 0.92
+  blacklist_topics:
+    - 娱乐
+    - 游戏与娱乐
+    - 娱乐与休闲
+    - 八卦
+  blacklist_domains: []
+  whitelist_domains: []
+  prefer_domains:
+    - reuters.com
+    - apnews.com
+    - bbc.co.uk
+    - nytimes.com
+    - theguardian.com
+
+llm:
+  client_config_path: configs/vllm-news.toml
+  model_name: ""
+  temperature: 0.2
+  max_tokens: 900
+  json_strict: true
+  retry:
+    max_attempts: 2
+    backoff_sec: 1.0
+
+scoring:
+  enable: true
+  top_k: 8
+  min_value_score: 65
+  require_language_for_script: zh
+  audience_profile:
+    niche: "科技/国际/商业"
+    style: "资讯快报+一点解释"
+    sensitivity: "中"
+
+storyline:
+  enable: true
+  cluster:
+    method: llm_event_id
+    max_items_per_event: 5
+  storypack:
+    prefer_multi_source: true
+    max_supporting_facts: 5
+    max_open_questions: 3
+
+export:
+  enable: true
+  templates_dir: templates/douyin
+  default_template: fast_news.j2
+  templates:
+    fast_news:
+      file: fast_news.j2
+      target_seconds: 45
+    explain_60s:
+      file: explain_60s.j2
+      target_seconds: 75
+    three_stories:
+      file: three_stories.j2
+      target_seconds: 60
+  output_formats:
+    - json
+    - md
+  safe_disclaimer: true
+  hashtags_default:
+    - "#新闻"
+    - "#国际"
+    - "#科技"

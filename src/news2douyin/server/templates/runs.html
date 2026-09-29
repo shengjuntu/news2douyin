@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}运行记录 · news2douyin v7{% endblock %}
+{% block content %}
+<h1>运行记录 <span class="muted small">（共 {{ runs|length }} 条）</span></h1>
+<table>
+<tr><th>ID</th><th>时间</th><th>Profile</th><th>触发</th><th>抓取</th><th>过滤后</th><th>模式</th><th>重复</th><th>入库</th><th>事件+</th><th>状态</th><th>报告</th></tr>
+{% for r in runs %}
+<tr>
+  <td><a href="/runs/{{ r.id }}">{{ r.id }}</a></td>
+  <td class="small">{{ fmt_ts(r.started_at) }}<br><span class="muted">{{ r.run_key }}</span></td>
+  <td>{{ r.profile_name }}</td>
+  <td class="muted">{{ r.trigger_type }}</td>
+  <td>{{ r.stats.get('fetched', '—') }}</td>
+  <td>{{ r.stats.get('after_filter', '—') }}</td>
+  <td><span class="badge {{ 'ok' if r.stats.get('filter_mode')=='llm' else '' }}">{{ r.stats.get('filter_mode', '—') }}</span></td>
+  <td>{{ r.stats.get('duplicates', 0) }}</td>
+  <td>{{ r.stats.get('stored_articles', '—') }}</td>
+  <td>{{ r.stats.get('events_delta', '—') }}</td>
+  <td><span class="badge {{ 'ok' if r.status=='succeeded' else ('bad' if r.status=='failed' else 'warn') }}">{{ r.status }}</span>
+    {% if r.error_text %}<br><span class="muted small" title="{{ r.error_text }}">{{ r.error_text[:60] }}…</span>{% endif %}</td>
+  <td><a href="/report/{{ r.id }}">HTML 报告</a></td>
+</tr>
+{% else %}
+<tr><td colspan="12" class="muted">还没有运行记录</td></tr>
+{% endfor %}
+</table>
+{% endblock %}

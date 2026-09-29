@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}时间线 · news2douyin v7{% endblock %}
+{% block content %}
+<h1>事件时间线 HTML</h1>
+<p class="muted">两种方式生成 9:16 多页长图 HTML（可一键导出 PNG 长图，导入剪映）：</p>
+
+<div class="grid">
+<div class="card" style="grid-column: span 2">
+<h2>方式一：粘贴 Markdown 生成</h2>
+<form method="post" action="/webui/timeline">
+  <textarea name="markdown" rows="10" style="width:100%; font-family: Consolas, monospace"
+    placeholder="# 标题&#10;## （2025年1月 - 2026年2月）&#10;> 简介一行&#10;## 2026年&#10;### 阶段标题&#10;- [军事] **事件标题**：事件描述&#10;- **事件标题**：事件描述"></textarea>
+  <div class="row" style="margin-top:10px">
+    <input name="title" placeholder="标题（可选）" style="width:200px">
+    <input name="time_range" placeholder="时间范围 如 2025.1-2026.2" style="width:200px">
+    <input name="intro" placeholder="封面副标题" style="width:220px">
+    <input name="watermark" value="@news2douyin" style="width:130px">
+    <button type="submit">生成时间线 HTML</button>
+  </div>
+  {% if error %}<p class="badge bad">{{ error }}</p>{% endif %}
+</form>
+</div>
+<div class="card">
+<h2>方式二：从运行记录生成</h2>
+<table>
+<tr><th>运行</th><th>Profile</th><th>入库</th><th>时间</th><th>时间线</th></tr>
+{% for r in runs %}
+<tr>
+  <td><a href="/runs/{{ r.id }}">#{{ r.id }}</a></td>
+  <td class="small">{{ r.profile_name }}</td>
+  <td>{{ r.stored }}</td>
+  <td class="small">{{ fmt_ts(r.started_at) }}</td>
+  <td><a href="/timeline/run/{{ r.id }}" target="_blank">生成 →</a></td>
+</tr>
+{% else %}
+<tr><td colspan="5" class="muted">没有可生成时间线的运行</td></tr>
+{% endfor %}
+</table>
+</div>
+</div>
+{% endblock %}
