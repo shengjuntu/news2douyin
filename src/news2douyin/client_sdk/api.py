@@ -119,3 +119,35 @@ class Client:
 
     def get_script(self, package_key: str):
         return self.get(f'/api/scripts/{package_key}')
+
+
+    def list_scripts(self, *, event_key: str = '', limit: int = 50):
+        return self.get('/api/scripts', event_key=event_key, limit=limit)
+
+    def save_script(self, package_key: str, document: dict[str, Any], *, expected_version: int, change_note: str = ''):
+        response = requests.put(self.base_url + f'/api/scripts/{package_key}', json={
+            'document': document, 'expected_version': expected_version, 'change_note': change_note}, timeout=60)
+        response.raise_for_status()
+        return response.json()
+
+    def script_revisions(self, package_key: str, *, before: int | None = None, limit: int = 50):
+        return self.get(f'/api/scripts/{package_key}/revisions', before=before, limit=limit)
+
+    def get_script_revision(self, package_key: str, revision: int):
+        return self.get(f'/api/scripts/{package_key}/revisions/{revision}')
+
+    def restore_script(self, package_key: str, revision: int, *, expected_version: int, change_note: str = ''):
+        return self.post(f'/api/scripts/{package_key}/revisions/{revision}/restore', {
+            'expected_version': expected_version, 'change_note': change_note})
+
+    def review_script(self, package_key: str, action: str, *, expected_version: int, note: str = '',
+                      reviewer: str = '', sources_checked: bool = False, wording_checked: bool = False):
+        return self.post(f'/api/scripts/{package_key}/review', {'expected_version': expected_version,
+                         'action': action, 'note': note, 'reviewer': reviewer,
+                         'sources_checked': sources_checked, 'wording_checked': wording_checked})
+
+    def export_script(self, package_key: str, *, expected_version: int):
+        return self.post(f'/api/scripts/{package_key}/exports', {'expected_version': expected_version})
+
+    def adopt_script(self, package_key: str):
+        return self.post(f'/api/scripts/{package_key}/adopt')

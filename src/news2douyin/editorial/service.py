@@ -12,14 +12,12 @@ def build_editorial_pack(session: Session, event_key: str) -> dict[str, Any]:
     event = session.exec(select(Event).where(Event.event_key == event_key)).first()
     if not event:
         raise KeyError(f'event not found: {event_key}')
-    links = list(session.exec(select(ArticleEventLink).where(ArticleEventLink.event_key == event_key)))
-    article_keys = [x.article_key for x in links]
-    articles = []
-    if article_keys:
-        for key in article_keys[:5]:
-            row = session.exec(select(Article).where(Article.article_key == key)).first()
-            if row:
-                articles.append(row)
+    # Stable source selection; a duplicate is not an independent corroboration.
+    articles = list(session.exec(
+        select(Article).join(ArticleEventLink, Article.article_key == ArticleEventLink.article_key)
+        .where(ArticleEventLink.event_key == event_key).distinct()
+        .order_by(Article.is_duplicate, Article.published_at.desc(), Article.article_key).limit(10)
+    ))
     sectors = loads(event.sectors_json, [])
     symbols = loads(event.symbols_json, [])
     bullets = []
@@ -31,6 +29,10 @@ def build_editorial_pack(session: Session, event_key: str) -> dict[str, Any]:
     elif event.sentiment == 'negative':
         market_view = '偏情绪利空，注意低开后是否出现修复。'
     return {
+        'sources': [{'article_key': a.article_key, 'title': a.title, 'url': a.url,
+                     'source_domain': a.source_domain, 'published_at': a.published_at,
+                     'excerpt': (a.content or '')[:2000], 'is_duplicate': a.is_duplicate}
+                    for a in articles],
         'event_key': event.event_key,
         'event_title': event.event_title,
         'topic': event.topic,

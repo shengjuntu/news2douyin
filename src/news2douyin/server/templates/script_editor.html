@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% block title %}脚本编辑 · news2douyin{% endblock %}
+{% block content %}
+<style>
+.workspace { display:grid; grid-template-columns:minmax(0, 1.65fr) minmax(270px, 1fr); gap:16px; align-items:start; }
+.editor label.field { display:block; margin:14px 0 6px; color:#cfd6e6; }
+.editor input[type=text], .editor textarea { width:100%; }
+.editor textarea { resize:vertical; line-height:1.75; font-family:inherit; }
+.editor .narration { font-size:16px; min-height:310px; }
+.source { padding:12px 0; border-bottom:1px solid #262b38; overflow-wrap:anywhere; }
+.source p { white-space:pre-wrap; line-height:1.6; }
+button:disabled { opacity:.4; cursor:not-allowed; }
+#message { white-space:pre-wrap; overflow-wrap:anywhere; padding:10px 0; }
+#history-preview { white-space:pre-wrap; max-height:300px; }
+@media(max-width:850px) { .workspace { grid-template-columns:1fr; } header { flex-wrap:wrap; } nav { flex-wrap:wrap; } }
+</style>
+<div class="row" style="justify-content:space-between"><h1>脚本编辑</h1><div class="row"><a href="/events/{{ script.event_key }}">查看事件</a><a href="/scripts">全部脚本</a></div></div>
+<p class="muted small">{{ script.package_key }} · <span id="revision"></span> · <span id="status"></span> <span id="dirty"></span></p>
+<div id="message" role="status" aria-live="polite"></div>
+{% if script.legacy %}
+<div class="card">
+  <h2>旧版脚本</h2>
+  <p>启用后会保留原稿作为第一版，并从当前事件补充来源快照。旧文件继续保留；补充的来源不代表生成原稿时的历史资料。</p>
+  <button type="button" id="adopt">启用版本管理</button>
+  <pre style="white-space:pre-wrap">{{ script.script_text }}</pre>
+</div>
+<script>
+const base = '/api/scripts/' + encodeURIComponent({{ script.package_key | tojson }});
+document.getElementById('adopt').onclick = async () => {
+  document.getElementById('adopt').disabled = true;
+  try {
+    const response = await fetch(base + '/adopt', {method:'POST'});
+    const data = await response.json();
+    if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail));
+    location.reload();
+  } catch (e) { document.getElementById('message').textContent = e.message; document.getElementById('adopt').disabled = false; }
+};
+</script>
+{% else %}
+<div class="workspace">
+<div class="editor">
+<form id="editor" class="card">
+  <label class="field" for="title">标题</label><input id="title" type="text" maxlength="300" required>
+  <label class="field" for="script-text">口播正文</label><textarea id="script-text" class="narration" maxlength="50000" required></textarea>
+  <div class="row small muted"><span id="word-count"></span><label for="duration">目标时长（秒）</label><input id="duration" type="number" min="10" max="600" required style="width:90px"></div>
+  <label class="field" for="visual-notes">画面与素材提示</label><textarea id="visual-notes" rows="4" maxlength="10000" placeholder="例如：开场标题卡、新闻来源截图、数据图表；需要补充哪些素材"></textarea>
+  <label class="field" for="notes">编辑备注</label><textarea id="notes" rows="2" maxlength="5000"></textarea>
+  <label class="field" for="change-note">本次修改说明</label><input id="change-note" type="text" maxlength="2000" placeholder="可选，例如：核对数字、调整开头">
+  <div class="row" style="margin-top:16px"><button id="save" type="submit">保存新版本</button><button id="local-copy" type="button" class="ghost">保存本地副本</button><button id="reload" type="button" class="ghost">重新加载</button></div>
+  <p class="muted small">初稿由模板生成，请核对日期、数字和来源。目标时长用于制作规划，实际时长要以配音结果为准。</p>
+</form>
+<div class="card" style="margin-top:16px">
+  <h2 style="margin-top:0">审核当前版本</h2>
+  <p id="review-hint" class="muted small"></p>
+  <p><label><input type="checkbox" id="sources-checked"> 已核对所选来源</label> <label><input type="checkbox" id="wording-checked"> 已核对口播内容</label></p>
+  <p><label for="reviewer">备注署名</label> <input id="reviewer" type="text" maxlength="100" placeholder="可选"></p>
+  <p><label for="review-note">审核说明 / 退回原因</label></p><textarea id="review-note" rows="2" maxlength="2000" style="width:100%"></textarea>
+  <div class="row" style="margin-top:12px"><button type="button" class="ghost" id="submit-review">提交审核</button><button type="button" id="approve">通过审核</button><button type="button" class="ghost" id="request-changes">退回修改</button></div>
+  <div class="row" style="margin-top:16px"><button type="button" id="export">导出制作包</button><a id="download" hidden>下载 ZIP</a></div>
+</div>
+</div>
+<aside>
+<div class="card">
+  <h2 style="margin-top:0">新闻来源快照</h2>
+  <p class="muted small">勾选本稿使用的来源。摘录是收录时的资料，多个转载不等于多个独立来源。</p>
+  {% if script.snapshot_origin=='legacy_adopted_now' %}<p class="muted small">此快照在旧稿启用版本管理时补充。</p>{% endif %}
+  {% for s in script.sources %}
+  <div class="source"><label><input class="source-key" type="checkbox" value="{{ s.article_key }}"> {{ s.title }}</label>
+    <p class="muted small">{{ s.source_domain }} · {{ s.published_at or '时间未知' }}{% if s.is_duplicate %} · 重复报道{% endif %}</p>
+    {% if s.url | safe_url %}<a href="{{ s.url | safe_url }}" target="_blank" rel="noopener noreferrer">打开原文 ↗</a>{% endif %}
+    <details><summary>查看资料摘录</summary><p class="small">{{ s.excerpt }}</p></details>
+  </div>
+  {% else %}<p class="muted">没有可追溯来源，暂不能通过审核。请从有来源的事件重新生成脚本。</p>{% endfor %}
+</div>
+<div class="card" style="margin-top:16px">
+  <h2 style="margin-top:0">版本历史</h2>
+  <select id="history" style="width:100%"><option value="">选择历史版本</option></select>
+  <pre id="history-preview" hidden></pre>
+  <button id="restore" class="ghost" type="button" disabled>恢复为新草稿</button>
+  <button id="older" class="ghost" type="button" hidden>更早版本</button>
+  <h2>审核记录</h2><div id="reviews" class="small muted"></div>
+  <h2>历史导出</h2><div id="exports" class="small"></div>
+</div>
+</aside>
+</div>
+<script>
+let current = {{ script | tojson }};
+const base = '/api/scripts/' + encodeURIComponent(current.package_key);
+const byId = id => document.getElementById(id);
+let dirty = false, busy = false, lastHistory = null;
+const statusNames = {draft:'草稿', in_review:'待审核', approved:'已通过'};
+const actionNames = {created:'生成草稿',adopted:'启用版本管理',saved:'保存',restored:'恢复',submit:'送审',approve:'通过',request_changes:'退回'};
+function documentValue() {
+  return {title:byId('title').value, script_text:byId('script-text').value,
+    target_duration_sec:Number(byId('duration').value), visual_notes:byId('visual-notes').value,
+    notes:byId('notes').value, source_keys:Array.from(document.querySelectorAll('.source-key:checked')).map(e=>e.value)};
+}
+function message(text) { byId('message').textContent = text; }
+function controls() {
+  byId('revision').textContent = 'r' + current.revision;
+  byId('status').textContent = statusNames[current.status] || current.status;
+  byId('dirty').textContent = dirty ? ' · 有未保存修改' : '';
+  byId('word-count').textContent = Array.from(byId('script-text').value.replace(/\s/g,'')).length + ' 字符';
+  byId('save').disabled = busy || !dirty;
+  byId('reload').disabled = busy;
+  byId('submit-review').disabled = busy || dirty || current.status !== 'draft';
+  byId('approve').disabled = busy || dirty || current.status !== 'in_review' || !byId('sources-checked').checked || !byId('wording-checked').checked;
+  byId('request-changes').disabled = busy || dirty || !['in_review','approved'].includes(current.status);
+  byId('export').disabled = busy || dirty || current.status !== 'approved';
+  byId('restore').disabled = busy || dirty || !byId('history').value;
+  byId('review-hint').textContent = dirty ? '请先保存修改，再审核或导出。' : current.status === 'approved' ? '当前版本已通过；继续修改会生成新草稿，需重新审核。' : '先保存并送审，再核对来源和正文，通过后即可导出。';
+  // Freeze editable fields while a write is in flight so its response cannot
+  // overwrite input typed after submission.
+  document.querySelectorAll('#editor input, #editor textarea, .source-key').forEach(e=>e.disabled=busy);
+}
+function fill(data) {
+  current = data;
+  const doc = data.document;
+  byId('title').value=doc.title; byId('script-text').value=doc.script_text;
+  byId('duration').value=doc.target_duration_sec; byId('visual-notes').value=doc.visual_notes;
+  byId('notes').value=doc.notes;
+  document.querySelectorAll('.source-key').forEach(e=>e.checked=doc.source_keys.includes(e.value));
+  dirty=false; byId('sources-checked').checked=false; byId('wording-checked').checked=false;
+  byId('download').hidden=true; controls();
+}
+async function request(path='', method='GET', payload) {
+  const response=await fetch(base+path,{method,headers:{'Content-Type':'application/json'},body:payload===undefined?undefined:JSON.stringify(payload)});
+  const data=await response.json();
+  if(!response.ok) throw new Error(typeof data.detail==='string'?data.detail:JSON.stringify(data.detail));
+  return data;
+}
+async function mutate(path, method, payload, success) {
+  busy=true;controls();
+  try { const data=await request(path,method,payload); fill(data); message(success); await refreshHistory(); }
+  catch(e) { message(e.message + '。本地输入已保留，可先保存本地副本。'); }
+  finally { busy=false;controls(); }
+}
+function markDirty() { dirty=true;byId('download').hidden=true;controls(); }
+document.querySelectorAll('#title,#script-text,#duration,#visual-notes,#notes,.source-key').forEach(e=>e.addEventListener('input',markDirty));
+byId('sources-checked').onchange=controls;byId('wording-checked').onchange=controls;
+byId('editor').onsubmit=async e=>{e.preventDefault();if(!busy&&byId('editor').reportValidity())await mutate('','PUT',{expected_version:current.version,document:documentValue(),change_note:byId('change-note').value},'脚本已保存。');};
+byId('reload').onclick=async()=>{if(dirty&&!confirm('重新加载会丢弃未保存的修改。建议先保存本地副本。继续加载？'))return;busy=true;controls();try{fill(await request());await refreshHistory();message('已加载最新版本。');}catch(e){message(e.message);}finally{busy=false;controls();}};
+byId('local-copy').onclick=()=>{const blob=new Blob([JSON.stringify({package_key:current.package_key,base_version:current.version,document:documentValue()},null,2)],{type:'application/json;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=current.package_key+'-local-draft.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+for (const [id,action] of [['submit-review','submit'],['approve','approve'],['request-changes','request_changes']]) {
+  byId(id).onclick=()=>mutate('/review','POST',{expected_version:current.version,action,note:byId('review-note').value,reviewer:byId('reviewer').value,sources_checked:byId('sources-checked').checked,wording_checked:byId('wording-checked').checked},'审核状态已更新。');
+}
+async function loadHistory(before=null) {
+  const rows=await request('/revisions?limit=50'+(before?'&before='+before:''));
+  if(!before){byId('history').replaceChildren(new Option('选择历史版本',''));byId('history-preview').hidden=true;}
+  rows.forEach(r=>byId('history').add(new Option('r'+r.revision+' · '+r.created_at+' · '+(r.change_note||'无说明'),r.revision)));
+  lastHistory=rows.length?rows[rows.length-1].revision:null;
+  byId('older').hidden=rows.length<50;controls();
+}
+async function refreshHistory() {
+  await loadHistory();
+  const [reviews,exports]=await Promise.all([request('/reviews'),request('/exports')]);
+  byId('reviews').replaceChildren();
+  reviews.forEach(r=>{const p=document.createElement('p');p.textContent='r'+r.revision+' · '+(actionNames[r.action]||r.action)+' · '+r.created_at+(r.reviewer?' · '+r.reviewer:'')+(r.note?' — '+r.note:'');byId('reviews').append(p);});
+  byId('exports').replaceChildren();
+  exports.forEach(x=>{const p=document.createElement('p');const a=document.createElement('a');a.href=x.download_url;a.textContent='r'+x.revision+' · '+x.created_at+' · ZIP';p.append(a);byId('exports').append(p);});
+}
+byId('older').onclick=()=>loadHistory(lastHistory).catch(e=>message(e.message));
+byId('history').onchange=async()=>{controls();const rev=byId('history').value;if(!rev){byId('history-preview').hidden=true;return;}try{const old=await request('/revisions/'+rev);if(byId('history').value!==rev)return;byId('history-preview').textContent=old.document.title+'\n\n'+old.document.script_text+'\n\n画面提示：'+old.document.visual_notes+'\n\n备注：'+old.document.notes;byId('history-preview').hidden=false;}catch(e){message(e.message);}};
+byId('restore').onclick=()=>mutate('/revisions/'+byId('history').value+'/restore','POST',{expected_version:current.version,change_note:'恢复 r'+byId('history').value},'已恢复为新草稿，历史版本保持不变。');
+byId('export').onclick=async()=>{busy=true;controls();try{const data=await request('/exports','POST',{expected_version:current.version});await refreshHistory();byId('download').href=data.download_url;byId('download').hidden=false;message('制作包已保存，包含当前审核版本、来源和素材清单。');}catch(e){message(e.message);}finally{busy=false;controls();}};
+window.addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue='';}});
+fill(current);refreshHistory().catch(e=>message(e.message));
+</script>
+{% endif %}
+{% endblock %}

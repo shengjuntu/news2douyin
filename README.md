@@ -1,13 +1,13 @@
 
 
-# news2douyin 0.2.0 — V7 server-first
+# news2douyin 0.3.0 — V7 server-first
 
 This repository now includes a V7 implementation focused on a long-running client/server workflow for market-impression news collection.
 
-Version 0.2.0 adds persistent background collection tasks, progress events,
-cooperative cancellation, retries and crash recovery. The WebUI opens a task
-page immediately; existing blocking API callers still receive the RunRecord.
-See [task runtime and upgrade notes](docs/release-0.2.0.md).
+Version 0.3.0 adds a script workbench: edit narration and visual notes, retain
+revision history and source snapshots, review a specific revision, and download
+an approved package with checksums. See [workbench and upgrade notes](docs/release-0.3.0.md).
+[Persistent background tasks from 0.2.0](docs/release-0.2.0.md) are included.
 The [0.1.1 correctness and packaging fixes](docs/release-0.1.1.md) are included.
 
 Python 3.10+ is required. The default install is the headless service. Optional
@@ -62,6 +62,9 @@ Main APIs:
 - `GET /api/articles/search`
 - `GET /api/events/search`
 - `POST /api/scripts/build`
+- `GET /api/scripts` / `GET|PUT /api/scripts/{package_key}`
+- `GET /api/scripts/{package_key}/revisions`
+- `POST /api/scripts/{package_key}/review` / `exports`
 
 # news2douyin
 
@@ -72,6 +75,7 @@ MVP pipeline:
 4) Build storyline packs per event
 5) Export Douyin-ready script packs (JSON + Markdown)
 
+Open `/scripts` for the script workbench, or generate a draft from an event page.
 V7 currently exports script packages. TTS remains available through the legacy
 CLI/GUI with the `tts` extra; V7 does not yet chain TTS or render finished videos.
 

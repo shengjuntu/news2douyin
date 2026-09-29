@@ -196,3 +196,50 @@ class TaskItem(SQLModel, table=True):
     disposition: str
     is_duplicate: bool = False
     event_created: bool = False
+
+
+class ScriptState(SQLModel, table=True):
+    package_key: str = Field(primary_key=True)
+    current_revision: int = 1
+    version: int = 1
+    status: str = Field(default='draft', index=True)
+    approved_revision: Optional[int] = None
+    root_dir: str
+    updated_at: str = Field(default_factory=utc_now_iso, index=True)
+
+
+class ScriptRevision(SQLModel, table=True):
+    revision_key: str = Field(primary_key=True)
+    package_key: str = Field(index=True)
+    revision: int
+    payload_json: str
+    content_hash: str
+    output_dir: str
+    change_note: str = ''
+    restored_from: Optional[int] = None
+    created_at: str = Field(default_factory=utc_now_iso)
+
+
+class ScriptReviewEvent(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    package_key: str = Field(index=True)
+    revision: int
+    state_version: int
+    action: str
+    status: str
+    note: str = ''
+    reviewer: str = ''
+    checks_json: str = '{}'
+    created_at: str = Field(default_factory=utc_now_iso)
+
+
+class ScriptExport(SQLModel, table=True):
+    export_key: str = Field(primary_key=True)
+    package_key: str = Field(index=True)
+    revision: int
+    state_version: int
+    content_hash: str
+    archive_sha256: str
+    archive_path: str
+    size_bytes: int
+    created_at: str = Field(default_factory=utc_now_iso)

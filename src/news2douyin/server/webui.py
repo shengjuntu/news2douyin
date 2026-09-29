@@ -14,6 +14,9 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from sqlmodel import or_, select
 
 from .tasks import task_call
+from .scripts import script_call
+from ..video import workbench as script_workbench
+from ..video.service import build_script_package
 from ..report.html_report import build_html_report
 from ..search.service import search_articles, search_events
 from ..storage.db import session_scope
@@ -36,6 +39,35 @@ def register_webui_routes(app: FastAPI, engine, scheduler, storage_root: str) ->
     def render(name: str, **ctx) -> HTMLResponse:
         page = env.get_template(name)
         return HTMLResponse(page.render(fmt_ts=_fmt_ts, active=ctx.pop('active', ''), **ctx))
+
+    from urllib.parse import urlsplit
+    def safe_url(value):
+        try:
+            parsed = urlsplit(value or '')
+            return value if parsed.scheme.lower() in {'https', 'http'} and parsed.netloc else ''
+        except ValueError:
+            return ''
+    env.filters['safe_url'] = safe_url
+
+    @app.get('/scripts', response_class=HTMLResponse)
+    def page_scripts(event_key: str = ''):
+        with session_scope(engine) as session:
+            rows = script_workbench.list_scripts(session, event_key=event_key, limit=100)
+        return render('scripts.html', active='scripts', scripts=rows, event_key=event_key)
+
+    @app.get('/scripts/{package_key}', response_class=HTMLResponse)
+    def page_script(package_key: str):
+        with session_scope(engine) as session:
+            script = script_call(script_workbench.script_detail, session, package_key)
+        return render('script_editor.html', active='scripts', script=script)
+
+    @app.post('/webui/scripts/build')
+    def webui_script_build(event_key: str = Form(...)):
+        with session_scope(engine) as session:
+            package = script_call(build_script_package, session, event_key,
+                                  output_root=Path(storage_root) / 'packages')
+            key = package.package_key
+        return RedirectResponse('/scripts/' + key, status_code=303)
 
     # ------------------------------------------------------------------ pages
     @app.get('/', response_class=HTMLResponse)
@@ -182,7 +214,8 @@ def register_webui_routes(app: FastAPI, engine, scheduler, storage_root: str) ->
                         'categories': loads(a.category_tags_json, []), 'sentiment': a.sentiment,
                         'snippet': (a.content or '')[:200],
                     })
-        return render('event_detail.html', active='events', ev=ev, articles=arts)
+            scripts = script_workbench.list_scripts(session, event_key=event_key, limit=10)
+        return render('event_detail.html', active='events', ev=ev, articles=arts, scripts=scripts)
 
     @app.get('/report/{run_id}')
     def page_report(run_id: int):

@@ -19,6 +19,15 @@
 </div>
 {% endif %}
 
+<div class="card" style="margin-top:18px">
+  <form action="/webui/scripts/build" method="post" class="inline">
+    <input type="hidden" name="event_key" value="{{ ev.key }}">
+    <button type="submit">生成脚本草稿</button>
+    <a href="/scripts?event_key={{ ev.key | urlencode }}">查看此事件的脚本</a>
+    <span class="muted small">从收录资料生成模板草稿，可编辑、审核后导出。</span>
+  </form>
+  {% if scripts %}<p class="small">最近脚本：{% for s in scripts %}<a href="/scripts/{{ s.package_key }}">{{ s.package_key[-8:] }} · r{{ s.revision }} · {{ s.status }}</a> {% endfor %}</p>{% endif %}
+</div>
 <h2>摘要</h2>
 <div class="card">{{ ev.summary or '—' }}</div>
 
@@ -27,7 +36,7 @@
 <tr><th>标题</th><th>来源</th><th>分类</th><th>情感</th><th>关系</th><th>时间</th></tr>
 {% for a in articles %}
 <tr>
-  <td>{% if a.url %}<a href="{{ a.url }}" target="_blank">{{ a.title }}</a>{% else %}{{ a.title }}{% endif %}
+  <td>{% if a.url | safe_url %}<a href="{{ a.url | safe_url }}" target="_blank" rel="noopener noreferrer">{{ a.title }}</a>{% else %}{{ a.title }}{% endif %}
     <div class="snippet">{{ a.snippet }}…</div></td>
   <td class="muted small">{{ a.domain }}</td>
   <td>{% for c in a.categories %}<span class="badge cat">{{ c }}</span> {% endfor %}</td>

@@ -15,8 +15,7 @@ from ..scheduler.service import SchedulerConfig, SchedulerService
 from ..storage.db import make_engine, init_db, session_scope
 from ..storage.models import CollectProfile, CollectJob, RunRecord, Event, ScriptPackage
 from ..storage.utils import loads
-from ..video.service import build_script_package
-from .schemas.common import ProfilePayload, JobPayload, ScriptBuildPayload
+from .schemas.common import ProfilePayload, JobPayload
 from ..config import load_environment
 from ..tasks.service import TaskService
 from ..tasks.worker import TaskWorker
@@ -272,33 +271,8 @@ def create_app(*, db_url: str = 'sqlite:///runs_v7/news2douyin_v7.db', storage_r
         with session_scope(engine) as session:
             return build_editorial_pack(session, event_key)
 
-    @app.post('/api/scripts/build')
-    def api_build_script(payload: ScriptBuildPayload):
-        with session_scope(engine) as session:
-            pkg = build_script_package(session, payload.event_key, profile_name=payload.profile_name, output_root=Path(storage_root) / 'packages')
-            return {
-                'package_key': pkg.package_key,
-                'event_key': pkg.event_key,
-                'profile_name': pkg.profile_name,
-                'output_dir': pkg.output_dir,
-                'tts_status': pkg.tts_status,
-            }
-
-    @app.get('/api/scripts/{package_key}')
-    def api_get_script(package_key: str):
-        with session_scope(engine) as session:
-            row = session.exec(select(ScriptPackage).where(ScriptPackage.package_key == package_key)).first()
-            if not row:
-                raise HTTPException(status_code=404, detail='script package not found')
-            return {
-                'package_key': row.package_key,
-                'event_key': row.event_key,
-                'profile_name': row.profile_name,
-                'output_dir': row.output_dir,
-                'script_text': row.script_text,
-                'script_json': loads(row.script_json, {}),
-                'tts_status': row.tts_status,
-            }
+    from .scripts import register_script_routes
+    register_script_routes(app, engine, storage_root)
 
     # HTML WebUI pages (dashboard / runs / articles / events / timeline / reports)
     from .webui import register_webui_routes
