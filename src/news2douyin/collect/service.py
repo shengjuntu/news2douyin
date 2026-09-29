@@ -162,14 +162,18 @@ def _upsert_event(session: Session, item: dict[str, Any], event_key: str) -> Eve
     return row
 
 
-def run_collection(session: Session, profile_name: str, *, storage_root: str | Path = 'runs_v7', trigger_type: str = 'manual', job_id: Optional[int] = None, override: Optional[dict[str, Any]] = None) -> RunRecord:
-    profile = get_profile(session, profile_name)
+def run_collection(session: Session, profile_name: str, *, storage_root: str | Path = 'runs_v7', trigger_type: str = 'manual', job_id: Optional[int] = None, override: Optional[dict[str, Any]] = None, profile_snapshot: Optional[dict[str, Any]] = None, control=None) -> RunRecord:
+    profile = dict(profile_snapshot) if profile_snapshot is not None else get_profile(session, profile_name)
+    if control:
+        control.check()
     if override:
         profile.update({k: v for k, v in override.items() if v is not None})
         profile = normalize_profile_dict(profile)
     run_dir = _make_run_dir(storage_root)
     run_key = str(run_dir.relative_to(Path(storage_root))) if Path(storage_root) in run_dir.parents else run_dir.name
     run = RunRecord(run_key=run_key, job_id=job_id, trigger_type=trigger_type, profile_name=profile_name, storage_path=str(run_dir), status='running')
+    if control:
+        control.attach_run(session, run)
     session.add(run)
     session.commit(); session.refresh(run)
 
@@ -179,18 +183,42 @@ def run_collection(session: Session, profile_name: str, *, storage_root: str | P
         if not fetcher:
             raise KeyError(f'unsupported provider: {provider}')
 
-        raw_items = list(fetcher(profile))
+        if control:
+            control.progress('fetching')
+        raw_items = control.checkpoint('raw') if control else None
+        if raw_items is None:
+            raw_items = list(fetcher(profile))
+            if control:
+                control.save_checkpoint('raw', raw_items)
+        if control:
+            control.fence(session)
         write_jsonl(run_dir / 'raw.jsonl', raw_items)
         write_json(run_dir / 'meta.json', {'run_key': run_key, 'profile': profile, 'status': 'running'})
+        if control:
+            session.commit()
         # LLM filter with automatic rule-based fallback (mode: llm | mixed | rules)
-        filtered, filter_mode = llm_filter_items(raw_items, profile)
+        if control:
+            control.progress('filtering', 0, len(raw_items))
+        saved_filter = control.checkpoint('filtered') if control else None
+        if saved_filter is None:
+            filtered, filter_mode = llm_filter_items(raw_items, profile, check_cancel=control.check) if control else llm_filter_items(raw_items, profile)
+            if control:
+                control.save_checkpoint('filtered', {'items': filtered, 'mode': filter_mode})
+        else:
+            filtered, filter_mode = saved_filter['items'], saved_filter['mode']
+        if control:
+            control.progress('storing', 0, len(filtered))
 
         stored_articles = []
         dup_count = 0
         skipped_existing = 0
         created_events = 0
 
-        for item in filtered:
+        for index, item in enumerate(filtered):
+            if control:
+                control.check()
+                if control.item_done(session, index):
+                    continue
             item = enrich_item(dict(item), profile)
             article_key = stable_hash(item.get('url',''), item.get('title',''), item.get('published_at',''), length=24)
             if session.exec(select(Article).where(Article.article_key == article_key)).first() is not None:
@@ -198,8 +226,15 @@ def run_collection(session: Session, profile_name: str, *, storage_root: str | P
                 # re-insert to avoid a UNIQUE constraint crash on the deterministic key.
                 dup_count += 1
                 skipped_existing += 1
+                if control:
+                    control.fence(session)
+                    control.record_item(session, index, article_key, 'existing', duplicate=True)
+                    session.commit()
+                    control.progress('storing', index + 1, len(filtered))
                 continue
             decision = decide_duplicate(session, item)
+            if control:
+                control.fence(session)
             event_key = _select_event_key(session, item, decision)
             row = Article(
                 article_key=article_key,
@@ -236,6 +271,8 @@ def run_collection(session: Session, profile_name: str, *, storage_root: str | P
                 session.add(ArticleEventLink(article_key=article_key, event_key=event_key, relation_type='duplicate' if decision.is_duplicate else 'primary'))
                 event = _upsert_event(session, item, event_key)
                 is_new_event = event.id is None
+                if control:
+                    control.record_item(session, index, article_key, 'stored', decision.is_duplicate, is_new_event)
                 session.commit()
             except IntegrityError:
                 session.rollback()
@@ -245,12 +282,27 @@ def run_collection(session: Session, profile_name: str, *, storage_root: str | P
                     raise
                 dup_count += 1
                 skipped_existing += 1
+                if control:
+                    control.fence(session)
+                    control.record_item(session, index, article_key, 'existing', duplicate=True)
+                    session.commit()
+                    control.progress('storing', index + 1, len(filtered))
                 continue
             created_events += int(is_new_event)
             if decision.is_duplicate:
                 dup_count += 1
             stored_articles.append(row)
+            if control:
+                control.progress('storing', index + 1, len(filtered))
 
+        if control:
+            ledger = control.items(session)
+            stored_articles = [session.exec(select(Article).where(Article.article_key == entry.article_key)).one()
+                               for entry in ledger if entry.disposition == 'stored']
+            dup_count = sum(entry.is_duplicate for entry in ledger)
+            skipped_existing = sum(entry.disposition == 'existing' for entry in ledger)
+            created_events = sum(entry.event_created for entry in ledger)
+            control.progress('exporting', len(filtered), len(filtered))
         stats = {
             'fetched': len(raw_items),
             'after_filter': len(filtered),
@@ -262,16 +314,23 @@ def run_collection(session: Session, profile_name: str, *, storage_root: str | P
             'provider': provider,
             'profile_name': profile_name,
         }
+        if control:
+            control.fence(session)
         write_jsonl(run_dir / 'articles.jsonl', [json.loads(a.raw_json) for a in stored_articles])
         write_json(run_dir / 'meta.json', {'run_key': run_key, 'stats': stats, 'profile': profile, 'status': 'succeeded'})
         run.status = 'succeeded'
         run.finished_at = utc_now_iso()
         run.stats_json = dumps(stats)
+        if control:
+            control.complete(session, run)
         session.add(run)
         session.commit(); session.refresh(run)
         logger.info(f'run_collection done run_key={run.run_key} stats={stats}')
         return run
     except Exception as e:
+        if control:
+            session.rollback()
+            raise
         try:
             fail_run(session, run, f'{type(e).__name__}: {e}')
             write_json(run_dir / 'meta.json', {'run_key': run_key, 'profile': profile,

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import time
 from typing import Optional
 
 from sqlmodel import SQLModel, Field
@@ -64,8 +65,8 @@ class RunRecord(SQLModel, table=True):
 class ScheduleOccurrence(SQLModel, table=True):
     """Durable at-most-once claim for a job's scheduled UTC minute.
 
-    A crash may leave `claimed`; automatic crash recovery is a separate worker
-    concern. Keeping the claim prevents another process repeating its effects.
+    New occurrences commit with a TaskRecord. Legacy `claimed` rows are retained
+    without replay because their original business effects may already exist.
     """
     occurrence_key: str = Field(primary_key=True)
     job_id: int = Field(index=True)
@@ -145,3 +146,53 @@ class ScriptPackage(SQLModel, table=True):
     script_json: str = Field(default='{}')
     output_dir: str = Field(default='')
     tts_status: str = Field(default='pending', index=True)
+
+
+class TaskRecord(SQLModel, table=True):
+    task_id: str = Field(primary_key=True)
+    profile_name: str = Field(index=True)
+    profile_json: str
+    request_hash: str
+    idempotency_key: Optional[str] = Field(default=None, unique=True, index=True)
+    status: str = Field(default='queued', index=True)
+    stage: str = 'queued'
+    progress_current: int = 0
+    progress_total: int = 0
+    attempts: int = 0
+    max_attempts: int = 3
+    trigger_type: str = 'manual'
+    job_id: Optional[int] = Field(default=None, index=True)
+    occurrence_key: Optional[str] = None
+    run_id: Optional[int] = None
+    lease_owner: Optional[str] = None
+    lease_until: float = Field(default=0, index=True)
+    queued_at: float = Field(default_factory=time.time, index=True)
+    error_text: Optional[str] = None
+    created_at: str = Field(default_factory=utc_now_iso)
+    updated_at: str = Field(default_factory=utc_now_iso)
+    started_at: Optional[str] = None
+    finished_at: Optional[str] = None
+
+
+class TaskEvent(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    task_id: str = Field(index=True)
+    event_type: str
+    payload_json: str
+    created_at: str = Field(default_factory=utc_now_iso)
+
+
+class TaskCheckpoint(SQLModel, table=True):
+    checkpoint_key: str = Field(primary_key=True)
+    task_id: str = Field(index=True)
+    payload_json: str
+
+
+class TaskItem(SQLModel, table=True):
+    item_key: str = Field(primary_key=True)
+    task_id: str = Field(index=True)
+    input_index: int
+    article_key: str = Field(index=True)
+    disposition: str
+    is_duplicate: bool = False
+    event_created: bool = False

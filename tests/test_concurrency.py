@@ -5,7 +5,7 @@ from sqlmodel import Session, select
 
 from news2douyin.collect import service as collect
 from news2douyin.scheduler import service as scheduling
-from news2douyin.storage.models import Article, ArticleEventLink, CollectJob, Event, ScheduleOccurrence
+from news2douyin.storage.models import Article, ArticleEventLink, CollectJob, Event, ScheduleOccurrence, TaskRecord
 from conftest import FrozenTime
 
 
@@ -38,12 +38,11 @@ def test_overlapping_collectors_do_not_fail_or_duplicate_articles(engine, articl
 
 def test_two_scheduler_instances_claim_once(engine, monkeypatch):
     with Session(engine) as session:
+        collect.create_or_update_profile(session, {'name': 'fixture', 'provider': 'mock'})
         job = CollectJob(name='scheduled', profile_name='fixture', cron_expr='* * * * *')
         session.add(job)
         session.commit()
     monkeypatch.setattr(scheduling, 'datetime', FrozenTime)
-    calls = []
-    monkeypatch.setattr(scheduling.SchedulerService, '_run_job', lambda self, job_id, key: calls.append(key))
     barrier = Barrier(2)
 
     def run():
@@ -55,6 +54,6 @@ def test_two_scheduler_instances_claim_once(engine, monkeypatch):
         futures = [pool.submit(run) for _ in range(2)]
         for future in futures:
             future.result(timeout=10)
-    assert len(calls) == 1
     with Session(engine) as session:
         assert len(list(session.exec(select(ScheduleOccurrence)))) == 1
+        assert len(list(session.exec(select(TaskRecord)))) == 1

@@ -14,6 +14,7 @@ from typing import Any
 
 from loguru import logger
 
+from ..tasks.control import TaskControlError
 from .filters import filter_items, hard_filter_items
 from ..llm.settings import get_settings, probe_endpoint
 
@@ -46,11 +47,18 @@ def _llm_chat(messages: list[dict[str, str]], max_tokens: int = MAX_TOKENS, time
     return r.json()['choices'][0]['message']['content'] or ''
 
 
-def _generate_with_retry(prompt: str) -> str:
+def _generate_with_retry(prompt: str, check_cancel=None) -> str:
     last_err = None
     for attempt in range(2):
+        if check_cancel:
+            check_cancel()
         try:
-            return _llm_chat([{'role': 'user', 'content': prompt}])
+            result = _llm_chat([{'role': 'user', 'content': prompt}])
+            if check_cancel:
+                check_cancel()
+            return result
+        except TaskControlError:
+            raise
         except Exception as e:
             last_err = e
             time.sleep(2)
@@ -154,8 +162,10 @@ def _parse_response(text: str, batch: list[dict[str, Any]]) -> list[dict[str, An
     return [_apply_decision(item, by_id[i]) for i, item in enumerate(batch, 1) if by_id[i]['keep']]
 
 
-def llm_filter_items(items: list[dict[str, Any]], profile: dict[str, Any]) -> tuple[list[dict[str, Any]], str]:
+def llm_filter_items(items: list[dict[str, Any]], profile: dict[str, Any], *, check_cancel=None) -> tuple[list[dict[str, Any]], str]:
     """Filter items via LLM. Returns (kept_items, mode) with mode in {'llm','mixed','rules'}."""
+    if check_cancel:
+        check_cancel()
     items = hard_filter_items(items, profile)
     if not items:
         return [], 'rules'
@@ -169,8 +179,13 @@ def llm_filter_items(items: list[dict[str, Any]], profile: dict[str, Any]) -> tu
     for i in range(0, len(items), BATCH_SIZE):
         batch = items[i:i + BATCH_SIZE]
         try:
-            text = _generate_with_retry(_build_prompt(profile, batch))
+            if check_cancel:
+                check_cancel()
+            prompt = _build_prompt(profile, batch)
+            text = _generate_with_retry(prompt, check_cancel=check_cancel) if check_cancel else _generate_with_retry(prompt)
             res = _parse_decisions(text, batch)
+        except TaskControlError:
+            raise
         except Exception as e:
             logger.warning(f'[LLM-FILTER] batch failed: {e}')
             res = None

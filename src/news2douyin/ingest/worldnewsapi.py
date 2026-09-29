@@ -70,7 +70,8 @@ def fetch_top_news(config: dict) -> list[dict]:
 
     def _call_api_and_convert() -> dict:
         t0 = time.perf_counter()
-        resp = api.top_news(source_country=country, language=language, var_date=date_str)
+        resp = api.top_news(source_country=country, language=language, var_date=date_str,
+                            _request_timeout=(10.0, float(config.get('request_timeout_sec', 60))))
         dt = time.perf_counter() - t0
         logger.info(f"[INGEST] WorldNewsAPI API_CALL dt={dt:.3f}s key={cache_key}")
 

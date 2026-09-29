@@ -1,6 +1,5 @@
 import json
 from pathlib import Path
-from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
@@ -15,7 +14,7 @@ from news2douyin.scheduler import service as scheduling
 from news2douyin.search.service import search_articles, search_events
 from news2douyin.server.app import create_app
 from news2douyin.server.schemas.common import ProfilePayload
-from news2douyin.storage.models import Article, ArticleEventLink, CollectJob, Event, RunRecord
+from news2douyin.storage.models import Article, ArticleEventLink, CollectJob, Event, RunRecord, TaskRecord
 from news2douyin.video.service import build_script_package
 from conftest import FrozenTime
 
@@ -93,30 +92,30 @@ def test_backfill_does_not_reverse_event_time(engine, article, monkeypatch, tmp_
 @pytest.mark.parametrize('job_timezone', ['UTC', 'Asia/Shanghai', 'America/New_York'])
 def test_scheduler_once_per_utc_minute_across_instances(engine, monkeypatch, job_timezone):
     with Session(engine) as session:
+        collect.create_or_update_profile(session, {'name': 'fixture', 'provider': 'mock'})
         session.add(CollectJob(name='job', profile_name='fixture', timezone=job_timezone, cron_expr='* * * * *'))
         session.commit()
-    runner = Mock(return_value=SimpleNamespace(finished_at='2026-09-29T02:00:00Z', started_at='', status='succeeded'))
     monkeypatch.setattr(scheduling, 'datetime', FrozenTime)
-    monkeypatch.setattr(scheduling, 'run_collection', runner)
     first = scheduling.SchedulerService(engine)
     first.tick()
     first.tick()
     scheduling.SchedulerService(engine).tick()
-    assert runner.call_count == 1
+    with Session(engine) as session:
+        assert len(list(session.exec(select(TaskRecord)))) == 1
 
 
 def test_failed_scheduled_job_does_not_block_following_job(engine, monkeypatch):
     with Session(engine) as session:
+        collect.create_or_update_profile(session, {'name': 'good', 'provider': 'mock'})
         session.add_all([CollectJob(name=n, profile_name=n, cron_expr='* * * * *') for n in ['bad', 'good']])
         session.commit()
-    runner = Mock(side_effect=[RuntimeError('provider offline'), SimpleNamespace(finished_at='2026-09-29T02:00:00Z', started_at='', status='succeeded')])
     monkeypatch.setattr(scheduling, 'datetime', FrozenTime)
-    monkeypatch.setattr(scheduling, 'run_collection', runner)
     scheduling.SchedulerService(engine).tick()
     with Session(engine) as session:
         statuses = {j.name: j.last_status for j in session.exec(select(CollectJob))}
-    assert statuses == {'bad': 'failed', 'good': 'succeeded'}
-    assert runner.call_count == 2
+    assert statuses == {'bad': 'failed', 'good': 'queued'}
+    with Session(engine) as session:
+        assert session.exec(select(TaskRecord)).one().profile_name == 'good'
 
 
 def test_search_filters_before_limit(engine):
@@ -194,13 +193,19 @@ def test_malformed_llm_decisions_trigger_rule_fallback(article, monkeypatch, ent
 def test_webui_uses_configured_storage(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     app = create_app(db_url=f'sqlite:///{tmp_path / "web.db"}', storage_root=str(tmp_path / 'custom'))
-    client = TestClient(app)
-    assert client.post('/api/profiles', json={'name': 'web', 'provider': 'mock'}).status_code == 200
-    response = client.post('/webui/run-now', data={'profile_name': 'web'})
-    assert response.status_code == 200
-    runs = client.get('/api/runs').json()
-    assert Path(runs[0]['storage_path']).is_relative_to(tmp_path / 'custom')
-    assert not (tmp_path / 'runs_v7').exists()
+    with TestClient(app) as client:
+        assert client.post('/api/profiles', json={'name': 'web', 'provider': 'mock'}).status_code == 200
+        response = client.post('/webui/run-now', data={'profile_name': 'web'})
+        assert response.status_code == 200
+        task_id = str(response.url).split('/')[-1]
+        import time
+        deadline = time.monotonic() + 5
+        while client.get('/api/tasks/' + task_id).json()['status'] != 'succeeded':
+            assert time.monotonic() < deadline
+            time.sleep(0.05)
+        runs = client.get('/api/runs').json()
+        assert Path(runs[0]['storage_path']).is_relative_to(tmp_path / 'custom')
+        assert not (tmp_path / 'runs_v7').exists()
 
 
 def test_webui_and_api_use_same_search(engine, tmp_path):

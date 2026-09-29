@@ -3,7 +3,6 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="refresh" content="30">
 <title>{% block title %}news2douyin v7{% endblock %}</title>
 <style>
 :root { color-scheme: dark; }
@@ -52,6 +51,7 @@ footer { text-align: center; color: #5b647a; font-size: 12px; padding: 16px; }
   <div class="logo">news2douyin<span class="dot">·</span>v7</div>
   <nav>
     <a href="/" class="{{ 'on' if active=='home' }}">仪表盘</a>
+    <a href="/tasks" class="{{ 'on' if active=='tasks' }}">采集任务</a>
     <a href="/runs" class="{{ 'on' if active=='runs' }}">运行记录</a>
     <a href="/articles" class="{{ 'on' if active=='articles' }}">新闻库</a>
     <a href="/events" class="{{ 'on' if active=='events' }}">事件</a>
@@ -62,6 +62,6 @@ footer { text-align: center; color: #5b647a; font-size: 12px; padding: 16px; }
 <main>
 {% block content %}{% endblock %}
 </main>
-<footer>news2douyin v7 · REST API: <a href="/docs">/docs</a> · 页面每 30 秒自动刷新</footer>
+<footer>news2douyin v7 · REST API: <a href="/docs">/docs</a></footer>
 </body>
 </html>

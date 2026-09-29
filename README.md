@@ -1,12 +1,14 @@
 
 
-# news2douyin 0.1.1 — V7 server-first
+# news2douyin 0.2.0 — V7 server-first
 
 This repository now includes a V7 implementation focused on a long-running client/server workflow for market-impression news collection.
 
-Version 0.1.1 fixes event linkage, timezone scheduling, transaction rollback,
-search filtering, LLM result validation, configuration and wheel resources.
-See [release notes](docs/release-0.1.1.md) for changes, upgrade steps and limits.
+Version 0.2.0 adds persistent background collection tasks, progress events,
+cooperative cancellation, retries and crash recovery. The WebUI opens a task
+page immediately; existing blocking API callers still receive the RunRecord.
+See [task runtime and upgrade notes](docs/release-0.2.0.md).
+The [0.1.1 correctness and packaging fixes](docs/release-0.1.1.md) are included.
 
 Python 3.10+ is required. The default install is the headless service. Optional
 features are installed explicitly:
@@ -53,7 +55,10 @@ news2douyin-server --host 0.0.0.0 --port 18080
 Main APIs:
 - `POST /api/profiles`
 - `POST /api/jobs`
-- `POST /api/collect/run-now`
+- `POST /api/tasks/collect` (202 + task ID)
+- `GET /api/tasks/{task_id}` / `events` / `stream`
+- `POST /api/tasks/{task_id}/cancel` / `retry`
+- `POST /api/collect/run-now` (legacy wait; `?wait=false` queues)
 - `GET /api/articles/search`
 - `GET /api/events/search`
 - `POST /api/scripts/build`

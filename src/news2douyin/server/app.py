@@ -7,7 +7,7 @@ from typing import Optional
 from fastapi import FastAPI, HTTPException
 from sqlmodel import select
 
-from ..collect.service import create_or_update_profile, get_profile, import_profile_file, row_to_profile, run_collection
+from ..collect.service import create_or_update_profile, import_profile_file, row_to_profile
 from ..collect.profiles import PROFILE_FIELDS
 from ..editorial.service import build_editorial_pack
 from ..search.service import search_articles, search_events
@@ -16,8 +16,11 @@ from ..storage.db import make_engine, init_db, session_scope
 from ..storage.models import CollectProfile, CollectJob, RunRecord, Event, ScriptPackage
 from ..storage.utils import loads
 from ..video.service import build_script_package
-from .schemas.common import ProfilePayload, JobPayload, RunNowPayload, ScriptBuildPayload
+from .schemas.common import ProfilePayload, JobPayload, ScriptBuildPayload
 from ..config import load_environment
+from ..tasks.service import TaskService
+from ..tasks.worker import TaskWorker
+from .tasks import register_task_routes
 
 
 def _profile_to_dict(row: CollectProfile) -> dict:
@@ -76,19 +79,26 @@ def create_app(*, db_url: str = 'sqlite:///runs_v7/news2douyin_v7.db', storage_r
     engine = make_engine(db_url)
     init_db(engine)
     scheduler = SchedulerService(engine, SchedulerConfig(storage_root=storage_root))
+    tasks = TaskService(engine)
+    worker = TaskWorker(engine, storage_root)
     @asynccontextmanager
     async def lifespan(app):
         Path(storage_root).mkdir(parents=True, exist_ok=True)
+        worker.start()
         scheduler.start()
         try:
             yield
         finally:
             scheduler.stop()
+            worker.stop()
 
     app = FastAPI(title='news2douyin v7 server', lifespan=lifespan)
     app.state.engine = engine
     app.state.storage_root = storage_root
     app.state.scheduler = scheduler
+    app.state.tasks = tasks
+    app.state.worker = worker
+    register_task_routes(app, tasks, worker, _run_to_dict)
 
     @app.get('/api/health')
     def health():
@@ -104,6 +114,7 @@ def create_app(*, db_url: str = 'sqlite:///runs_v7/news2douyin_v7.db', storage_r
                 'events': len(list(session.exec(select(Event)))),
                 'scheduler_running': scheduler._thread is not None and scheduler._thread.is_alive(),
                 'storage_root': storage_root,
+                'worker_running': worker.running,
             }
 
     @app.get('/api/scheduler/status')
@@ -184,18 +195,6 @@ def create_app(*, db_url: str = 'sqlite:///runs_v7/news2douyin_v7.db', storage_r
             row.enabled = False
             session.add(row); session.commit(); session.refresh(row)
             return _job_to_dict(row)
-
-    @app.post('/api/collect/run-now')
-    def api_run_now(payload: RunNowPayload):
-        with session_scope(engine) as session:
-            try:
-                run = run_collection(session, payload.profile_name, storage_root=storage_root, trigger_type='manual', override=payload.override)
-            except KeyError as e:
-                raise HTTPException(status_code=404, detail=str(e))
-            except Exception as e:
-                # run_collection marks the RunRecord as failed before re-raising
-                raise HTTPException(status_code=500, detail=f'{type(e).__name__}: {e}')
-            return _run_to_dict(run)
 
     @app.get('/api/runs')
     def list_runs(limit: int = 50):

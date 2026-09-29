@@ -13,7 +13,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from sqlmodel import or_, select
 
-from ..collect.service import run_collection
+from .tasks import task_call
 from ..report.html_report import build_html_report
 from ..search.service import search_articles, search_events
 from ..storage.db import session_scope
@@ -225,11 +225,18 @@ def register_webui_routes(app: FastAPI, engine, scheduler, storage_root: str) ->
             override['keywords_include'] = [k.strip() for k in keywords.split(',') if k.strip()]
         if max_items.strip().isdigit() and int(max_items) > 0:
             override['max_items'] = int(max_items)
-        with session_scope(engine) as session:
-            run = run_collection(session, profile_name.strip(), trigger_type='manual_webui',
-                                 storage_root=storage_root, override=override or None)
-        run_id = run.id
-        return RedirectResponse(f'/runs/{run_id}', status_code=303)
+        task = task_call(app.state.tasks.submit, profile_name.strip(), override)
+        return RedirectResponse('/tasks/' + task['task_id'], status_code=303)
+
+    @app.get('/tasks', response_class=HTMLResponse)
+    def page_tasks():
+        return render('tasks.html', active='tasks', tasks=app.state.tasks.list(100),
+                      worker_running=app.state.worker.running)
+
+    @app.get('/tasks/{task_id}', response_class=HTMLResponse)
+    def page_task(task_id: str):
+        task = task_call(app.state.tasks.get, task_id)
+        return render('task_detail.html', active='tasks', task=task)
 
     @app.post('/webui/jobs/{job_id}/toggle')
     def webui_toggle_job(job_id: int):

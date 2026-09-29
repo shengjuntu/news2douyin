@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from typing import Any
+import time
+from uuid import uuid4
 
 import requests
 
@@ -9,8 +11,8 @@ class Client:
     def __init__(self, base_url: str = 'http://127.0.0.1:18080') -> None:
         self.base_url = base_url.rstrip('/')
 
-    def get(self, path: str, **params):
-        resp = requests.get(self.base_url + path, params=params, timeout=60)
+    def get(self, path: str, *, _timeout: float = 60, **params):
+        resp = requests.get(self.base_url + path, params=params, timeout=_timeout)
         resp.raise_for_status()
         return resp.json()
 
@@ -49,8 +51,50 @@ class Client:
     def disable_job(self, job_id: int):
         return self.post(f'/api/jobs/{job_id}/disable', {})
 
-    def run_now(self, profile_name: str, override: dict[str, Any] | None = None):
-        return self.post('/api/collect/run-now', {'profile_name': profile_name, 'override': override or {}})
+    def submit_collection(self, profile_name: str, override=None, *, idempotency_key=None):
+        return self.post('/api/tasks/collect', {'profile_name': profile_name,
+                         'override': override or {}, 'idempotency_key': idempotency_key})
+
+    def get_task(self, task_id: str, *, timeout: float = 60):
+        return self.get(f'/api/tasks/{task_id}', _timeout=timeout)
+
+    def list_tasks(self, limit: int = 50):
+        return self.get('/api/tasks', limit=limit)
+
+    def task_events(self, task_id: str, after: int = 0, limit: int = 200):
+        return self.get(f'/api/tasks/{task_id}/events', after=after, limit=limit)
+
+    def cancel_task(self, task_id: str):
+        return self.post(f'/api/tasks/{task_id}/cancel')
+
+    def retry_task(self, task_id: str):
+        return self.post(f'/api/tasks/{task_id}/retry')
+
+    def wait_task(self, task_id: str, *, timeout: float = 300, poll_interval: float = 0.5):
+        if timeout <= 0 or poll_interval <= 0:
+            raise ValueError('timeout and poll_interval must be positive')
+        deadline = time.monotonic() + timeout
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError(f'Task {task_id} continues in the background')
+            try:
+                task = self.get_task(task_id, timeout=min(60, remaining))
+            except requests.Timeout as exc:
+                raise TimeoutError(f'Task {task_id} continues in the background') from exc
+            if task['status'] in {'succeeded', 'failed', 'cancelled'}:
+                return task
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError(f'Task {task_id} continues in the background')
+            time.sleep(min(poll_interval, remaining))
+
+    def run_now(self, profile_name: str, override: dict[str, Any] | None = None, *, timeout: float = 300):
+        task = self.submit_collection(profile_name, override, idempotency_key=uuid4().hex)
+        task = self.wait_task(task['task_id'], timeout=timeout)
+        if task['status'] != 'succeeded':
+            raise RuntimeError(f"Task {task['task_id']} {task['status']}: {task.get('error_text') or ''}")
+        return self.get_run(task['run_id'])
 
     def list_runs(self, limit: int = 50):
         return self.get('/api/runs', limit=limit)

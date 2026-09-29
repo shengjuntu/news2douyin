@@ -43,6 +43,23 @@ def main():
                 assert client.post('/api/profiles', json={'name': 'mock', 'provider': 'mock'}).status_code == 200
                 run = client.post('/api/collect/run-now', json={'profile_name': 'mock'})
                 assert run.status_code == 200 and run.json()['status'] == 'succeeded'
+                task = client.get('/api/tasks').json()[0]
+                assert client.get('/tasks').status_code == 200
+                assert client.get('/tasks/' + task['task_id']).status_code == 200
+                stream = client.get('/api/tasks/' + task['task_id'] + '/stream')
+                assert 'event: end' in stream.text and 'succeeded' in stream.text
+                app.state.worker.stop()
+                queued = client.post('/api/tasks/collect', json={'profile_name': 'mock'})
+                assert queued.status_code == 202
+                task_id = queued.json()['task_id']
+                assert client.post('/api/tasks/' + task_id + '/cancel').json()['status'] == 'cancelled'
+                assert client.post('/api/tasks/' + task_id + '/retry').status_code == 202
+                app.state.worker.start()
+                import time
+                deadline = time.monotonic() + 5
+                while client.get('/api/tasks/' + task_id).json()['status'] != 'succeeded':
+                    assert time.monotonic() < deadline
+                    time.sleep(0.05)
                 events = client.get('/api/events/search').json()
                 assert len(events) == 2
                 built = client.post('/api/scripts/build', json={'event_key': events[0]['event_key']})
@@ -66,7 +83,7 @@ def main():
         assert prep_assets(legacy).is_dir()
         cli = subprocess.run([sys.executable, '-I', '-m', 'news2douyin.cli', '--help'], capture_output=True, text=True)
         assert cli.returncode == 0, cli.stderr
-        print(json.dumps({'status': 'passed', 'checks': ['wheel_webui', 'mock_collection', 'script_package', 'bundled_prompts', 'bundled_templates', 'legacy_llm_import', 'packaged_asset_worker', 'cli_entrypoint']}))
+        print(json.dumps({'status': 'passed', 'checks': ['wheel_webui', 'mock_collection', 'script_package', 'bundled_prompts', 'bundled_templates', 'legacy_llm_import', 'packaged_asset_worker', 'cli_entrypoint', 'task_pages', 'task_sse', 'async_collection', 'cancel_and_retry']}))
 
 
 if __name__ == '__main__':
