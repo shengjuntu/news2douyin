@@ -1,6 +1,0 @@
-news2douyin 0.5.0
-Commit: da2e8974dd6f9271e2e7e7bbab98d133c68f5c87
-Base: 6d66266
-124 regression tests passed; 18 legacy and 14 news installed-wheel checks; 7 browser checks; 4 Go import checks.
-Local commit only, not pushed.
-See docs/release-0.5.0.md and docs/validation-0.5.0.md.

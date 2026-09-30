@@ -1,5 +1,0 @@
-<div class="row" style="margin:16px 0" aria-label="分页">
-  <span>共 {{ paging.total }} 条 · 每页 {{ paging.limit }} 条 · 当前第 {{ paging.offset // paging.limit + 1 }} 页</span>
-  {% if paging.prev_url %}<a href="{{ paging.prev_url }}">上一页</a>{% endif %}
-  {% if paging.next_url %}<a href="{{ paging.next_url }}">下一页</a>{% endif %}
-</div>
