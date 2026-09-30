@@ -1,13 +1,14 @@
 {% extends "base.html" %}
 {% block title %}事件 · news2douyin v7{% endblock %}
 {% block content %}
-<h1>事件 <span class="muted small">（显示前 {{ events|length }} 个）</span></h1>
+<h1>事件 <span class="muted small">（共 {{ paging.total }} 个）</span></h1>
 <div class="card">
 <form method="get" action="/events" class="row">
-  <input name="q" value="{{ q }}" placeholder="关键词（标题/摘要）" style="width:260px">
+  <input name="q" value="{{ q }}" placeholder="关键词（含关联报道全文）" style="width:260px">
   <input name="country" value="{{ country }}" placeholder="国家 如 us / cn" style="width:140px">
   <input name="topic" value="{{ topic }}" placeholder="主题" style="width:140px">
   <input name="limit" value="{{ limit }}" style="width:70px">
+  <select name="mode"><option value="contains" {{ 'selected' if mode=='contains' }}>连续文本</option><option value="terms" {{ 'selected' if mode=='terms' }}>全部关键词（空格分隔）</option></select>
   <button type="submit">搜索</button>
   <a href="/events"><button type="button" class="ghost">重置</button></a>
 </form>
@@ -27,4 +28,5 @@
 <tr><td colspan="6" class="muted">没有匹配的事件</td></tr>
 {% endfor %}
 </table>
+{% include "pagination.html" %}
 {% endblock %}

@@ -20,7 +20,11 @@ def make_engine(db_url: str):
 
 
 def init_db(engine) -> None:
+    from .articles import backfill_versions
+    from ..search.index import init_search
     SQLModel.metadata.create_all(engine)
+    backfill_versions(engine)
+    init_search(engine)
 
 
 def session_scope(engine) -> Session:

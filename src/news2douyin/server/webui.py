@@ -8,7 +8,7 @@ import json
 import re
 from pathlib import Path
 
-from fastapi import FastAPI, Form
+from fastapi import FastAPI, Form, Query, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from sqlmodel import or_, select
@@ -18,9 +18,14 @@ from .scripts import script_call
 from ..video import workbench as script_workbench
 from ..video.service import build_script_package
 from ..report.html_report import build_html_report
-from ..search.service import search_articles, search_events
+from ..search.service import article_page, event_page
+from ..storage.articles import latest_version, version_page
+from ..events.service import evidence_counts
+from .news import query_call
+from urllib.parse import urlencode
+from difflib import unified_diff
 from ..storage.db import session_scope
-from ..storage.models import Article, ArticleEventLink, CollectJob, CollectProfile, Event, RunRecord
+from ..storage.models import Article, ArticleEventLink, CollectJob, CollectProfile, Event, RunRecord, ArticleVersion, EventAssignment
 from ..storage.utils import loads
 
 _TEMPLATES = Path(__file__).parent / 'templates'
@@ -176,38 +181,63 @@ def register_webui_routes(app: FastAPI, engine, scheduler, storage_root: str) ->
             a['_domain'] = src.get('domain', '')
         return render('run_detail.html', active='runs', run=run, articles=articles, raw_count=raw_count)
 
+    def pagination(path, page, params):
+        def url(offset):
+            return path + '?' + urlencode({**params, 'offset': offset})
+        return {'total': page.total, 'offset': page.offset, 'limit': page.limit,
+                'prev_url': url(max(0, page.offset - page.limit)) if page.offset else '',
+                'next_url': url(page.offset + page.limit) if page.offset + len(page.items) < page.total else ''}
+
     @app.get('/articles', response_class=HTMLResponse)
-    def page_articles(q: str = '', country: str = '', category: str = '', limit: int = 60):
-        limit = max(1, min(int(limit or 60), 300))
+    def page_articles(q: str = '', country: str = '', category: str = '', duplicates: str = 'any',
+                      limit: int = Query(60, ge=1, le=500), offset: int = Query(0, ge=0), mode: str = 'contains'):
         with session_scope(engine) as session:
-            rows = [
-                {
-                    'title': r.title, 'url': r.url, 'domain': r.source_domain, 'country': r.country,
-                    'published_at': r.published_at, 'categories': loads(r.category_tags_json, []),
-                    'sentiment': r.sentiment, 'score': r.market_relevance_score,
-                    'is_duplicate': r.is_duplicate, 'snippet': (r.content or '')[:200],
-                }
-                for r in search_articles(session, query=q, country=country, category=category, limit=limit)
-            ]
-            countries = sorted({c for c in session.exec(select(Article.country)).all() if c})
-        return render('articles.html', active='articles', articles=rows, q=q, country=country,
-                      category=category, limit=limit, countries=countries)
+            page = query_call(article_page, session, query=q, country=country, category=category,
+                              duplicates=duplicates, limit=limit, offset=offset, mode=mode)
+            rows = [{'key': r.article_key, 'title': r.title, 'url': r.url, 'domain': r.source_domain,
+                     'country': r.country, 'published_at': r.published_at, 'categories': loads(r.category_tags_json, []),
+                     'sentiment': r.sentiment, 'score': r.market_relevance_score,
+                     'is_duplicate': r.is_duplicate, 'snippet': r.content[:200]} for r in page.items]
+            countries = list(session.exec(select(Article.country).distinct().order_by(Article.country)))
+        params = dict(q=q, country=country, category=category, duplicates=duplicates, limit=limit, mode=mode)
+        return render('articles.html', active='articles', articles=rows, countries=countries,
+                      paging=pagination('/articles', page, params), **params)
+
+    @app.get('/articles/{article_key}', response_class=HTMLResponse)
+    def page_article(article_key: str, revision: int = Query(0, ge=0), offset: int = Query(0, ge=0)):
+        with session_scope(engine) as session:
+            row = session.exec(select(Article).where(Article.article_key == article_key)).first()
+            if row is None:
+                raise HTTPException(404, 'article not found')
+            history = query_call(version_page, session, article_key, offset=offset, limit=20)
+            current = latest_version(session, article_key)
+            selected = session.exec(select(ArticleVersion).where(ArticleVersion.article_key == article_key,
+                       ArticleVersion.revision == revision)).first() if revision else current
+            if selected is None:
+                raise HTTPException(404, 'version not found')
+            document = loads(selected.payload_json, {})
+            previous = session.exec(select(ArticleVersion).where(ArticleVersion.article_key == article_key,
+                        ArticleVersion.revision == selected.revision - 1)).first()
+            old = loads(previous.payload_json, {}) if previous else {}
+            diff = '\n'.join(unified_diff((old.get('title', '') + '\n' + old.get('content', '')).splitlines(),
+                    (document.get('title', '') + '\n' + document.get('content', '')).splitlines(),
+                    fromfile=f'r{selected.revision - 1}', tofile=f'r{selected.revision}', lineterm='')) if previous else ''
+            return render('article_detail.html', active='articles', article=row, document=document,
+                          selected=selected, current=current, history=history, diff=diff)
 
     @app.get('/events', response_class=HTMLResponse)
-    def page_events(q: str = '', country: str = '', topic: str = '', limit: int = 60):
-        limit = max(1, min(int(limit or 60), 300))
+    def page_events(q: str = '', country: str = '', topic: str = '', limit: int = Query(60, ge=1, le=500),
+                    offset: int = Query(0, ge=0), mode: str = 'contains'):
         with session_scope(engine) as session:
-            rows = [
-                {
-                    'key': r.event_key, 'title': r.event_title, 'topic': r.topic,
-                    'summary': (r.summary or '')[:160], 'article_count': r.article_count,
-                    'importance': r.importance, 'sentiment': r.sentiment,
-                    'last_seen_at': r.last_seen_at,
-                }
-                for r in search_events(session, query=q, country=country, topic=topic, limit=limit)
-            ]
-        return render('events.html', active='events', events=rows, q=q, country=country,
-                      topic=topic, limit=limit)
+            page = query_call(event_page, session, query=q, country=country, topic=topic,
+                              limit=limit, offset=offset, mode=mode)
+            rows = [{'key': r.event_key, 'title': r.event_title, 'topic': r.topic,
+                     'summary': r.summary[:160], 'article_count': r.article_count,
+                     'importance': r.importance, 'sentiment': r.sentiment,
+                     'last_seen_at': r.last_seen_at} for r in page.items]
+        params = dict(q=q, country=country, topic=topic, limit=limit, mode=mode)
+        return render('events.html', active='events', events=rows,
+                      paging=pagination('/events', page, params), **params)
 
     @app.get('/events/{event_key}', response_class=HTMLResponse)
     def page_event_detail(event_key: str):
@@ -216,6 +246,7 @@ def register_webui_routes(app: FastAPI, engine, scheduler, storage_root: str) ->
             if not row:
                 return render('404.html', active='events', title='事件不存在')
             ev = {
+                **evidence_counts(session, event_key),
                 'key': row.event_key, 'title': row.event_title, 'topic': row.topic,
                 'summary': row.summary, 'article_count': row.article_count,
                 'importance': row.importance, 'sentiment': row.sentiment,
@@ -230,7 +261,9 @@ def register_webui_routes(app: FastAPI, engine, scheduler, storage_root: str) ->
             for link in links:
                 a = session.exec(select(Article).where(Article.article_key == link.article_key)).first()
                 if a:
+                    assignment = session.get(EventAssignment, a.article_key)
                     arts.append({
+                        'key': a.article_key, 'assignment': assignment.reason if assignment else 'legacy',
                         'title': a.title, 'url': a.url, 'domain': a.source_domain,
                         'published_at': a.published_at, 'relation': link.relation_type,
                         'categories': loads(a.category_tags_json, []), 'sentiment': a.sentiment,

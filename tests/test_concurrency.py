@@ -12,16 +12,13 @@ from conftest import FrozenTime
 def test_overlapping_collectors_do_not_fail_or_duplicate_articles(engine, article, monkeypatch, tmp_path):
     with Session(engine) as session:
         collect.create_or_update_profile(session, {'name': 'fixture', 'provider': 'fixture'})
-    monkeypatch.setitem(collect.PROVIDERS, 'fixture', lambda _: [dict(article)])
-    decide = collect.decide_duplicate
     barrier = Barrier(2)
 
-    def decide_at_same_time(*args):
-        result = decide(*args)
+    def fetch_at_same_time(_):
         barrier.wait(timeout=5)
-        return result
+        return [dict(article)]
 
-    monkeypatch.setattr(collect, 'decide_duplicate', decide_at_same_time)
+    monkeypatch.setitem(collect.PROVIDERS, 'fixture', fetch_at_same_time)
 
     def run():
         with Session(engine) as session:

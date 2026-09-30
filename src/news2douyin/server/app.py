@@ -10,7 +10,7 @@ from sqlmodel import select
 from ..collect.service import create_or_update_profile, import_profile_file, row_to_profile
 from ..collect.profiles import PROFILE_FIELDS
 from ..editorial.service import build_editorial_pack
-from ..search.service import search_articles, search_events
+from ..events.service import evidence_counts
 from ..scheduler.service import SchedulerConfig, SchedulerService
 from ..storage.db import make_engine, init_db, session_scope
 from ..storage.models import CollectProfile, CollectJob, RunRecord, Event, ScriptPackage
@@ -209,40 +209,8 @@ def create_app(*, db_url: str = 'sqlite:///runs_v7/news2douyin_v7.db', storage_r
                 raise HTTPException(status_code=404, detail='run not found')
             return _run_to_dict(row)
 
-    @app.get('/api/articles/search')
-    def api_search_articles(query: str = '', country: str = '', category: str = '', duplicates: str = 'any', limit: int = 50):
-        with session_scope(engine) as session:
-            rows = search_articles(session, query=query, country=country, category=category, duplicates=duplicates, limit=limit)
-            return [
-                {
-                    'article_key': r.article_key,
-                    'title': r.title,
-                    'source_domain': r.source_domain,
-                    'country': r.country,
-                    'published_at': r.published_at,
-                    'market_relevance_score': r.market_relevance_score,
-                    'is_duplicate': r.is_duplicate,
-                    'dedup_reason': r.dedup_reason,
-                }
-                for r in rows
-            ]
-
-    @app.get('/api/events/search')
-    def api_search_events(query: str = '', country: str = '', topic: str = '', limit: int = 50):
-        with session_scope(engine) as session:
-            rows = search_events(session, query=query, country=country, topic=topic, limit=limit)
-            return [
-                {
-                    'event_key': r.event_key,
-                    'event_title': r.event_title,
-                    'topic': r.topic,
-                    'summary': r.summary,
-                    'article_count': r.article_count,
-                    'importance': r.importance,
-                    'last_seen_at': r.last_seen_at,
-                }
-                for r in rows
-            ]
+    from .news import register_news_routes
+    register_news_routes(app, engine)
 
     @app.get('/api/events/{event_key}')
     def api_get_event(event_key: str):
@@ -251,6 +219,7 @@ def create_app(*, db_url: str = 'sqlite:///runs_v7/news2douyin_v7.db', storage_r
             if not row:
                 raise HTTPException(status_code=404, detail='event not found')
             return {
+                **evidence_counts(session, event_key),
                 'event_key': row.event_key,
                 'event_title': row.event_title,
                 'topic': row.topic,

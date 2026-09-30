@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from typing import Any
 
+from sqlalchemy import func
 from sqlmodel import Session, select
 
-from ..storage.models import Event, ArticleEventLink, Article
+from ..storage.models import Event, ArticleEventLink, Article, ArticleVersion
 from ..storage.utils import loads
 
 
@@ -13,11 +14,20 @@ def build_editorial_pack(session: Session, event_key: str) -> dict[str, Any]:
     if not event:
         raise KeyError(f'event not found: {event_key}')
     # Stable source selection; a duplicate is not an independent corroboration.
-    articles = list(session.exec(
-        select(Article).join(ArticleEventLink, Article.article_key == ArticleEventLink.article_key)
+    # One read binds source text and revision; a concurrent collector cannot
+    # produce old text carrying a newer version/hash through separate queries.
+    latest = select(func.max(ArticleVersion.revision)).where(
+        ArticleVersion.article_key == Article.article_key).correlate(Article).scalar_subquery()
+    rows = list(session.exec(
+        select(Article, ArticleVersion)
+        .outerjoin(ArticleVersion, (ArticleVersion.article_key == Article.article_key) & (ArticleVersion.revision == latest))
+        .join(ArticleEventLink, Article.article_key == ArticleEventLink.article_key)
         .where(ArticleEventLink.event_key == event_key).distinct()
         .order_by(Article.is_duplicate, Article.published_at.desc(), Article.article_key).limit(10)
+        .execution_options(populate_existing=True)
     ))
+    articles = [article for article, _ in rows]
+    versions = {article.article_key: version for article, version in rows}
     sectors = loads(event.sectors_json, [])
     symbols = loads(event.symbols_json, [])
     bullets = []
@@ -31,6 +41,8 @@ def build_editorial_pack(session: Session, event_key: str) -> dict[str, Any]:
     return {
         'sources': [{'article_key': a.article_key, 'title': a.title, 'url': a.url,
                      'source_domain': a.source_domain, 'published_at': a.published_at,
+                     'article_revision': versions[a.article_key].revision if versions[a.article_key] else None,
+                     'article_content_hash': versions[a.article_key].content_hash if versions[a.article_key] else None,
                      'excerpt': (a.content or '')[:2000], 'is_duplicate': a.is_duplicate}
                     for a in articles],
         'event_key': event.event_key,

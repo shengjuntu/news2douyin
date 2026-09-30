@@ -18,7 +18,9 @@
   <div class="card"><div class="muted">过滤后</div><div class="num">{{ run.stats.get('after_filter', '—') }}</div>
     <div class="small muted">模式: {{ run.stats.get('filter_mode', '—') }}（llm=LLM过滤 / rules=规则）</div></div>
   <div class="card"><div class="muted">入库文章</div><div class="num">{{ run.stats.get('stored_articles', '—') }}</div></div>
-  <div class="card"><div class="muted">去重跳过</div><div class="num">{{ run.stats.get('duplicates', 0) }}</div></div>
+  <div class="card"><div class="muted">内容更新</div><div class="num">{{ run.stats.get('updated_articles', 0) }}</div></div>
+  <div class="card"><div class="muted">重复抓取（未变更）</div><div class="num">{{ run.stats.get('skipped_existing', 0) }}</div></div>
+  <div class="card"><div class="muted">转载/副本（已收录）</div><div class="num">{{ run.stats.get('duplicate_reports', run.stats.get('duplicates', 0) - run.stats.get('skipped_existing', 0)) }}</div></div>
   <div class="card"><div class="muted">新增事件</div><div class="num">{{ run.stats.get('events_delta', '—') }}</div></div>
 </div>
 

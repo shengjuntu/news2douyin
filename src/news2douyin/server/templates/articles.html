@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}新闻库 · news2douyin v7{% endblock %}
 {% block content %}
-<h1>新闻库 <span class="muted small">（显示前 {{ articles|length }} 条）</span></h1>
+<h1>新闻库 <span class="muted small">（共 {{ paging.total }} 条）</span></h1>
 <div class="card">
 <form method="get" action="/articles" class="row">
   <input name="q" value="{{ q }}" placeholder="关键词（标题/正文）" style="width:260px">
@@ -9,8 +9,10 @@
     <option value="">全部国家</option>
     {% for c in countries %}<option value="{{ c }}" {{ 'selected' if c==country }}>{{ c }}</option>{% endfor %}
   </select>
+  <select name="duplicates"><option value="any" {{ 'selected' if duplicates=='any' }}>全部报道</option><option value="no" {{ 'selected' if duplicates=='no' }}>独立报道</option><option value="yes" {{ 'selected' if duplicates=='yes' }}>转载或近似副本</option></select>
   <input name="category" value="{{ category }}" placeholder="分类 如 military" style="width:150px">
-  <input name="limit" value="{{ limit }}" style="width:70px" title="最多条数">
+  <input name="limit" value="{{ limit }}" style="width:70px" title="每页条数">
+  <select name="mode"><option value="contains" {{ 'selected' if mode=='contains' }}>连续文本</option><option value="terms" {{ 'selected' if mode=='terms' }}>全部关键词（空格分隔）</option></select>
   <button type="submit">搜索</button>
   <a href="/articles"><button type="button" class="ghost">重置</button></a>
 </form>
@@ -19,8 +21,8 @@
 <tr><th>标题</th><th>来源</th><th>国家</th><th>分类</th><th>情感</th><th>相关度</th><th>时间</th></tr>
 {% for a in articles %}
 <tr>
-  <td>{% if a.url %}<a href="{{ a.url }}" target="_blank">{{ a.title }}</a>{% else %}{{ a.title }}{% endif %}
-    {% if a.is_duplicate %}<span class="badge">重复</span>{% endif %}
+  <td><a href="/articles/{{ a.key }}">{{ a.title }}</a>
+    {% if a.is_duplicate %}<span class="badge">转载/副本</span>{% endif %}
     <div class="snippet">{{ a.snippet }}…</div></td>
   <td class="muted small">{{ a.domain }}</td>
   <td>{{ a.country }}</td>
@@ -33,4 +35,5 @@
 <tr><td colspan="7" class="muted">没有匹配的新闻</td></tr>
 {% endfor %}
 </table>
+{% include "pagination.html" %}
 {% endblock %}

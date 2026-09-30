@@ -8,7 +8,6 @@ from uuid import uuid4
 
 from loguru import logger
 from sqlalchemy import inspect
-from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from .profiles import PROFILE_FIELDS, normalize_profile_dict, load_profile_file
@@ -16,9 +15,10 @@ from .providers.mock import fetch_mock_news
 from .providers.worldnewsapi import fetch_news as fetch_worldnewsapi
 from ..dedup.service import decide_duplicate
 from ..enrich.service import enrich_item
-from ..storage.models import CollectProfile, RunRecord, Article, Event, ArticleEventLink, utc_now_iso
+from ..storage.models import CollectProfile, RunRecord, Article, Event, ArticleEventLink, ArticleIdentity, EventAssignment, ArticleVersion, CollectedObservation, utc_now_iso
+from ..storage.articles import lock_news, identity_key, find_article, record_version, latest_version
+from ..events.service import choose_event, refresh_event
 from ..storage.utils import dumps, loads
-from ..utils.hashing import stable_hash
 from ..store.io_jsonl import write_json, write_jsonl
 
 PROVIDERS = {
@@ -97,26 +97,6 @@ def _make_run_dir(storage_root: str | Path) -> Path:
     run_dir = Path(storage_root) / now.strftime('%Y-%m-%d') / f"run_{now.strftime('%H%M%S')}_{uuid4().hex}"
     run_dir.mkdir(parents=True, exist_ok=False)
     return run_dir
-
-
-def _select_event_key(session: Session, item: dict[str, Any], decision) -> str:
-    # Prefer the original article's persisted event. Never recalculate its event
-    # from a different (title vs. content) signature on a duplicate path.
-    chain = []
-    key = decision.duplicate_of_article_key
-    while key and key not in chain:
-        chain.append(key)
-        parent = session.exec(select(Article).where(Article.article_key == key)).first()
-        key = parent.duplicate_of_article_key if parent else None
-    for key in reversed(chain):
-        event = session.exec(
-            select(Event).join(ArticleEventLink, Event.event_key == ArticleEventLink.event_key)
-            .where(ArticleEventLink.article_key == key).order_by(Event.id)
-        ).first()
-        if event:
-            return event.event_key
-    country = (item.get('country') or 'us').lower()
-    return 'evt_' + stable_hash(country, decision.dedup_group_id, length=20)
 
 
 def _utc_timestamp(value: str, fallback: str) -> str:
@@ -212,7 +192,9 @@ def run_collection(session: Session, profile_name: str, *, storage_root: str | P
         stored_articles = []
         dup_count = 0
         skipped_existing = 0
+        updated_articles = 0
         created_events = 0
+        scope_id = control.task_id if control else run.run_key
 
         for index, item in enumerate(filtered):
             if control:
@@ -220,22 +202,18 @@ def run_collection(session: Session, profile_name: str, *, storage_root: str | P
                 if control.item_done(session, index):
                     continue
             item = enrich_item(dict(item), profile)
-            article_key = stable_hash(item.get('url',''), item.get('title',''), item.get('published_at',''), length=24)
-            if session.exec(select(Article).where(Article.article_key == article_key)).first() is not None:
-                # Already stored (re-fetched article): count as duplicate and skip
-                # re-insert to avoid a UNIQUE constraint crash on the deterministic key.
-                dup_count += 1
-                skipped_existing += 1
-                if control:
-                    control.fence(session)
-                    control.record_item(session, index, article_key, 'existing', duplicate=True)
-                    session.commit()
-                    control.progress('storing', index + 1, len(filtered))
-                continue
-            decision = decide_duplicate(session, item)
+            item['provider'] = provider
+            item['country'] = (item.get('country') or profile.get('country', 'us')).lower()
+            item['language'] = item.get('language') or profile.get('language', 'en')
+            item['published_at'] = _utc_timestamp(item.get('published_at'), '')
+            # External fetch/filter work finished before this short write lock.
+            lock_news(session)
             if control:
                 control.fence(session)
-            event_key = _select_event_key(session, item, decision)
+            existing = find_article(session, item)
+            article_key = existing.article_key if existing else identity_key(item)[:24]
+            decision = decide_duplicate(session, item, before_id=existing.id) if existing else decide_duplicate(session, item)
+            assignment = None if existing else choose_event(session, item, decision)
             row = Article(
                 article_key=article_key,
                 provider=provider,
@@ -265,50 +243,80 @@ def run_collection(session: Session, profile_name: str, *, storage_root: str | P
                 dedup_reason=decision.reason,
                 dedup_score=decision.score,
             )
-            try:
+            if existing:
+                # Legacy/directly inserted rows get an honest baseline first.
+                record_version(session, existing, origin='legacy_baseline')
+                session.flush()
+                changed = record_version(session, row, run_key=run.run_key)
+                if changed:
+                    for field in Article.model_fields:
+                        if field not in {'id', 'article_key', 'created_at'}:
+                            setattr(existing, field, getattr(row, field))
+                    session.add(existing)
+                    links = session.exec(select(ArticleEventLink).where(ArticleEventLink.article_key == article_key)).all()
+                    for link in links:
+                        link.relation_type = 'duplicate' if decision.is_duplicate else 'primary'
+                        session.add(link)
+                        refresh_event(session, link.event_key)
+                    updated_articles += 1
+                    stored_articles.append(existing)
+                    disposition = 'updated'
+                else:
+                    existing.fetched_at = row.fetched_at
+                    session.add(existing)
+                    skipped_existing += 1
+                    dup_count += 1
+                    disposition = 'existing'
+                if control:
+                    control.record_item(session, index, article_key, disposition,
+                                        duplicate=decision.is_duplicate if changed else True)
+                if changed and decision.is_duplicate:
+                    dup_count += 1
+            else:
+                disposition = 'stored'
                 session.add(row)
                 session.flush()
-                session.add(ArticleEventLink(article_key=article_key, event_key=event_key, relation_type='duplicate' if decision.is_duplicate else 'primary'))
-                event = _upsert_event(session, item, event_key)
+                session.add(ArticleIdentity(identity_key=identity_key(item), article_key=article_key))
+                record_version(session, row, run_key=run.run_key)
+                session.add(ArticleEventLink(article_key=article_key, event_key=assignment.event_key,
+                            relation_type='duplicate' if decision.is_duplicate else 'primary'))
+                event = _upsert_event(session, item, assignment.event_key)
                 is_new_event = event.id is None
+                refresh_event(session, assignment.event_key)
+                session.add(EventAssignment(article_key=article_key, event_key=assignment.event_key,
+                            reason=assignment.reason, score=assignment.score,
+                            matched_article_key=assignment.matched_article_key))
                 if control:
                     control.record_item(session, index, article_key, 'stored', decision.is_duplicate, is_new_event)
-                session.commit()
-            except IntegrityError:
-                session.rollback()
-                # Another collector can win the deterministic article-key race.
-                # Only suppress that known race, never unrelated DB failures.
-                if session.exec(select(Article).where(Article.article_key == article_key)).first() is None:
-                    raise
-                dup_count += 1
-                skipped_existing += 1
-                if control:
-                    control.fence(session)
-                    control.record_item(session, index, article_key, 'existing', duplicate=True)
-                    session.commit()
-                    control.progress('storing', index + 1, len(filtered))
-                continue
-            created_events += int(is_new_event)
-            if decision.is_duplicate:
-                dup_count += 1
-            stored_articles.append(row)
+                created_events += int(is_new_event)
+                dup_count += int(decision.is_duplicate)
+                stored_articles.append(row)
+            session.flush()
+            version = latest_version(session, article_key)
+            session.add(CollectedObservation(observation_key=f'{scope_id}:{index}', scope_id=scope_id,
+                        input_index=index, article_key=article_key, revision=version.revision,
+                        disposition=disposition))
+            session.commit()
             if control:
                 control.progress('storing', index + 1, len(filtered))
 
         if control:
             ledger = control.items(session)
             stored_articles = [session.exec(select(Article).where(Article.article_key == entry.article_key)).one()
-                               for entry in ledger if entry.disposition == 'stored']
+                               for entry in ledger if entry.disposition in {'stored', 'updated'}]
             dup_count = sum(entry.is_duplicate for entry in ledger)
             skipped_existing = sum(entry.disposition == 'existing' for entry in ledger)
+            updated_articles = sum(entry.disposition == 'updated' for entry in ledger)
             created_events = sum(entry.event_created for entry in ledger)
             control.progress('exporting', len(filtered), len(filtered))
         stats = {
             'fetched': len(raw_items),
             'after_filter': len(filtered),
             'filter_mode': filter_mode,
-            'stored_articles': len(stored_articles),
+            'stored_articles': len(stored_articles) - updated_articles,
+            'updated_articles': updated_articles,
             'duplicates': dup_count,
+            'duplicate_reports': dup_count - skipped_existing,
             'skipped_existing': skipped_existing,
             'events_delta': created_events,
             'provider': provider,
@@ -316,7 +324,12 @@ def run_collection(session: Session, profile_name: str, *, storage_root: str | P
         }
         if control:
             control.fence(session)
-        write_jsonl(run_dir / 'articles.jsonl', [json.loads(a.raw_json) for a in stored_articles])
+        snapshots = session.exec(select(ArticleVersion.payload_json)
+            .join(CollectedObservation, (CollectedObservation.article_key == ArticleVersion.article_key) &
+                  (CollectedObservation.revision == ArticleVersion.revision))
+            .where(CollectedObservation.scope_id == scope_id, CollectedObservation.disposition.in_(['stored', 'updated']))
+            .order_by(CollectedObservation.input_index)).all()
+        write_jsonl(run_dir / 'articles.jsonl', [json.loads(value)['raw'] for value in snapshots])
         write_json(run_dir / 'meta.json', {'run_key': run_key, 'stats': stats, 'profile': profile, 'status': 'succeeded'})
         run.status = 'succeeded'
         run.finished_at = utc_now_iso()

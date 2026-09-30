@@ -13,7 +13,7 @@ STOPWORDS = {
     '今日','今天','最新','消息','称','表示','报道','记者','日讯','快讯','市场','公司',
 }
 TRACKING_KEYS = {'utm_source','utm_medium','utm_campaign','utm_term','utm_content','spm','fbclid','gclid'}
-MIN_CONTENT_CHARS = 160
+MIN_CONTENT_CHARS = 80
 CJK_RUN_RE = re.compile(r'[\u4e00-\u9fff]+')
 _TITLE_SUFFIX_RE = re.compile(r'(?:_[\u4e00-\u9fffA-Za-z0-9]*|-[一-鿿]+)+$')
 

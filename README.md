@@ -1,8 +1,10 @@
 
 
-# news2douyin 0.4.1 — V7 server-first
+# news2douyin 0.5.0 — V7 server-first
 
 This repository now includes a V7 implementation focused on a long-running client/server workflow for market-impression news collection.
+
+Version 0.5.0 adds immutable article versions, independent-report event grouping, and SQLite FTS5 search with pagination. See [release notes and upgrade steps](docs/release-0.5.0.md).
 
 Version 0.4.1 adds a handoff guide and paired demo bundles for RunDesk Video App 0.3.0. See [cross-app handoff](docs/release-0.4.1.md).
 

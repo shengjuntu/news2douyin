@@ -5,6 +5,7 @@ import time
 from typing import Optional
 
 from sqlmodel import SQLModel, Field
+from sqlalchemy import UniqueConstraint
 
 
 def utc_now_iso() -> str:
@@ -134,6 +135,47 @@ class ArticleEventLink(SQLModel, table=True):
     article_key: str = Field(index=True)
     event_key: str = Field(index=True)
     relation_type: str = Field(default='primary', index=True)
+
+
+class NewsWriteLock(SQLModel, table=True):
+    """Serialize short collection writes, including synchronous collectors."""
+    name: str = Field(primary_key=True)
+    generation: int = 0
+
+
+class ArticleIdentity(SQLModel, table=True):
+    identity_key: str = Field(primary_key=True)
+    article_key: str = Field(index=True)
+
+
+class ArticleVersion(SQLModel, table=True):
+    __table_args__ = (UniqueConstraint('article_key', 'revision'),)
+    id: Optional[int] = Field(default=None, primary_key=True)
+    article_key: str = Field(index=True)
+    revision: int
+    content_hash: str = Field(index=True)
+    payload_json: str
+    origin: str = 'collected'
+    run_key: Optional[str] = None
+    observed_at: str = Field(default_factory=utc_now_iso)
+
+
+class EventAssignment(SQLModel, table=True):
+    article_key: str = Field(primary_key=True)
+    event_key: str = Field(index=True)
+    reason: str
+    score: float = 0
+    matched_article_key: Optional[str] = None
+    created_at: str = Field(default_factory=utc_now_iso)
+
+
+class CollectedObservation(SQLModel, table=True):
+    observation_key: str = Field(primary_key=True)
+    scope_id: str = Field(index=True)
+    input_index: int
+    article_key: str = Field(index=True)
+    revision: int
+    disposition: str
 
 
 class ScriptPackage(SQLModel, table=True):

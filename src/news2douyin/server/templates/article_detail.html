@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}{{ document.title }} · 文章版本{% endblock %}
+{% block content %}
+<p><a href="/articles">← 新闻库</a></p>
+<h1>{{ document.title }}</h1>
+<div class="row muted small">
+  <span>当前查看 r{{ selected.revision }} / 最新 r{{ current.revision }}</span>
+  <span>收录版本时间：{{ fmt_ts(selected.observed_at) }}</span>
+  <span>原文发布时间：{{ fmt_ts(document.published_at) }}</span>
+  <span>来源：{{ document.source_domain }}</span>
+  {% if document.url | safe_url %}<a href="{{ document.url | safe_url }}" target="_blank" rel="noopener noreferrer">打开原文</a>{% endif %}
+</div>
+{% if selected.origin == 'legacy_baseline' %}<p class="muted">这是升级时保留的旧库快照，不能据此还原更早的原文修改历史。</p>{% endif %}
+<p class="small muted">原文随后更新不会改写已保存的版本或历史审核稿。版本按本系统观察到的顺序编号。</p>
+<div class="card" style="white-space:pre-wrap;overflow-wrap:anywhere">{{ document.content }}</div>
+{% if diff %}<h2>与上一个版本的正文差异</h2><pre style="white-space:pre-wrap;overflow-wrap:anywhere">{{ diff }}</pre>{% endif %}
+<h2>版本记录（{{ history.total }}）</h2>
+<table><tr><th>版本</th><th>观察时间</th><th>类型</th><th>内容校验值</th></tr>
+{% for v in history['items'] %}<tr><td><a href="/articles/{{ article.article_key }}?revision={{ v.revision }}&amp;offset={{ history.offset }}">r{{ v.revision }}</a></td><td>{{ fmt_ts(v.observed_at) }}</td><td>{{ '旧库快照' if v.origin == 'legacy_baseline' else '采集' }}</td><td class="small">{{ v.content_hash[:16] }}…</td></tr>{% endfor %}
+</table>
+<div class="row" style="margin-top:12px">
+{% if history.offset %}<a href="?revision={{ selected.revision }}&amp;offset={{ [0, history.offset - history.limit]|max }}">上一页</a>{% endif %}
+{% if history.offset + history.limit < history.total %}<a href="?revision={{ selected.revision }}&amp;offset={{ history.offset + history.limit }}">下一页</a>{% endif %}
+</div>
+{% endblock %}
