@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}脚本工作台 · news2douyin{% endblock %}
+{% block content %}
+<h1>脚本工作台</h1>
+<p class="muted">从<a href="/daily">每日选题</a>勾选新闻并生成脚本，在这里编辑口播、核对来源、审核和导出制作包。{% if event_key %}当前事件：{{ event_key }} · <a href="/scripts">查看全部</a>{% endif %}</p>
+{% set names = {'draft':'草稿','in_review':'待审核','approved':'已通过','legacy':'旧版脚本'} %}
+<table>
+<tr><th>脚本</th><th>状态</th><th>版本</th><th>事件</th><th>最后更新</th></tr>
+{% for s in scripts %}
+<tr><td><a href="/scripts/{{ s.package_key }}">{{ s.title or s.package_key }}</a></td><td><span class="badge {{ 'ok' if s.status=='approved' else '' }}">{{ names.get(s.status,s.status) }}</span></td><td>{{ 'r' ~ s.revision if s.revision else '未启用版本管理' }}</td><td><a href="/events/{{ s.event_key }}">相关报道</a></td><td>{{ fmt_ts(s.updated_at) }}</td></tr>
+{% else %}<tr><td colspan="5"><p>还没有脚本。先采集新闻，再选择 1–3 条，点击“生成所选脚本”。</p><a href="/daily">去每日选题 →</a></td></tr>{% endfor %}
+</table>
+<p class="muted small">最多显示最近 100 个脚本。</p>
+{% endblock %}

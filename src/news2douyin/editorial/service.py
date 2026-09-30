@@ -1,0 +1,63 @@
+from __future__ import annotations
+
+from typing import Any
+
+from sqlalchemy import func
+from sqlmodel import Session, select
+
+from ..storage.models import Event, ArticleEventLink, Article, ArticleVersion
+from ..storage.utils import loads
+
+
+def build_editorial_pack(session: Session, event_key: str, *, article_keys=None) -> dict[str, Any]:
+    event = session.exec(select(Event).where(Event.event_key == event_key)).first()
+    if not event:
+        raise KeyError(f'event not found: {event_key}')
+    # Stable source selection; a duplicate is not an independent corroboration.
+    # One read binds source text and revision; a concurrent collector cannot
+    # produce old text carrying a newer version/hash through separate queries.
+    latest = select(func.max(ArticleVersion.revision)).where(
+        ArticleVersion.article_key == Article.article_key).correlate(Article).scalar_subquery()
+    statement = (
+        select(Article, ArticleVersion)
+        .outerjoin(ArticleVersion, (ArticleVersion.article_key == Article.article_key) & (ArticleVersion.revision == latest))
+        .join(ArticleEventLink, Article.article_key == ArticleEventLink.article_key)
+        .where(ArticleEventLink.event_key == event_key).distinct())
+    if article_keys is not None:
+        statement = statement.where(Article.article_key.in_(article_keys))
+    rows = list(session.exec(statement.order_by(Article.is_duplicate, Article.published_at.desc(), Article.article_key)
+                             .limit(10).execution_options(populate_existing=True)))
+    articles = [article for article, _ in rows]
+    versions = {article.article_key: version for article, version in rows}
+    sectors = loads(event.sectors_json, [])
+    symbols = loads(event.symbols_json, [])
+    bullets = []
+    for art in articles[:3]:
+        bullets.append(f"- {art.title}")
+    market_view = '偏中性，需结合盘面强弱再判断。'
+    if event.sentiment == 'positive':
+        market_view = '偏情绪利多，关注高开后的承接质量。'
+    elif event.sentiment == 'negative':
+        market_view = '偏情绪利空，注意低开后是否出现修复。'
+    return {
+        'sources': [{'article_key': a.article_key, 'title': a.title, 'url': a.url,
+                     'source_domain': a.source_domain, 'published_at': a.published_at,
+                     'article_revision': versions[a.article_key].revision if versions[a.article_key] else None,
+                     'article_content_hash': versions[a.article_key].content_hash if versions[a.article_key] else None,
+                     'excerpt': (a.content or '')[:2000], 'is_duplicate': a.is_duplicate}
+                    for a in articles],
+        'event_key': event.event_key,
+        'event_title': articles[0].title if article_keys and articles else event.event_title,
+        'topic': event.topic,
+        'summary': event.summary,
+        'market_view': market_view,
+        'angles': [
+            '先看是否存在直接交易映射，而不是泛新闻热度。',
+            '区分情绪催化与基本面兑现节奏。',
+            '优先观察龙头股和板块强度是否共振。',
+        ],
+        'symbols': symbols,
+        'sectors': sectors,
+        'supporting_headlines': [a.title for a in articles[:5]],
+        'bullet_text': '\n'.join(bullets),
+    }

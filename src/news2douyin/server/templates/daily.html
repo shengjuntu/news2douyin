@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}每日选题 · news2douyin{% endblock %}
+{% block content %}
+<style>
+.daily-head{display:flex;justify-content:space-between;align-items:start;gap:16px}.flow{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0 24px}.flow span{background:#202635;padding:8px 14px;border-radius:6px}.flow .current{color:#59d9d0;border:1px solid #29736c}.daily-layout{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:16px;margin-top:16px}.pick-tray{position:sticky;top:78px;align-self:start}.news-item{display:flex;gap:14px;padding:18px 0;border-bottom:1px solid #293040}.news-item:last-child{border:0}.news-item input{width:18px;height:18px;accent-color:#fe2c55;flex-shrink:0}.news-title{font-size:16px;line-height:1.5;color:#ecedf4}.news-item p{line-height:1.65;color:#a7b0c3;margin:8px 0}.selection-item{padding:12px 0;border-bottom:1px solid #293040}.selection-item p{margin:5px 0;line-height:1.5}.empty{padding:24px 4px;line-height:1.9}.pick-tray select,.pick-tray button.build{width:100%;margin-top:10px}#notice{white-space:pre-wrap;color:#fbbf24;line-height:1.7}.small-button{font-size:12px;padding:4px 8px}@media(max-width:800px){.daily-layout{grid-template-columns:1fr}.pick-tray{position:static}.daily-head{display:block}}
+</style>
+<div class="daily-head"><div><h1>每日选题</h1><p class="muted">每天挑 1–3 条值得讲的新闻，把选题变成脚本。</p></div><a href="/profiles#schedules">设置每日自动采集 →</a></div>
+<div class="flow"><span class="current">1 采集新闻</span><span class="current">2 选择选题</span><span>3 生成与编辑脚本</span><span>4 制作视频与导出</span></div>
+<div class="card">
+<form method="post" action="/webui/run-now" class="row">
+  <label>采集日期 <input type="date" name="date_str" value="{{ day }}" required></label>
+  <label>策略 <select name="profile_name" required>{% for p in enabled_profiles %}<option value="{{ p.name }}" {{ 'selected' if p.name==profile_name }}>{{ p.name }}{{ ' · 演示数据' if p.provider=='mock' else '' }}</option>{% endfor %}</select></label>
+  <input type="hidden" name="timezone" value="{{ timezone }}">
+  <button type="submit" {{ 'disabled' if not enabled_profiles }}>采集所选日期</button><a href="/profiles">管理采集策略</a>
+</form>
+<p class="muted small">日期按 {{ timezone }}；向新闻源明确请求这个日期，不会把昨天的结果当成今天。采集后在任务页点击“选择本次新闻”。{% if not enabled_profiles %}请先<a href="/profiles">新建或启用策略</a>；可选“演示数据”验证完整流程。{% endif %}</p>
+</div>
+<div class="daily-layout"><section>
+<form method="get" action="/daily" class="row card">
+  <label>选题日期 <input type="date" name="day" value="{{ day }}" required></label>
+  <select name="time_field" aria-label="日期依据"><option value="collected" {{ 'selected' if time_field=='collected' }}>这一天采集的新闻</option><option value="published" {{ 'selected' if time_field=='published' }}>这一天发布的新闻</option></select>
+  <input name="q" value="{{ q }}" placeholder="搜索标题或正文" style="width:190px" aria-label="搜索新闻">
+  <select name="profile_name" aria-label="筛选策略"><option value="">全部策略</option>{% for p in profiles %}<option value="{{ p.name }}" {{ 'selected' if p.name==profile_name }}>{{ p.name }}</option>{% endfor %}</select>
+  <input type="hidden" name="timezone" value="{{ timezone }}">
+  {% if task_id %}<input type="hidden" name="task_id" value="{{ task_id }}">{% endif %}
+  <button type="submit" class="ghost">筛选</button><a href="/daily">今天</a>
+</form>
+{% if task %}<p class="muted">正在查看本次采集的 {{ paging.total }} 条新闻（含重复抓取）；不按发布日期排除。任务状态：{{ task.status }} · <a href="/tasks/{{ task_id }}">查看进度</a> · <a href="/daily?day={{ day }}&timezone={{ timezone|urlencode }}">返回当日列表</a></p>{% else %}<p class="muted">{{ day }} · 共 {{ paging.total }} 条 · {{ timezone }}</p>{% endif %}
+<div class="card" id="candidates">
+{% for a in articles %}<article class="news-item">
+<input type="checkbox" class="choose-news" data-key="{{ a.key }}" aria-label="选择 {{ a.title }}">
+<div><a class="news-title" href="/articles/{{ a.key }}">{{ a.title }}</a>{% if a.provider=='mock' %} <span class="badge warn">演示数据</span>{% endif %}{% if a.is_duplicate %} <span class="badge">转载/副本</span>{% endif %}
+<p>{{ a.snippet }}{% if a.snippet|length>=220 %}…{% endif %}</p><div class="muted small">{{ a.domain }} · 发布于 {{ a.published_at|local_ts(timezone) }}（{{ timezone }}） · <a href="/articles/{{ a.key }}">阅读与来源</a></div></div>
+</article>{% else %}<div class="empty"><strong>当前条件下还没有新闻。</strong><p class="muted">先选择上方策略采集，完成后返回选题；也可以切换日期、清除搜索词，或到<a href="/articles">新闻库</a>查找。当天新闻源尚未提供数据时会显示 0 条。</p></div>{% endfor %}
+</div>
+{% include "pagination.html" %}
+</section><aside class="card pick-tray">
+<h2 style="margin-top:0">{{ day }} 已选 <span id="pick-count">0</span> 条</h2><p class="muted small">选择会自动保存，切换页面或刷新后仍在。每条选题生成一份脚本，建议每天 1–3 条。</p>
+<div id="picked"></div>
+<label for="generation-mode">生成方式</label><select id="generation-mode"><option value="basic">基础摘录稿（不需要模型）</option><option value="llm">AI 中文初稿（需要模型连接）</option></select>
+<p class="muted small">基础稿保留原文语言；AI 稿根据所选原文写中文口播。两者均保留来源快照，之后可编辑、审核和导出。</p>
+<button type="button" id="build-picks" class="build">生成所选脚本</button><p id="notice" role="status" aria-live="polite"></p>
+<p><a href="/scripts">进入脚本工作台 →</a></p>
+</aside></div>
+<script>
+const selectionScope={day:{{ day|tojson }},timezone:{{ timezone|tojson }}};
+let picks={{ picks|tojson }},busy=false;
+const notice=document.getElementById('notice');
+const statusNames={selected:'待生成',draft:'草稿',in_review:'待审核',approved:'已通过'};
+async function api(url,body){const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const d=await r.json();if(!r.ok)throw new Error(typeof d.detail==='string'?d.detail:JSON.stringify(d.detail));return d;}
+function renderPicks(){
+ document.getElementById('pick-count').textContent=picks.length;
+ const list=document.getElementById('picked');list.replaceChildren();
+ if(!picks.length){const p=document.createElement('p');p.className='muted empty';p.textContent='勾选左侧新闻，开始今天的选题。';list.append(p);}
+ for(const pick of picks){const box=document.createElement('div');box.className='selection-item';const p=document.createElement('p');p.textContent=pick.title;box.append(p);const row=document.createElement('div');row.className='row';const status=document.createElement('span');status.className='badge';status.textContent=statusNames[pick.status]||pick.status;row.append(status);if(pick.package_key){const a=document.createElement('a');a.href='/scripts/'+encodeURIComponent(pick.package_key);a.textContent='打开脚本';row.append(a);}const remove=document.createElement('button');remove.type='button';remove.className='ghost small-button';remove.textContent='移出选题';remove.disabled=busy;remove.onclick=()=>selectNews(pick.article_key,false);row.append(remove);box.append(row);list.append(box);}
+ for(const c of document.querySelectorAll('.choose-news')){if(!busy)c.checked=picks.some(p=>p.article_key===c.dataset.key);c.disabled=busy;}
+ document.getElementById('generation-mode').disabled=busy;
+ document.getElementById('build-picks').disabled=busy||!picks.length;
+}
+async function selectNews(key,active){busy=true;renderPicks();try{picks=await api('/api/daily/selections',{...selectionScope,article_key:key,active});notice.textContent='';}catch(e){notice.textContent=e.message;}finally{busy=false;renderPicks();}}
+for(const c of document.querySelectorAll('.choose-news'))c.onchange=()=>selectNews(c.dataset.key,c.checked);
+document.getElementById('build-picks').onclick=async()=>{
+ const mode=document.getElementById('generation-mode').value,chosen=[...picks],errors=[],built=[];busy=true;renderPicks();
+ for(let i=0;i<chosen.length;i++){const pick=chosen[i];notice.textContent=`正在生成 ${i+1}/${chosen.length}：${pick.title}`;try{const result=await api('/api/daily/selections/'+encodeURIComponent(pick.selection_key)+'/build',{mode});pick.package_key=result.package_key;pick.status=pick.status==='selected'?'draft':pick.status;built.push(result.package_key);}catch(e){errors.push(pick.title+'：'+e.message);}}
+ busy=false;renderPicks();notice.textContent=`已就绪 ${built.length} 份脚本。`+(errors.length?'\n'+errors.join('\n'):'点击“打开脚本”继续编辑。');
+ if(chosen.length===1&&built.length===1)location.href='/scripts/'+encodeURIComponent(built[0]);
+};
+renderPicks();
+</script>
+{% endblock %}

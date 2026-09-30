@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}{{ '试跑' if report.stats.dry_run else '采集' }}诊断 · news2douyin{% endblock %}
+{% block content %}
+{% set task=report.task %}{% set stats=report.stats %}{% set d=stats.get('diagnostics',{}) %}
+<h1>{{ '策略试跑' if stats.dry_run else '采集' }}诊断</h1>
+<p class="muted">{{ task.profile_name }} · {{ task.collection_date }} · {{ task.timezone }} · {{ {'queued':'排队中','running':'运行中','succeeded':'已完成','failed':'失败','cancelled':'已取消','cancel_requested':'正在取消'}.get(task.status,task.status) }}</p>
+<p class="row"><a href="/profiles?selected={{ task.profile_name|urlencode }}">返回策略与计划</a><a href="/tasks/{{ task.task_id }}">查看进度 / 取消 / 重试</a><a href="/tasks/{{ task.task_id }}/diagnostics">刷新</a>{% if task.kind=='collect' %}<a href="/daily?task_id={{ task.task_id }}&day={{ task.collection_date }}&timezone={{ task.timezone|urlencode }}">选择本次新闻</a>{% endif %}</p>
+<div class="card" id="diagnostic-summary" role="status"><strong>{{ report.summary }}</strong>{% for code in d.get('fallbacks',[]) %}<p class="badge warn">{{ report.fallbacks.get(code,code) }}</p>{% endfor %}</div>
+{% if task.error_text %}<details style="margin:12px 0"><summary>任务错误详情</summary><pre>{{ task.error_text }}</pre></details>{% endif %}
+{% if d %}
+<h2>每一步留下多少新闻</h2><div class="grid">
+{% for label,value in [('取得新闻',d.fetched),('通过来源与排除词',d.after_hard_filter),('通过相关性筛选',d.kept)] %}<div class="card"><div class="muted">{{ label }}</div><div class="num">{{ value }}</div></div>{% endfor %}
+{% if not stats.dry_run %}<div class="card"><div class="muted">新增 / 内容更新 / 重复抓取</div><div class="num">{{ stats.get('stored_articles',0) }} / {{ stats.get('updated_articles',0) }} / {{ stats.get('skipped_existing',0) }}</div></div>{% endif %}
+</div><h2>保留与过滤原因</h2><table><tr><th>原因</th><th>条数</th></tr>{% for reason,count in d.counts.items() %}<tr><td>{{ report.reasons.get(reason,reason) }}</td><td>{{ count }}</td></tr>{% else %}<tr><td colspan="2">新闻源没有返回样本。</td></tr>{% endfor %}</table>
+<p class="muted small">每条按首个实际生效的原因计数，合计等于取得新闻数。AI 的判断反映相关性，不代表新闻事实已被核实。</p>
+<h2>样本明细</h2><p class="muted small">展示本次输入中前 {{ d.sample_limit }} 条；计数覆盖全部取得的新闻。试跑不执行文章去重，也不生成事件、脚本或视频。</p><table><tr><th>新闻</th><th>结果</th><th>原因</th></tr>{% for sample in d.samples %}<tr><td>{{ sample.title }}</td><td>{{ '保留' if sample.kept else '过滤' }}</td><td>{{ report.reasons.get(sample.reason,sample.reason) }}</td></tr>{% else %}<tr><td colspan="3">没有样本。</td></tr>{% endfor %}</table>
+{% else %}<p class="muted">暂无已完成的筛选统计。任务仍在进行时，此页每 3 秒刷新。</p>{% endif %}
+<h2>本次使用的策略配置</h2><p class="muted small">编辑当前策略不会改变这个任务。试跑失败后“重试”复用已保存步骤；修改策略后要发起新的试跑。</p>
+<table><tr><th>设置</th><th>本次值</th></tr>
+{% for key,label in [('provider','新闻源'),('country','国家'),('language','语言'),('max_items','最多条数'),('categories','关注分类'),('keywords_include','关注关键词'),('keywords_exclude','排除关键词'),('source_whitelist','来源白名单'),('source_blacklist','来源黑名单')] %}
+{% set value=report.profile.get(key) %}<tr><td>{{ label }}</td><td>{% if value is sequence and value is not string %}{{ value|join('，') if value else '未限制' }}{% else %}{{ value or '未设置' }}{% endif %}</td></tr>{% endfor %}</table>
+{% if task.status in ['queued','running','cancel_requested'] %}<script>setTimeout(()=>location.reload(),3000);</script>{% endif %}
+{% endblock %}

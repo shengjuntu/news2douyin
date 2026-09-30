@@ -1,0 +1,22 @@
+{
+  "checks": [
+    "filtered_total",
+    "next_page",
+    "immutable_original",
+    "latest_revision",
+    "version_history",
+    "source_counts",
+    "related_article_fulltext",
+    "multi_term",
+    "legacy_array_api",
+    "article_page_resource",
+    "event_page_resource",
+    "pagination_resource",
+    "script_article_revision",
+    "versioned_source_export"
+  ],
+  "passed": 14,
+  "article_key": "ed8a8a1c68a072ecf83ee71e",
+  "event_key": "evt_3eb30c83e5d444488e33",
+  "scope": "offline fixture; no real news/LLM calls"
+}

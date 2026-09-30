@@ -1,0 +1,14 @@
+{
+  "status": "passed",
+  "version": "0.7.0",
+  "passed": 7,
+  "checks": [
+    "installed_trial_diagnostics_no_news_writes",
+    "installed_schedule_preview",
+    "installed_lifecycle_guards",
+    "installed_templates_and_preserved_history",
+    "upgrade_0_6_profile_and_schedule_preserved",
+    "upgrade_0_6_news_selection_script_and_task_preserved",
+    "upgrade_0_6_history_and_script_readable"
+  ]
+}

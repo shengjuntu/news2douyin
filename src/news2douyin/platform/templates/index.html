@@ -1,0 +1,23 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>news2douyin platform</title>
+<style>
+body { font-family: system-ui, sans-serif; margin: 24px; }
+.card { border: 1px solid #ddd; border-radius: 10px; padding: 12px 14px; margin: 10px 0; }
+a { text-decoration: none; }
+.small { color: #666; font-size: 12px; }
+</style></head>
+<body>
+<h1>news2douyin platform</h1>
+<p><a href="/dashboard">Dashboard</a></p>
+<p class="small">Runs collected from client terminals.</p>
+{% for r in runs %}
+<div class="card">
+  <div><a href="/run/{{r.id}}"><b>{{r.run_key}}</b></a></div>
+  <div class="small">{{r.created_at}} | {{r.title}}</div>
+  <div>{{r.note}}</div>
+</div>
+{% else %}
+<p>No runs yet.</p>
+{% endfor %}
+</body></html>

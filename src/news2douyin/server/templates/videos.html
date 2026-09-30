@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}视频制作 · news2douyin{% endblock %}
+{% block content %}
+<h1>视频与成片</h1><p class="muted">这里保留制作任务和已完成的视频，可预览与下载。在<a href="/scripts">脚本工作台</a>审核通过后，点击“制作视频”开始。</p>
+<div class="card"><strong>制作流程</strong><p>选择并生成脚本 → 编辑与核对来源 → 提交并通过审核 → 选择配音和素材 → 生成视频 → 预览、导出 MP4。</p><p class="muted small">当前提供基础竖屏卡片视频，需要 FFmpeg、视频依赖与可用配音；制作页面会检查环境。</p><a href="/scripts">选择脚本开始制作 →</a></div><br>
+<table><tr><th>任务</th><th>脚本版本</th><th>状态</th><th>阶段</th><th>提交时间</th></tr>
+{% for v in videos %}<tr><td><a href="/videos/{{ v.task.task_id }}">{{ v.task.task_id[:12] }}</a></td><td><a href="/scripts/{{ v.package_key }}">{{ v.package_key[-8:] }} · r{{ v.revision }}</a></td><td>{{ v.task.status }}</td><td>{{ v.task.stage }}</td><td>{{ fmt_ts(v.task.created_at) }}</td></tr>
+{% else %}<tr><td colspan="5">还没有视频任务。<a href="/daily">从今天的新闻开始</a>，或<a href="/scripts">继续已有脚本</a>。</td></tr>{% endfor %}</table>
+{% endblock %}

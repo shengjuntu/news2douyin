@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}{{ ev.title }} · news2douyin v7{% endblock %}
+{% block content %}
+<h1>{{ ev.title }} <span class="badge {{ 'pos' if ev.sentiment=='positive' else ('neg' if ev.sentiment=='negative' else '') }}">{{ ev.sentiment }}</span></h1>
+<div class="row small muted">
+  <span>主题: {{ ev.topic }}</span>
+  <span>范围: {{ ev.market_scope }}</span>
+  <span>文章数: {{ ev.article_count }}</span>
+  <span>独立报道: {{ ev.independent_article_count }} · 来源域名: {{ ev.source_domain_count }} · 转载/副本: {{ ev.duplicate_article_count }}</span>
+  <span>重要度: {{ '%.2f' % ev.importance }}</span>
+  <span>报道最早时间: {{ fmt_ts(ev.first_seen_at) }}</span>
+  <span>报道最近时间: {{ fmt_ts(ev.last_seen_at) }}</span>
+  <a href="/events">← 返回事件列表</a>
+</div>
+<p class="muted small">这是关联报道的集合；以上范围来自报道时间，缺失时回退到抓取时间，不代表已核实的事件发生时间。</p>
+{% if ev.sectors or ev.symbols or ev.countries %}
+<div class="row" style="margin-top:8px">
+  {% for s in ev.sectors %}<span class="badge cat">{{ s }}</span>{% endfor %}
+  {% for s in ev.symbols %}<span class="badge">{{ s }}</span>{% endfor %}
+  {% for c in ev.countries %}<span class="badge">{{ c }}</span>{% endfor %}
+</div>
+{% endif %}
+
+<div class="card" style="margin-top:18px">
+  <form action="/webui/scripts/build" method="post" class="inline">
+    <input type="hidden" name="event_key" value="{{ ev.key }}">
+    <button type="submit">生成脚本草稿</button>
+    <a href="/scripts?event_key={{ ev.key | urlencode }}">查看此事件的脚本</a>
+    <span class="muted small">从收录资料生成模板草稿，可编辑、审核后导出。</span>
+  </form>
+  {% if scripts %}<p class="small">最近脚本：{% for s in scripts %}<a href="/scripts/{{ s.package_key }}">{{ s.package_key[-8:] }} · r{{ s.revision }} · {{ s.status }}</a> {% endfor %}</p>{% endif %}
+</div>
+<h2>摘要</h2>
+<div class="card">{{ ev.summary or '—' }}</div>
+
+<p class="small muted">归并依据是文本规则，仍需人工核对；不同域名不代表完全独立的事实证据。</p>
+<h2>相关新闻（{{ articles|length }}）</h2>
+<table>
+<tr><th>标题</th><th>来源</th><th>分类</th><th>情感</th><th>关系</th><th>时间</th></tr>
+{% for a in articles %}
+<tr>
+  <td>{% if a.url | safe_url %}<a href="{{ a.url | safe_url }}" target="_blank" rel="noopener noreferrer">{{ a.title }}</a>{% else %}{{ a.title }}{% endif %}
+    <div class="snippet">{{ a.snippet }}…</div><a class="small" href="/articles/{{ a.key }}">查看内容版本</a></td>
+  <td class="muted small">{{ a.domain }}</td>
+  <td>{% for c in a.categories %}<span class="badge cat">{{ c }}</span> {% endfor %}</td>
+  <td><span class="badge {{ 'pos' if a.sentiment=='positive' else ('neg' if a.sentiment=='negative' else '') }}">{{ a.sentiment }}</span></td>
+  <td class="muted small">{{ '转载/副本' if a.relation=='duplicate' else '独立报道' }}<div class="small">{{ '独立报道规则关联' if a.assignment=='independent_report_rule_v1' else ('跟随转载原文' if a.assignment=='republication' else ('新事件' if a.assignment=='new_event' else '历史关联')) }}</div></td>
+  <td class="small">{{ (a.published_at or '')[:16] }}</td>
+</tr>
+{% else %}
+<tr><td colspan="6" class="muted">没有关联文章</td></tr>
+{% endfor %}
+</table>
+{% endblock %}

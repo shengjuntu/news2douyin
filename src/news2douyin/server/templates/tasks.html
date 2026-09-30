@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}后台任务 · news2douyin{% endblock %}
+{% block content %}
+<h1>后台任务</h1>
+<p class="muted">后台执行器：{{ '运行中' if worker_running else '已停止' }} · 最近 100 条任务 · <a href="/tasks">刷新</a></p>
+<table>
+<tr><th>任务</th><th>配置 / 脚本</th><th>状态</th><th>阶段</th><th>进度</th><th>尝试次数</th><th>提交时间</th></tr>
+{% for t in tasks %}
+<tr><td><a href="/tasks/{{ t.task_id }}">{{ t.task_id[:12] }}</a></td><td>{{ t.profile_name }} · {{ '视频' if t.kind == 'video' else ('策略试跑' if t.kind=='trial' else '采集') }}</td><td>{{ t.status }}</td><td>{{ t.stage }}</td><td>{{ t.progress_current }} / {{ t.progress_total }}</td><td>{{ t.attempts }}</td><td>{{ fmt_ts(t.created_at) }}</td></tr>
+{% else %}<tr><td colspan="7" class="muted">暂无任务。请在仪表盘提交采集。</td></tr>{% endfor %}
+</table>
+{% endblock %}

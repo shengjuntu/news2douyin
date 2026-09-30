@@ -1,0 +1,344 @@
+[
+  {
+    "name": "english_independent_reports",
+    "first": {
+      "title": "Alpha launches orbital weather satellite",
+      "content": "Alpha launched an orbital weather satellite from the coastal base. Engineers described the mission and its instruments for monitoring storms and ocean temperatures.",
+      "country": "us",
+      "language": "en",
+      "published_at": "2026-09-29T00:00:00Z"
+    },
+    "second": {
+      "title": "Alpha launches new orbital weather satellite",
+      "content": "Researchers welcomed the Alpha orbital weather satellite mission. The instruments measure ocean temperatures and monitor storms; local residents watched the launch at the coastal base.",
+      "country": "us",
+      "language": "en",
+      "published_at": "2026-09-29T00:00:00Z"
+    },
+    "same_event": true,
+    "second_duplicate": false
+  },
+  {
+    "name": "same_headline_distinct_body",
+    "first": {
+      "title": "Alpha launches orbital weather satellite",
+      "content": "Alpha launched an orbital weather satellite from the coastal base. Engineers described the mission and its instruments for monitoring storms and ocean temperatures.",
+      "country": "us",
+      "language": "en",
+      "published_at": "2026-09-29T00:00:00Z"
+    },
+    "second": {
+      "title": "Alpha launches orbital weather satellite",
+      "content": "Researchers welcomed the Alpha orbital weather satellite mission. The instruments measure ocean temperatures and monitor storms; local residents watched the launch at the coastal base.",
+      "country": "us",
+      "language": "en",
+      "published_at": "2026-09-29T00:00:00Z"
+    },
+    "same_event": true,
+    "second_duplicate": false
+  },
+  {
+    "name": "exact_republication",
+    "first": {
+      "title": "Alpha launches orbital weather satellite",
+      "content": "Alpha launched an orbital weather satellite from the coastal base. Engineers described the mission and its instruments for monitoring storms and ocean temperatures.",
+      "country": "us",
+      "language": "en",
+      "published_at": "2026-09-29T00:00:00Z"
+    },
+    "second": {
+      "title": "Alpha launches orbital weather satellite",
+      "content": "Alpha launched an orbital weather satellite from the coastal base. Engineers described the mission and its instruments for monitoring storms and ocean temperatures.",
+      "country": "us",
+      "language": "en",
+      "published_at": "2026-09-29T00:00:00Z"
+    },
+    "same_event": true,
+    "second_duplicate": true
+  },
+  {
+    "name": "republication_historical_backfill",
+    "first": {
+      "title": "Alpha launches orbital weather satellite",
+      "content": "Alpha launched an orbital weather satellite from the coastal base. Engineers described the mission and its instruments for monitoring storms and ocean temperatures.",
+      "country": "us",
+      "language": "en",
+      "published_at": "2026-09-29T00:00:00Z"
+    },
+    "second": {
+      "title": "Alpha launches orbital weather satellite",
+      "content": "Alpha launched an orbital weather satellite from the coastal base. Engineers described the mission and its instruments for monitoring storms and ocean temperatures.",
+      "country": "us",
+      "language": "en",
+      "published_at": "2026-08-01T00:00:00Z"
+    },
+    "same_event": true,
+    "second_duplicate": true
+  },
+  {
+    "name": "independent_historical_ingestion",
+    "first": {
+      "title": "Alpha launches orbital weather satellite",
+      "content": "Alpha launched an orbital weather satellite from the coastal base. Engineers described the mission and its instruments for monitoring storms and ocean temperatures.",
+      "country": "us",
+      "language": "en",
+      "published_at": "2026-09-29T00:00:00Z"
+    },
+    "second": {
+      "title": "Alpha launches new orbital weather satellite",
+      "content": "Researchers welcomed the Alpha orbital weather satellite mission. The instruments measure ocean temperatures and monitor storms; local residents watched the launch at the coastal base.",
+      "country": "us",
+      "language": "en",
+      "published_at": "2026-09-27T00:00:00Z"
+    },
+    "same_event": true,
+    "second_duplicate": false
+  },
+  {
+    "name": "chinese_independent_reports",
+    "first": {
+      "title": "华星发布新款人工智能芯片",
+      "content": "华星在发布会上介绍新款人工智能芯片，展示了推理任务的性能测试。报道记录了工程师对产品工艺、功耗和交付安排的说明，并附上公开技术材料供读者核对。",
+      "country": "cn",
+      "language": "zh",
+      "published_at": "2026-09-29T00:00:00Z"
+    },
+    "second": {
+      "title": "华星发布人工智能芯片新品",
+      "content": "围绕华星人工智能芯片发布，另一家媒体采访了设备采购方。新款产品的推理测试、功耗和交付安排受到关注，采购方表示还需要结合实际业务进行验证。",
+      "country": "cn",
+      "language": "zh",
+      "published_at": "2026-09-29T00:00:00Z"
+    },
+    "same_event": true,
+    "second_duplicate": false
+  },
+  {
+    "name": "chinese_same_headline",
+    "first": {
+      "title": "华星发布新款人工智能芯片",
+      "content": "华星在发布会上介绍新款人工智能芯片，展示了推理任务的性能测试。报道记录了工程师对产品工艺、功耗和交付安排的说明，并附上公开技术材料供读者核对。",
+      "country": "cn",
+      "language": "zh",
+      "published_at": "2026-09-29T00:00:00Z"
+    },
+    "second": {
+      "title": "华星发布新款人工智能芯片",
+      "content": "围绕华星人工智能芯片发布，另一家媒体采访了设备采购方。新款产品的推理测试、功耗和交付安排受到关注，采购方表示还需要结合实际业务进行验证。",
+      "country": "cn",
+      "language": "zh",
+      "published_at": "2026-09-29T00:00:00Z"
+    },
+    "same_event": true,
+    "second_duplicate": false
+  },
+  {
+    "name": "different_named_company",
+    "first": {
+      "title": "Alpha launches orbital weather satellite",
+      "content": "Alpha launched an orbital weather satellite from the coastal base. Engineers described the mission and its instruments for monitoring storms and ocean temperatures.",
+      "country": "us",
+      "language": "en",
+      "published_at": "2026-09-29T00:00:00Z"
+    },
+    "second": {
+      "title": "Beta launches orbital weather satellite",
+      "content": "Researchers welcomed the Alpha orbital weather satellite mission. The instruments measure ocean temperatures and monitor storms; local residents watched the launch at the coastal base.",
+      "country": "us",
+      "language": "en",
+      "published_at": "2026-09-29T00:00:00Z"
+    },
+    "same_event": false,
+    "second_duplicate": false
+  },
+  {
+    "name": "different_chinese_company",
+    "first": {
+      "title": "华星发布新款人工智能芯片",
+      "content": "华星在发布会上介绍新款人工智能芯片，展示了推理任务的性能测试。报道记录了工程师对产品工艺、功耗和交付安排的说明，并附上公开技术材料供读者核对。",
+      "country": "cn",
+      "language": "zh",
+      "published_at": "2026-09-29T00:00:00Z"
+    },
+    "second": {
+      "title": "北海发布新款人工智能芯片",
+      "content": "围绕华星人工智能芯片发布，另一家媒体采访了设备采购方。新款产品的推理测试、功耗和交付安排受到关注，采购方表示还需要结合实际业务进行验证。",
+      "country": "cn",
+      "language": "zh",
+      "published_at": "2026-09-29T00:00:00Z"
+    },
+    "same_event": false,
+    "second_duplicate": false
+  },
+  {
+    "name": "affirmative_vs_denial",
+    "first": {
+      "title": "Alpha launches orbital weather satellite",
+      "content": "Alpha launched an orbital weather satellite from the coastal base. Engineers described the mission and its instruments for monitoring storms and ocean temperatures.",
+      "country": "us",
+      "language": "en",
+      "published_at": "2026-09-29T00:00:00Z"
+    },
+    "second": {
+      "title": "Alpha denies launching orbital weather satellite",
+      "content": "Researchers welcomed the Alpha orbital weather satellite mission. The instruments measure ocean temperatures and monitor storms; local residents watched the launch at the coastal base.",
+      "country": "us",
+      "language": "en",
+      "published_at": "2026-09-29T00:00:00Z"
+    },
+    "same_event": false,
+    "second_duplicate": false
+  },
+  {
+    "name": "chinese_denial",
+    "first": {
+      "title": "华星发布新款人工智能芯片",
+      "content": "华星在发布会上介绍新款人工智能芯片，展示了推理任务的性能测试。报道记录了工程师对产品工艺、功耗和交付安排的说明，并附上公开技术材料供读者核对。",
+      "country": "cn",
+      "language": "zh",
+      "published_at": "2026-09-29T00:00:00Z"
+    },
+    "second": {
+      "title": "华星否认发布新款人工智能芯片",
+      "content": "围绕华星人工智能芯片发布，另一家媒体采访了设备采购方。新款产品的推理测试、功耗和交付安排受到关注，采购方表示还需要结合实际业务进行验证。",
+      "country": "cn",
+      "language": "zh",
+      "published_at": "2026-09-29T00:00:00Z"
+    },
+    "same_event": false,
+    "second_duplicate": false
+  },
+  {
+    "name": "different_english_quantity",
+    "first": {
+      "title": "Alpha launches 2 orbital weather satellites",
+      "content": "Alpha launched an orbital weather satellite from the coastal base. Engineers described the mission and its instruments for monitoring storms and ocean temperatures.",
+      "country": "us",
+      "language": "en",
+      "published_at": "2026-09-29T00:00:00Z"
+    },
+    "second": {
+      "title": "Alpha launches 3 orbital weather satellites",
+      "content": "Researchers welcomed the Alpha orbital weather satellite mission. The instruments measure ocean temperatures and monitor storms; local residents watched the launch at the coastal base.",
+      "country": "us",
+      "language": "en",
+      "published_at": "2026-09-29T00:00:00Z"
+    },
+    "same_event": false,
+    "second_duplicate": false
+  },
+  {
+    "name": "different_chinese_quantity",
+    "first": {
+      "title": "华星发布两款人工智能芯片",
+      "content": "华星在发布会上介绍新款人工智能芯片，展示了推理任务的性能测试。报道记录了工程师对产品工艺、功耗和交付安排的说明，并附上公开技术材料供读者核对。",
+      "country": "cn",
+      "language": "zh",
+      "published_at": "2026-09-29T00:00:00Z"
+    },
+    "second": {
+      "title": "华星发布三款人工智能芯片",
+      "content": "围绕华星人工智能芯片发布，另一家媒体采访了设备采购方。新款产品的推理测试、功耗和交付安排受到关注，采购方表示还需要结合实际业务进行验证。",
+      "country": "cn",
+      "language": "zh",
+      "published_at": "2026-09-29T00:00:00Z"
+    },
+    "same_event": false,
+    "second_duplicate": false
+  },
+  {
+    "name": "recurring_event_outside_window",
+    "first": {
+      "title": "Alpha launches orbital weather satellite",
+      "content": "Alpha launched an orbital weather satellite from the coastal base. Engineers described the mission and its instruments for monitoring storms and ocean temperatures.",
+      "country": "us",
+      "language": "en",
+      "published_at": "2026-09-29T00:00:00Z"
+    },
+    "second": {
+      "title": "Alpha launches new orbital weather satellite",
+      "content": "Researchers welcomed the Alpha orbital weather satellite mission. The instruments measure ocean temperatures and monitor storms; local residents watched the launch at the coastal base.",
+      "country": "us",
+      "language": "en",
+      "published_at": "2026-09-10T00:00:00Z"
+    },
+    "same_event": false,
+    "second_duplicate": false
+  },
+  {
+    "name": "country_boundary",
+    "first": {
+      "title": "Alpha launches orbital weather satellite",
+      "content": "Alpha launched an orbital weather satellite from the coastal base. Engineers described the mission and its instruments for monitoring storms and ocean temperatures.",
+      "country": "us",
+      "language": "en",
+      "published_at": "2026-09-29T00:00:00Z"
+    },
+    "second": {
+      "title": "Alpha launches new orbital weather satellite",
+      "content": "Researchers welcomed the Alpha orbital weather satellite mission. The instruments measure ocean temperatures and monitor storms; local residents watched the launch at the coastal base.",
+      "country": "ca",
+      "language": "en",
+      "published_at": "2026-09-29T00:00:00Z"
+    },
+    "same_event": false,
+    "second_duplicate": false
+  },
+  {
+    "name": "missing_publication_time",
+    "first": {
+      "title": "Alpha launches orbital weather satellite",
+      "content": "Alpha launched an orbital weather satellite from the coastal base. Engineers described the mission and its instruments for monitoring storms and ocean temperatures.",
+      "country": "us",
+      "language": "en",
+      "published_at": "2026-09-29T00:00:00Z"
+    },
+    "second": {
+      "title": "Alpha launches new orbital weather satellite",
+      "content": "Researchers welcomed the Alpha orbital weather satellite mission. The instruments measure ocean temperatures and monitor storms; local residents watched the launch at the coastal base.",
+      "country": "us",
+      "language": "en",
+      "published_at": ""
+    },
+    "same_event": false,
+    "second_duplicate": false
+  },
+  {
+    "name": "different_story_same_sector",
+    "first": {
+      "title": "Alpha launches orbital weather satellite",
+      "content": "Alpha launched an orbital weather satellite from the coastal base. Engineers described the mission and its instruments for monitoring storms and ocean temperatures.",
+      "country": "us",
+      "language": "en",
+      "published_at": "2026-09-29T00:00:00Z"
+    },
+    "second": {
+      "title": "Alpha signs satellite insurance contract",
+      "content": "The insurance agreement covers damage to future spacecraft and establishes liability provisions for different launch providers.",
+      "country": "us",
+      "language": "en",
+      "published_at": "2026-09-29T00:00:00Z"
+    },
+    "same_event": false,
+    "second_duplicate": false
+  },
+  {
+    "name": "short_generic_titles",
+    "first": {
+      "title": "Market update",
+      "content": "Investors reviewed earnings in the technology sector.",
+      "country": "us",
+      "language": "en",
+      "published_at": "2026-09-29T00:00:00Z"
+    },
+    "second": {
+      "title": "Market update",
+      "content": "A separate report about banking regulations and bond trading.",
+      "country": "us",
+      "language": "en",
+      "published_at": "2026-09-29T00:00:00Z"
+    },
+    "same_event": false,
+    "second_duplicate": false
+  }
+]
