@@ -73,3 +73,11 @@ python prep_assets.py --run-dir ../run_1451 --out out --llm openai --model gpt-4
 - `seed_upgrade_0_9.py DIRECTORY`：在 0.9 wheel 环境创建已完成和排队中的旧视频，目录须事先不存在。
 - `smoke_video_workbench_installed.py --upgrade-fixture DIRECTORY`：安装 0.10 后用 `python -I` 验证真实安装资源、实际编码和旧任务继续执行。
 - 所有验收材料均为虚构资料；联网 Edge TTS 和真实新闻/模型服务未用于本版验收。
+
+### 0.10.1 每日脚本后台任务
+
+`python tools/smoke_daily_tasks.py --port 18198` 启动临时演示服务，使用虚构新闻和模型响应桩，并提供仅供测试的阻塞/失败控制。不要将它作为正式服务启动器。
+
+另一个终端运行 `node tools/smoke_daily_tasks_browser.cjs http://127.0.0.1:18198 browser-results` 检查批量提交、重复点击、关页续办、失败重试、移出再选和手机布局。需要 Playwright；可用 `BROWSER_BIN` 指向 Chromium。
+
+安装发行 wheel 后运行 `python -I tools/smoke_daily_tasks_installed.py`。验证升级时，先在 **0.10.0** 环境执行 `python -I tools/seed_upgrade_0_10.py /path/to/new-fixture`，安装 **0.10.1** 后再执行 `python -I tools/smoke_daily_tasks_installed.py --upgrade-fixture /path/to/new-fixture`。升级检查包含旧排队视频的实际编码，需要 FFmpeg/FFprobe、Pillow 和中文字体。

@@ -1,6 +1,6 @@
 
 
-# news2douyin 0.10.0 — 视频制作与作品库
+# news2douyin 0.10.1 — 每日选题后台生成
 
 
 延续 0.6.0 的网页主流程：**当日采集 → 勾选新闻 → 生成脚本 → 编辑审核 → 视频制作与导出**。
@@ -14,13 +14,13 @@
 - `/admin`：原仪表盘、自动采集任务和运行管理。
 - `/timeline`：原时间线已明确为“新闻长图排版”。
 
-本版补齐模板化视频制作、逐段配图、实际画面预览、制作条件检查和失败恢复建议，并提供按封面与标题展示的作品库。保留 0.9 的有据稿与历史版本；新任务固定审核稿、模板和素材，旧作品保留。
+本版将每日选题生成接入后台任务：批量提交后可关闭页面，稍后找回进度和草稿；支持取消与重试，并防止重复提交或旧任务结果覆盖。保留 0.10 的三套视频模板、逐段配图、画面预览、恢复建议和作品库，以及 0.9 的有据稿与历史版本。
 
 首次使用可启动服务后在“采集策略”新增一个 `mock` 演示策略，回到首页采集并验证完整流程。
 真实新闻选择 `worldnewsapi`，在 `.env` 填入 `API_KEY`；AI 脚本配置 `OPENAI_BASE_URL`、`OPENAI_API_KEY`、`MODEL`。
 WorldNewsAPI 现在提供两种获取方式：**热门榜单**和**主动关键词检索**，随后执行策略筛选。专题中的补充检索先保存候选，用户选择后才收录。覆盖范围受新闻源和账户权限影响。
 
-[本版说明与升级步骤](docs/release-0.10.0.md) · [模块关系与后续版本计划](docs/product-roadmap.md) · [验证记录](docs/validation-0.10.0.md)
+[本版说明与升级步骤](docs/release-0.10.1.md) · [跑通一天的操作步骤](docs/first-day.md) · [模块关系与版本计划](docs/product-roadmap.md) · [验证记录](docs/validation-0.10.1.md)
 
 This repository now includes a V7 implementation focused on a long-running client/server workflow for market-impression news collection.
 
@@ -79,6 +79,8 @@ news2douyin-server --host 0.0.0.0 --port 18080
 ```
 
 Main APIs:
+- `POST|GET /api/daily/script-tasks` / `GET /api/daily/script-tasks/{task_id}`
+- `POST /api/daily/selections/{selection_key}/script-task`
 - `POST /api/profiles` / `DELETE /api/profiles/{name}`
 - `POST /api/profiles/{name}/enable` / `disable` / `test`
 - `GET /api/tasks/{task_id}/diagnostics`

@@ -23,7 +23,7 @@ const fs=require('node:fs/promises'),path=require('node:path'),assert=require('n
   await page.reload();assert.equal(await page.locator('.choose-news').first().isChecked(),true);checks.push('selection_persists_reload');
   await page.screenshot({path:path.join(out,'daily-selection.png'),fullPage:true});
   const key=await page.locator('.choose-news').first().getAttribute('data-key');
-  await page.getByRole('button',{name:'生成所选脚本',exact:true}).click();await page.waitForURL('**/scripts/pkg_*');
+  await page.getByRole('button',{name:'生成所选脚本',exact:true}).click();await page.waitForURL('**/tasks/*');await page.waitForFunction(()=>document.querySelector('#status').textContent==='已完成');await page.locator('#script-result').click();await page.waitForURL('**/scripts/pkg_*');
   await page.waitForFunction(()=>document.querySelector('#script-text').value.length>0);assert.equal(await page.locator('.source-key').count(),1);assert.equal(await page.locator('.source-key').getAttribute('value'),key);checks.push('generate_source_bound_script');
   assert.ok((await page.locator('#visual-notes').inputValue()).length>0);await page.screenshot({path:path.join(out,'generated-script.png'),fullPage:true});
   await page.goto(base+'/scripts');assert.ok((await page.locator('main').innerText()).includes('离线示例'));checks.push('script_list_uses_title');

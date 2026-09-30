@@ -76,10 +76,12 @@ def register_webui_routes(app: FastAPI, engine, scheduler, storage_root: str) ->
     @app.get('/scripts', response_class=HTMLResponse)
     def page_scripts(event_key: str = ''):
         from ..editorial.generation import list_generations
+        from ..editorial.daily_tasks import list_generations as daily_generations
         with session_scope(engine) as session:
             rows = script_workbench.list_scripts(session, event_key=event_key, limit=100)
         return render('scripts.html', active='scripts', scripts=rows, event_key=event_key,
-                      generations=list_generations(engine, event_key, 30))
+                      generations=list_generations(engine, event_key, 30),
+                      daily_generations=daily_generations(engine, event_key=event_key, limit=30))
 
     @app.get('/events/{event_key}/generate', response_class=HTMLResponse)
     def page_generation(event_key: str):

@@ -406,3 +406,15 @@ class ScriptGeneration(SQLModel, table=True):
     spec_json: str
     package_key: Optional[str] = Field(default=None, index=True, unique=True)
     created_at: str = Field(default_factory=utc_now_iso)
+
+
+class DailyScriptGeneration(SQLModel, table=True):
+    """One current background request per daily pick; detached history is retained."""
+    task_id: str = Field(primary_key=True)
+    selection_key: str = Field(index=True)
+    active_selection_key: Optional[str] = Field(default=None, unique=True, index=True)
+    event_key: str = Field(index=True)
+    input_hash: str
+    spec_json: str
+    package_key: Optional[str] = Field(default=None, unique=True, index=True)
+    created_at: str = Field(default_factory=utc_now_iso)

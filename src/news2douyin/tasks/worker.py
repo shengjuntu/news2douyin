@@ -72,6 +72,9 @@ class TaskWorker:
             elif task.trigger_type == 'script':
                 from ..editorial.generation import run_generation
                 run_generation(self.service.engine, task, self.storage_root, context)
+            elif task.trigger_type == 'daily_script':
+                from ..editorial.daily_tasks import run_daily_generation
+                run_daily_generation(self.service.engine, task, self.storage_root, context)
             else:
                 with Session(self.service.engine) as session:
                     run_collection(session, task.profile_name, storage_root=self.storage_root,

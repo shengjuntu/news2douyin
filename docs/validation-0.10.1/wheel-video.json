@@ -1,0 +1,12 @@
+{
+  "status": "passed",
+  "version": "0.10.1",
+  "passed": 5,
+  "checks": [
+    "installed_templates_setup_and_real_preview",
+    "installed_preflight_actual_encode_and_scene_export",
+    "installed_gallery_cover_playback_range_and_download",
+    "installed_rename_search_favorite_archive_and_version",
+    "installed_recovery_diagnostics_and_reuse_configuration"
+  ]
+}

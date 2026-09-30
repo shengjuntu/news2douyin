@@ -2,7 +2,7 @@
 {% block title %}每日选题 · news2douyin{% endblock %}
 {% block content %}
 <style>
-.daily-head{display:flex;justify-content:space-between;align-items:start;gap:16px}.flow{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0 24px}.flow span{background:#202635;padding:8px 14px;border-radius:6px}.flow .current{color:#59d9d0;border:1px solid #29736c}.daily-layout{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:16px;margin-top:16px}.pick-tray{position:sticky;top:78px;align-self:start}.news-item{display:flex;gap:14px;padding:18px 0;border-bottom:1px solid #293040}.news-item:last-child{border:0}.news-item input{width:18px;height:18px;accent-color:#fe2c55;flex-shrink:0}.news-title{font-size:16px;line-height:1.5;color:#ecedf4}.news-item p{line-height:1.65;color:#a7b0c3;margin:8px 0}.selection-item{padding:12px 0;border-bottom:1px solid #293040}.selection-item p{margin:5px 0;line-height:1.5}.empty{padding:24px 4px;line-height:1.9}.pick-tray select,.pick-tray button.build{width:100%;margin-top:10px}#notice{white-space:pre-wrap;color:#fbbf24;line-height:1.7}.small-button{font-size:12px;padding:4px 8px}@media(max-width:800px){.daily-layout{grid-template-columns:1fr}.pick-tray{position:static}.daily-head{display:block}}
+.daily-head{display:flex;justify-content:space-between;align-items:start;gap:16px}.flow{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0 24px}.flow span{background:#202635;padding:8px 14px;border-radius:6px}.flow .current{color:#59d9d0;border:1px solid #29736c}.daily-layout{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:16px;margin-top:16px}.pick-tray{position:sticky;top:78px;align-self:start}.news-item{display:flex;gap:14px;padding:18px 0;border-bottom:1px solid #293040}.news-item:last-child{border:0}.news-item input{width:18px;height:18px;accent-color:#fe2c55;flex-shrink:0}.news-title{font-size:16px;line-height:1.5;color:#ecedf4}.news-item p{line-height:1.65;color:#a7b0c3;margin:8px 0}.selection-item{padding:12px 0;border-bottom:1px solid #293040}.selection-item p{margin:5px 0;line-height:1.5}.empty{padding:24px 4px;line-height:1.9}.pick-tray select,.pick-tray button.build{width:100%;min-width:0;max-width:100%;margin-top:10px}#notice{white-space:pre-wrap;color:#fbbf24;line-height:1.7}.small-button{font-size:12px;padding:4px 8px}@media(max-width:800px){.daily-layout{grid-template-columns:1fr}.pick-tray{position:static}.daily-head{display:block}}
 </style>
 <div class="daily-head"><div><h1>每日选题</h1><p class="muted">每天挑 1–3 条值得讲的新闻，把选题变成脚本。</p></div><a href="/profiles#schedules">设置每日自动采集 →</a></div>
 <div class="flow"><span class="current">1 采集新闻</span><span class="current">2 选择选题</span><span>3 生成与编辑脚本</span><span>4 制作视频与导出</span></div>
@@ -35,36 +35,59 @@
 </div>
 {% include "pagination.html" %}
 </section><aside class="card pick-tray">
-<h2 style="margin-top:0">{{ day }} 已选 <span id="pick-count">0</span> 条</h2><p class="muted small">选择会自动保存，切换页面或刷新后仍在。每条选题生成一份脚本，建议每天 1–3 条。</p>
+<h2 style="margin-top:0">{{ day }} 已选 <span id="pick-count">0</span> 条</h2><p class="muted small">选择会自动保存，切换页面或刷新后仍在。每条选题生成一份脚本，建议每天 1–3 条。提交后可关闭页面，服务运行时在后台继续生成。</p>
 <div id="picked"></div>
 <label for="generation-mode">生成方式</label><select id="generation-mode"><option value="basic">基础摘录稿（不需要模型）</option><option value="llm">AI 中文初稿（需要模型连接）</option></select>
 <p class="muted small">基础稿保留原文语言；AI 稿根据所选原文写中文口播。两者均保留来源快照，之后可编辑、审核和导出。</p>
 <button type="button" id="build-picks" class="build">生成所选脚本</button><p id="notice" role="status" aria-live="polite"></p>
-<p><a href="/scripts">进入脚本工作台 →</a></p>
+<p id="poll-status" class="muted small" role="status"></p><p><a href="/scripts">进入脚本工作台 / 找回生成任务 →</a></p>
 </aside></div>
 <script>
 const selectionScope={day:{{ day|tojson }},timezone:{{ timezone|tojson }}};
-let picks={{ picks|tojson }},busy=false;
-const notice=document.getElementById('notice');
+let picks={{ picks|tojson }},busy=false,timer=null,mutation=0,polling=false;
+const notice=document.getElementById('notice'),pollStatus=document.getElementById('poll-status');
 const statusNames={selected:'待生成',draft:'草稿',in_review:'待审核',approved:'已通过'};
-async function api(url,body){const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const d=await r.json();if(!r.ok)throw new Error(typeof d.detail==='string'?d.detail:JSON.stringify(d.detail));return d;}
+const taskStatuses={queued:'排队中',running:'生成中',cancel_requested:'正在取消',cancelled:'已取消',failed:'生成失败',succeeded:'已完成'};
+async function api(url,body){const r=await fetch(url,{method:body===undefined?'GET':'POST',headers:{'Content-Type':'application/json'},...(body===undefined?{}:{body:JSON.stringify(body)})});const d=await r.json();if(!r.ok)throw new Error(typeof d.detail==='string'?d.detail:JSON.stringify(d.detail));return d;}
+function link(label,url){const a=document.createElement('a');a.textContent=label;a.href=url;return a;}
 function renderPicks(){
  document.getElementById('pick-count').textContent=picks.length;
  const list=document.getElementById('picked');list.replaceChildren();
  if(!picks.length){const p=document.createElement('p');p.className='muted empty';p.textContent='勾选左侧新闻，开始今天的选题。';list.append(p);}
- for(const pick of picks){const box=document.createElement('div');box.className='selection-item';const p=document.createElement('p');p.textContent=pick.title;box.append(p);const row=document.createElement('div');row.className='row';const status=document.createElement('span');status.className='badge';status.textContent=statusNames[pick.status]||pick.status;row.append(status);if(pick.package_key){const a=document.createElement('a');a.href='/scripts/'+encodeURIComponent(pick.package_key);a.textContent='打开脚本';row.append(a);}const remove=document.createElement('button');remove.type='button';remove.className='ghost small-button';remove.textContent='移出选题';remove.disabled=busy;remove.onclick=()=>selectNews(pick.article_key,false);row.append(remove);box.append(row);list.append(box);}
+ for(const pick of picks){
+  const box=document.createElement('div');box.className='selection-item';box.dataset.selection=pick.selection_key;
+  const p=document.createElement('p');p.textContent=pick.title;box.append(p);
+  const row=document.createElement('div');row.className='row';const status=document.createElement('span');status.className='badge';
+  const g=pick.generation;status.textContent=pick.package_key?statusNames[pick.status]:(g?taskStatuses[g.task.status]:statusNames[pick.status]);row.append(status);
+  if(pick.package_key)row.append(link('打开脚本','/scripts/'+encodeURIComponent(pick.package_key)));
+  if(g){row.append(link('进度与重试','/tasks/'+encodeURIComponent(g.task.task_id)));const info=document.createElement('p');info.className='muted small';info.textContent=(g.mode==='llm'?'AI 中文初稿':'基础摘录稿')+' · 使用提交时的报道';box.append(info);}
+  const remove=document.createElement('button');remove.type='button';remove.className='ghost small-button';remove.textContent='移出选题';remove.disabled=busy;remove.onclick=()=>selectNews(pick.article_key,false);row.append(remove);box.append(row);list.append(box);
+ }
  for(const c of document.querySelectorAll('.choose-news')){if(!busy)c.checked=picks.some(p=>p.article_key===c.dataset.key);c.disabled=busy;}
  document.getElementById('generation-mode').disabled=busy;
  document.getElementById('build-picks').disabled=busy||!picks.length;
 }
-async function selectNews(key,active){busy=true;renderPicks();try{picks=await api('/api/daily/selections',{...selectionScope,article_key:key,active});notice.textContent='';}catch(e){notice.textContent=e.message;}finally{busy=false;renderPicks();}}
+async function selectNews(key,active){mutation++;busy=true;renderPicks();try{picks=await api('/api/daily/selections',{...selectionScope,article_key:key,active});notice.textContent=active?'':'已移出选题；未完成的生成任务同时取消，已有稿件仍保留在脚本工作台。';}catch(e){notice.textContent=e.message;}finally{busy=false;renderPicks();}}
 for(const c of document.querySelectorAll('.choose-news'))c.onchange=()=>selectNews(c.dataset.key,c.checked);
+async function refreshPicks(){picks=await api('/api/daily/selections?'+new URLSearchParams(selectionScope));renderPicks();}
 document.getElementById('build-picks').onclick=async()=>{
- const mode=document.getElementById('generation-mode').value,chosen=[...picks],errors=[],built=[];busy=true;renderPicks();
- for(let i=0;i<chosen.length;i++){const pick=chosen[i];notice.textContent=`正在生成 ${i+1}/${chosen.length}：${pick.title}`;try{const result=await api('/api/daily/selections/'+encodeURIComponent(pick.selection_key)+'/build',{mode});pick.package_key=result.package_key;pick.status=pick.status==='selected'?'draft':pick.status;built.push(result.package_key);}catch(e){errors.push(pick.title+'：'+e.message);}}
- busy=false;renderPicks();notice.textContent=`已就绪 ${built.length} 份脚本。`+(errors.length?'\n'+errors.join('\n'):'点击“打开脚本”继续编辑。');
- if(chosen.length===1&&built.length===1)location.href='/scripts/'+encodeURIComponent(built[0]);
+ const mode=document.getElementById('generation-mode').value,chosen=[...picks];mutation++;busy=true;renderPicks();notice.textContent='正在提交选题…';
+ try{
+  const result=await api('/api/daily/script-tasks',{mode,selection_keys:chosen.map(p=>p.selection_key)});
+  // All selected requests are committed together before navigating away.
+  const items=result.items;notice.textContent='已提交后台生成；重复提交会返回已有任务。可关闭页面，稍后查看进度与草稿。';
+  await refreshPicks();
+  if(items.length===1){location.href=items[0].script_url||('/tasks/'+encodeURIComponent(items[0].task.task_id));return;}
+ }catch(e){notice.textContent=e.message+' 提交响应不明确时可重新点击，不会重复创建任务。';}
+ finally{busy=false;renderPicks();}
 };
-renderPicks();
+async function poll(){
+ if(polling)return;polling=true;
+ if(!busy&&!document.hidden){const before=mutation;try{const fresh=await api('/api/daily/selections?'+new URLSearchParams(selectionScope));if(!busy&&before===mutation){picks=fresh;renderPicks();pollStatus.textContent='选题和后台进度已同步。';}}catch(e){pollStatus.textContent='暂时无法刷新进度；已提交任务仍在服务器处理。';}}
+ polling=false;clearTimeout(timer);timer=setTimeout(poll,3000);
+}
+window.addEventListener('pagehide',()=>clearTimeout(timer));
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){clearTimeout(timer);poll();}});
+renderPicks();timer=setTimeout(poll,3000);
 </script>
 {% endblock %}

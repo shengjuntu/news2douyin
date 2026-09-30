@@ -17,7 +17,7 @@ from news2douyin.video import production as prod,workbench as wb
 
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--upgrade-fixture',default='');args=parser.parse_args();assert version('news2douyin')=='0.10.0'
+    parser=argparse.ArgumentParser();parser.add_argument('--upgrade-fixture',default='');args=parser.parse_args();assert tuple(map(int,version('news2douyin').split('.')[:3])) >= (0,10,0)
     seed=runpy.run_path(str(Path(__file__).with_name('smoke_video_workbench.py')))['seed'];checks=[]
     with tempfile.TemporaryDirectory(prefix='video-wheel-') as directory:
         root=Path(directory);app=create_app(db_url=f'sqlite:///{root}/app.db',storage_root=str(root/'runs'));client=TestClient(app)
