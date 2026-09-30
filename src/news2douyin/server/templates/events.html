@@ -1,8 +1,10 @@
 {% extends "base.html" %}
 {% block title %}事件 · news2douyin v7{% endblock %}
 {% block content %}
-<h1>事件 <span class="muted small">（共 {{ paging.total }} 个）</span></h1>
-<p class="muted">一个事件专题关联新闻库中讲述同一件事的多篇报道，用于交叉阅读和整理脚本来源。目前按规则关联，可能误分；跨日期的背景调查与发展脉络留待后续版本。</p>
+<h1>事件专题 <span class="muted small">（共 {{ paging.total }} 个）</span></h1>
+<p class="muted">一个事件专题关联新闻库中讲述同一件事的多篇报道，用于交叉阅读和整理脚本来源。自动关联可能误分；打开专题可以增删报道、整理有来源的发展脉络、补充检索和合并拆分。已合并的专题通过原地址仍可查看历史。</p>
+<details class="card" style="margin-bottom:16px"><summary>新建事件专题</summary><form id="new-event-form" class="row" style="margin-top:14px"><input id="new-event-title" required maxlength="250" placeholder="专题标题，例如某项政策的出台与后续"><button>创建专题</button><span id="new-event-error" role="status"></span></form></details>
+<script>document.getElementById('new-event-form').onsubmit=async e=>{e.preventDefault();try{const r=await fetch('/api/events',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:document.getElementById('new-event-title').value})});const d=await r.json();if(!r.ok)throw Error(typeof d.detail==='string'?d.detail:'请填写有效标题');location.href='/events/'+d.event_key;}catch(error){document.getElementById('new-event-error').textContent=error.message;}};</script>
 <div class="card">
 <form method="get" action="/events" class="row">
   <input name="q" value="{{ q }}" placeholder="关键词（含关联报道全文）" style="width:260px">

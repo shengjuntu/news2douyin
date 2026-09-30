@@ -8,6 +8,15 @@ from ...ingest.worldnewsapi import fetch_top_news
 
 
 def fetch_news(config: dict) -> list[dict]:
+    if config.get('collection_mode') == 'search':
+        from .search_news import search_news
+        from ...search.schemas import ResearchQuery
+        from ...search.dates import calendar_day, timezone_name
+        zone = timezone_name(config.get('timezone',''))
+        day = calendar_day(config.get('date_str',''), zone)
+        query = ResearchQuery(query=config.get('search_query',''), date_from=day, date_to=day, timezone=zone,
+            country=config.get('country',''), language=config.get('language',''), limit=config.get('max_items',100))
+        return search_news(query.model_dump(), api_key_env=config.get('api_key_env','API_KEY'))['items']
     items = fetch_top_news(config)
     if items or config.get('date_str'):
         return items

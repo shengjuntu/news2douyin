@@ -297,36 +297,11 @@ def register_webui_routes(app: FastAPI, engine, scheduler, storage_root: str) ->
 
     @app.get('/events/{event_key}', response_class=HTMLResponse)
     def page_event_detail(event_key: str):
+        from ..events.workbench import workspace
         with session_scope(engine) as session:
-            row = session.exec(select(Event).where(Event.event_key == event_key)).first()
-            if not row:
-                return render('404.html', active='events', title='事件不存在')
-            ev = {
-                **evidence_counts(session, event_key),
-                'key': row.event_key, 'title': row.event_title, 'topic': row.topic,
-                'summary': row.summary, 'article_count': row.article_count,
-                'importance': row.importance, 'sentiment': row.sentiment,
-                'market_scope': row.market_scope, 'sectors': loads(row.sectors_json, []),
-                'symbols': loads(row.symbols_json, []), 'countries': loads(row.countries_json, []),
-                'first_seen_at': row.first_seen_at, 'last_seen_at': row.last_seen_at,
-            }
-            links = session.exec(
-                select(ArticleEventLink).where(ArticleEventLink.event_key == event_key)
-            ).all()
-            arts = []
-            for link in links:
-                a = session.exec(select(Article).where(Article.article_key == link.article_key)).first()
-                if a:
-                    assignment = session.get(EventAssignment, a.article_key)
-                    arts.append({
-                        'key': a.article_key, 'assignment': assignment.reason if assignment else 'legacy',
-                        'title': a.title, 'url': a.url, 'domain': a.source_domain,
-                        'published_at': a.published_at, 'relation': link.relation_type,
-                        'categories': loads(a.category_tags_json, []), 'sentiment': a.sentiment,
-                        'snippet': (a.content or '')[:200],
-                    })
+            view = task_call(workspace, session, event_key)
             scripts = script_workbench.list_scripts(session, event_key=event_key, limit=10)
-        return render('event_detail.html', active='events', ev=ev, articles=arts, scripts=scripts)
+        return render('event_workspace.html', active='events', view=view, scripts=scripts, timezone=timezone_name())
 
     @app.get('/report/{run_id}')
     def page_report(run_id: int):

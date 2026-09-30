@@ -40,6 +40,18 @@ class ProfilePayload(BaseModel):
         from ...search.dates import timezone_name, calendar_day
         if self.extra.get('filter_mode', 'auto') not in ('auto', 'rules'):
             raise ValueError('filter_mode 必须为 auto 或 rules')
+        mode = self.extra.get('collection_mode', 'top')
+        if mode not in ('top','search'):
+            raise ValueError('获取方式必须为 top 或 search')
+        if mode == 'search':
+            query = self.extra.get('search_query','')
+            if not isinstance(query,str) or not 3 <= len(query.strip()) <= 100:
+                raise ValueError('检索词需要 3–100 个字符')
+            if self.max_items > 100:
+                raise ValueError('关键词检索单次最多 100 条')
+            self.extra['search_query'] = query.strip()
+            from ...search.schemas import ResearchQuery
+            ResearchQuery(query=query.strip(),country=self.country,language=self.language,limit=self.max_items)
         timezone_name(self.extra.get('timezone', ''))
         if self.extra.get('date_str'):
             calendar_day(self.extra['date_str'], self.extra.get('timezone', ''))

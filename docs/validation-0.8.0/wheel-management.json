@@ -1,0 +1,11 @@
+{
+  "status": "passed",
+  "version": "0.8.0",
+  "passed": 4,
+  "checks": [
+    "installed_trial_diagnostics_no_news_writes",
+    "installed_schedule_preview",
+    "installed_lifecycle_guards",
+    "installed_templates_and_preserved_history"
+  ]
+}

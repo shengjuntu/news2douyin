@@ -1,0 +1,14 @@
+{
+  "status": "passed",
+  "version": "0.8.0",
+  "passed": 7,
+  "checks": [
+    "installed_event_editor_and_pinned_evidence",
+    "installed_removal_guard_and_full_export",
+    "installed_research_preview_and_selected_import",
+    "installed_merge_preserves_node_sources",
+    "upgrade_preserves_strategy_state_schedule_and_trial",
+    "upgrade_preserves_news_selection_script_and_task",
+    "upgrade_old_event_can_add_evidence_without_rewriting_script"
+  ]
+}

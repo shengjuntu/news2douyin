@@ -1,25 +1,26 @@
 
 
-# news2douyin 0.7.0 — 策略、试跑诊断与定时采集
+# news2douyin 0.8.0 — 事件专题、发展脉络与证据
 
 
 延续 0.6.0 的网页主流程：**当日采集 → 勾选新闻 → 生成脚本 → 编辑审核 → 视频制作与导出**。
 
 - `/` 或 `/daily`：每日选题，默认 Asia/Shanghai；已选内容自动保存。
 - `/articles`：历史新闻库，支持发布时间、采集时间和首次入库时间筛选。
-- `/profiles`：新增、编辑、复制、启停与删除策略；试跑诊断；定时计划与下次执行时间。`cn_policy_sectors` 指中国政策与板块，并非 CNN。
+- `/profiles`：策略增改、复制与启停；可选择热门榜或主动关键词检索；试跑诊断及定时配置。`cn_policy_sectors` 指中国政策与板块，并非 CNN。
+- `/events`：新建专题，增删报道，整理绑定文章版本和原文摘录的进展节点，关联背景与后续，合并/拆分，补充检索和证据包导出。
 - `/scripts`：脚本工作台；基础摘录稿无需模型，AI 中文初稿使用 `.env` 中的兼容接口。
 - `/videos`：视频任务和成片；已有视频功能的依赖要求保持不变。
 - `/admin`：原仪表盘、自动采集任务和运行管理。
 - `/timeline`：原时间线已明确为“新闻长图排版”。
 
-本版可先试跑验证筛选效果，查看每一步取得与过滤的条数。试跑不写入新闻库；正式采集后再选题。定时计划支持每天、工作日、指定星期与自定义 Cron。
+本版将事件发展脉络放进专题工作区，发生日期、报道日期和未知时间明确区分。每个进展绑定可回溯的来源版本；旧稿件不会被专题整理改写。策略试跑、每日选题与定时采集继续保留。
 
 首次使用可启动服务后在“采集策略”新增一个 `mock` 演示策略，回到首页采集并验证完整流程。
 真实新闻选择 `worldnewsapi`，在 `.env` 填入 `API_KEY`；AI 脚本配置 `OPENAI_BASE_URL`、`OPENAI_API_KEY`、`MODEL`。
-当前真实采集是**按国家/语言/日期获取热门新闻，再筛选**，不是全网关键词搜索。
+WorldNewsAPI 现在提供两种获取方式：**热门榜单**和**主动关键词检索**，随后执行策略筛选。专题中的补充检索先保存候选，用户选择后才收录。覆盖范围受新闻源和账户权限影响。
 
-[本版说明与升级步骤](docs/release-0.7.0.md) · [模块关系与后续版本计划](docs/product-roadmap.md) · [验证记录](docs/validation-0.7.0.md)
+[本版说明与升级步骤](docs/release-0.8.0.md) · [模块关系与后续版本计划](docs/product-roadmap.md) · [验证记录](docs/validation-0.8.0.md)
 
 This repository now includes a V7 implementation focused on a long-running client/server workflow for market-impression news collection.
 

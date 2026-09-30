@@ -325,3 +325,62 @@ class VideoProduction(SQLModel, table=True):
     spec_json: str
     result_json: str = '{}'
     created_at: str = Field(default_factory=utc_now_iso)
+
+
+class EventState(SQLModel, table=True):
+    """Additive curation state; old events start at version zero."""
+    event_key: str = Field(primary_key=True)
+    version: int = 0
+    title_override: Optional[str] = None
+    summary_override: Optional[str] = None
+    merged_into: Optional[str] = Field(default=None, index=True)
+    source_notes_json: str = '{}'
+    updated_at: str = Field(default_factory=utc_now_iso)
+
+
+class EventMoment(SQLModel, table=True):
+    moment_key: str = Field(primary_key=True)
+    event_key: str = Field(index=True)
+    title: str
+    description: str = ''
+    time_kind: str = 'unknown'
+    date_start: str = ''
+    date_end: str = ''
+    certainty: str = 'unknown'
+    time_note: str = ''
+    reviewed: bool = False
+    sources_json: str = '[]'
+    deleted: bool = False
+    created_at: str = Field(default_factory=utc_now_iso)
+    updated_at: str = Field(default_factory=utc_now_iso)
+
+
+class EventRelation(SQLModel, table=True):
+    relation_key: str = Field(primary_key=True)
+    from_event: str = Field(index=True)
+    to_event: str = Field(index=True)
+    kind: str = 'related'
+    note: str = ''
+    created_at: str = Field(default_factory=utc_now_iso)
+
+
+class EventActivity(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    event_key: str = Field(index=True)
+    operation_key: str = Field(index=True)
+    action: str
+    payload_json: str
+    created_at: str = Field(default_factory=utc_now_iso)
+
+
+class EventResearch(SQLModel, table=True):
+    research_key: str = Field(primary_key=True)
+    event_key: str = Field(index=True)
+    status: str = 'running'
+    query_json: str
+    results_json: str = '[]'
+    available: int = 0
+    imported_json: str = '{}'
+    error_text: str = ''
+    created_at: str = Field(default_factory=utc_now_iso)
+    finished_at: Optional[str] = None

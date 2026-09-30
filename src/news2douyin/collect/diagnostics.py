@@ -61,6 +61,6 @@ def task_diagnostics(session, task_id):
     stats['dry_run'] = task.trigger_type == 'profile_test'
     profile = loads(task.profile_json, {})
     fields = ('name', 'provider', 'country', 'language', 'categories', 'keywords_include', 'keywords_exclude',
-              'source_whitelist', 'source_blacklist', 'max_items', 'date_str', 'timezone', 'filter_mode')
+              'source_whitelist', 'source_blacklist', 'max_items', 'date_str', 'timezone', 'filter_mode', 'collection_mode', 'search_query')
     return {'task': task_dict(task), 'stats': stats, 'profile': {k: profile[k] for k in fields if k in profile},
             'summary': summary(stats, task.status, task.error_text), 'reasons': REASONS, 'fallbacks': FALLBACKS}

@@ -1,0 +1,11 @@
+{
+  "status": "passed",
+  "checks": [
+    "daily_templates",
+    "profile_management_api",
+    "collect_date_query",
+    "daily_selection",
+    "source_bound_draft",
+    "saved_pick_package"
+  ]
+}

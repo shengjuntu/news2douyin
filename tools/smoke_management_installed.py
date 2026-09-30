@@ -20,7 +20,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--upgrade-fixture', default='')
     args = parser.parse_args()
-    assert version('news2douyin') == '0.7.0'
+    assert tuple(int(v) for v in version('news2douyin').split('.')[:3]) >= (0,7,0)
     checks = []
     with tempfile.TemporaryDirectory(prefix='management-wheel-') as folder:
         with patch.object(llm_filter, 'endpoint_alive', return_value=False), patch.object(webui, '_llm_alive', return_value=False):

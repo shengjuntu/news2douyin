@@ -1,0 +1,16 @@
+{
+  "passed": 9,
+  "checks": [
+    "new_install_guidance",
+    "profile_create_copy_and_preserve_extra",
+    "collect_to_candidates",
+    "selection_persists_reload",
+    "generate_source_bound_script",
+    "script_list_uses_title",
+    "date_filter_pagination",
+    "mobile_no_horizontal_overflow",
+    "no_javascript_errors"
+  ],
+  "browser": "154.0.8037.57",
+  "errors": []
+}

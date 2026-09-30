@@ -9,7 +9,7 @@ from uuid import uuid4
 from sqlmodel import Session, select
 
 from ..dedup.normalize import normalize_title, tokenize, jaccard
-from ..storage.models import Article, ArticleEventLink, Event
+from ..storage.models import Article, ArticleEventLink, Event, EventState, utc_now_iso
 from ..storage.utils import dumps
 
 WINDOW_DAYS = 3
@@ -99,7 +99,7 @@ def choose_event(session: Session, item: dict, decision) -> Assignment:
     return Assignment('evt_' + uuid4().hex[:20], 'new_event')
 
 
-def refresh_event(session: Session, event_key: str) -> None:
+def refresh_event(session: Session, event_key: str, *, touch_version=True) -> None:
     session.flush()
     event = session.exec(select(Event).where(Event.event_key == event_key)).one()
     rows = session.exec(select(Article).join(ArticleEventLink, Article.article_key == ArticleEventLink.article_key)
@@ -116,6 +116,17 @@ def refresh_event(session: Session, event_key: str) -> None:
         event.event_title, event.summary = primary.title, primary.content[:400]
         event.importance = max(row.market_relevance_score for row in rows)
         event.countries_json = dumps(sorted({row.country for row in rows if row.country}))
+    state = session.get(EventState, event_key)
+    if state:
+        if state.title_override is not None:
+            event.event_title = state.title_override
+        if state.summary_override is not None:
+            event.summary = state.summary_override
+    if touch_version:
+        state = state or EventState(event_key=event_key)
+        state.version += 1
+        state.updated_at = utc_now_iso()
+        session.add(state)
     session.add(event)
 
 

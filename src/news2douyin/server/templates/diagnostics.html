@@ -17,7 +17,7 @@
 {% else %}<p class="muted">暂无已完成的筛选统计。任务仍在进行时，此页每 3 秒刷新。</p>{% endif %}
 <h2>本次使用的策略配置</h2><p class="muted small">编辑当前策略不会改变这个任务。试跑失败后“重试”复用已保存步骤；修改策略后要发起新的试跑。</p>
 <table><tr><th>设置</th><th>本次值</th></tr>
-{% for key,label in [('provider','新闻源'),('country','国家'),('language','语言'),('max_items','最多条数'),('categories','关注分类'),('keywords_include','关注关键词'),('keywords_exclude','排除关键词'),('source_whitelist','来源白名单'),('source_blacklist','来源黑名单')] %}
+{% for key,label in [('provider','新闻源'),('collection_mode','获取方式'),('search_query','上游检索词'),('country','国家'),('language','语言'),('max_items','最多条数'),('categories','关注分类'),('keywords_include','关注关键词'),('keywords_exclude','排除关键词'),('source_whitelist','来源白名单'),('source_blacklist','来源黑名单')] %}
 {% set value=report.profile.get(key) %}<tr><td>{{ label }}</td><td>{% if value is sequence and value is not string %}{{ value|join('，') if value else '未限制' }}{% else %}{{ value or '未设置' }}{% endif %}</td></tr>{% endfor %}</table>
 {% if task.status in ['queued','running','cancel_requested'] %}<script>setTimeout(()=>location.reload(),3000);</script>{% endif %}
 {% endblock %}

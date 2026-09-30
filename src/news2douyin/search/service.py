@@ -120,7 +120,8 @@ def article_page(session: Session, *, query='', country='', category='', duplica
 
 def event_page(session: Session, *, query='', country='', topic='', limit=50, offset=0, mode='contains'):
     indexed = index_available(session)
-    stmt = select(Event)
+    from ..storage.models import EventState
+    stmt = select(Event).where(~Event.event_key.in_(select(EventState.event_key).where(EventState.merged_into != None)))
     for i, term in enumerate(_terms(query, mode)):
         event_match = _match(Event, [Event.event_title, Event.summary, Event.topic], term, indexed, f'event_term_{i}')
         article_match = _match(Article, [Article.title, Article.content, Article.source_domain], term, indexed, f'source_term_{i}')
