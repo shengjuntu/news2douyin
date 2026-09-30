@@ -1,0 +1,24 @@
+{
+  "status": "passed",
+  "checks": [
+    "wheel_webui",
+    "mock_collection",
+    "script_package",
+    "bundled_prompts",
+    "bundled_templates",
+    "legacy_llm_import",
+    "packaged_asset_worker",
+    "cli_entrypoint",
+    "task_pages",
+    "task_sse",
+    "async_collection",
+    "cancel_and_retry",
+    "script_workbench_pages",
+    "script_edit_review",
+    "approved_archive",
+    "script_revision_restore",
+    "video_pages",
+    "video_capabilities"
+  ],
+  "passed": 18
+}

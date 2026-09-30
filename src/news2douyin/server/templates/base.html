@@ -50,13 +50,13 @@ button:disabled { opacity:.45; cursor:not-allowed; }
 </head>
 <body>
 <header>
-  <div class="logo">news2douyin<span class="dot">·</span>0.9</div>
+  <div class="logo">news2douyin<span class="dot">·</span>0.10</div>
   <nav>
     <a href="/" class="{{ 'on' if active=='daily' }}">每日选题</a>
     <a href="/articles" class="{{ 'on' if active=='articles' }}">新闻库</a>
     <a href="/events" class="{{ 'on' if active=='events' }}">事件专题</a>
     <a href="/scripts" class="{{ 'on' if active=='scripts' }}">脚本工作台</a>
-    <a href="/videos" class="{{ 'on' if active=='videos' }}">视频与成片</a>
+    <a href="/videos" class="{{ 'on' if active=='videos' }}">作品库</a>
     <a href="/profiles" class="{{ 'on' if active=='profiles' }}">采集策略</a>
     <a href="/admin" class="{{ 'on' if active in ['home','tasks','runs','timeline'] }}">运行管理</a>
   </nav>
@@ -64,6 +64,6 @@ button:disabled { opacity:.45; cursor:not-allowed; }
 <main>
 {% block content %}{% endblock %}
 </main>
-<footer>news2douyin 0.9.0 · <a href="/tasks">后台任务</a> · <a href="/runs">运行记录</a> · <a href="/timeline">新闻长图排版</a> · <a href="/docs">API</a></footer>
+<footer>news2douyin 0.10.0 · <a href="/tasks">后台任务</a> · <a href="/runs">运行记录</a> · <a href="/timeline">新闻长图排版</a> · <a href="/docs">API</a></footer>
 </body>
 </html>

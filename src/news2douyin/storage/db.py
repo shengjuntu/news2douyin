@@ -25,6 +25,8 @@ def init_db(engine) -> None:
     SQLModel.metadata.create_all(engine)
     backfill_versions(engine)
     init_search(engine)
+    from ..video.library import backfill_works
+    backfill_works(engine)
 
 
 def session_scope(engine) -> Session:

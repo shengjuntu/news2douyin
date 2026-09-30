@@ -1,0 +1,25 @@
+{
+  "passed": 18,
+  "checks": [
+    "requires_reviewed_node_selection",
+    "mode_duration_style_and_backend_choices",
+    "background_result_survives_closed_page",
+    "structured_segments_and_generated_narration",
+    "visible_pinned_versions_and_node_snapshot",
+    "edit_analysis_storyboard_and_asset_needs",
+    "invalid_citation_rejected_without_losing_local_input",
+    "reorder_and_reload_retains_segment_identity",
+    "add_remove_segment_controls",
+    "restore_keeps_facts_analysis_and_storyboard",
+    "review_and_download_evidence_production_bundle",
+    "saved_api_matches_editor_and_plain_text_contract",
+    "approved_script_continues_to_video_setup",
+    "generation_and_editor_fit_mobile",
+    "visible_failure_retry_and_result_recovery",
+    "workbench_lists_tasks_and_separate_drafts",
+    "cancel_does_not_create_late_draft",
+    "no_javascript_errors"
+  ],
+  "browser": "154.0.8037.57",
+  "errors": []
+}

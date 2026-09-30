@@ -107,13 +107,19 @@ def register_webui_routes(app: FastAPI, engine, scheduler, storage_root: str) ->
 
     @app.get('/videos', response_class=HTMLResponse)
     def page_videos():
-        return render('videos.html', active='videos', videos=list_productions(engine))
+        return render('videos.html', active='videos', timezone=timezone_name())
 
     @app.get('/scripts/{package_key}/video', response_class=HTMLResponse)
-    def page_video_setup(package_key: str):
+    def page_video_setup(package_key: str, from_task: str = ''):
         with session_scope(engine) as session:
             script = video_call(script_workbench.script_detail, session, package_key)
-        return render('video_setup.html', active='videos', script=script)
+        previous = video_call(production_detail, engine, from_task) if from_task else None
+        if previous and previous['package_key'] != package_key:
+            raise HTTPException(422, '原视频任务不属于此脚本')
+        from ..video.templates import catalog, scene_plan
+        from ..video.production import VideoOptions
+        scenes = video_call(scene_plan, script, VideoOptions().model_dump()) if script.get('document') else []
+        return render('video_setup.html', active='videos', script=script, previous=previous, scenes=scenes, templates=catalog())
 
     @app.get('/videos/{task_id}', response_class=HTMLResponse)
     def page_video_result(task_id: str):

@@ -63,3 +63,13 @@ python prep_assets.py --run-dir ../run_1451 --out out --llm openai --model gpt-4
 - `tests/test_script_generation.py`：冻结输入、两版原文、并发幂等、结构化模型响应、检查点、取消/租约、版本恢复和导出检查。
 
 离线模型响应不证明真实模型的中文写作质量或事实准确性。
+
+
+## 0.10.0 视频与作品库验证
+
+- `smoke_video_workbench.py --output-dir DIRECTORY`：用虚构资料和真实离线中文机械配音生成 8 秒左右的视频，保存三种模板预览与制作包。需安装视频/离线配音依赖、FFmpeg/FFprobe 及中文字体。
+- 同一脚本的 `--serve --port 18197` 启动独立浏览器测试服务；解释模板的首次编码故意中断，以验证已保存配音恢复。仅用于测试，不是正式启动方式。
+- `smoke_video_workbench_browser.cjs`：配合以上服务检查作品库、实际播放、素材与 SRT、预检、预览、后台失败和恢复、移动端。读取 `docs/validation-0.10.0/demo/brief-preview.png` 作为上传测试图片。
+- `seed_upgrade_0_9.py DIRECTORY`：在 0.9 wheel 环境创建已完成和排队中的旧视频，目录须事先不存在。
+- `smoke_video_workbench_installed.py --upgrade-fixture DIRECTORY`：安装 0.10 后用 `python -I` 验证真实安装资源、实际编码和旧任务继续执行。
+- 所有验收材料均为虚构资料；联网 Edge TTS 和真实新闻/模型服务未用于本版验收。

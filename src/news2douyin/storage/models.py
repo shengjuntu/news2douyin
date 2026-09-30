@@ -327,6 +327,18 @@ class VideoProduction(SQLModel, table=True):
     created_at: str = Field(default_factory=utc_now_iso)
 
 
+class VideoWork(SQLModel, table=True):
+    """Library labels do not modify the rendered video or its approved snapshot."""
+    task_id: str = Field(primary_key=True)
+    title: str = Field(index=True)
+    template_id: str = Field(default='legacy', index=True)
+    notes: str = ''
+    starred: bool = False
+    archived: bool = False
+    version: int = 1
+    updated_at: str = Field(default_factory=utc_now_iso)
+
+
 class EventState(SQLModel, table=True):
     """Additive curation state; old events start at version zero."""
     event_key: str = Field(primary_key=True)

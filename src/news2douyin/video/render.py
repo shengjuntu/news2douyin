@@ -17,6 +17,7 @@ from .media import binary, file_hash, probe, run_process
 from .production import PRESETS
 from .subtitles import split_narration, write_srt
 from .workbench import canonical, digest
+from .templates import synthesis_chunks, bind_cues, scene_image
 
 SAMPLE_RATE = 24000
 
@@ -65,7 +66,7 @@ def make_audio(spec, folder, context):
             raise ValueError('字幕超出配音时长')
         alignment = 'user_supplied_srt'
     else:
-        chunks = split_narration(script)
+        chunks = synthesis_chunks(spec)
         if not 1 <= len(chunks) <= 300:
             raise ValueError('分句数量需在 1–300 之间')
         cues, duration, segments = [], 0.0, []
@@ -100,6 +101,8 @@ def make_audio(spec, folder, context):
                     merged.writeframes(segment.readframes(segment.getnframes()))
         duration = wav_duration(output)
         alignment = 'synthesized_sentence_durations'
+    if spec.get('scenes'):
+        cues = bind_cues(cues, spec['scenes'])
     result = {'audio': artifact(output), 'duration': duration, 'cues': cues, 'alignment': alignment}
     context.save_checkpoint('video_audio', result, replace=True)
     return result
@@ -122,6 +125,9 @@ def wrap_text(text, font, width):
 
 
 def draw_card(path, spec, size, cue, image_path=None):
+    if spec.get('template'):
+        from .visuals import draw_template
+        return draw_template(path, spec, size, cue, image_path)
     from PIL import Image, ImageDraw, ImageFont, ImageOps
     width, height = size
     canvas = Image.new('RGB', size, '#0b1220')
@@ -181,27 +187,36 @@ def make_frames(spec, audio, folder, context):
     cues, timeline, position = audio['cues'], [], 0.0
     for cue in cues:
         if cue['start'] > position + .0005:
-            timeline.append({'start': position, 'end': cue['start'], 'text': ''})
+            timeline.append({'start': position, 'end': cue['start'], 'text': '', 'scene_key': timeline[-1].get('scene_key') if timeline else cue.get('scene_key')})
         timeline.append(cue)
         position = cue['end']
     if audio['duration'] > position + .0005:
-        timeline.append({'start': position, 'end': audio['duration'], 'text': ''})
+        timeline.append({'start': position, 'end': audio['duration'], 'text': '', 'scene_key': cues[-1].get('scene_key')})
     images = spec['images']
     for entry in images:
         if file_hash(entry['path']) != entry['sha256']:
             raise ValueError('图片素材校验失败')
-    lines = []
+    lines, scene_frames = [], []
     context.progress('frames', 0, len(timeline))
     for index, cue in enumerate(timeline):
         context.check()
         path = folder / f'frame-{index:04}.png'
         image = images[min(len(images)-1, index * len(images) // len(timeline))]['path'] if images else None
+        if spec.get('scenes'):
+            scene = next(s for s in spec['scenes'] if s['scene_key'] == cue['scene_key'])
+            selected_image = scene_image(spec, scene, index, len(timeline))
+            image = selected_image['path'] if selected_image else None
+            scene_frames.append(dict(start=cue['start'], end=cue['end'], scene_key=scene['scene_key'],
+                kind=scene['kind'], evidence_ids=scene['evidence_ids'], dates=scene['dates'],
+                image_id=selected_image['asset_id'] if selected_image else None, text=cue['text']))
         draw_card(path, spec, (width, height), cue, image)
         lines.extend([f"file '{path.name}'", f"duration {cue['end'] - cue['start']:.6f}"])
         context.progress('frames', index + 1, len(timeline))
     lines.append(f"file 'frame-{len(timeline)-1:04}.png'")
     (folder / 'frames.txt').write_text('\n'.join(lines) + '\n', encoding='utf-8')
     shutil.copyfile(folder / 'frame-0000.png', folder / 'cover.png')
+    if spec.get('scenes'):
+        (folder / 'scene_timeline.json').write_text(canonical({'schema_version': 1, 'template': spec['template'], 'scenes': spec['scenes'], 'frames': scene_frames}), encoding='utf-8')
     return width, height, fps
 
 
@@ -274,11 +289,14 @@ def run_video(engine, task, storage_root, context):
             raise ValueError('成片规格或音视频时长校验失败')
         (folder / 'script_snapshot.json').write_text(canonical(spec['snapshot']), encoding='utf-8')
         names = ['video.mp4', 'narration.wav', 'subtitles.srt', 'cover.png', 'script_snapshot.json']
+        if spec.get('scenes'):
+            names.append('scene_timeline.json')
         manifest = {'schema_version': 1, 'kind': 'news2douyin.video', 'task_id': task.task_id,
                     'revision': revision, 'export_key': export_key, 'input_hash': input_hash,
                     'script_hash': spec['script_hash'], 'duration': actual_duration, 'width': width,
                     'height': height, 'fps': fps, 'alignment': audio['alignment'],
                     'backend': spec['options']['backend'], 'voice': spec['options']['voice'],
+                    'template': spec.get('template', {'id':'legacy', 'version':1}), 'scene_count': len(spec.get('scenes', [])),
                     'image_assets': [{'asset_id': a['asset_id'], 'sha256': a['sha256']} for a in spec['images']],
                     'font_sha256': spec['font']['sha256'], 'files': {name: file_hash(folder / name) for name in names}}
         (folder / 'manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding='utf-8')

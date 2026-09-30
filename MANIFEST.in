@@ -1,5 +1,5 @@
 include README.md V7_IMPLEMENTATION_NOTES.md .env.example
-recursive-include docs *.md *.json *.png *.zip
+recursive-include docs *.md *.json *.png *.zip *.mp4 *.wav *.srt
 recursive-include configs *.yaml *.toml
 recursive-include tools *.py *.md *.txt *.bat *.cjs
 recursive-include tests *.py *.json

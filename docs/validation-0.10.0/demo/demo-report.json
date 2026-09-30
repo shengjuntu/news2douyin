@@ -1,0 +1,21 @@
+{
+  "status": "passed",
+  "checks": [
+    "real_offline_chinese_speech",
+    "structured_scene_switching",
+    "three_template_previews",
+    "h264_aac_encode",
+    "audio_video_duration",
+    "scene_timeline_export",
+    "checksummed_video_bundle"
+  ],
+  "result": {
+    "alignment": "synthesized_sentence_durations",
+    "backend": "espeak",
+    "duration": 8.416667,
+    "fps": 12,
+    "height": 640,
+    "revision": 2,
+    "width": 360
+  }
+}

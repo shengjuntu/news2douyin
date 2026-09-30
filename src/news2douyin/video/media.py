@@ -116,9 +116,18 @@ def capabilities():
               'font': False, 'errors': []}
     for name in ['ffmpeg', 'ffprobe']:
         try:
-            binary(name)
+            executable = binary(name)
+            args = [executable, '-hide_banner', '-encoders'] if name == 'ffmpeg' else [executable, '-version']
+            checked = subprocess.run(args, capture_output=True, timeout=8)
+            if checked.returncode:
+                raise RuntimeError(f'{name} 无法运行，请检查安装与执行权限')
             result[name] = True
-        except RuntimeError as exc:
+            if name == 'ffmpeg':
+                entries = {line.split()[1] for line in checked.stdout.decode(errors='replace').splitlines() if len(line.split()) > 1}
+                result['encoders'] = {codec: codec in entries for codec in ['libx264', 'aac']}
+                if not all(result['encoders'].values()):
+                    result['errors'].append('FFmpeg 缺少 libx264 或 AAC 编码器，请安装包含这两种编码器的版本')
+        except (RuntimeError, OSError, subprocess.SubprocessError) as exc:
             result['errors'].append(str(exc))
     try:
         selected = font_path()
@@ -135,5 +144,13 @@ def capabilities():
         result['errors'].append(str(exc))
     if not result['pillow']:
         result['errors'].append('请安装 news2douyin[video]')
-    result['ready'] = all(result[k] for k in ('ffmpeg', 'ffprobe', 'pillow', 'font'))
+    result['ready'] = all(result[k] for k in ('ffmpeg', 'ffprobe', 'pillow', 'font')) and all(result.get('encoders', {}).get(k, False) for k in ['libx264','aac'])
+    result['checks'] = [dict(key=key, label=label, ok=bool(ok), fix=fix) for key,label,ok,fix in [
+        ('ffmpeg','FFmpeg 可执行程序',result['ffmpeg'],'安装 FFmpeg 并加入 PATH，或设置 NEWS2DOUYIN_FFMPEG。'),
+        ('encoders','H.264 / AAC 编码器',all(result.get('encoders', {}).get(k, False) for k in ['libx264','aac']),'FFmpeg 构建需包含 libx264 和 AAC。'),
+        ('ffprobe','媒体检查程序',result['ffprobe'],'安装 FFprobe 并加入 PATH，或设置 NEWS2DOUYIN_FFPROBE。'),
+        ('pillow','图片处理依赖',result['pillow'],'在运行服务的 Python 环境执行 pip install "news2douyin[video]"。'),
+        ('font','中文字体',result['font'],'安装中文字体，或将 NEWS2DOUYIN_VIDEO_FONT 指向本地字体文件。'),
+        ('espeak','离线机械配音（可选）',result['espeak'],'执行 pip install "news2douyin[voice-offline]"，或选上传配音。'),
+        ('edge','Edge TTS（可选，未验证联网）',result['edge'],'执行 pip install "news2douyin[tts]"，或选上传配音。')]]
     return result

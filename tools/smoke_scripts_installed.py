@@ -24,7 +24,7 @@ from news2douyin.video import workbench as scripts
 
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('--upgrade-fixture',default='');args=parser.parse_args()
-    assert version('news2douyin')=='0.9.0'
+    assert tuple(map(int,version('news2douyin').split('.')[:3])) >= (0,9,0)
     checks=[]
     with tempfile.TemporaryDirectory(prefix='scripts-wheel-') as directory,patch.object(webui,'_llm_alive',return_value=False):
         app=create_app(db_url=f'sqlite:///{directory}/app.db',storage_root=str(Path(directory)/'runs'));client=TestClient(app)

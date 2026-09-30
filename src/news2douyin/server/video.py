@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import Form, HTTPException, Query, UploadFile, File
+from fastapi import Form, HTTPException, Query, UploadFile, File, Response
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 from sqlmodel import Session, select
@@ -11,6 +11,8 @@ from ..tasks.service import task_dict
 from ..video import production as prod
 from ..video import workbench as wb
 from ..video.media import capabilities, file_hash
+from ..video import library
+from ..video.templates import catalog
 
 
 class RenderPayload(BaseModel):
@@ -18,6 +20,10 @@ class RenderPayload(BaseModel):
     expected_version: int = Field(ge=1)
     options: prod.VideoOptions = Field(default_factory=prod.VideoOptions)
     idempotency_key: str | None = Field(default=None, min_length=1, max_length=128)
+
+
+class PreviewPayload(RenderPayload):
+    scene_index: int = Field(default=0, ge=0, le=299)
 
 
 def video_call(fn, *args, **kwargs):
@@ -29,7 +35,7 @@ def video_call(fn, *args, **kwargs):
         raise HTTPException(409, str(exc)) from exc
     except FileNotFoundError as exc:
         raise HTTPException(410, str(exc)) from exc
-    except ValueError as exc:
+    except (ValueError, RuntimeError) as exc:
         raise HTTPException(422, str(exc)) from exc
 
 
@@ -43,6 +49,36 @@ def list_productions(engine, package_key='', limit=50):
 
 
 def register_video_routes(app, engine, storage_root):
+    @app.get('/api/video/templates')
+    def templates():
+        return catalog()
+
+    @app.get('/api/video/works')
+    def works(query: str = Query('', max_length=300), status: str = 'succeeded', date_from: str = '',
+              date_to: str = '', timezone: str = '', template: str = '', starred: bool = False,
+              archived: bool = False, offset: int = Query(0, ge=0), limit: int = Query(24, ge=1, le=100)):
+        return video_call(library.work_page, engine, query=query, status=status, date_from=date_from,
+                          date_to=date_to, timezone=timezone, template=template, starred=starred,
+                          archived=archived, offset=offset, limit=limit)
+
+    @app.put('/api/video/works/{task_id}')
+    def edit_work(task_id: str, payload: library.WorkEdit):
+        return video_call(library.edit, engine, task_id, payload.model_dump())
+
+    @app.post('/api/video/preflight')
+    def preflight(payload: RenderPayload):
+        return video_call(prod.preflight, engine, payload.package_key, payload.expected_version, payload.options.model_dump())
+
+    @app.post('/api/video/preview')
+    def preview(payload: PreviewPayload):
+        content = video_call(prod.preview_frame, engine, payload.package_key, payload.expected_version,
+                             payload.options.model_dump(), payload.scene_index)
+        return Response(content, media_type='image/png', headers={'Cache-Control':'no-store'})
+
+    @app.get('/api/video/tasks/{task_id}/recovery')
+    def recovery(task_id: str):
+        return video_call(library.recovery, engine, task_id)
+
     @app.get('/api/video/capabilities')
     def diagnostics():
         return capabilities()

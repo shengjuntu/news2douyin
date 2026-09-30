@@ -1,0 +1,25 @@
+{
+  "passed": 18,
+  "checks": [
+    "completed_gallery_uses_titles_covers_dates",
+    "favorite_survives_reload",
+    "real_h264_preview_plays_in_browser",
+    "work_metadata_preserved_without_rewriting_video_title",
+    "search_matches_saved_notes",
+    "archive_and_restore_without_deleting_artifacts",
+    "reuse_configuration_and_actionable_environment_checks",
+    "three_real_template_previews",
+    "per_segment_image_assignment",
+    "cross_segment_srt_is_rejected_before_queueing",
+    "srt_file_import_and_preflight_invalidates_on_changes",
+    "closed_page_retains_failure_and_audio_recovery_advice",
+    "retry_reuses_audio_and_completes_real_render",
+    "exported_scene_timing_keeps_image_and_analysis_links",
+    "mp4_range_and_video_subtitle_bundle_downloads",
+    "gallery_template_date_filters_and_preserved_previous_work",
+    "library_setup_and_result_fit_mobile",
+    "no_javascript_errors"
+  ],
+  "browser": "154.0.8037.57",
+  "errors": []
+}

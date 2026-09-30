@@ -14,12 +14,13 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
-from ..storage.models import VideoAsset, VideoProduction, TaskRecord, ScriptExport
+from ..storage.models import VideoAsset, VideoProduction, VideoWork, TaskRecord, ScriptExport
 from ..tasks.service import add_event, task_dict, TaskService
 from ..tasks.control import TaskConflict
 from . import workbench as wb
 from .media import file_hash, font_path, capabilities
 from .subtitles import parse_srt
+from .templates import TEMPLATES, scene_plan, bind_cues
 
 PRESETS = {'preview': (360, 640, 12), 'portrait': (720, 1280, 24), 'fullhd': (1080, 1920, 24)}
 
@@ -33,6 +34,8 @@ class VideoOptions(BaseModel):
     image_ids: list[str] = Field(default_factory=list, max_length=12)
     audio_id: str | None = None
     subtitles: str = Field(default='', max_length=80000)
+    template: Literal['brief', 'explain', 'timeline'] = 'brief'
+    scene_images: dict[str, str] = Field(default_factory=dict, max_length=30)
 
 
 def asset_dict(asset):
@@ -106,6 +109,105 @@ def add_asset(engine, storage_root, package_key, kind, filename, source):
             output.unlink(missing_ok=True)
 
 
+def approved_snapshot(session, package_key, expected_version):
+    state = wb._lock(session, package_key, expected_version)
+    if state.status != 'approved' or state.approved_revision != state.current_revision:
+        raise wb.ScriptConflict('只有当前审核通过的脚本可以制作视频')
+    revision = wb.get_revision(session, package_key, state.current_revision)
+    if wb.digest(revision.payload_json.encode()) != revision.content_hash:
+        raise ValueError('脚本快照校验失败')
+    return revision, json.loads(revision.payload_json)
+
+
+def prepare_spec(session, package_key, snapshot, options, *, preview=False):
+    narration = snapshot['document']['script_text']
+    if len(narration) > 6000:
+        raise ValueError('视频支持最多 6000 字符，请先拆分脚本')
+    if len(set(options['image_ids'])) != len(options['image_ids']):
+        raise ValueError('图片素材不能重复选择')
+    scenes = scene_plan(snapshot, options)
+    image_ids = list(dict.fromkeys(options['image_ids'] + list(options['scene_images'].values())))
+    if len(image_ids) > 12:
+        raise ValueError('一个视频最多使用 12 张不同图片')
+    images, audio = [], None
+    for asset_id, kind in [(k, 'image') for k in image_ids] + ([(options['audio_id'], 'audio')] if options['audio_id'] and not preview else []):
+        asset = session.get(VideoAsset, asset_id)
+        if not asset or asset.package_key != package_key or asset.kind != kind:
+            raise ValueError('素材不存在、类型错误或不属于当前脚本')
+        if not Path(asset.storage_path).is_file() or file_hash(asset.storage_path) != asset.sha256:
+            raise ValueError('素材文件丢失或校验失败，请恢复备份或重新上传')
+        data = asset_dict(asset) | {'path': asset.storage_path}
+        if kind == 'image': images.append(data)
+        else: audio = data
+    cues = None
+    if not preview:
+        if options['backend'] == 'uploaded':
+            if audio is None:
+                raise ValueError('请上传配音并提供匹配的 SRT')
+            cues = bind_cues(parse_srt(options['subtitles'], narration), scenes)
+            if cues[-1]['end'] > audio['metadata']['duration'] + 0.03:
+                raise ValueError('字幕结束时间超过配音时长')
+        elif audio or options['subtitles']:
+            raise ValueError('自动配音时请清空上传配音和 SRT')
+    options['voice'] = options['voice'] or ('cmn' if options['backend'] == 'espeak' else 'zh-CN-XiaoxiaoNeural')
+    font = font_path()
+    return {'schema_version': 2, 'snapshot': snapshot, 'options': options, 'scenes': scenes,
+            'template': dict(TEMPLATES[options['template']]), 'images': images, 'audio': audio, 'cues': cues,
+            'font': {'path': str(font), 'sha256': file_hash(font)}}
+
+
+def check_environment(options):
+    diagnostics = capabilities()
+    if not diagnostics['ready']:
+        raise ValueError('; '.join(diagnostics['errors']))
+    if options['backend'] != 'uploaded' and not diagnostics[options['backend']]:
+        raise ValueError('所选配音后端未安装，请查看视频环境检查')
+    return diagnostics
+
+
+def preflight(engine, package_key, expected_version, options):
+    options = VideoOptions.model_validate(options).model_dump()
+    diagnostics = check_environment(options)
+    with Session(engine) as session:
+        revision, snapshot = approved_snapshot(session, package_key, expected_version)
+        spec = prepare_spec(session, package_key, snapshot, options)
+        warnings = []
+        if not spec['images']: warnings.append('没有图片，将使用所选模板的信息卡。')
+        if options['backend'] == 'espeak': warnings.append('离线配音为机械音，适合预览。')
+        if options['backend'] == 'edge': warnings.append('Edge TTS 需要联网；本次检查未验证远端服务。')
+        if options['backend'] == 'uploaded': warnings.append('已核对 SRT 文字与时间；请试听确认上传音频实际内容。')
+        return dict(ready=True, revision=revision.revision, template=spec['template']['name'],
+            scene_count=len(spec['scenes']), image_count=len(spec['images']),
+            actual_duration=spec['audio']['metadata']['duration'] if spec['audio'] else None,
+            target_duration=snapshot['document']['target_duration_sec'], warnings=warnings,
+            checks=diagnostics.get('checks', []))
+
+
+def preview_frame(engine, package_key, expected_version, options, scene_index=0):
+    from tempfile import TemporaryDirectory
+    from .render import draw_card
+    from .templates import scene_image
+    from .subtitles import split_narration
+    options = VideoOptions.model_validate(options).model_dump()
+    with Session(engine) as session:
+        _, snapshot = approved_snapshot(session, package_key, expected_version)
+        spec = prepare_spec(session, package_key, snapshot, options, preview=True)
+    if not 0 <= scene_index < len(spec['scenes']):
+        raise ValueError('预览段落不存在')
+    scene = spec['scenes'][scene_index]
+    cue = {'text': split_narration(scene['narration'])[0], 'scene_key': scene['scene_key']}
+    img = scene_image(spec, scene, scene_index, len(spec['scenes']))
+    with TemporaryDirectory(prefix='news2douyin-preview-') as folder:
+        path = Path(folder) / 'preview.png'
+        try:
+            draw_card(path, spec, (360, 640), cue, img['path'] if img else None)
+        except ImportError:
+            raise ValueError('预览需要图片依赖，请在服务环境安装 news2douyin[video]。') from None
+        except OSError:
+            raise ValueError('无法绘制预览，请检查图片文件和 NEWS2DOUYIN_VIDEO_FONT 中文字体。') from None
+        return path.read_bytes()
+
+
 def submit_video(engine, storage_root, package_key, expected_version, options, idempotency_key=None):
     options = VideoOptions.model_validate(options).model_dump()
     if idempotency_key is not None and not 1 <= len(idempotency_key) <= 128:
@@ -115,75 +217,35 @@ def submit_video(engine, storage_root, package_key, expected_version, options, i
     with Session(engine) as session:
         if key:
             old = session.exec(select(TaskRecord).where(TaskRecord.idempotency_key == key)).first()
-            if old:
-                return TaskService._same_request(old, request_hash)
-    diagnostics = capabilities()
-    if not diagnostics['ready']:
-        raise ValueError('; '.join(diagnostics['errors']))
-    if options['backend'] != 'uploaded' and not diagnostics[options['backend']]:
-        raise ValueError('所选配音后端未安装，请查看视频环境检查')
-    # Produce the immutable approved handoff, then re-lock its state while
-    # enqueuing: an intervening edit must not silently render unseen content.
+            if old: return TaskService._same_request(old, request_hash)
+    check_environment(options)
     with Session(engine) as session:
         exported = wb.export_script(session, package_key, expected_version=expected_version)
     with Session(engine) as session:
-        wb._lock(session, package_key, expected_version)
-        export = session.get(ScriptExport, exported['export_key'])
-        revision = wb.get_revision(session, package_key, export.revision)
-        if wb.digest(revision.payload_json.encode()) != export.content_hash:
-            raise ValueError('脚本快照校验失败')
-        snapshot = json.loads(revision.payload_json)
-        narration = snapshot['document']['script_text']
-        if len(narration) > 6000:
-            raise ValueError('最小视频流程支持最多 6000 字符，请先拆分脚本')
-        if len(set(options['image_ids'])) != len(options['image_ids']):
-            raise ValueError('图片素材不能重复选择')
-        images, audio = [], None
-        for asset_id, kind in [(k, 'image') for k in options['image_ids']] + ([(options['audio_id'], 'audio')] if options['audio_id'] else []):
-            asset = session.get(VideoAsset, asset_id)
-            if not asset or asset.package_key != package_key or asset.kind != kind:
-                raise ValueError('素材不存在、类型错误或不属于当前脚本')
-            data = asset_dict(asset) | {'path': asset.storage_path}
-            if kind == 'image':
-                images.append(data)
-            else:
-                audio = data
-        if options['backend'] == 'uploaded':
-            if audio is None:
-                raise ValueError('请上传配音并提供匹配的 SRT')
-            cues = parse_srt(options['subtitles'], narration)
-            if cues[-1]['end'] > audio['metadata']['duration'] + 0.03:
-                raise ValueError('字幕结束时间超过配音时长')
-        elif audio or options['subtitles']:
-            raise ValueError('自动配音时请清空上传配音和 SRT')
-        else:
-            cues = None
-        options['voice'] = options['voice'] or ('cmn' if options['backend'] == 'espeak' else 'zh-CN-XiaoxiaoNeural')
-        font = font_path()
-        spec = {'schema_version': 1, 'snapshot': snapshot, 'script_hash': export.content_hash,
-                'export_key': export.export_key, 'options': options, 'images': images,
-                'audio': audio, 'cues': cues, 'font': {'path': str(font), 'sha256': file_hash(font)}}
+        revision, snapshot = approved_snapshot(session, package_key, expected_version)
+        spec = prepare_spec(session, package_key, snapshot, options)
+        spec.update(script_hash=revision.content_hash, export_key=exported['export_key'])
         task_id = uuid4().hex
         task = TaskRecord(task_id=task_id, profile_name=package_key, trigger_type='video',
                           profile_json='{"kind":"video"}', request_hash=request_hash, idempotency_key=key)
         production = VideoProduction(task_id=task_id, package_key=package_key, revision=revision.revision,
-                                     export_key=export.export_key, input_hash=wb.digest(wb.canonical(spec).encode()),
+                                     export_key=exported['export_key'], input_hash=wb.digest(wb.canonical(spec).encode()),
                                      spec_json=wb.canonical(spec))
         session.add(production)
+        session.add(VideoWork(task_id=task_id, title=snapshot['document']['title'], template_id=options['template']))
         add_event(session, task, 'queued')
-        try:
-            session.commit()
+        try: session.commit()
         except IntegrityError:
             session.rollback()
             old = session.exec(select(TaskRecord).where(TaskRecord.idempotency_key == key)).first() if key else None
-            if old:
-                return TaskService._same_request(old, request_hash)
+            if old: return TaskService._same_request(old, request_hash)
             raise
         session.refresh(task)
         return task_dict(task)
 
 
 def production_detail(engine, task_id):
+    from .library import metadata, presence
     with Session(engine) as session:
         row = session.get(VideoProduction, task_id)
         if row is None:
@@ -191,8 +253,11 @@ def production_detail(engine, task_id):
         task = session.get(TaskRecord, task_id)
         spec = json.loads(row.spec_json)
         result = json.loads(row.result_json)
+        work = metadata(session, row, spec)
         return {'task': task_dict(task), 'package_key': row.package_key, 'revision': row.revision,
                 'title': spec['snapshot']['document']['title'], 'options': spec['options'],
+                'work': work, 'template': spec.get('template', {'id':'legacy','name':'旧版新闻卡'}),
+                'scenes': spec.get('scenes', []), 'missing_files': presence(result.get('files', {})),
                 'input_hash': row.input_hash, 'result': {k: v for k, v in result.items() if k != 'files'},
                 'files': [{'name': name, 'sha256': entry['sha256'], 'size_bytes': entry['size_bytes'],
                            'url': f'/api/video/tasks/{task_id}/files/{name}'} for name, entry in result.get('files', {}).items()]}

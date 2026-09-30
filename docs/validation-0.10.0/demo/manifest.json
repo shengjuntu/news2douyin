@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "kind": "news2douyin.video",
+  "task_id": "2b3820120fbd4911aca76a8915d36cf2",
+  "revision": 2,
+  "export_key": "exp_e8db8e73d7c89fa2cff54bd5",
+  "input_hash": "cfac3e91dc34cf8b823e8d222d3f0e8cf9de2f669a988b71e83d93cabd2b800f",
+  "script_hash": "fa52c81bcaa63ac1fa586cd273fa93b059609b5f611884754fa9476ab349c327",
+  "duration": 8.416667,
+  "width": 360,
+  "height": 640,
+  "fps": 12,
+  "alignment": "synthesized_sentence_durations",
+  "backend": "espeak",
+  "voice": "cmn",
+  "template": {
+    "accent": "#edae63",
+    "background": "#17162a",
+    "description": "节点顺序与时间依据，适合按进展讲述事件。",
+    "id": "timeline",
+    "ink": "#faf5ed",
+    "layout": "timeline",
+    "muted": "#c1b4cd",
+    "name": "事件复盘",
+    "panel": "#29253e",
+    "version": 1
+  },
+  "scene_count": 2,
+  "image_assets": [],
+  "font_sha256": "2c76254f6fc379fddfce0a7e84fb5385bb135d3e399294f6eeb6680d0365b74b",
+  "files": {
+    "video.mp4": "b05401829a666911ec2e1a190fd4fa60729e5c2baf16ee0bd6afc4872450885e",
+    "narration.wav": "1437b007353ebe302810e02894f97ff1e4041c9b54442bc0219c18c34bb83f8d",
+    "subtitles.srt": "3efb3c839f75c1304c8c90f810a7fb5afa6b94a8524e3a3c9639c85bf545a34c",
+    "cover.png": "bcab9f7623f19f0b095a98070105693e50b503610955bc10d44f8f7387717754",
+    "script_snapshot.json": "fa52c81bcaa63ac1fa586cd273fa93b059609b5f611884754fa9476ab349c327",
+    "scene_timeline.json": "ec1122e79de4f1af355a5489824317e0e8f11a50a0bdd50060dbf70bb47975d6"
+  }
+}
