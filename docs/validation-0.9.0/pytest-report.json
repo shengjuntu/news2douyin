@@ -1,0 +1,9 @@
+{
+  "passed": 185,
+  "failed": 0,
+  "skipped": 0,
+  "warnings": 15,
+  "seconds": 21.59,
+  "command": "python -m pytest -q",
+  "video_dependencies": "FFmpeg + FFprobe + CJK font"
+}

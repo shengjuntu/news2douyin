@@ -13,13 +13,13 @@
     <button id="cancel" type="button">取消任务</button>
     <button id="retry" class="ghost" type="button">从已保存进度重试</button>
     <a id="video" href="/videos/{{ task.task_id }}" {% if task.kind != 'video' %}hidden{% endif %}>查看视频结果</a>
-    <a id="run" hidden>查看运行结果</a>
+    <a id="script-result" hidden>打开生成草稿 →</a><a id="run" hidden>查看运行结果</a>
     <a id="choose-result" hidden>选择本次新闻 →</a>
-    {% if task.kind != 'video' %}<a href="/tasks/{{ task.task_id }}/diagnostics">{{ '查看试跑诊断' if task.kind=='trial' else '查看采集诊断' }} →</a>{% endif %}
+    {% if task.kind not in ['video','script'] %}<a href="/tasks/{{ task.task_id }}/diagnostics">{{ '查看试跑诊断' if task.kind=='trial' else '查看采集诊断' }} →</a>{% endif %}
     <a href="/tasks">任务列表</a>
   </div>
 </div>
-{% if task.kind == 'video' %}<p class="muted small">视频任务取消时会终止正在运行的配音或编码子进程。重试复用校验通过的音频检查点。</p>{% else %}<p class="muted small">取消在安全检查点生效；正在进行的网络请求会先返回或超时。重试保留已入库新闻，复用已完成的筛选结果。需要重新抓取时，请回仪表盘提交新任务。</p>{% endif %}
+{% if task.kind == 'script' %}<p class="muted small">脚本任务固定提交时的节点和来源版本。可关闭页面，稍后从<a href="/scripts">脚本工作台</a>返回。取消需等待当前模型请求返回或超时；重试复用已验证的生成结果，每个任务只创建一份草稿。</p><p id="script-input" class="muted small"></p>{% elif task.kind == 'video' %}<p class="muted small">视频任务取消时会终止正在运行的配音或编码子进程。重试复用校验通过的音频检查点。</p>{% else %}<p class="muted small">取消在安全检查点生效；正在进行的网络请求会先返回或超时。重试保留已入库新闻，复用已完成的筛选结果。需要重新抓取时，请回仪表盘提交新任务。</p>{% endif %}
 <p id="connection" class="muted small">正在连接进度流…</p>
 <h2>任务记录</h2>
 <pre id="events" style="max-height:350px" aria-label="任务记录"></pre>
@@ -27,7 +27,7 @@
 const initial = {{ task | tojson }};
 const base = '/api/tasks/' + encodeURIComponent(initial.task_id);
 const statuses = {queued:'排队中', running:'执行中', cancel_requested:'正在取消', cancelled:'已取消', succeeded:'已完成', failed:'失败'};
-const stages = {queued:'等待执行', starting:'准备', fetching:'抓取新闻', filtering:'筛选新闻', storing:'入库', exporting:'保存结果', complete:'完成', preparing:'准备视频', voice:'合成配音', subtitles:'生成字幕', frames:'绘制画面', rendering:'编码视频', verifying:'校验成片', packaging:'整理产物'};
+const stages = {script_writing:'生成分段草稿',script_validating:'校验引用',script_saving:'保存脚本版本',queued:'等待执行', starting:'准备', fetching:'抓取新闻', filtering:'筛选新闻', storing:'入库', exporting:'保存结果', complete:'完成', preparing:'准备视频', voice:'合成配音', subtitles:'生成字幕', frames:'绘制画面', rendering:'编码视频', verifying:'校验成片', packaging:'整理产物'};
 let stream, cursor = 0;
 function display(t) {
   document.getElementById('status').textContent = statuses[t.status] || t.status;
@@ -46,8 +46,10 @@ function display(t) {
   if (t.run_id) link.href = '/runs/' + t.run_id;
   const choose=document.getElementById('choose-result');
   choose.hidden=t.kind!=='collect'||!['succeeded','failed','cancelled'].includes(t.status);
+  if(t.kind==='script')loadScriptResult();
   choose.href='/daily?'+new URLSearchParams({task_id:t.task_id,day:t.collection_date||'',timezone:t.timezone||'Asia/Shanghai'});
 }
+async function loadScriptResult(){try{const response=await fetch('/api/script-tasks/'+encodeURIComponent(initial.task_id));if(!response.ok)return;const data=await response.json();const link=document.getElementById('script-result');link.hidden=!data.script_url;if(data.script_url)link.href=data.script_url;document.getElementById('script-input').textContent='已固定 '+data.moment_count+' 个节点、'+data.source_count+' 个来源版本 · '+data.options.duration_sec+' 秒 · '+(data.options.backend==='llm'?'AI 有据初稿':'证据提纲');}catch(e){document.getElementById('connection').textContent='结果暂未加载，可刷新页面重试。';}}
 function connect() {
   if (stream) stream.close();
   stream = new EventSource(base + '/stream?after=' + cursor);

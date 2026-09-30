@@ -384,3 +384,13 @@ class EventResearch(SQLModel, table=True):
     error_text: str = ''
     created_at: str = Field(default_factory=utc_now_iso)
     finished_at: Optional[str] = None
+
+
+class ScriptGeneration(SQLModel, table=True):
+    """Frozen evidence input and one atomic draft result per queued task."""
+    task_id: str = Field(primary_key=True)
+    event_key: str = Field(index=True)
+    input_hash: str
+    spec_json: str
+    package_key: Optional[str] = Field(default=None, index=True, unique=True)
+    created_at: str = Field(default_factory=utc_now_iso)

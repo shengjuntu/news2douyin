@@ -10,6 +10,7 @@
 .source { padding:12px 0; border-bottom:1px solid #262b38; overflow-wrap:anywhere; }
 .source p { white-space:pre-wrap; line-height:1.6; }
 button:disabled { opacity:.4; cursor:not-allowed; }
+.segment-card{padding:16px;margin:14px 0;background:#101721;border:1px solid #354054;border-radius:10px}.segment-card select{max-width:100%}.segment-card .choices label{display:block;margin:8px 0;line-height:1.7}.segment-card textarea{width:100%;margin:6px 0}.segment-top{display:flex;gap:8px;align-items:center;flex-wrap:wrap}[hidden]{display:none!important}
 #message { white-space:pre-wrap; overflow-wrap:anywhere; padding:10px 0; }
 #history-preview { white-space:pre-wrap; max-height:300px; }
 @media(max-width:850px) { .workspace { grid-template-columns:1fr; } header { flex-wrap:wrap; } nav { flex-wrap:wrap; } }
@@ -42,8 +43,10 @@ document.getElementById('adopt').onclick = async () => {
 <div class="editor">
 <form id="editor" class="card">
   <label class="field" for="title">标题</label><input id="title" type="text" maxlength="300" required>
-  <label class="field" for="script-text">口播正文</label><textarea id="script-text" class="narration" maxlength="50000" required></textarea>
+  <section id="segments-panel" hidden><h2>逐段编辑与分镜</h2><p class="muted small">事实与分析分段标注。每段都需绑定节点与来源；引用校验只确认对应关系，准确性仍需人工核实。分析段自动加“分析：”，口播全文随分段修改同步更新。</p><div id="segments-list"></div><button id="add-segment" type="button" class="ghost segment-control">增加一段</button></section>
+  <label class="field" for="script-text">口播正文<span id="narration-hint" class="muted small"></span></label><textarea id="script-text" class="narration" maxlength="50000" required></textarea>
   <div class="row small muted"><span id="word-count"></span><label for="duration">目标时长（秒）</label><input id="duration" type="number" min="10" max="600" required style="width:90px"></div>
+  <p id="pace-hint" class="muted small"></p>
   <label class="field" for="visual-notes">画面与素材提示</label><textarea id="visual-notes" rows="4" maxlength="10000" placeholder="例如：开场标题卡、新闻来源截图、数据图表；需要补充哪些素材"></textarea>
   <label class="field" for="notes">编辑备注</label><textarea id="notes" rows="2" maxlength="5000"></textarea>
   <label class="field" for="change-note">本次修改说明</label><input id="change-note" type="text" maxlength="2000" placeholder="可选，例如：核对数字、调整开头">
@@ -63,12 +66,14 @@ document.getElementById('adopt').onclick = async () => {
 <aside>
 <div class="card">
   <h2 style="margin-top:0">新闻来源快照</h2>
+  {% if script.get('editorial',{}).get('evidence') %}<details><summary>生成时固定的事件脉络</summary><p class="muted small">{{ script.editorial.evidence.snapshot_at }} · 专题版本 {{ script.editorial.evidence.event_version }}。后续专题修改不会更换此处证据。</p>{% for m in script.editorial.evidence.moments %}<div class="source"><strong>{{ m.title }}</strong><p class="small">{{ {'occurred':'发生日期','reported':'报道日期','unknown':'时间未知'}[m.time_kind] }} {{ m.date_start }} {{ m.date_end }} · {{ {'exact':'来源明确记载','approximate':'大致时间','disputed':'来源有争议','unknown':'未确定'}[m.certainty] }}</p><p class="small">{{ m.time_note }}<br>{{ m.description }}</p></div>{% endfor %}</details>{% endif %}
   <p class="muted small">勾选本稿使用的来源。摘录是收录时的资料，多个转载不等于多个独立来源。</p>
   {% if script.snapshot_origin=='legacy_adopted_now' %}<p class="muted small">此快照在旧稿启用版本管理时补充。</p>{% endif %}
   {% for s in script.sources %}
-  <div class="source"><label><input class="source-key" type="checkbox" value="{{ s.article_key }}"> {{ s.title }}</label>
+  <div class="source">{% if s.evidence_id %}<strong>{{ s.evidence_id }} · 来源 r{{ s.article_revision }}</strong>{% endif %}<label><input class="source-key" type="checkbox" value="{{ s.article_key }}"> {{ s.title }}</label>
     <p class="muted small">{{ s.source_domain }} · {{ s.published_at or '时间未知' }}{% if s.is_duplicate %} · 重复报道{% endif %}</p>
     {% if s.url | safe_url %}<a href="{{ s.url | safe_url }}" target="_blank" rel="noopener noreferrer">打开原文 ↗</a>{% endif %}
+    {% if s.article_revision %}<p class="small"><a href="/articles/{{ s.article_key }}?revision={{ s.article_revision }}" target="_blank" rel="noopener">查看固定来源版本 ↗</a></p>{% endif %}
     <details><summary>查看资料摘录</summary><p class="small">{{ s.excerpt }}</p></details>
   </div>
   {% else %}<p class="muted">没有可追溯来源，暂不能通过审核。请从有来源的事件重新生成脚本。</p>{% endfor %}
@@ -88,13 +93,24 @@ document.getElementById('adopt').onclick = async () => {
 let current = {{ script | tojson }};
 const base = '/api/scripts/' + encodeURIComponent(current.package_key);
 const byId = id => document.getElementById(id);
-let dirty = false, busy = false, lastHistory = null;
+let dirty = false, busy = false, lastHistory = null, parts = [];
+const evidence = current.editorial?.evidence || null;
+const esc = value => String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function syncNarration(){if(parts.length)byId('script-text').value=parts.map(p=>(p.kind==='analysis'?'分析：':'')+p.text.trim()).join('\n\n');}
+function renderParts(){
+  byId('segments-panel').hidden=!evidence;byId('script-text').readOnly=!!evidence;byId('narration-hint').textContent=evidence?'（由上方分段组成）':'';
+  if(!evidence)return;
+  byId('segments-list').innerHTML=parts.map((part,i)=>`<article class="segment-card" data-part="${i}"><div class="segment-top"><strong>第 ${i+1} 段</strong><select class="part-kind" aria-label="第 ${i+1} 段类型"><option value="fact" ${part.kind==='fact'?'selected':''}>事实陈述</option><option value="analysis" ${part.kind==='analysis'?'selected':''}>分析 / 推测</option></select><button type="button" class="ghost segment-control part-up" ${i===0?'disabled':''}>上移</button><button type="button" class="ghost segment-control part-down" ${i===parts.length-1?'disabled':''}>下移</button><button type="button" class="ghost segment-control part-remove" ${parts.length===1?'disabled':''}>删除此段</button></div><label class="field">口播<textarea class="part-text" rows="4" maxlength="5000" required>${esc(part.text)}</textarea></label><details><summary>节点与引用（${part.evidence_ids.length} 个来源）</summary><div class="choices"><p class="muted small">选择本段涉及的节点及其对应来源。</p>${evidence.moments.map(m=>`<label><input type="checkbox" class="part-moment" value="${esc(m.moment_key)}" ${part.moment_keys.includes(m.moment_key)?'checked':''}> ${esc(m.title)}（${esc(m.evidence_ids.join('、'))}）</label>`).join('')}<hr>${current.sources.map(ref=>`<label><input type="checkbox" class="part-evidence" value="${esc(ref.evidence_id)}" ${part.evidence_ids.includes(ref.evidence_id)?'checked':''}> ${esc(ref.evidence_id)} · ${esc(ref.title)} · r${ref.article_revision}</label>`).join('')}</div></details><label class="field">分镜 / 画面<textarea class="part-visual" rows="2" maxlength="2000">${esc(part.visual)}</textarea></label><label class="field">素材需求<textarea class="part-assets" rows="2" maxlength="2000">${esc(part.assets)}</textarea></label></article>`).join('');
+  document.querySelectorAll('[data-part]').forEach(card=>{const i=Number(card.dataset.part);for(const [selector,key] of [['.part-kind','kind'],['.part-text','text'],['.part-visual','visual'],['.part-assets','assets']])card.querySelector(selector).oninput=e=>{parts[i][key]=e.target.value;syncNarration();markDirty();};for(const [selector,key] of [['.part-moment','moment_keys'],['.part-evidence','evidence_ids']])card.querySelectorAll(selector).forEach(input=>input.onchange=()=>{parts[i][key]=[...card.querySelectorAll(selector+':checked')].map(e=>e.value);card.querySelector('summary').textContent='节点与引用（'+parts[i].evidence_ids.length+' 个来源）';markDirty();});card.querySelector('.part-up').onclick=()=>movePart(i,-1);card.querySelector('.part-down').onclick=()=>movePart(i,1);card.querySelector('.part-remove').onclick=()=>{if(parts.length<2)return;parts.splice(i,1);renderParts();syncNarration();markDirty();};});
+}
+function movePart(i,offset){if(i+offset<0||i+offset>=parts.length)return;[parts[i],parts[i+offset]]=[parts[i+offset],parts[i]];renderParts();syncNarration();markDirty();}
+byId('add-segment').onclick=()=>{if(!evidence||parts.length>=30)return;const node=evidence.moments[0];parts.push({segment_key:'p_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2),kind:'fact',text:'',moment_keys:[node.moment_key],evidence_ids:[...node.evidence_ids],visual:'',assets:''});renderParts();syncNarration();markDirty();};
 const statusNames = {draft:'草稿', in_review:'待审核', approved:'已通过'};
 const actionNames = {created:'生成草稿',adopted:'启用版本管理',saved:'保存',restored:'恢复',submit:'送审',approve:'通过',request_changes:'退回'};
 function documentValue() {
   return {title:byId('title').value, script_text:byId('script-text').value,
     target_duration_sec:Number(byId('duration').value), visual_notes:byId('visual-notes').value,
-    notes:byId('notes').value, source_keys:Array.from(document.querySelectorAll('.source-key:checked')).map(e=>e.value)};
+    notes:byId('notes').value, segments:parts.map(p=>({...p,text:p.text.trim()})), source_keys:[...new Set(Array.from(document.querySelectorAll('.source-key:checked')).map(e=>e.value))]};
 }
 function message(text) { byId('message').textContent = text; }
 function controls() {
@@ -112,7 +128,10 @@ function controls() {
   byId('review-hint').textContent = dirty ? '请先保存修改，再审核或导出。' : current.status === 'approved' ? '当前版本已通过；继续修改会生成新草稿，需重新审核。' : '先保存并送审，再核对来源和正文，通过后即可导出。';
   // Freeze editable fields while a write is in flight so its response cannot
   // overwrite input typed after submission.
-  document.querySelectorAll('#editor input, #editor textarea, .source-key').forEach(e=>e.disabled=busy);
+  document.querySelectorAll('#editor input, #editor textarea, #editor select, .source-key, .segment-control').forEach(e=>e.disabled=busy);
+  document.querySelectorAll('[data-part]').forEach(card=>{const i=Number(card.dataset.part);card.querySelector('.part-up').disabled=busy||i===0;card.querySelector('.part-down').disabled=busy||i===parts.length-1;card.querySelector('.part-remove').disabled=busy||parts.length===1;});
+  byId('add-segment').disabled=busy||parts.length>=30;
+  const count=Array.from(byId('script-text').value.replace(/\s/g,'')).length;byId('pace-hint').textContent='按每秒 3–4 个字符粗估：'+Math.ceil(count/4)+'–'+Math.ceil(count/3)+' 秒；含数字和外语时误差较大，实际以配音为准。';
 }
 function fill(data) {
   current = data;
@@ -120,6 +139,7 @@ function fill(data) {
   byId('title').value=doc.title; byId('script-text').value=doc.script_text;
   byId('duration').value=doc.target_duration_sec; byId('visual-notes').value=doc.visual_notes;
   byId('notes').value=doc.notes;
+  parts=JSON.parse(JSON.stringify(doc.segments||[]));renderParts();
   document.querySelectorAll('.source-key').forEach(e=>e.checked=doc.source_keys.includes(e.value));
   dirty=false; byId('sources-checked').checked=false; byId('wording-checked').checked=false;
   byId('download').hidden=true; controls();
@@ -138,6 +158,7 @@ async function mutate(path, method, payload, success) {
 }
 function markDirty() { dirty=true;byId('download').hidden=true;controls(); }
 document.querySelectorAll('#title,#script-text,#duration,#visual-notes,#notes,.source-key').forEach(e=>e.addEventListener('input',markDirty));
+document.querySelectorAll('.source-key').forEach(input=>input.addEventListener('input',()=>document.querySelectorAll('.source-key').forEach(other=>{if(other.value===input.value)other.checked=input.checked;})));
 byId('sources-checked').onchange=controls;byId('wording-checked').onchange=controls;
 byId('editor').onsubmit=async e=>{e.preventDefault();if(!busy&&byId('editor').reportValidity())await mutate('','PUT',{expected_version:current.version,document:documentValue(),change_note:byId('change-note').value},'脚本已保存。');};
 byId('reload').onclick=async()=>{if(dirty&&!confirm('重新加载会丢弃未保存的修改。建议先保存本地副本。继续加载？'))return;busy=true;controls();try{fill(await request());await refreshHistory();message('已加载最新版本。');}catch(e){message(e.message);}finally{busy=false;controls();}};

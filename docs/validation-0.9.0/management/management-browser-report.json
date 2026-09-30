@@ -1,0 +1,20 @@
+{
+  "passed": 13,
+  "checks": [
+    "chinese_profile_saved",
+    "trial_requires_saved_config",
+    "trial_reasons_and_no_news_written",
+    "recent_trial_link",
+    "weekly_schedule_preview_and_save",
+    "schedule_edit",
+    "referenced_profile_delete_guard",
+    "disable_pauses_associated_schedule",
+    "daily_excludes_disabled_profile",
+    "enable_does_not_resume_without_action",
+    "schedule_actions_preserve_unsaved_profile_edits",
+    "deletion_preserves_historical_trial",
+    "no_javascript_errors"
+  ],
+  "browser": "154.0.8037.57",
+  "errors": []
+}

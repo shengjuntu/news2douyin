@@ -10,7 +10,7 @@ from .service import TaskContext, TaskService
 
 
 class TaskWorker:
-    """One collection or video task at a time per process; database leases support peers."""
+    """One collection, script or video task per process; leases support peers."""
     def __init__(self, engine, storage_root='runs_v7', *, lease_seconds=30, poll_seconds=0.5):
         if lease_seconds <= 0 or poll_seconds <= 0:
             raise ValueError('worker intervals must be positive')
@@ -69,6 +69,9 @@ class TaskWorker:
             if task.trigger_type == 'video':
                 from ..video.render import run_video
                 run_video(self.service.engine, task, self.storage_root, context)
+            elif task.trigger_type == 'script':
+                from ..editorial.generation import run_generation
+                run_generation(self.service.engine, task, self.storage_root, context)
             else:
                 with Session(self.service.engine) as session:
                     run_collection(session, task.profile_name, storage_root=self.storage_root,

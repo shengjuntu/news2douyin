@@ -7,10 +7,11 @@ import io
 import json
 from pathlib import Path
 import shutil
+from typing import Literal
 from uuid import uuid4
 import zipfile
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from sqlalchemy import update
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
@@ -24,6 +25,30 @@ class ScriptConflict(ValueError):
     pass
 
 
+class ScriptSegment(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    segment_key: str = Field(min_length=1, max_length=80)
+    kind: Literal['fact', 'analysis'] = 'fact'
+    text: str = Field(min_length=1, max_length=5000)
+    moment_keys: list[str] = Field(min_length=1, max_length=12)
+    evidence_ids: list[str] = Field(min_length=1, max_length=20)
+    visual: str = Field(default='', max_length=2000)
+    assets: str = Field(default='', max_length=2000)
+
+    @model_validator(mode='after')
+    def valid(self):
+        self.text = self.text.strip()
+        if not self.text or not self.segment_key.strip():
+            raise ValueError('段落标识和正文不能为空')
+        if len(set(self.moment_keys)) != len(self.moment_keys) or len(set(self.evidence_ids)) != len(self.evidence_ids):
+            raise ValueError('段落中的节点与来源不能重复')
+        return self
+
+
+def segment_narration(segments):
+    return '\n\n'.join(('分析：' if s['kind'] == 'analysis' else '') + s['text'] for s in segments)
+
+
 class ScriptDocument(BaseModel):
     model_config = ConfigDict(extra='forbid')
     title: str = Field(min_length=1, max_length=300)
@@ -31,7 +56,17 @@ class ScriptDocument(BaseModel):
     target_duration_sec: int = Field(default=60, ge=10, le=600)
     visual_notes: str = Field(default='', max_length=10000)
     notes: str = Field(default='', max_length=5000)
-    source_keys: list[str] = Field(default_factory=list, max_length=10)
+    source_keys: list[str] = Field(default_factory=list, max_length=20)
+    segments: list[ScriptSegment] = Field(default_factory=list, max_length=30)
+
+    @model_validator(mode='after')
+    def consistent_segments(self):
+        if self.segments:
+            if len({s.segment_key for s in self.segments}) != len(self.segments):
+                raise ValueError('段落标识不能重复')
+            if self.script_text != segment_narration([s.model_dump() for s in self.segments]):
+                raise ValueError('口播全文必须与分段正文一致；请在分段编辑中修改')
+        return self
 
     @field_validator('title', 'script_text')
     @classmethod
@@ -146,15 +181,31 @@ def _lock(session, package_key, expected_version):
     return state
 
 
-def _validate_sources(document, sources):
+def _validate_sources(document, sources, editorial=None):
     allowed = {s['article_key'] for s in sources}
     if set(document['source_keys']) - allowed:
         raise ValueError('所选来源不在此脚本的来源快照中')
+    evidence = (editorial or {}).get('evidence')
+    if evidence and not document.get('segments'):
+        raise ValueError('有证据的脚本必须保留逐段引用，请在分段编辑中修改')
+    if document.get('segments'):
+        if not evidence:
+            raise ValueError('此稿没有冻结的事件节点，请从事件专题创建分段草稿')
+        refs = {s['evidence_id']: s for s in sources}
+        moments = {m['moment_key']: set(m['evidence_ids']) for m in evidence['moments']}
+        for part in document['segments']:
+            cited, nodes = set(part['evidence_ids']), set(part['moment_keys'])
+            if cited - refs.keys() or nodes - moments.keys():
+                raise ValueError('段落引用不在冻结的来源或节点中')
+            if cited - set().union(*(moments[n] for n in nodes)) or any(not cited & moments[n] for n in nodes):
+                raise ValueError('段落引用必须对应所选节点的来源')
+            if {refs[k]['article_key'] for k in cited} - set(document['source_keys']):
+                raise ValueError('段落使用的来源不能取消勾选')
 
 
 def _payload(editorial, document, *, origin='generated'):
     sources = editorial.get('sources') or []
-    _validate_sources(document, sources)
+    _validate_sources(document, sources, editorial)
     return {'schema_version': 1, 'document': document, 'sources': sources,
             'editorial': editorial, 'snapshot_origin': origin, 'snapshot_at': utc_now_iso()}
 
@@ -163,9 +214,14 @@ def _revision_files(row, payload):
     # Retain the former top-level script_text/editorial/profile_name contract.
     document = payload['document']
     legacy = dict(payload, script_text=document['script_text'], profile_name=row.profile_name)
-    return {'script.txt': document['script_text'], 'script.json': json.dumps(legacy, ensure_ascii=False, indent=2),
+    files = {'script.txt': document['script_text'], 'script.json': json.dumps(legacy, ensure_ascii=False, indent=2),
             'assets_manifest.json': json.dumps({'images': [], 'video_clips': [],
-              'visual_notes': document['visual_notes'], 'status': 'unassigned'}, ensure_ascii=False, indent=2)}
+              'visual_notes': document['visual_notes'], 'storyboard': document.get('segments', []),
+              'status': 'unassigned'}, ensure_ascii=False, indent=2)}
+    if document.get('segments'):
+        files['storyboard.json'] = json.dumps(document['segments'], ensure_ascii=False, indent=2)
+        files['evidence_snapshot.json'] = json.dumps(payload['editorial']['evidence'], ensure_ascii=False, indent=2)
+    return files
 
 
 def _persist_revision(session, package, state, payload, note='', restored_from=None):
@@ -247,7 +303,7 @@ def save_script(session, package_key, *, expected_version, document, change_note
             payload = loads(get_revision(session, package_key, restore_revision).payload_json, {})
         else:
             document = ScriptDocument.model_validate(document).model_dump()
-            _validate_sources(document, previous['sources'])
+            _validate_sources(document, previous['sources'], previous.get('editorial'))
             payload = dict(previous, document=document)
             if payload == previous:
                 session.rollback()
@@ -331,6 +387,13 @@ def export_script(session, package_key, *, expected_version):
         markdown = (f"# {escape(document['title'])}\n\n{escape(document['script_text'])}\n\n"
                     f"## 画面提示\n\n{escape(document['visual_notes'])}\n\n## 来源\n\n" +
                     '\n'.join(f"- {escape(s['title'])} — {escape(s['url'])} ({escape(s['published_at'])})" for s in sources))
+        if document.get('segments'):
+            markdown += '\n\n## 分段引用与分镜\n\n' + '\n\n'.join(
+                f"### 第 {i} 段 · {'分析 / 推测' if part['kind'] == 'analysis' else '事实陈述'}\n\n"
+                f"{escape(part['text'])}\n\n来源：{escape('、'.join(part['evidence_ids']))}\n\n"
+                f"画面：{escape(part['visual'])}\n\n素材需求：{escape(part['assets'])}"
+                for i, part in enumerate(document['segments'], 1))
+            markdown += '\n\n来源编号对应 sources.json；节点和固定原文见 evidence_snapshot.json。\n'
         files['script.md'] = markdown.encode()
         manifest = {'schema_version': 1, 'kind': 'news2douyin.script_package', 'export_key': key,
                     'package_key': package_key, 'event_key': package.event_key,

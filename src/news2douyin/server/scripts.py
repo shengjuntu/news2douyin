@@ -10,6 +10,7 @@ from ..storage.db import session_scope
 from ..storage.models import ScriptRevision, ScriptReviewEvent, ScriptExport
 from ..video.service import build_script_package
 from ..video import workbench as wb
+from ..editorial import generation
 from .schemas.common import ScriptBuildPayload
 from pathlib import Path
 
@@ -50,6 +51,22 @@ def script_call(fn, *args, **kwargs):
 
 
 def register_script_routes(app, engine, storage_root):
+    from .tasks import task_call
+    from fastapi.responses import JSONResponse
+
+    @app.post('/api/events/{event_key}/script-tasks', status_code=202)
+    def generate(event_key: str, payload: generation.GenerationRequest):
+        task = task_call(generation.submit, engine, event_key, payload.model_dump())
+        return JSONResponse(task, status_code=202, headers={'Location': '/api/script-tasks/' + task['task_id']})
+
+    @app.get('/api/script-tasks')
+    def list_generation_tasks(event_key: str = '', limit: int = Query(50, ge=1, le=100)):
+        return generation.list_generations(engine, event_key, limit)
+
+    @app.get('/api/script-tasks/{task_id}')
+    def generation_task(task_id: str):
+        return task_call(generation.detail, engine, task_id)
+
     @app.post('/api/scripts/build')
     def build(payload: ScriptBuildPayload):
         with session_scope(engine) as session:

@@ -1,0 +1,24 @@
+{
+  "passed": 17,
+  "checks": [
+    "create_named_event",
+    "add_existing_library_reports",
+    "occurrence_vs_publication_and_pinned_quote",
+    "unknown_time_node",
+    "nodes_survive_reload",
+    "export_contains_immutable_source_documents",
+    "referenced_report_removal_guard",
+    "external_search_stays_candidate_until_selected",
+    "selected_research_import_and_provenance",
+    "link_background_event",
+    "split_moves_wholly_supported_nodes",
+    "merge_preserves_nodes_and_sources",
+    "archived_event_retains_original_url",
+    "curation_history_visible",
+    "mobile_no_horizontal_overflow",
+    "keyword_strategy_save_copy_reload",
+    "no_javascript_errors"
+  ],
+  "browser": "154.0.8037.57",
+  "errors": []
+}

@@ -28,7 +28,7 @@ def task_dict(task: TaskRecord) -> dict:
               'run_id', 'error_text', 'created_at', 'updated_at', 'started_at', 'finished_at')
     profile = loads(task.profile_json, {})
     return {name: getattr(task, name) for name in fields} | {
-        'kind': 'video' if task.trigger_type == 'video' else ('trial' if task.trigger_type == 'profile_test' else 'collect'),
+        'kind': task.trigger_type if task.trigger_type in {'video', 'script'} else ('trial' if task.trigger_type == 'profile_test' else 'collect'),
         'collection_date': profile.get('date_str', ''), 'timezone': profile.get('timezone', 'Asia/Shanghai')}
 
 

@@ -1,0 +1,11 @@
+{
+  "status": "passed",
+  "version": "0.9.0",
+  "passed": 4,
+  "checks": [
+    "installed_event_editor_and_pinned_evidence",
+    "installed_removal_guard_and_full_export",
+    "installed_research_preview_and_selected_import",
+    "installed_merge_preserves_node_sources"
+  ]
+}

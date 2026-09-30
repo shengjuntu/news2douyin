@@ -1,6 +1,6 @@
 
 
-# news2douyin 0.8.0 — 事件专题、发展脉络与证据
+# news2douyin 0.9.0 — 有证据的脚本工作台
 
 
 延续 0.6.0 的网页主流程：**当日采集 → 勾选新闻 → 生成脚本 → 编辑审核 → 视频制作与导出**。
@@ -9,18 +9,18 @@
 - `/articles`：历史新闻库，支持发布时间、采集时间和首次入库时间筛选。
 - `/profiles`：策略增改、复制与启停；可选择热门榜或主动关键词检索；试跑诊断及定时配置。`cn_policy_sectors` 指中国政策与板块，并非 CNN。
 - `/events`：新建专题，增删报道，整理绑定文章版本和原文摘录的进展节点，关联背景与后续，合并/拆分，补充检索和证据包导出。
-- `/scripts`：脚本工作台；基础摘录稿无需模型，AI 中文初稿使用 `.env` 中的兼容接口。
+- `/scripts`：逐段脚本、分镜、素材需求与审核；从事件专题的已核对节点后台生成快讯、解释或复盘，可选时长和风格。支持无需模型的证据提纲和 AI 有据初稿。
 - `/videos`：视频任务和成片；已有视频功能的依赖要求保持不变。
 - `/admin`：原仪表盘、自动采集任务和运行管理。
 - `/timeline`：原时间线已明确为“新闻长图排版”。
 
-本版将事件发展脉络放进专题工作区，发生日期、报道日期和未知时间明确区分。每个进展绑定可回溯的来源版本；旧稿件不会被专题整理改写。策略试跑、每日选题与定时采集继续保留。
+本版将已核对的发展脉络与固定来源版本接入脚本生成。每段区分事实和分析，绑定节点与来源，可编辑分镜、素材需求。生成在后台执行，关闭页面后可继续查看、取消或重试；新稿不会覆盖已有稿件。引用结构校验不能代替人工核实。
 
 首次使用可启动服务后在“采集策略”新增一个 `mock` 演示策略，回到首页采集并验证完整流程。
 真实新闻选择 `worldnewsapi`，在 `.env` 填入 `API_KEY`；AI 脚本配置 `OPENAI_BASE_URL`、`OPENAI_API_KEY`、`MODEL`。
 WorldNewsAPI 现在提供两种获取方式：**热门榜单**和**主动关键词检索**，随后执行策略筛选。专题中的补充检索先保存候选，用户选择后才收录。覆盖范围受新闻源和账户权限影响。
 
-[本版说明与升级步骤](docs/release-0.8.0.md) · [模块关系与后续版本计划](docs/product-roadmap.md) · [验证记录](docs/validation-0.8.0.md)
+[本版说明与升级步骤](docs/release-0.9.0.md) · [模块关系与后续版本计划](docs/product-roadmap.md) · [验证记录](docs/validation-0.9.0.md)
 
 This repository now includes a V7 implementation focused on a long-running client/server workflow for market-impression news collection.
 
@@ -90,6 +90,8 @@ Main APIs:
 - `POST /api/collect/run-now` (legacy wait; `?wait=false` queues)
 - `GET /api/articles/search`
 - `GET /api/events/search`
+- `POST /api/events/{event_key}/script-tasks` / `GET /api/script-tasks/{task_id}`
+- `GET /api/script-tasks?event_key=...`
 - `POST /api/scripts/build`
 - `GET /api/scripts` / `GET|PUT /api/scripts/{package_key}`
 - `GET /api/scripts/{package_key}/revisions`
