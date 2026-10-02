@@ -1,9 +1,9 @@
 
 
-# news2douyin 0.11.0 — RunDesk 新闻研究
+# news2douyin 0.11.1 — RunDesk API v1 适配
 
 
-本版增加：**选择新闻 → 背景研究 → 证据与报告 → 继续追问**。由 RunDesk 管理 Codex 执行，news2douyin 保存研究成果；原有采集、脚本和作品库继续可用。
+已有工作流：**选择新闻 → 背景研究 → 证据与报告 → 继续追问**。由 RunDesk 管理 Codex 执行，news2douyin 保存研究成果；原有采集、脚本和作品库继续可用。
 
 - `/research`：新闻研究课题、问题、证据、报告版本与运行记录。
 - `/research/settings`：配置 RunDesk 专用实例、研究 Skill 与 MCP；管理研究策略和搜索凭据。
@@ -18,13 +18,13 @@
 - `/tasks`：任务中心，按类型、状态、标题和提交日期查找；显示排队位置、当前执行任务及耗时，可进入进度、失败处理与结果。
 - `/timeline`：原时间线已明确为“新闻长图排版”。
 
-本版通过 RunDesk 已有 API 配置独立实例与实例级 Skill/MCP，无需修改 RunDesk 代码。支持研究中追加要求、停止和继续，报告逐版留存；所有判断和事件节点均作为待审核资料。运行设置和真实模型、搜索认证需要在部署后完成。
+本版要求 RunDesk 0.6.0 或更新版本，建议配合已验证的 0.6.1。通过 `/api/v1` 配置独立实例与实例级 Skill/MCP，新增持久提交回执和运行编号检查。支持研究中追加要求、停止和继续，报告逐版留存；所有判断和事件节点均作为待审核资料。运行设置和真实模型、搜索认证需要在部署后完成。
 
 首次使用可启动服务后在“采集策略”新增一个 `mock` 演示策略，回到首页采集并验证完整流程。
 真实新闻选择 `worldnewsapi`，在 `.env` 填入 `API_KEY`；AI 脚本配置 `OPENAI_BASE_URL`、`OPENAI_API_KEY`、`MODEL`。
 WorldNewsAPI 现在提供两种获取方式：**热门榜单**和**主动关键词检索**，随后执行策略筛选。专题中的补充检索先保存候选，用户选择后才收录。覆盖范围受新闻源和账户权限影响。
 
-[本版说明与升级步骤](docs/release-0.11.0.md) · [跑通一天的操作步骤](docs/first-day.md) · [模块关系与版本计划](docs/product-roadmap.md) · [验证记录](docs/validation-0.11.0.md)
+[本版说明与升级步骤](docs/release-0.11.1.md) · [跑通一天的操作步骤](docs/first-day.md) · [模块关系与版本计划](docs/product-roadmap.md) · [验证记录](docs/validation-0.11.1.md)
 
 This repository now includes a V7 implementation focused on a long-running client/server workflow for market-impression news collection.
 

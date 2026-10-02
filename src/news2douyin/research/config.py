@@ -63,6 +63,7 @@ class SettingsStore:
         data = self.get()
         for key in ('rundesk_token', 'search_api_key', 'mcp_token'):
             data[key + '_configured'] = bool(data.pop(key, ''))
+        data.pop('setup_requests', None)
         env = 'TAVILY_API_KEY' if data['search_provider'] == 'tavily' else 'API_KEY'
         data['search_ready'] = data['search_api_key_configured'] or bool(os.getenv(env))
         return data
@@ -71,7 +72,7 @@ class SettingsStore:
         with self.lock:
             data = self.get()
             incoming = SettingsInput.model_validate(payload).model_dump()
-            incoming['rundesk_url'] = base_url(incoming['rundesk_url']).removesuffix('/api')
+            incoming['rundesk_url'] = base_url(incoming['rundesk_url']).removesuffix('/api/v1').removesuffix('/api')
             incoming['callback_url'] = base_url(incoming['callback_url'])
             if incoming['search_provider'] not in {'worldnewsapi', 'tavily'}:
                 raise ValueError('搜索服务应为 worldnewsapi 或 tavily')
@@ -81,7 +82,7 @@ class SettingsStore:
                 if not incoming[key] and not (changed_host if key == 'rundesk_token' else changed_provider):
                     incoming[key] = data[key]
             if changed_host:
-                data.update(instance_id='', workspace_id='', skill_path='', codex_home='')
+                data.update(instance_id='', workspace_id='', skill_path='', codex_home='', setup_requests={})
             data.update(incoming)
             data['setup_message'] = '设置已保存，请配置或检查研究助手'
             self.write(data)

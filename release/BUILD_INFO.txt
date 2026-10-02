@@ -1,13 +1,10 @@
-news2douyin 0.11.0
-RunDesk dedicated-instance news research, instance Skill and MCP, evidence/report workbench
-Built and validated with Python 3.12.14; requires Python 3.10+
-Full pytest: 251 passed, 17 skipped (optional existing video/audio dependencies).
-Research pytest: 17 passed.
-Official MCP Python SDK 1.30.0: 6 checks passed over HTTP.
-Chromium 154 browser workflow: 13 checks passed, including mobile 390px.
-Installed wheel: 6 checks passed (version/path, resources, pages, case, MCP, restart persistence).
-Wheel source/resource byte comparison: 178 files matched; sdist contents verified.
-RunDesk 0.5.4 API contract tested with fixture; no real Codex credentials or paid search account used.
-No RunDesk code changes; adds research database tables, preserves existing article data.
-PDF extraction requires optional [research] dependencies.
-See docs/release-0.11.0.md and docs/validation-0.11.0.md.
+news2douyin 0.11.1
+RunDesk API v1 adapter; durable frozen requests, receipt recovery, application source and run-fenced stop.
+Python 3.12.14 build/validation; Python >=3.10 required.
+pytest: 262 passed, 17 optional real-video skips.
+Research browser: 13 checks; official MCP client: 6 checks.
+Real RunDesk 0.6.1 binary in demo mode: 13 combined news/video protocol and browser checks. No live model or external search.
+0.11.0 -> 0.11.1 database upgrade: all rows in 51 existing business tables unchanged; 2 lock counters excluded.
+Complete source is included in this distribution. Prior nested 0.11.0 build files removed.
+See docs/release-0.11.1.md and docs/validation-0.11.1.md.
+Isolated wheel install: version/path verified; 178 package source/resource files byte-matched; 4 endpoints load; submission row survives restart.

@@ -1,0 +1,20 @@
+{
+  "mode": "RunDesk 0.6.1 --demo; no live model or real search",
+  "productionDemoGuardUnchanged": true,
+  "passed": 13,
+  "checks": [
+    "news_lost_session_ack_restart",
+    "news_lost_turn_ack_restart",
+    "news_application_source",
+    "news_stale_stop_preserves_replacement",
+    "news_database_restart_keeps_receipts",
+    "video_instance_skill_configuration",
+    "video_application_source",
+    "video_lost_turn_ack_process_restart",
+    "video_configuration_visible",
+    "video_browser_reload_keeps_original_request",
+    "video_browser_retry_keeps_original_turn_input",
+    "video_browser_fenced_stop",
+    "video_no_javascript_errors"
+  ]
+}

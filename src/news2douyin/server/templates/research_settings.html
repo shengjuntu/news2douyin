@@ -3,7 +3,7 @@
 {% block content %}
 <style>.research-form{display:grid;gap:14px}.research-form label{display:grid;gap:6px}.research-form input,.research-form textarea,.research-form select{width:100%}.research-form textarea{resize:vertical}.settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.settings-grid>*{min-width:0}#research-message{white-space:pre-wrap;overflow-wrap:anywhere}#connection-summary{overflow-wrap:anywhere}@media(max-width:850px){.settings-grid{grid-template-columns:1fr}}</style>
 <div class="row"><h1>研究助手设置</h1><a href="/research">返回深入研究</a></div>
-<p class="muted">连接 RunDesk，配置新闻研究专用实例。研究资料和报告保存在本应用。</p>
+<p class="muted">连接 RunDesk 0.6.0 或更新版本，配置新闻研究专用实例。研究资料和报告保存在本应用。</p>
 <p id="research-message" role="status" aria-live="polite"></p>
 <div class="settings-grid">
 <section class="card"><h2 style="margin-top:0">执行环境</h2>
@@ -39,7 +39,7 @@ async function loadSettings(){const c=await R.api('/api/research/settings');$('r
 async function saveSettings(){await R.api('/api/research/settings','PUT',{rundesk_url:$('rundesk-url').value,rundesk_token:$('rundesk-token').value,callback_url:$('callback-url').value,search_provider:$('search-provider').value,search_api_key:$('search-key').value});await loadSettings();}
 $('connection-form').onsubmit=e=>{e.preventDefault();R.action($('save-connection'),async()=>{await saveSettings();$('research-message').textContent='设置已保存。地址有变化时，请点击“配置研究助手”。';});};
 $('setup-assistant').onclick=()=>R.action($('setup-assistant'),async()=>{await saveSettings();$('research-message').textContent='正在配置实例、工作区、Skill 和 MCP…';await R.api('/api/research/setup','POST',{});await loadSettings();$('research-message').textContent='研究助手已配置。请检查连接，并确认专用实例已完成模型认证。';});
-$('check-assistant').onclick=()=>R.action($('check-assistant'),async()=>{const r=await R.api('/api/research/check','POST',{});$('research-message').textContent=`RunDesk ${r.version||''}：${r.demo?'演示模式':'已连接'}\n专用实例：${r.configured?'已配置':'尚未配置'}\n模型认证：${r.account_ready?'已检测到':'尚未确认，请检查专用实例'}\n研究工具：${r.mcp_ready?'已发现':'尚未发现，请检查回连地址和服务状态'}\n检查不会运行模型，首次研究仍需验证实际执行。`;});
+$('check-assistant').onclick=()=>R.action($('check-assistant'),async()=>{const r=await R.api('/api/research/check','POST',{});$('research-message').textContent=`RunDesk ${r.version||''}：${r.demo?'演示模式':'已连接'}\n专用实例：${r.configured?'已配置':'尚未配置'}\n实例默认模型：${r.default_model||'Codex 自动选择'}\n模型认证：${r.account_ready?'已检测到':'尚未确认，请检查专用实例'}\n研究工具：${r.mcp_ready?'已发现':'尚未发现，请检查回连地址和服务状态'}\n检查不会运行模型，首次研究仍需验证实际执行。`;});
 function editStrategy(s){revision=s?.revision||0;$('strategy-id').value=s?.strategy_id||'';$('strategy-id').readOnly=!!s;$('strategy-name').value=s?.name||'';$('strategy-questions').value=(s?.questions||[]).join('\n');$('strategy-domains').value=(s?.preferred_domains||[]).join('\n');$('strategy-language').value=s?.language||'zh';$('strategy-searches').value=s?.max_searches||10;$('strategy-reads').value=s?.max_reads||20;$('strategy-minutes').value=s?.max_minutes||20;$('strategy-enabled').checked=s?.enabled??true;}
 async function loadStrategies(selected){strategies=await R.api('/api/research/strategies');$('strategy-picker').innerHTML=strategies.map(s=>`<option value="${R.esc(s.strategy_id)}">${R.esc(s.name)}${s.enabled?'':'（已停用）'}</option>`).join('');if(selected)$('strategy-picker').value=selected;editStrategy(strategies.find(s=>s.strategy_id===$('strategy-picker').value));}
 $('strategy-picker').onchange=()=>editStrategy(strategies.find(s=>s.strategy_id===$('strategy-picker').value));$('new-strategy').onclick=()=>editStrategy(null);

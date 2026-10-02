@@ -51,6 +51,19 @@ class ResearchRun(SQLModel, table=True):
     last_sync_at: str = ''
 
 
+class ResearchSubmission(SQLModel, table=True):
+    # Separate additive table: upgrading does not rewrite historical run rows.
+    run_id: str = Field(primary_key=True)
+    backend_url: str
+    session_key: str = ''
+    turn_key: str = ''
+    session_payload: str = '{}'
+    turn_payload: str = '{}'
+    turn_attempted: bool = False
+    rundesk_run_id: str = ''
+    legacy: bool = False
+
+
 class ResearchQuestion(SQLModel, table=True):
     question_id: str = Field(primary_key=True)
     case_id: str = Field(index=True)

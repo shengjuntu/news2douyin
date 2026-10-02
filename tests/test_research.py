@@ -1,4 +1,5 @@
 import json
+import copy
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -14,17 +15,38 @@ from news2douyin.research.tools import ResearchTools
 
 
 class FakeRunDesk:
-    """Contract fixture for RunDesk 0.5.4; does not simulate model quality."""
+    """Contract fixture for RunDesk API v1; does not simulate model quality."""
     def __init__(self):
         self.calls, self.instances, self.workspaces, self.sessions = [], [], [], {}
         self.skills, self.servers = {}, {'unrelated': {'command': 'keep-me'}}
         self.timeout_turn = False
         self.on_turn = None
+        self.receipts = {}
+        self.keys = []
 
-    def request(self, method, path, payload=None, params=None):
+    def request(self, method, path, payload=None, params=None, *, key=None):
+        if path.startswith('/requests/'):
+            value=self.receipts.get(path.rsplit('/',1)[-1])
+            if value is None: raise RemoteError('not found',status=404,code='request_not_found')
+            return copy.deepcopy(value)
+        if key:
+            self.keys.append(key)
+            if key in self.receipts:
+                assert self.receipts[key]['payload']==payload
+                return copy.deepcopy(self.receipts[key]['response'])
+        try:
+            result=self._request(method,path,payload,params)
+        except RemoteError as exc:
+            if key and exc.uncertain and path.endswith('/turns'):
+                self.receipts[key]={'method':'POST','path':path,'state':'completed','httpStatus':202,'response':copy.deepcopy(self.sessions[path.split('/')[2]]),'payload':copy.deepcopy(payload)}
+            raise
+        if key: self.receipts[key]={'method':'POST','path':path,'state':'completed','httpStatus':202 if path.endswith('/turns') else 200,'response':copy.deepcopy(result),'payload':copy.deepcopy(payload)}
+        return copy.deepcopy(result)
+
+    def _request(self, method, path, payload=None, params=None):
         self.calls.append((method, path, payload, params))
         if path == '/meta':
-            return {'version': '0.5.4', 'demo': False, 'capabilities': ['instances','skills','mcp','sessions']}
+            return {'version':'0.6.1','demo':False,'apiVersions':['v1'],'capabilities':['instances','skills','mcp','sessions','api-v1','idempotency','configuration-summary']}
         if path == '/instances':
             if method == 'POST':
                 row = {'id': 'instance-research', 'codexHome': '/remote/instance-research/codex', **payload}
@@ -50,18 +72,22 @@ class FakeRunDesk:
             self.servers[path.rsplit('/',1)[1]] = payload['config']; return {'saved':True}
         if path.endswith('/account'):
             return {'account': {'type':'apiKey'}, 'requiresOpenaiAuth':True}
+        if path == '/sessions' and method == 'GET': return list(self.sessions.values())
+        if path.endswith('/configuration'):
+            return {'instance':{'defaultModel':'test-model'},'skills':list(self.skills.values()),'mcp':{'status':{'data':[{'name':'news2douyin-research','tools':{'research_get_case':{}}}]}},'errors':{}}
         if path == '/sessions' and method == 'POST':
             sid = 'session-' + str(len(self.sessions)+1)
-            row = {'id':sid,'instanceId':payload['instanceId'],'workspaceId':payload['workspaceId'],'status':'idle','turnId':''}
+            row = {'id':sid,'instanceId':payload['instanceId'],'workspaceId':payload['workspaceId'],'status':'idle','turnId':'','runId':'','source':payload.get('source',{})}
             self.sessions[sid]=row; return row
         if path.startswith('/sessions/'):
             sid = path.split('/')[2]; row=self.sessions[sid]
             if path.endswith('/turns'):
-                row['status']='running'; row['turnId']='turn-'+sid
+                row['status']='running'; row['turnId']='turn-'+sid; row['runId']='run-'+sid
                 if self.on_turn: self.on_turn()
                 if self.timeout_turn: raise RemoteError('提交超时',uncertain=True)
                 return row
             if path.endswith('/stop'):
+                if payload.get('expectedRunId')!=row['runId']:raise RemoteError('run conflict',status=409,code='run_conflict')
                 row['status']='interrupted'; return {'ok':True}
             if path.endswith('/steer'):
                 assert payload['expectedTurnId']==row['turnId']; return {'status':'accepted'}
