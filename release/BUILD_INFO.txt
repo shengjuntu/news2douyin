@@ -1,9 +1,13 @@
-news2douyin 0.10.3
-First-run configuration checks and explicit model/video diagnostics
+news2douyin 0.11.0
+RunDesk dedicated-instance news research, instance Skill and MCP, evidence/report workbench
 Built and validated with Python 3.12.14; requires Python 3.10+
-Validation: 251 pytest checks; 25 browser checks; 17 installed-wheel checks.
-Configuration reads do not start collection, generation or media rendering.
-Model probes tested against a local HTTP fixture; no real external account used.
-Video regression performed actual FFmpeg encoding with a silent WAV fixture.
-No database migration or new required dependency.
-See docs/release-0.10.3.md and docs/validation-0.10.3.md.
+Full pytest: 251 passed, 17 skipped (optional existing video/audio dependencies).
+Research pytest: 17 passed.
+Official MCP Python SDK 1.30.0: 6 checks passed over HTTP.
+Chromium 154 browser workflow: 13 checks passed, including mobile 390px.
+Installed wheel: 6 checks passed (version/path, resources, pages, case, MCP, restart persistence).
+Wheel source/resource byte comparison: 178 files matched; sdist contents verified.
+RunDesk 0.5.4 API contract tested with fixture; no real Codex credentials or paid search account used.
+No RunDesk code changes; adds research database tables, preserves existing article data.
+PDF extraction requires optional [research] dependencies.
+See docs/release-0.11.0.md and docs/validation-0.11.0.md.

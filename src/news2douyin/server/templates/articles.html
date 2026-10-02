@@ -32,7 +32,7 @@ period.addEventListener('change',()=>{if(period.value!=='custom')dates.forEach(i
 <tr><th>标题</th><th>来源</th><th>国家</th><th>分类</th><th>情感</th><th>相关度</th><th>时间</th></tr>
 {% for a in articles %}
 <tr>
-  <td><a href="/articles/{{ a.key }}">{{ a.title }}</a>
+  <td><a href="/articles/{{ a.key }}">{{ a.title }}</a> <a class="small" href="/research?article_key={{ a.key|urlencode }}">深入研究</a>
     {% if a.is_duplicate %}<span class="badge">转载/副本</span>{% endif %}
     <div class="snippet">{{ a.snippet }}…</div></td>
   <td class="muted small">{{ a.domain }}</td>

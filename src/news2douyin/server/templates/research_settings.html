@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}研究助手设置 · news2douyin{% endblock %}
+{% block content %}
+<style>.research-form{display:grid;gap:14px}.research-form label{display:grid;gap:6px}.research-form input,.research-form textarea,.research-form select{width:100%}.research-form textarea{resize:vertical}.settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.settings-grid>*{min-width:0}#research-message{white-space:pre-wrap;overflow-wrap:anywhere}#connection-summary{overflow-wrap:anywhere}@media(max-width:850px){.settings-grid{grid-template-columns:1fr}}</style>
+<div class="row"><h1>研究助手设置</h1><a href="/research">返回深入研究</a></div>
+<p class="muted">连接 RunDesk，配置新闻研究专用实例。研究资料和报告保存在本应用。</p>
+<p id="research-message" role="status" aria-live="polite"></p>
+<div class="settings-grid">
+<section class="card"><h2 style="margin-top:0">执行环境</h2>
+<form id="connection-form" class="research-form">
+<label>RunDesk 地址<input id="rundesk-url" type="url" required placeholder="http://127.0.0.1:3210"></label>
+<label>RunDesk Token<input id="rundesk-token" type="password" autocomplete="new-password" placeholder="未设置认证时留空；已有值留空保留"></label>
+<label>本应用回连地址<input id="callback-url" type="url" required placeholder="http://127.0.0.1:18080"></label>
+<p class="small muted">填写 Codex 所在机器能够访问的 news2douyin 地址。两者不在同一台机器时，不能使用 127.0.0.1。</p>
+<label>搜索服务<select id="search-provider"><option value="worldnewsapi">WorldNewsAPI · 新闻检索</option><option value="tavily">Tavily · 网页与背景资料检索</option></select></label>
+<label>搜索服务 API Key<input id="search-key" type="password" autocomplete="new-password" placeholder="已有值留空保留，也可使用服务端环境变量"></label>
+<p class="small muted">WorldNewsAPI 使用 API_KEY；Tavily 使用 TAVILY_API_KEY。网页正文读取无需额外搜索账户，PDF 需要安装 research 可选依赖。</p>
+<div class="row"><button id="save-connection" type="submit">保存设置</button><button id="setup-assistant" type="button" class="ghost">配置研究助手</button><button id="check-assistant" type="button" class="ghost">检查连接</button></div>
+</form>
+<div id="connection-summary" class="small" style="margin-top:18px"></div>
+</section>
+<section class="card"><h2 style="margin-top:0">研究策略</h2>
+<div class="row"><select id="strategy-picker" aria-label="选择策略"></select><button class="ghost" id="new-strategy">新增策略</button></div>
+<form id="strategy-form" class="research-form" style="margin-top:14px">
+<label>策略编号<input id="strategy-id" required pattern="[a-zA-Z0-9_-]{1,64}" placeholder="例如 technology-background"></label>
+<label>名称<input id="strategy-name" required maxlength="100"></label>
+<label>必查问题（每行一个）<textarea id="strategy-questions" rows="6" required></textarea></label>
+<label>优先来源域名（每行一个，可留空）<textarea id="strategy-domains" rows="2" placeholder="example.org"></textarea></label>
+<label>检索语言<input id="strategy-language" value="zh" maxlength="12"></label>
+<div class="grid"><label>最多检索次数<input id="strategy-searches" type="number" min="1" max="40" required></label><label>最多读取资料<input id="strategy-reads" type="number" min="1" max="60" required></label><label>本轮时间预算（分钟）<input id="strategy-minutes" type="number" min="1" max="120" required></label></div>
+<label style="display:flex;align-items:center"><input id="strategy-enabled" type="checkbox" style="width:auto" checked>启用</label>
+<button type="submit" id="save-strategy">保存策略</button>
+<p class="small muted">策略修改用于新建课题；已有课题保留创建时的策略版本。停用策略不删除历史研究。</p>
+</form></section></div>
+<script src="/research-assets/research.js"></script>
+<script>
+const R=Research,$=R.el;let strategies=[],revision=0;
+async function loadSettings(){const c=await R.api('/api/research/settings');$('rundesk-url').value=c.rundesk_url;$('callback-url').value=c.callback_url;$('search-provider').value=c.search_provider;$('rundesk-token').value='';$('search-key').value='';$('connection-summary').innerHTML=`<p>${R.esc(c.setup_message)}</p><p>RunDesk Token：${c.rundesk_token_configured?'已保存':'未设置'} · 搜索凭据：${c.search_ready?'已配置':'未配置'}</p><p>专用实例：${R.esc(c.instance_id||'尚未创建')}</p><p>工作区：${R.esc(c.workspace_id||'尚未创建')}</p>${c.codex_home?`<p>实例配置目录：<code>${R.esc(c.codex_home)}</code></p><p>请在 RunDesk 服务器上为此实例配置 Codex 模型与认证。新实例不会自动复制其他实例的登录信息。</p>`:''}`;}
+async function saveSettings(){await R.api('/api/research/settings','PUT',{rundesk_url:$('rundesk-url').value,rundesk_token:$('rundesk-token').value,callback_url:$('callback-url').value,search_provider:$('search-provider').value,search_api_key:$('search-key').value});await loadSettings();}
+$('connection-form').onsubmit=e=>{e.preventDefault();R.action($('save-connection'),async()=>{await saveSettings();$('research-message').textContent='设置已保存。地址有变化时，请点击“配置研究助手”。';});};
+$('setup-assistant').onclick=()=>R.action($('setup-assistant'),async()=>{await saveSettings();$('research-message').textContent='正在配置实例、工作区、Skill 和 MCP…';await R.api('/api/research/setup','POST',{});await loadSettings();$('research-message').textContent='研究助手已配置。请检查连接，并确认专用实例已完成模型认证。';});
+$('check-assistant').onclick=()=>R.action($('check-assistant'),async()=>{const r=await R.api('/api/research/check','POST',{});$('research-message').textContent=`RunDesk ${r.version||''}：${r.demo?'演示模式':'已连接'}\n专用实例：${r.configured?'已配置':'尚未配置'}\n模型认证：${r.account_ready?'已检测到':'尚未确认，请检查专用实例'}\n研究工具：${r.mcp_ready?'已发现':'尚未发现，请检查回连地址和服务状态'}\n检查不会运行模型，首次研究仍需验证实际执行。`;});
+function editStrategy(s){revision=s?.revision||0;$('strategy-id').value=s?.strategy_id||'';$('strategy-id').readOnly=!!s;$('strategy-name').value=s?.name||'';$('strategy-questions').value=(s?.questions||[]).join('\n');$('strategy-domains').value=(s?.preferred_domains||[]).join('\n');$('strategy-language').value=s?.language||'zh';$('strategy-searches').value=s?.max_searches||10;$('strategy-reads').value=s?.max_reads||20;$('strategy-minutes').value=s?.max_minutes||20;$('strategy-enabled').checked=s?.enabled??true;}
+async function loadStrategies(selected){strategies=await R.api('/api/research/strategies');$('strategy-picker').innerHTML=strategies.map(s=>`<option value="${R.esc(s.strategy_id)}">${R.esc(s.name)}${s.enabled?'':'（已停用）'}</option>`).join('');if(selected)$('strategy-picker').value=selected;editStrategy(strategies.find(s=>s.strategy_id===$('strategy-picker').value));}
+$('strategy-picker').onchange=()=>editStrategy(strategies.find(s=>s.strategy_id===$('strategy-picker').value));$('new-strategy').onclick=()=>editStrategy(null);
+$('strategy-form').onsubmit=e=>{e.preventDefault();R.action($('save-strategy'),async()=>{const id=$('strategy-id').value;await R.api('/api/research/strategies/'+encodeURIComponent(id),'PUT',{name:$('strategy-name').value,questions:$('strategy-questions').value.split('\n').map(s=>s.trim()).filter(Boolean),preferred_domains:$('strategy-domains').value.split('\n').map(s=>s.trim()).filter(Boolean),language:$('strategy-language').value,max_searches:Number($('strategy-searches').value),max_reads:Number($('strategy-reads').value),max_minutes:Number($('strategy-minutes').value),enabled:$('strategy-enabled').checked,revision});await loadStrategies(id);$('research-message').textContent='策略已保存。';});};
+Promise.all([loadSettings(),loadStrategies()]).catch(e=>$('research-message').textContent=e.message);
+</script>
+{% endblock %}

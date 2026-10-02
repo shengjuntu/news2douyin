@@ -3,6 +3,7 @@
 {% block content %}
 <p><a href="/articles">← 新闻库</a></p>
 <h1>{{ document.title }}</h1>
+<p><a href="/research?article_key={{ article.article_key|urlencode }}">深入研究这条新闻 →</a> <span class="small muted">以当前最新报道版本创建研究课题</span></p>
 <div class="row muted small">
   <span>当前查看 r{{ selected.revision }} / 最新 r{{ current.revision }}</span>
   <span>收录版本时间：{{ fmt_ts(selected.observed_at) }}</span>

@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}研究工作台 · news2douyin{% endblock %}
+{% block content %}
+<style>
+main{max-width:1520px}.research-columns{display:grid;grid-template-columns:250px minmax(320px,1fr) 330px;gap:14px;align-items:start}.research-columns>*{min-width:0}.research-columns .card{padding:14px}.research-columns h2{margin:0 0 12px}.research-columns h3{font-size:15px}.research-text{white-space:pre-wrap;overflow-wrap:anywhere}.question{border-bottom:1px solid #2a3145;padding:12px 0}.question:first-child{padding-top:0}.evidence-button{background:#233244;color:#80d8e7;padding:4px 8px;margin:3px;font-size:12px;max-width:100%;overflow-wrap:anywhere}.report-body{line-height:1.9}.report-body section{margin:16px 0 24px}.research-tabs button.on{background:#3b4660}.research-source{padding:10px 0;border-bottom:1px solid #2a3145}.research-quote{border-left:3px solid #4dd0e1;padding:8px;margin:10px 0;background:#10212a}.research-input{display:flex;gap:10px;margin:16px 0;align-items:stretch}.research-input textarea{flex:1;min-width:0;resize:vertical}.research-input div{display:flex;flex-direction:column;gap:8px}#research-message{white-space:pre-wrap;overflow-wrap:anywhere}#source-detail{max-height:75vh;overflow:auto}.paragraph{padding:10px 0;border-bottom:1px solid #2a3145}.paragraph.focus{background:#193645}details>summary{cursor:pointer}@media(max-width:1150px){.research-columns{grid-template-columns:230px minmax(0,1fr)}.research-columns>aside:last-child{grid-column:1/-1}#source-detail{max-height:55vh}}@media(max-width:700px){.research-columns{display:block}.research-columns>*{margin-bottom:14px}.research-input{flex-direction:column}.research-input div{flex-direction:row}.research-tabs{gap:4px}h1{overflow-wrap:anywhere}}
+</style>
+<div class="row"><a href="/research">← 研究课题</a><a href="/research/settings">研究设置</a><span id="run-status" class="badge">正在读取</span></div>
+<h1 id="case-title">研究工作台</h1><p id="case-goal" class="research-text muted"></p><p id="case-meta" class="small muted"></p>
+<div class="row"><button id="start-research">开始研究</button><button id="stop-research" class="ghost" disabled>停止</button><button id="sync-research" class="ghost">同步状态</button><a id="report-download" hidden>导出报告</a></div>
+<p id="research-message" role="status" aria-live="polite"></p>
+<label class="small muted"><input id="refresh-cutoff" type="checkbox"> 下次开始或继续研究时，将资料截止时间更新到现在，纳入新资料；旧报告保留原截止时间。</label>
+<div class="research-input"><textarea id="followup" rows="2" maxlength="6000" placeholder="追加研究重点，例如：重点查一下过去三年的变化。任务结束后也可以带着这个问题继续研究。" aria-label="补充研究要求"></textarea><div><button id="steer-research" disabled>追加到当前研究</button></div></div>
+<div class="research-columns">
+<aside class="card"><h2>研究问题</h2><div id="questions"><p class="muted">研究开始后展示问题和回答状态。</p></div></aside>
+<section><div class="row research-tabs" role="tablist" style="margin-bottom:12px"><button class="ghost on" data-tab="report">研究报告</button><button class="ghost" data-tab="evidence">证据与脉络</button><button class="ghost" data-tab="progress">执行进度</button></div>
+<section id="pane-report" class="card"><div class="row"><h2>研究报告</h2><select id="report-version" aria-label="报告版本"></select><span class="badge warn">待人工审核</span></div><div id="report-content" class="report-body"></div></section>
+<section id="pane-evidence" class="card" hidden><h2>事件节点候选</h2><p class="small muted">按来源支持的事件时间整理；仍待人工核对，未自动写入正式事件时间线。</p><div id="timeline"></div><h2 style="margin-top:20px">判断与依据</h2><div id="claims"></div></section>
+<section id="pane-progress" class="card" hidden><h2>真实执行记录</h2><div id="progress"></div><h2 style="margin-top:20px">历次研究</h2><div id="runs"></div></section>
+</section>
+<aside class="card"><h2>来源与原文</h2><div id="sources"></div><div id="source-detail"><p class="muted">点击来源或报告中的证据，查看原文段落。</p></div></aside>
+</div>
+<script src="/research-assets/research.js"></script>
+<script>window.researchCaseId={{case_id|tojson}};</script>
+<script src="/research-assets/research-case.js"></script>
+{% endblock %}

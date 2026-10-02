@@ -78,9 +78,11 @@ def create_app(*, db_url: str = 'sqlite:///runs_v7/news2douyin_v7.db', storage_r
         Path(storage_root).mkdir(parents=True, exist_ok=True)
         worker.start()
         scheduler.start()
+        app.state.research.start()
         try:
             yield
         finally:
+            app.state.research.stop()
             scheduler.stop()
             worker.stop()
 
@@ -90,6 +92,8 @@ def create_app(*, db_url: str = 'sqlite:///runs_v7/news2douyin_v7.db', storage_r
     app.state.scheduler = scheduler
     app.state.tasks = tasks
     app.state.worker = worker
+    from .research import register_research_routes
+    register_research_routes(app, engine, storage_root)
     register_task_routes(app, tasks, worker, _run_to_dict)
     from .readiness import register_readiness_routes
     register_readiness_routes(app)

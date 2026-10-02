@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}深入研究 · news2douyin{% endblock %}
+{% block content %}
+<style>.research-form{display:grid;gap:12px}.research-form label{display:grid;gap:6px}.research-form textarea,.research-form input,.research-form select{width:100%}.research-list{display:grid;gap:12px;margin-top:16px}.research-list p{white-space:pre-wrap;overflow-wrap:anywhere}.research-form>*{min-width:0}</style>
+<div class="row"><h1>深入研究</h1><a href="/research/settings">研究助手与策略设置</a></div>
+<p class="muted">从一条新闻出发，查清背景、发展过程和证据分歧。课题、资料与报告持续留存。</p>
+<p id="research-message" role="status" aria-live="polite"></p>
+{% if article_key or event_key %}
+<section class="card"><h2 style="margin-top:0">新建研究课题</h2>
+<form id="create-research" class="research-form">
+<label>研究标题（留空使用新闻标题）<input id="research-title" maxlength="250"></label>
+<label>你希望查清什么？<textarea id="research-goal" rows="3" maxlength="6000" required>查清这条新闻的历史背景、发展过程、新变化、各方说法和证据分歧；区分已证实事实与分析推断。</textarea></label>
+<div class="grid"><label>研究策略<select id="research-strategy"></select></label><label>历史回溯起点（可留空）<input id="research-from" type="date"></label><label>资料截止时间（留空为创建时刻）<input id="research-cutoff" type="datetime-local"></label></div>
+<p class="small muted">截止时间按浏览器本地时区输入，保存为 UTC。来源发表时间未知时会标记，不能据此保证历史资料完整。</p>
+<div class="row"><button type="submit" id="create-and-start">开始研究</button><button type="button" class="ghost" id="create-draft">仅保存课题</button></div>
+</form></section>
+{% else %}<p class="card">请到<a href="/daily">每日选题</a>或<a href="/articles">新闻库</a>，在新闻旁点击“深入研究”；也可以从事件专题发起。</p>{% endif %}
+<h2>研究课题</h2><div id="research-cases" class="research-list"><p class="muted">正在读取…</p></div>
+<script src="/research-assets/research.js"></script>
+<script>
+const R=Research,$=R.el,articleKey={{article_key|tojson}},eventKey={{event_key|tojson}};
+async function load(){const rows=await R.api('/api/research/cases');$('research-cases').innerHTML=rows.map(r=>`<article class="card"><div class="row"><a href="/research/${encodeURIComponent(r.case_id)}"><strong>${R.esc(r.title)}</strong></a><span class="badge">${R.esc(R.statuses[r.status]||r.status)}</span></div><p>${R.esc(r.goal)}</p><span class="small muted">更新于 ${R.esc(r.updated_at)}</span></article>`).join('')||'<p class="muted">还没有研究课题。</p>';if($('research-strategy')){const strategies=await R.api('/api/research/strategies');$('research-strategy').innerHTML=strategies.filter(s=>s.enabled).map(s=>`<option value="${R.esc(s.strategy_id)}">${R.esc(s.name)} · ${s.max_minutes} 分钟</option>`).join('');}}
+async function create(start){if(!$('create-research').reportValidity())return;const date=$('research-cutoff').value;const c=await R.api('/api/research/cases','POST',{article_keys:articleKey?[articleKey]:[],event_key:eventKey,title:$('research-title').value,goal:$('research-goal').value,strategy_id:$('research-strategy').value,date_from:$('research-from').value,cutoff:date?new Date(date).toISOString():''});if(start){try{await R.api('/api/research/cases/'+c.case_id+'/start','POST',{});}catch(e){sessionStorage.setItem('research-start-message',e.message);}}location.href='/research/'+encodeURIComponent(c.case_id);}
+if($('create-research')){$('create-research').onsubmit=e=>{e.preventDefault();R.action($('create-and-start'),()=>create(true));};$('create-draft').onclick=()=>R.action($('create-draft'),()=>create(false));}
+load().catch(e=>$('research-message').textContent=e.message);
+</script>
+{% endblock %}

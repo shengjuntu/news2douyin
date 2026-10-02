@@ -1,10 +1,12 @@
 
 
-# news2douyin 0.10.3 — 首次运行检查
+# news2douyin 0.11.0 — RunDesk 新闻研究
 
 
-延续 0.6.0 的网页主流程：**当日采集 → 勾选新闻 → 生成脚本 → 编辑审核 → 视频制作与导出**。
+本版增加：**选择新闻 → 背景研究 → 证据与报告 → 继续追问**。由 RunDesk 管理 Codex 执行，news2douyin 保存研究成果；原有采集、脚本和作品库继续可用。
 
+- `/research`：新闻研究课题、问题、证据、报告版本与运行记录。
+- `/research/settings`：配置 RunDesk 专用实例、研究 Skill 与 MCP；管理研究策略和搜索凭据。
 - `/setup`：首次运行检查，集中查看新闻源、模型配置、定时计划与视频依赖；提供主动连接检查和操作步骤。
 - `/` 或 `/daily`：每日选题，默认 Asia/Shanghai；已选内容自动保存。
 - `/articles`：历史新闻库，支持发布时间、采集时间和首次入库时间筛选。
@@ -16,13 +18,13 @@
 - `/tasks`：任务中心，按类型、状态、标题和提交日期查找；显示排队位置、当前执行任务及耗时，可进入进度、失败处理与结果。
 - `/timeline`：原时间线已明确为“新闻长图排版”。
 
-本版新增“首次运行检查”，把配置缺项、失效定时计划和视频依赖集中展示，并提供模型列表连接检查。明确区分“已配置”“模型已列出”和“实际生成成功”；新闻源仍需试跑，视频仍需制作验证。保留 0.10.2 任务中心、0.10.1 每日后台生成、0.10 视频制作与作品库，以及 0.9 的有据稿与历史版本。
+本版通过 RunDesk 已有 API 配置独立实例与实例级 Skill/MCP，无需修改 RunDesk 代码。支持研究中追加要求、停止和继续，报告逐版留存；所有判断和事件节点均作为待审核资料。运行设置和真实模型、搜索认证需要在部署后完成。
 
 首次使用可启动服务后在“采集策略”新增一个 `mock` 演示策略，回到首页采集并验证完整流程。
 真实新闻选择 `worldnewsapi`，在 `.env` 填入 `API_KEY`；AI 脚本配置 `OPENAI_BASE_URL`、`OPENAI_API_KEY`、`MODEL`。
 WorldNewsAPI 现在提供两种获取方式：**热门榜单**和**主动关键词检索**，随后执行策略筛选。专题中的补充检索先保存候选，用户选择后才收录。覆盖范围受新闻源和账户权限影响。
 
-[本版说明与升级步骤](docs/release-0.10.3.md) · [跑通一天的操作步骤](docs/first-day.md) · [模块关系与版本计划](docs/product-roadmap.md) · [验证记录](docs/validation-0.10.3.md)
+[本版说明与升级步骤](docs/release-0.11.0.md) · [跑通一天的操作步骤](docs/first-day.md) · [模块关系与版本计划](docs/product-roadmap.md) · [验证记录](docs/validation-0.11.0.md)
 
 This repository now includes a V7 implementation focused on a long-running client/server workflow for market-impression news collection.
 
@@ -41,6 +43,7 @@ Python 3.10+ is required. The default install is the headless service. Optional
 features are installed explicitly:
 
 ```bash
+pip install -e ".[research]"     # news research PDF reading; RunDesk runs Codex
 pip install -e ".[llm]"          # legacy LLM scoring/story/script pipeline
 pip install -e ".[assets,tts]"   # legacy asset preparation and voice generation
 pip install -e ".[video,voice-offline]" # local video + offline preview speech

@@ -31,7 +31,7 @@
 {% for a in articles %}<article class="news-item">
 <input type="checkbox" class="choose-news" data-key="{{ a.key }}" aria-label="选择 {{ a.title }}">
 <div><a class="news-title" href="/articles/{{ a.key }}">{{ a.title }}</a>{% if a.provider=='mock' %} <span class="badge warn">演示数据</span>{% endif %}{% if a.is_duplicate %} <span class="badge">转载/副本</span>{% endif %}
-<p>{{ a.snippet }}{% if a.snippet|length>=220 %}…{% endif %}</p><div class="muted small">{{ a.domain }} · 发布于 {{ a.published_at|local_ts(timezone) }}（{{ timezone }}） · <a href="/articles/{{ a.key }}">阅读与来源</a></div></div>
+<p>{{ a.snippet }}{% if a.snippet|length>=220 %}…{% endif %}</p><div class="muted small">{{ a.domain }} · 发布于 {{ a.published_at|local_ts(timezone) }}（{{ timezone }}） · <a href="/articles/{{ a.key }}">阅读与来源</a> · <a href="/research?article_key={{ a.key|urlencode }}">深入研究</a></div></div>
 </article>{% else %}<div class="empty"><strong>当前条件下还没有新闻。</strong><p class="muted">先选择上方策略采集，完成后返回选题；也可以切换日期、清除搜索词，或到<a href="/articles">新闻库</a>查找。当天新闻源尚未提供数据时会显示 0 条。</p></div>{% endfor %}
 </div>
 {% include "pagination.html" %}
