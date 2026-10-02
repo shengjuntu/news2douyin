@@ -87,3 +87,11 @@ python prep_assets.py --run-dir ../run_1451 --out out --llm openai --model gpt-4
 `python tools/smoke_task_monitor.py --port 18199` 启动临时测试服务，含历史记录、受控采集和每日脚本队列；仅供离线验收。运行 `node tools/smoke_task_monitor_browser.cjs http://127.0.0.1:18199 browser-results` 验证筛选、分页、队列变化、失败处理与手机布局。
 
 在安装发行 wheel 后运行 `python -I tools/smoke_task_monitor_installed.py`。升级验证先在 **0.10.1** 环境运行 `python -I tools/seed_upgrade_0_10_1.py /path/to/new-fixture`，安装 **0.10.2** 后执行 `python -I tools/smoke_task_monitor_installed.py --upgrade-fixture /path/to/new-fixture`。夹具同时保存数据库与脚本检查点。
+
+
+## 0.10.3 首次运行检查
+
+- `python tools/smoke_setup.py --port 18200`：启动隔离的浏览器夹具，含空安装、密钥缺失、无效计划和模型错误响应；不会访问真实账户。
+- `node tools/smoke_setup_browser.cjs http://127.0.0.1:18200 output/setup`：12 项浏览器检查及桌面/手机截图；使用 Playwright，可通过 `BROWSER_BIN` 指定浏览器。
+- 安装本版 wheel 后运行 `python -I tools/smoke_setup_installed.py`：6 项安装检查。模型探测使用本机临时 HTTP 服务，验证真实 GET/鉴权和拒绝重定向。视频部分检查真实 FFmpeg、FFprobe、Pillow、中文字体；运行前配置 `NEWS2DOUYIN_VIDEO_FONT`。
+- `pytest tests/test_readiness.py -q`：配置只读、时区、鉴权、限流、超时、模型列表格式与错误信息保护。

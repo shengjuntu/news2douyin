@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}首次运行检查 · news2douyin{% endblock %}
+{% block content %}
+<style>
+.setup-head{display:flex;align-items:center;justify-content:space-between;gap:14px}.setup-intro{line-height:1.85;max-width:850px}.setup-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:20px 0}.setup-grid h2{margin-top:0}.setup-card{min-width:0;line-height:1.75}.setup-card p{margin:10px 0}.setup-card li{margin:8px 0}.setup-card ul{padding-left:20px}.setup-detail{border-top:1px solid #293040;padding:12px 0;overflow-wrap:anywhere}.setup-detail:first-child{border:0}.setup-row{display:flex;justify-content:space-between;align-items:start;gap:12px}.setup-card code{overflow-wrap:anywhere}.setup-card pre{white-space:pre-wrap;overflow-wrap:anywhere}.setup-result{padding:10px 12px;background:#10141c;border-radius:7px;overflow-wrap:anywhere}.setup-error{color:#fbbf24;white-space:pre-wrap}.setup-time{font-size:12px;color:#9aa3b8}.setup-actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-top:14px}.setup-steps{line-height:1.9;padding-left:22px}.setup-steps li{padding:3px 0}@media(max-width:750px){.setup-grid{grid-template-columns:1fr}.setup-head{align-items:start}.setup-head button{flex-shrink:0}}
+</style>
+<div class="setup-head"><h1>首次运行检查</h1><button type="button" id="refresh-config" class="ghost">刷新配置检查</button></div>
+<p class="setup-intro muted">从采集一条新闻开始，确认脚本与视频能在这台服务机器上完成。下方先检查本地配置；新闻源需要试跑，模型需要主动检查，视频还需实际制作一次。</p>
+<p id="setup-status" role="status" aria-live="polite">正在读取配置…</p>
+<div class="setup-grid">
+ <section class="card setup-card" id="news-card"><h2>1 · 新闻与自动采集</h2>
+  <div id="news-summary" class="muted">正在检查…</div><div id="news-profiles"></div>
+  <details><summary>如何接入真实新闻</summary><p>在运行服务的目录复制 <code>.env.example</code> 为 <code>.env</code>，填写 <code>API_KEY</code>，重启服务。在策略中选择 WorldNewsAPI，并设置国家、语言和关注词。自定义密钥变量沿用策略配置。</p><p>保存后到采集策略点击“试跑”，核对抓取数、过滤原因和样本。密钥存在不代表账户权限或额度已经验证。</p></details>
+  <div class="setup-actions"><a href="/profiles">新增策略 / 试跑 →</a><a href="/daily">每日选题 →</a></div>
+  <h3>自动采集计划</h3><p id="schedule-summary" class="muted">正在检查…</p><div id="setup-schedules"></div>
+  <p><a href="/profiles#schedules">管理计划与时区 →</a></p>
+ </section>
+ <section class="card setup-card" id="model-card"><h2>2 · 脚本生成</h2>
+  <p>“基础摘录稿”和事件“证据提纲”不需要模型。生成 AI 中文初稿时，再接入兼容模型服务。</p>
+  <div id="model-config" class="setup-result">正在检查…</div>
+  <details><summary>配置模型服务</summary><p>在 <code>.env</code> 设置以下三项，并重启服务：</p><pre>OPENAI_BASE_URL=http://127.0.0.1:19993/v1
+OPENAI_API_KEY=你的服务密钥
+MODEL=实际模型名称</pre><p><code>127.0.0.1</code> 指 news2douyin 服务所在机器。模型部署在另一台机器时，应填写服务端能访问的地址。系统环境变量优先于 <code>.env</code>。</p></details>
+  <div class="setup-actions"><button id="probe-model" type="button" disabled>检查模型连接</button><a href="/daily">选新闻生成初稿 →</a></div>
+  <p class="muted small">点击后向已配置地址请求 <code>/models</code>，携带配置的鉴权信息；不发送新闻正文，不生成稿件。列表检查通过仍需提交一条 AI 初稿验证。</p>
+  <div id="model-result" role="status" aria-live="polite" class="setup-result">尚未检查连接。</div>
+ </section>
+ <section class="card setup-card" id="video-card"><h2>3 · 视频与配音</h2>
+  <p>审核通过脚本后，可选模板、配音和分段图片，制作竖屏视频并保存到作品库。</p>
+  <button id="check-video" type="button">检查视频环境</button>
+  <p class="muted small">检查当前服务机器的编码程序、中文字体及可选配音依赖。不会渲染视频或调用在线配音。</p>
+  <div id="video-result" role="status" aria-live="polite" class="setup-result">尚未检查视频环境。</div>
+  <div class="setup-actions"><a href="/scripts">打开脚本并审核 →</a><a href="/videos">查看已完成作品 →</a></div>
+ </section>
+ <section class="card setup-card" id="service-card"><h2>服务与存储</h2><div id="service-config">正在检查…</div>
+  <p class="muted small">这里显示当前服务实例的状态。多实例共用数据库时，其他实例可能正在处理任务。目录权限仅做预检；磁盘空间、实际写入及媒体编码需在完整流程中验证。</p>
+  <details><summary>启动与数据保存</summary><p>关闭网页后，后台任务继续执行；关闭服务则暂停处理。从同一目录启动，或用 <code>--db-url</code> 与 <code>--storage-root</code> 指向原位置，才能继续使用原新闻、稿件和视频。</p><p>每日默认时区由 <code>NEWS2DOUYIN_TIMEZONE</code> 设置。自动采集计划各自使用计划中保存的时区。</p></details>
+  <p><a href="/tasks">查看任务与排队 →</a></p>
+ </section>
+</div>
+<section class="card setup-card"><h2>跑通第一条新闻</h2><ol class="setup-steps">
+ <li>到<a href="/profiles">采集策略</a>新增演示策略，或配置真实新闻源并试跑。</li>
+ <li>到<a href="/daily">每日选题</a>采集今天的新闻，完成后选一条，生成基础摘录稿或 AI 初稿。</li>
+ <li>在<a href="/scripts">脚本工作台</a>编辑、核对来源，通过审核后进入视频制作。</li>
+ <li>选新闻简报模板与快速预览规格，使用离线配音或上传配音，检查画面并提交制作。</li>
+ <li>到<a href="/videos">作品库</a>播放视频并下载 MP4；第二天从每日选题继续。</li>
+</ol><p class="muted">演示资料和机械配音用于验证操作。真实新闻覆盖、稿件准确性和配音效果需要你实际核对。</p></section>
+<script>
+const el=id=>document.getElementById(id),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const badge=(text,kind='')=>`<span class="badge ${kind}">${esc(text)}</span>`;
+function checked(value){return new Date(value).toLocaleString('zh-CN',{hour12:false})+'（浏览器本地时间）';}
+async function api(url,method='GET'){const r=await fetch(url,{method,cache:'no-store'});const data=await r.json();if(!r.ok)throw Error(data.message||'检查请求失败，请稍后重试。');return data;}
+function renderConfig(d){
+ el('news-summary').textContent=`已启用 ${d.summary.enabled_profiles} 个策略：${d.summary.configured_news} 个真实新闻策略已填写密钥，${d.summary.demo_profiles} 个演示策略。`;
+ const labels={configured:['已配置 · 待试跑','warn'],demo:['演示数据',''],missing:['缺少密钥','bad'],invalid:['需修正','bad']};
+ el('news-profiles').innerHTML=d.profiles.length?d.profiles.map(p=>`<div class="setup-detail"><div class="setup-row"><strong>${esc(p.name)}</strong>${p.enabled?badge(...labels[p.state]):badge('已停用')}</div><p class="muted small">${esc(p.note)}</p></div>`).join(''):'<p>还没有策略。先新增“演示数据”策略，即可验证完整流程。</p>';
+ el('schedule-summary').textContent=`已启用 ${d.summary.enabled_schedules} 个计划`+(d.summary.schedule_issues?`，其中 ${d.summary.schedule_issues} 个需修正。`:'。')+(d.scheduler_running?'当前服务调度器运行中。':'当前服务调度器已停止。');
+ el('setup-schedules').innerHTML=d.schedules.length?d.schedules.map(j=>`<div class="setup-detail"><div class="setup-row"><strong>${esc(j.name)}</strong>${badge(j.enabled?(j.issues.length?'需修正':'已启用'):'已停用',j.enabled&&j.issues.length?'bad':'')}</div><p class="muted small">策略：${esc(j.profile_name)} · 时区：${esc(j.timezone)}</p>${j.issues.length?`<p class="setup-error">${esc(j.issues.join('；'))}</p>`:j.next_run?`<p>下次计划：${esc(j.next_run.replace('T',' '))}${d.scheduler_running?'':'（调度器停止，当前实例不会执行）'}</p>`:''}</div>`).join(''):'<p class="muted">尚未配置计划，可先手动采集。</p>';
+ const m=d.model;
+ el('model-config').innerHTML=`${badge(m.valid?'配置可读取':'配置需修正',m.valid?'warn':'bad')}<p>服务主机：${esc(m.origin||'地址无效')}<br>模型：${esc(m.model||'未填写')}<br>鉴权：${m.key_present?'已设置（不显示内容）':'未设置；仅适用于无需鉴权的服务'}</p>${m.defaults.length?`<p class="setup-error">使用默认值：${esc(m.defaults.join('、'))}。请核对是否与实际服务一致。</p>`:''}`;
+ modelValid=m.valid;el('probe-model').disabled=!modelValid||modelBusy;
+ el('service-config').innerHTML=`<p>${badge(d.database_ok?'数据库可读取':'数据库不可读',d.database_ok?'ok':'bad')}</p><p>${badge(d.storage.permissions_ok?'运行目录权限预检通过':'运行目录需检查',d.storage.permissions_ok?'ok':'bad')} ${d.storage.exists?'':'目录尚不存在。'}</p><p>${badge(d.worker_running?'当前执行器运行中':'当前执行器已停止',d.worker_running?'ok':'warn')}</p><p>${badge(d.scheduler_running?'当前调度器运行中':'当前调度器已停止',d.scheduler_running?'ok':'warn')}</p><p>${d.calendar.ok?`当日日期：${esc(d.calendar.today)}<br>默认时区：${esc(d.calendar.timezone)}`:'<span class="setup-error">默认时区无效，请将 NEWS2DOUYIN_TIMEZONE 设置为 Asia/Shanghai 或其他有效 IANA 时区后重启。</span>'}</p>`;
+}
+let hasConfig=false,modelBusy=false,modelValid=false;
+async function refresh(){el('refresh-config').disabled=true;el('setup-status').className='muted';el('setup-status').textContent='正在读取配置…';try{const d=await api('/api/setup/check');renderConfig(d);hasConfig=true;el('setup-status').textContent='配置检查于 '+checked(d.checked_at)+'。新闻、模型与配音的实际效果尚需验证。';}catch(e){el('setup-status').className='setup-error';el('setup-status').textContent=e.message+(hasConfig?' 下方保留上次记录，状态可能已过时。':' 尚未取得配置，修复后可重新检查。');}finally{el('refresh-config').disabled=false;}}
+el('refresh-config').onclick=refresh;
+el('probe-model').onclick=async()=>{modelBusy=true;el('probe-model').disabled=true;el('model-result').textContent='正在请求模型列表…';try{const d=await api('/api/setup/model-probe','POST');el('model-result').innerHTML=badge(d.state==='listed'?'模型已列出 · 生成待验证':'需要核对',d.state==='listed'?'ok':'warn')+`<p>${esc(d.message)}</p><p class="setup-time">${esc(d.configuration.origin)} · ${esc(d.configuration.model)}<br>${esc(checked(d.checked_at))}</p>`;}catch(e){el('model-result').textContent=e.message;}finally{modelBusy=false;el('probe-model').disabled=!modelValid;}};
+el('check-video').onclick=async()=>{el('check-video').disabled=true;el('video-result').textContent='正在检查编码程序、字体与配音依赖…';try{const d=await api('/api/setup/video-check','POST');el('video-result').innerHTML=d.ok?badge(d.ready?'基础环境检查通过 · 尚未制作':'视频基础环境有缺项',d.ready?'ok':'bad')+d.checks.map(c=>`<div class="setup-detail">${badge(c.ok?(c.key==='espeak'||c.key==='edge'?'依赖已安装':'通过'):'未满足',c.ok?'ok':c.key==='espeak'||c.key==='edge'?'warn':'bad')} ${esc(c.label)}${!c.ok?`<p class="small">${esc(c.fix)}</p>`:''}</div>`).join('')+`<p class="muted small">配音依赖已安装不代表合成成功；也可上传录好的配音。实际制作以审核稿的预检结果为准。</p><p class="setup-time">${esc(checked(d.checked_at))}</p>`:esc(d.message);}catch(e){el('video-result').textContent=e.message;}finally{el('check-video').disabled=false;}};
+refresh();
+</script>
+{% endblock %}

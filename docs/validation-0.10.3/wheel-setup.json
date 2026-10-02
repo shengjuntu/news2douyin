@@ -1,0 +1,11 @@
+{
+  "status": "passed",
+  "checks": [
+    "installed_templates_and_entry_links",
+    "configuration_read_does_not_contact_model_or_mutate_data",
+    "explicit_models_get_uses_configured_endpoint_and_auth",
+    "http_redirect_is_not_followed",
+    "upstream_error_body_and_credentials_are_not_exposed",
+    "actual_ffmpeg_ffprobe_pillow_and_chinese_font_checks"
+  ]
+}

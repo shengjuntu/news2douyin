@@ -2,7 +2,7 @@
 {% block title %}仪表盘 · news2douyin v7{% endblock %}
 {% block content %}
 <h1>仪表盘</h1>
-<p><a href="/daily">每日选题</a> · <a href="/profiles">新增与编辑采集策略</a> · <a href="/tasks">任务中心</a> · <a href="/runs">运行记录</a></p>
+<p><a href="/setup">首次运行检查</a> · <a href="/daily">每日选题</a> · <a href="/profiles">新增与编辑采集策略</a> · <a href="/tasks">任务中心</a> · <a href="/runs">运行记录</a></p>
 <div class="grid">
   <div class="card"><div class="muted">调度器</div><div class="num">{{ '运行中' if scheduler_running else '已停止' }}
     <span class="badge {{ 'ok' if scheduler_running else 'bad' }}">{{ 'ON' if scheduler_running else 'OFF' }}</span></div></div>

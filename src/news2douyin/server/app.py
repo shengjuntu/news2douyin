@@ -91,6 +91,8 @@ def create_app(*, db_url: str = 'sqlite:///runs_v7/news2douyin_v7.db', storage_r
     app.state.tasks = tasks
     app.state.worker = worker
     register_task_routes(app, tasks, worker, _run_to_dict)
+    from .readiness import register_readiness_routes
+    register_readiness_routes(app)
 
     @app.get('/api/health')
     def health():

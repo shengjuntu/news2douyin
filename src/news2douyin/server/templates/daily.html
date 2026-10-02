@@ -6,6 +6,7 @@
 </style>
 <div class="daily-head"><div><h1>每日选题</h1><p class="muted">每天挑 1–3 条值得讲的新闻，把选题变成脚本。</p></div><a href="/profiles#schedules">设置每日自动采集 →</a></div>
 <div class="flow"><span class="current">1 采集新闻</span><span class="current">2 选择选题</span><span>3 生成与编辑脚本</span><span>4 制作视频与导出</span></div>
+{% if not enabled_profiles %}<p class="card">首次使用？先打开<a href="/setup">首次运行检查</a>，查看新闻源、模型和视频环境的配置步骤。</p>{% endif %}
 <div class="card">
 <form method="post" action="/webui/run-now" class="row">
   <label>采集日期 <input type="date" name="date_str" value="{{ day }}" required></label>

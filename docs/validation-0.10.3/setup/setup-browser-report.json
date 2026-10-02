@@ -1,0 +1,19 @@
+{
+  "passed": 12,
+  "checks": [
+    "empty_install_entry_and_no_automatic_external_checks",
+    "demo_missing_key_and_configured_profiles_are_distinct",
+    "schedule_dependencies_and_stopped_scheduler_are_explained",
+    "configured_text_is_escaped",
+    "explicit_model_check_reports_authentication_failure",
+    "model_list_success_does_not_claim_generation_success",
+    "video_missing_dependencies_have_fixes_and_optional_voice",
+    "credentials_and_raw_error_details_are_not_displayed",
+    "temporary_failure_keeps_prior_report_and_recovers",
+    "workflow_and_repair_links_are_present",
+    "mobile_has_no_horizontal_overflow",
+    "no_javascript_errors"
+  ],
+  "browser": "154.0.8037.57",
+  "errors": []
+}

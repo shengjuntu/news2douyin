@@ -1,0 +1,20 @@
+{
+  "passed": 13,
+  "checks": [
+    "selected_batch_commits_both_jobs_before_model_returns",
+    "duplicate_submit_reuses_jobs",
+    "closed_page_does_not_interrupt_model_jobs",
+    "workbench_recovers_source_bound_draft",
+    "daily_reload_restores_completed_results",
+    "failure_has_source_snapshot_and_no_collection_diagnostics",
+    "retry_completes_original_daily_job",
+    "remove_reselect_blocks_late_model_result",
+    "detached_task_cannot_be_retried",
+    "result_returns_to_correct_day_and_timezone",
+    "history_and_earlier_drafts_remain_available",
+    "daily_workbench_and_task_fit_mobile",
+    "no_javascript_errors"
+  ],
+  "browser": "154.0.8037.57",
+  "errors": []
+}
