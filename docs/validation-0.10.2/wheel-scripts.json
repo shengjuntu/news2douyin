@@ -1,0 +1,12 @@
+{
+  "status": "passed",
+  "version": "0.10.2",
+  "passed": 5,
+  "checks": [
+    "installed_generation_template_and_enqueue",
+    "installed_worker_idempotency_and_result_pages",
+    "installed_segment_edit_review_and_cited_exports",
+    "installed_video_handoff_and_narration_consistency_guard",
+    "installed_restart_retry_preserves_task_and_creates_separate_draft"
+  ]
+}

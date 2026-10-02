@@ -368,8 +368,7 @@ def register_webui_routes(app: FastAPI, engine, scheduler, storage_root: str) ->
 
     @app.get('/tasks', response_class=HTMLResponse)
     def page_tasks():
-        return render('tasks.html', active='tasks', tasks=app.state.tasks.list(100),
-                      worker_running=app.state.worker.running)
+        return render('tasks.html', active='tasks', timezone=timezone_name())
 
     @app.get('/tasks/{task_id}', response_class=HTMLResponse)
     def page_task(task_id: str):

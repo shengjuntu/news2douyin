@@ -1,0 +1,13 @@
+{
+  "status": "passed",
+  "version": "0.10.2",
+  "passed": 6,
+  "checks": [
+    "installed_full_queue_rank_with_filtered_pagination",
+    "installed_history_queries_detail_api_and_shared_template",
+    "installed_monitor_preserves_task_records_and_old_api_shape",
+    "installed_actions_reflect_real_queue_time_without_reordering",
+    "upgrade_readonly_monitor_preserves_original_tasks_events_inputs_and_draft",
+    "upgrade_old_queue_runs_and_failed_daily_task_resumes_cached_document"
+  ]
+}

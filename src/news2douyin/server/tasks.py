@@ -36,6 +36,20 @@ def task_call(fn, *args, **kwargs):
 
 
 def register_task_routes(app, service, worker, run_to_dict):
+    from ..tasks.monitor import task_page, task_position
+
+    @app.get('/api/task-queue')
+    def queue_page(query: str = Query('', max_length=200), kind: str = 'all', status: str = 'all',
+                   date_from: str = '', date_to: str = '', timezone: str = '',
+                   offset: int = Query(0, ge=0), limit: int = Query(25, ge=1, le=100)):
+        return task_call(task_page, service.engine, query=query, kind=kind, status=status,
+                         date_from=date_from, date_to=date_to, timezone=timezone, offset=offset, limit=limit,
+                         local_worker_running=worker.running)
+
+    @app.get('/api/tasks/{task_id}/queue-status')
+    def queue_position(task_id: str):
+        return task_call(task_position, service.engine, task_id, local_worker_running=worker.running)
+
     def submit(payload):
         return task_call(service.submit, payload.profile_name, payload.override,
                          idempotency_key=payload.idempotency_key, max_attempts=payload.max_attempts)

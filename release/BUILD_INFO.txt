@@ -1,7 +1,7 @@
-news2douyin 0.10.1
-Python + HTML durable daily script generation maintenance release
+news2douyin 0.10.2
+Python + HTML task center, queue positions and elapsed-time monitoring
 Built and validated with Python 3.12.14; requires Python 3.10+
-Validation: 214 pytest checks; 40 browser checks; 49 installed-wheel/upgrade checks.
-Offline fictional news/model fixtures; actual FFmpeg encode used for video regression and upgrade.
-Real news/model quality and remote voice services were not tested.
-See docs/release-0.10.1.md, docs/first-day.md and docs/validation-0.10.1.md.
+Validation: 224 pytest checks; 48 browser checks; 45 installed-wheel/upgrade checks.
+News/model fixtures are offline; actual FFmpeg encode used in video installation regression.
+No new database tables or changes to task execution policy.
+See docs/release-0.10.2.md and docs/validation-0.10.2.md.

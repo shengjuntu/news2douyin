@@ -20,16 +20,18 @@
   </div>
 </div>
 {% if task.kind == 'daily_script' %}<p class="muted small">每日脚本使用提交时固定的报道。可关闭页面，稍后从<a href="/daily">每日选题</a>或<a href="/scripts">脚本工作台</a>返回。移出选题会取消未完成任务；重新选择不会接纳旧任务的晚到结果。模型请求取消需等待返回或超时。</p><p id="script-input" class="muted small"></p><a id="daily-input">返回本次选题 →</a>{% elif task.kind == 'script' %}<p class="muted small">脚本任务固定提交时的节点和来源版本。可关闭页面，稍后从<a href="/scripts">脚本工作台</a>返回。取消需等待当前模型请求返回或超时；重试复用已验证的生成结果，每个任务只创建一份草稿。</p><p id="script-input" class="muted small"></p>{% elif task.kind == 'video' %}<p class="muted small">视频任务取消时会终止正在运行的配音或编码子进程。重试复用校验通过的音频检查点。</p>{% else %}<p class="muted small">取消在安全检查点生效；正在进行的网络请求会先返回或超时。重试保留已入库新闻，复用已完成的筛选结果。需要重新抓取时，请回仪表盘提交新任务。</p>{% endif %}
+<section class="card" style="margin-top:16px"><h2 style="margin-top:0">排队与耗时</h2><p id="queue-position">正在读取队列…</p><p id="queue-duration"></p><p id="queue-worker" class="muted small"></p><p id="queue-recovery" class="muted small" hidden></p><a href="/tasks?status=active">查看全部进行中的任务 →</a><p class="muted small">排队位置是当前等待队列中的顺序，不含执行中的任务；认领、取消或重试后会更新。“提交至结束”包含排队和重试期间的等待。</p></section>
 <p id="connection" class="muted small">正在连接进度流…</p>
 <h2>任务记录</h2>
 <pre id="events" style="max-height:350px" aria-label="任务记录"></pre>
+{% include "task_labels.html" %}
 <script>
 const initial = {{ task | tojson }};
 const base = '/api/tasks/' + encodeURIComponent(initial.task_id);
-const statuses = {queued:'排队中', running:'执行中', cancel_requested:'正在取消', cancelled:'已取消', succeeded:'已完成', failed:'失败'};
-const stages = {daily_writing:'生成每日初稿',daily_validating:'校验稿件与来源',daily_saving:'保存脚本版本',script_writing:'生成分段草稿',script_validating:'校验引用',script_saving:'保存脚本版本',queued:'等待执行', starting:'准备', fetching:'抓取新闻', filtering:'筛选新闻', storing:'入库', exporting:'保存结果', complete:'完成', preparing:'准备视频', voice:'合成配音', subtitles:'生成字幕', frames:'绘制画面', rendering:'编码视频', verifying:'校验成片', packaging:'整理产物'};
-let stream, cursor = 0;
+const statuses = N2DTasks.statuses, stages = N2DTasks.stages;
+let stream, cursor = 0, queueTimer, queueBusy=false, queueAgain=false, pageClosed=false, latestStatus=initial.status;
 function display(t) {
+  const statusChanged=latestStatus!==t.status;latestStatus=t.status;if(statusChanged)loadQueue();
   document.getElementById('status').textContent = statuses[t.status] || t.status;
   document.getElementById('stage').textContent = stages[t.stage] || t.stage;
   document.getElementById('count').textContent = t.progress_current + ' / ' + t.progress_total;
@@ -60,6 +62,21 @@ async function loadScriptResult(){
   }else document.getElementById('script-input').textContent='已固定 '+data.moment_count+' 个节点、'+data.source_count+' 个来源版本 · '+data.options.duration_sec+' 秒 · '+(data.options.backend==='llm'?'AI 有据初稿':'证据提纲');
  }catch(e){document.getElementById('connection').textContent='结果暂未加载，可刷新页面重试。';}
 }
+async function loadQueue(){
+ clearTimeout(queueTimer);if(pageClosed)return;if(document.hidden){queueTimer=setTimeout(loadQueue,3000);return;}if(queueBusy){queueAgain=true;return;}queueBusy=true;
+ try{const response=await fetch(base+'/queue-status');const item=await response.json();if(!response.ok)throw new Error('queue unavailable');
+ const summary=item.summary,position=document.getElementById('queue-position');
+ position.textContent=item.queue_position!==null?`当前排在第 ${item.queue_position} 位，前面还有 ${item.queue_position-1} 项等待；另有 ${summary.executing_count} 项执行记录。`:['running','cancel_requested'].includes(item.task.status)?(item.timing.needs_recovery?'本任务的执行状态待恢复。':'本任务正在执行，已离开等待队列。'):'本任务已结束。';
+ document.getElementById('queue-duration').textContent=N2DTasks.elapsed(item);
+ document.getElementById('queue-worker').textContent=N2DTasks.worker(summary);
+ const recovery=document.getElementById('queue-recovery');recovery.hidden=!summary.needs_recovery_count;recovery.textContent=`有 ${summary.needs_recovery_count} 项执行状态过期，等待运行中的执行器恢复。`;
+ }catch(e){document.getElementById('queue-position').textContent='暂时无法刷新队列状态；可以手动刷新或打开任务中心查看。';}
+ finally{queueBusy=false;if(!pageClosed){if(queueAgain){queueAgain=false;queueTimer=setTimeout(loadQueue,0);}else if(!['succeeded','failed','cancelled'].includes(latestStatus))queueTimer=setTimeout(loadQueue,3000);}}
+}
+window.addEventListener('pagehide',()=>{pageClosed=true;clearTimeout(queueTimer);stream?.close();});
+window.addEventListener('pageshow',event=>{if(event.persisted){pageClosed=false;connect();loadQueue();}});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)loadQueue();});
+
 function connect() {
   if (stream) stream.close();
   stream = new EventSource(base + '/stream?after=' + cursor);
@@ -95,5 +112,6 @@ document.getElementById('cancel').onclick = () => action('cancel');
 document.getElementById('retry').onclick = () => action('retry');
 display(initial);
 connect();
+loadQueue();
 </script>
 {% endblock %}

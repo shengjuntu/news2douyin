@@ -1,0 +1,24 @@
+{
+  "passed": 17,
+  "checks": [
+    "global_counts_and_stopped_local_worker_are_visible",
+    "queue_order_matches_claim_order",
+    "filtered_list_keeps_global_queue_position",
+    "filter_url_survives_reload",
+    "history_beyond_one_hundred_is_paginated",
+    "browser_back_restores_filtered_page",
+    "literal_search_and_shanghai_date_boundary",
+    "timezone_changes_date_results",
+    "failure_filter_leads_to_existing_retry_and_diagnostics",
+    "cancel_and_retry_refresh_task_position_and_timing",
+    "detail_excludes_executing_task_from_waiting_rank",
+    "auto_refresh_can_be_paused",
+    "completion_updates_overview_and_final_task_snapshot",
+    "completed_daily_task_opens_original_draft",
+    "refresh_failure_keeps_previous_records_with_stale_notice",
+    "task_center_and_detail_fit_mobile",
+    "no_javascript_errors"
+  ],
+  "browser": "154.0.8037.57",
+  "errors": []
+}

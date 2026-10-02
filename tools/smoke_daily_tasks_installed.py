@@ -24,7 +24,7 @@ def execute(app,root):
 
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('--upgrade-fixture',default='');args=parser.parse_args()
-    assert version('news2douyin')=='0.10.1';checks=[]
+    assert tuple(map(int,version('news2douyin').split('.')[:3])) >= (0,10,1);checks=[]
     seed=runpy.run_path(str(Path(__file__).with_name('smoke_daily_tasks.py')))['seed']
     with tempfile.TemporaryDirectory(prefix='daily-tasks-wheel-') as directory:
         root=Path(directory);url=f'sqlite:///{root}/app.db';runs=root/'runs'

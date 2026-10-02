@@ -1,0 +1,11 @@
+<script>
+window.N2DTasks={
+ statuses:{queued:'排队中',running:'执行中',cancel_requested:'正在取消',cancelled:'已取消',succeeded:'已完成',failed:'失败'},
+ kinds:{collect:'新闻采集',trial:'策略试跑',daily_script:'每日脚本',script:'事件脚本',video:'视频制作'},
+ stages:{daily_writing:'生成每日初稿',daily_validating:'校验稿件与来源',daily_saving:'保存脚本版本',script_writing:'生成分段草稿',script_validating:'校验引用',script_saving:'保存脚本版本',queued:'等待执行',starting:'准备',fetching:'抓取新闻',filtering:'筛选新闻',storing:'入库',exporting:'保存结果',complete:'完成',preparing:'准备视频',voice:'合成配音',subtitles:'生成字幕',frames:'绘制画面',rendering:'编码视频',verifying:'校验成片',packaging:'整理产物'},
+ duration(value){if(value===null||value===undefined)return '时间未知';const n=Math.max(0,Math.floor(value)),d=Math.floor(n/86400),h=Math.floor(n/3600)%24,m=Math.floor(n/60)%60,s=n%60;return d?`${d} 天 ${h} 小时`:h?`${h} 小时 ${m} 分`:m?`${m} 分 ${s} 秒`:`${s} 秒`;},
+ time(value,zone){if(!value)return '时间未知';try{const normalized=/Z$|[+-]\d{2}:\d{2}$/.test(value)?value:value+'Z';return new Intl.DateTimeFormat('zh-CN',{timeZone:zone,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).format(new Date(normalized));}catch(e){return value;}},
+ elapsed(item){const t=item.timing;if(item.task.status==='queued')return '本轮排队 '+this.duration(t.queued_seconds);if(['running','cancel_requested'].includes(item.task.status))return '本次执行 '+this.duration(t.execution_seconds);return '提交至结束 '+this.duration(t.total_seconds);},
+ worker(summary){if(summary.local_worker_running)return '当前服务执行器运行中。';if(summary.executing_count>summary.needs_recovery_count)return '当前服务执行器已停止；仍有有效运行记录，可能由其他服务实例处理。';return '当前服务执行器未运行。请确认 news2douyin-server 服务已启动并保持运行；其他实例状态无法在此完整判断。';}
+};
+</script>

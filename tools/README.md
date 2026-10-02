@@ -81,3 +81,9 @@ python prep_assets.py --run-dir ../run_1451 --out out --llm openai --model gpt-4
 另一个终端运行 `node tools/smoke_daily_tasks_browser.cjs http://127.0.0.1:18198 browser-results` 检查批量提交、重复点击、关页续办、失败重试、移出再选和手机布局。需要 Playwright；可用 `BROWSER_BIN` 指向 Chromium。
 
 安装发行 wheel 后运行 `python -I tools/smoke_daily_tasks_installed.py`。验证升级时，先在 **0.10.0** 环境执行 `python -I tools/seed_upgrade_0_10.py /path/to/new-fixture`，安装 **0.10.1** 后再执行 `python -I tools/smoke_daily_tasks_installed.py --upgrade-fixture /path/to/new-fixture`。升级检查包含旧排队视频的实际编码，需要 FFmpeg/FFprobe、Pillow 和中文字体。
+
+### 0.10.2 任务中心
+
+`python tools/smoke_task_monitor.py --port 18199` 启动临时测试服务，含历史记录、受控采集和每日脚本队列；仅供离线验收。运行 `node tools/smoke_task_monitor_browser.cjs http://127.0.0.1:18199 browser-results` 验证筛选、分页、队列变化、失败处理与手机布局。
+
+在安装发行 wheel 后运行 `python -I tools/smoke_task_monitor_installed.py`。升级验证先在 **0.10.1** 环境运行 `python -I tools/seed_upgrade_0_10_1.py /path/to/new-fixture`，安装 **0.10.2** 后执行 `python -I tools/smoke_task_monitor_installed.py --upgrade-fixture /path/to/new-fixture`。夹具同时保存数据库与脚本检查点。

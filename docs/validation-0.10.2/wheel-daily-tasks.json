@@ -1,0 +1,12 @@
+{
+  "status": "passed",
+  "version": "0.10.2",
+  "passed": 5,
+  "checks": [
+    "installed_batch_api_templates_and_frozen_source",
+    "installed_restart_recovers_batch_and_source_bound_drafts",
+    "installed_idempotency_and_legacy_build_compatibility",
+    "installed_restart_retry_reuses_saved_document",
+    "installed_selection_removal_preserves_history_and_blocks_old_retry"
+  ]
+}
