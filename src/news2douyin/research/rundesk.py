@@ -42,7 +42,7 @@ class RunDeskClient:
         if key: headers['Idempotency-Key'] = key
         try:
             response = requests.request(method, self.base + path, json=payload, params=params,
-                                        headers=headers, timeout=(4,20), allow_redirects=False)
+                                        headers=headers, timeout=(10, 60), allow_redirects=False)
         except requests.RequestException:
             raise RemoteError('RunDesk 连接失败或超时；将用原请求编号查询接收结果',uncertain=method!='GET') from None
         if len(response.content) > 4*1024*1024:
@@ -123,6 +123,21 @@ def bootstrap(settings, client_factory=RunDeskClient):
             config['instance_id'] = instance['id']
             config['codex_home'] = instance.get('codexHome', '')
             settings.write(config)
+        # Ensure the instance runs codex in a Docker container. The news2douyin
+        # research image is built separately (see examples/news2douyin/run.py).
+        docker_image = config.get('docker_image', 'rundesk-news2douyin:0.13.0')
+        if docker_image:
+            try:
+                client.request('PUT', '/instances/' + quote(config['instance_id'], safe='') + '/execution',
+                               {'revision': instance.get('revision', 0),
+                                'spec': {'mode': 'docker', 'image': docker_image}})
+            except RemoteError:
+                # Revision may have bumped after creation; re-read and retry once.
+                refreshed = next((r for r in client.request('GET', '/instances') if r['id'] == config['instance_id']), None)
+                if refreshed:
+                    client.request('PUT', '/instances/' + quote(config['instance_id'], safe='') + '/execution',
+                                   {'revision': refreshed.get('revision', 0),
+                                    'spec': {'mode': 'docker', 'image': docker_image}})
         workspace_name = 'news2douyin-research-' + config['installation_id']
         config['codex_home'] = instance.get('codexHome', config.get('codex_home', ''))
         workspaces = client.request('GET', '/workspaces')
@@ -155,9 +170,9 @@ def bootstrap(settings, client_factory=RunDeskClient):
             raise ValueError(config['setup_message'])
         skills = client.request('GET', path + '/skills', params=params)
         rows = [skill for group in skills.get('data', []) for skill in group.get('skills', [])]
-        expected = config['codex_home'].replace('\\', '/').rstrip('/') + '/skills/news-research/SKILL.md'
-        skill = next((r for r in rows if r.get('name') == 'news-research'
-                      and r.get('path', '').replace('\\', '/') == expected), None)
+        # In Docker mode the skill lives under the environment codex_home, not the
+        # instance codex_home; match by name and trust the returned path.
+        skill = next((r for r in rows if r.get('name') == 'news-research'), None)
         if not skill:
             raise ValueError('Skill 已写入，但 Codex 尚未发现；请检查该实例的运行环境')
         if not skill.get('enabled'):
