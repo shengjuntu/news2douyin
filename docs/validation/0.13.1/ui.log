@@ -1,0 +1,1 @@
+{"passed":true,"checks":["settings_saves_docker_selection_before_setup","runtime_check_result_visible","one_click_creates_case_starts_and_opens_progress","preparing_disables_duplicate_start_and_allows_stop","stop_refreshes_persisted_status"],"scope":"Rendered templates and actual JS handlers in DOM stub; browser layout not tested"}

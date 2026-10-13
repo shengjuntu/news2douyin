@@ -1,6 +1,5 @@
 """Bounded source retrieval. Resolve and pin public addresses on every redirect."""
 import ipaddress
-import os
 import socket
 import ssl
 from html.parser import HTMLParser
@@ -137,55 +136,3 @@ def read_document(url):
                     kind='webpage', published_at=parser.published_at,
                     provenance={'reader': 'html-text', 'truncated': len(cleaned) > 100000})
     return dict(url=final, title=final, text=text, kind='text', published_at='', provenance={'reader': 'text', 'truncated': len(text) > 100000})
-
-
-def web_search(settings, case, query):
-    import json
-    strategy = json.loads(case.strategy_json)
-    provider = settings['search_provider']
-    key = settings.get('search_api_key') or os.getenv('TAVILY_API_KEY' if provider == 'tavily' else 'API_KEY', '')
-    if not key:
-        raise ValueError('搜索服务凭据未配置，请先打开研究设置')
-    try:
-        if provider == 'tavily':
-            payload = dict(query=query, max_results=8, search_depth='basic', include_answer=False,
-                           include_raw_content=False, topic='general', end_date=case.cutoff[:10])
-            if case.date_from:
-                payload['start_date'] = case.date_from
-            # Preferred domains are hints in the Skill, not a hard restriction.
-            response = requests.post('https://api.tavily.com/search', json=payload,
-                                     headers={'Authorization': 'Bearer ' + key}, timeout=(5, 30), allow_redirects=False)
-        else:
-            params = {'text': query, 'number': 8, 'latest-publish-date': case.cutoff.replace('T', ' ').removesuffix('Z')}
-            if strategy['language']:
-                params['language'] = strategy['language']
-            if case.date_from:
-                params['earliest-publish-date'] = case.date_from + ' 00:00:00'
-            response = requests.get('https://api.worldnewsapi.com/search-news', params=params,
-                                    headers={'x-api-key': key}, timeout=(5, 30), allow_redirects=False)
-        if response.status_code != 200:
-            raise ValueError(f'搜索服务返回 HTTP {response.status_code}，请检查凭据、额度或查询条件')
-        data = response.json()
-    except requests.RequestException:
-        raise ValueError('搜索服务连接失败或超时') from None
-    except (TypeError, json.JSONDecodeError):
-        raise ValueError('搜索服务返回格式无效') from None
-    rows = data.get('results' if provider == 'tavily' else 'news')
-    if not isinstance(rows, list):
-        raise ValueError('搜索服务返回格式无效')
-    result = []
-    for row in rows[:8]:
-        if not isinstance(row, dict):
-            continue
-        url = str(row.get('url', ''))
-        try:
-            p = urlsplit(url)
-            if p.scheme not in {'http', 'https'} or not p.hostname or p.username or p.password:
-                continue
-        except ValueError:
-            continue
-        # Results are leads, never accepted as original evidence until read_source.
-        result.append(dict(title=str(row.get('title') or url)[:1000], url=url,
-                           snippet=str(row.get('content') or row.get('summary') or row.get('text') or '')[:3000],
-                           published_at=str(row.get('published_date') or row.get('publish_date') or ''), provider=provider))
-    return result

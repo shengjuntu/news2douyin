@@ -2,7 +2,7 @@
 window.Research = {
   el: id => document.getElementById(id),
   esc: value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),
-  statuses: {draft:'待开始',queued:'排队中',starting:'正在提交',running:'研究中',waiting:'等待处理',stopping:'正在停止',uncertain:'待确认',completed:'已完成',partial:'部分完成',paused:'已暂停',failed:'执行失败'},
+  statuses: {draft:'待开始',queued:'排队中',preparing:'正在准备 Docker 环境',starting:'正在提交',running:'研究中',waiting:'等待处理',stopping:'正在停止',uncertain:'待确认',completed:'已完成',partial:'部分完成',paused:'已暂停',failed:'执行失败'},
   async api(path, method='GET', data) {
     const r = await fetch(path, {method, headers:data===undefined?{}:{'Content-Type':'application/json'}, body:data===undefined?undefined:JSON.stringify(data)});
     let value;

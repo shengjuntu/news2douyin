@@ -11,10 +11,10 @@ from sqlmodel import Session, select
 from ..storage.models import Article, ArticleEventLink, utc_now_iso
 from ..storage.articles import latest_version
 from .models import (ResearchLock, ResearchStrategy, ResearchCase, ResearchRun, ResearchQuestion,
-                     ResearchSource, ResearchClaim, ResearchReport, ResearchActivity, ResearchToolCall)
+                     ResearchSource, ResearchClaim, ResearchReport, ResearchActivity, ResearchToolCall, ResearchEnvironment)
 from .config import StrategyInput, DEFAULT_STRATEGIES
 
-ACTIVE = {'queued', 'starting', 'running', 'waiting', 'stopping', 'uncertain'}
+ACTIVE = {'queued', 'preparing', 'starting', 'running', 'waiting', 'stopping', 'uncertain'}
 WRITABLE = {'starting', 'running', 'waiting', 'uncertain'}
 
 
@@ -192,9 +192,20 @@ def detail(s, case_id):
     data['article_keys'] = json.loads(data.pop('article_keys_json'))
     data['strategy'] = json.loads(data.pop('strategy_json'))
     data['runs'] = [r.model_dump() for r in s.exec(select(ResearchRun).where(ResearchRun.case_id == case_id).order_by(ResearchRun.started_at.desc()))]
+    for run in data['runs']:
+        env = s.get(ResearchEnvironment, run['run_id'])
+        run['environment'] = env.model_dump() if env else None
+    current = next((r for r in data['runs'] if r['run_id'] == case.active_run_id), None)
+    route = (current or {}).get('environment') or {}
+    data['search_policy'] = {'execution_owner': 'codex', 'server': 'exa', 'tool': 'web_search_exa',
+                             'web_action': 'reserve_ticket', 'library_action': 'local_search',
+                             'library_uses_external_budget': False,
+                             'restart_required': bool(current) and (route.get('search_provider') != 'rundesk' or route.get('search_backend') != 'exa'),
+                             'notice': '外部搜索仅由 Codex 调用 Exa，每个票据执行一次并回存；已有结果直接复用。旧轮次 HTTP 400 不代表本轮搜索预算耗尽。'}
     data['questions'] = []
     for row in s.exec(select(ResearchQuestion).where(ResearchQuestion.case_id == case_id)):
         v = row.model_dump(); v['claim_ids'] = json.loads(v.pop('claim_ids_json')); data['questions'].append(v)
+    data['searches'] = [json.loads(r.result_json) for r in s.exec(select(ResearchToolCall).join(ResearchRun, ResearchToolCall.run_id == ResearchRun.run_id).where(ResearchRun.case_id == case_id, ResearchToolCall.tool == 'research_search', ResearchToolCall.status == 'succeeded').order_by(ResearchToolCall.created_at.desc()).limit(40))]
     data['sources'] = [source_dict(r) for r in s.exec(select(ResearchSource).where(ResearchSource.case_id == case_id))]
     data['claims'] = []
     for row in s.exec(select(ResearchClaim).where(ResearchClaim.case_id == case_id).order_by(ResearchClaim.created_at)):

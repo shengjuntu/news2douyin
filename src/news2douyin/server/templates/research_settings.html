@@ -3,19 +3,25 @@
 {% block content %}
 <style>.research-form{display:grid;gap:14px}.research-form label{display:grid;gap:6px}.research-form input,.research-form textarea,.research-form select{width:100%}.research-form textarea{resize:vertical}.settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.settings-grid>*{min-width:0}#research-message{white-space:pre-wrap;overflow-wrap:anywhere}#connection-summary{overflow-wrap:anywhere}@media(max-width:850px){.settings-grid{grid-template-columns:1fr}}</style>
 <div class="row"><h1>研究助手设置</h1><a href="/research">返回深入研究</a></div>
-<p class="muted">连接 RunDesk 0.6.0 或更新版本，配置新闻研究专用实例。研究资料和报告保存在本应用。</p>
+<p class="muted">一键 Docker 自主研究需要 RunDesk 0.47.1 或更新版本。首次选好镜像并完成模型认证，之后开始研究时会自动启动对应环境。</p>
 <p id="research-message" role="status" aria-live="polite"></p>
 <div class="settings-grid">
 <section class="card"><h2 style="margin-top:0">执行环境</h2>
 <form id="connection-form" class="research-form">
 <label>RunDesk 地址<input id="rundesk-url" type="url" required placeholder="http://127.0.0.1:3210"></label>
-<label>RunDesk Token<input id="rundesk-token" type="password" autocomplete="new-password" placeholder="未设置认证时留空；已有值留空保留"></label>
-<label>本应用回连地址<input id="callback-url" type="url" required placeholder="http://127.0.0.1:18080"></label>
-<p class="small muted">填写 Codex 所在机器能够访问的 news2douyin 地址。两者不在同一台机器时，不能使用 127.0.0.1。</p>
-<label>搜索服务<select id="search-provider"><option value="worldnewsapi">WorldNewsAPI · 新闻检索</option><option value="tavily">Tavily · 网页与背景资料检索</option></select></label>
-<label>搜索服务 API Key<input id="search-key" type="password" autocomplete="new-password" placeholder="已有值留空保留，也可使用服务端环境变量"></label>
-<p class="small muted">WorldNewsAPI 使用 API_KEY；Tavily 使用 TAVILY_API_KEY。网页正文读取无需额外搜索账户，PDF 需要安装 research 可选依赖。</p>
-<div class="row"><button id="save-connection" type="submit">保存设置</button><button id="setup-assistant" type="button" class="ghost">配置研究助手</button><button id="check-assistant" type="button" class="ghost">检查连接</button></div>
+<label>RunDesk 接入凭据<input id="rundesk-token" type="password" autocomplete="new-password" placeholder="首次连接使用管理凭据；已有值留空保留"></label>
+<label>研究运行方式<select id="runtime-mode"><option value="docker">Docker · 自动启动对应环境</option><option value="local">本机 · 保留原有接入</option></select></label>
+<label>Docker 中的 Codex 权限<select id="docker-permissions"><option value="full-access">完整访问 · 命令与 MCP 无需逐次审批</option><option value="preserve">沿用 RunDesk 现有权限</option></select></label>
+<p class="small muted">点击“连接并配置环境”后应用于新闻 Docker 实例及当前已启用 MCP。可修改挂载的项目文件；系统目录仍受 Docker 只读限制。仅保存设置不会改变运行权限。</p>
+<label>news2douyin 镜像<input id="docker-image" placeholder="rundesk-news2douyin:exa-agent-reach；已绑定时可留空"></label>
+<p class="small muted">使用在 RunDesk 主机上已构建的镜像。首次连接可以绑定；后续更换镜像在 RunDesk 中更新环境。</p>
+<p><strong>研究外部搜索：Codex → Exa</strong></p>
+<p class="small muted">news2douyin 负责本地新闻库、检索预算、线索和证据保存；外部搜索统一由 RunDesk 中的 Codex 调用 Exa。不会调用新闻采集的 WorldNewsAPI，也不需要在这里填写第二套搜索账号。</p>
+<p class="small muted">先在 RunDesk 准备镜像，再点击连接并配置环境。升级后请停止旧轮次，在原课题开始新一轮；已有证据和报告保留。</p>
+<details><summary>高级：服务访问地址</summary><label>本应用访问地址（通常留空自动识别）<input id="callback-url" type="url" placeholder="自动使用当前访问地址"></label>
+<p class="small muted">默认从当前访问地址识别；只有反向代理或跨机器无法访问时才需要覆盖。</p>
+<label>Docker 回调地址（通常自动处理）<input id="mcp-callback-url" type="url" placeholder="例如 http://192.168.1.20:18080"></label><p class="small muted">填写容器可访问的 news2douyin 地址。同机 localhost 自动映射到宿主；服务仍需监听容器能连接的地址。跨机器请填实际可达地址。</p>
+</details><div class="row"><button id="save-connection" type="submit" class="ghost">保存设置</button><button id="setup-assistant" type="button">连接并配置环境</button><button id="check-assistant" type="button" class="ghost">检查连接</button></div>
 </form>
 <div id="connection-summary" class="small" style="margin-top:18px"></div>
 </section>
@@ -27,7 +33,7 @@
 <label>必查问题（每行一个）<textarea id="strategy-questions" rows="6" required></textarea></label>
 <label>优先来源域名（每行一个，可留空）<textarea id="strategy-domains" rows="2" placeholder="example.org"></textarea></label>
 <label>检索语言<input id="strategy-language" value="zh" maxlength="12"></label>
-<div class="grid"><label>最多检索次数<input id="strategy-searches" type="number" min="1" max="40" required></label><label>最多读取资料<input id="strategy-reads" type="number" min="1" max="60" required></label><label>本轮时间预算（分钟）<input id="strategy-minutes" type="number" min="1" max="120" required></label></div>
+<div class="grid"><label>最多外部检索次数<input id="strategy-searches" type="number" min="1" max="40" required></label><label>最多读取资料<input id="strategy-reads" type="number" min="1" max="60" required></label><label>本轮时间预算（分钟）<input id="strategy-minutes" type="number" min="1" max="120" required></label></div>
 <label style="display:flex;align-items:center"><input id="strategy-enabled" type="checkbox" style="width:auto" checked>启用</label>
 <button type="submit" id="save-strategy">保存策略</button>
 <p class="small muted">策略修改用于新建课题；已有课题保留创建时的策略版本。停用策略不删除历史研究。</p>
@@ -35,11 +41,11 @@
 <script src="/research-assets/research.js"></script>
 <script>
 const R=Research,$=R.el;let strategies=[],revision=0;
-async function loadSettings(){const c=await R.api('/api/research/settings');$('rundesk-url').value=c.rundesk_url;$('callback-url').value=c.callback_url;$('search-provider').value=c.search_provider;$('rundesk-token').value='';$('search-key').value='';$('connection-summary').innerHTML=`<p>${R.esc(c.setup_message)}</p><p>RunDesk Token：${c.rundesk_token_configured?'已保存':'未设置'} · 搜索凭据：${c.search_ready?'已配置':'未配置'}</p><p>专用实例：${R.esc(c.instance_id||'尚未创建')}</p><p>工作区：${R.esc(c.workspace_id||'尚未创建')}</p>${c.codex_home?`<p>实例配置目录：<code>${R.esc(c.codex_home)}</code></p><p>请在 RunDesk 服务器上为此实例配置 Codex 模型与认证。新实例不会自动复制其他实例的登录信息。</p>`:''}`;}
-async function saveSettings(){await R.api('/api/research/settings','PUT',{rundesk_url:$('rundesk-url').value,rundesk_token:$('rundesk-token').value,callback_url:$('callback-url').value,search_provider:$('search-provider').value,search_api_key:$('search-key').value});await loadSettings();}
-$('connection-form').onsubmit=e=>{e.preventDefault();R.action($('save-connection'),async()=>{await saveSettings();$('research-message').textContent='设置已保存。地址有变化时，请点击“配置研究助手”。';});};
-$('setup-assistant').onclick=()=>R.action($('setup-assistant'),async()=>{await saveSettings();$('research-message').textContent='正在配置实例、工作区、Skill 和 MCP…';await R.api('/api/research/setup','POST',{});await loadSettings();$('research-message').textContent='研究助手已配置。请检查连接，并确认专用实例已完成模型认证。';});
-$('check-assistant').onclick=()=>R.action($('check-assistant'),async()=>{const r=await R.api('/api/research/check','POST',{});$('research-message').textContent=`RunDesk ${r.version||''}：${r.demo?'演示模式':'已连接'}\n专用实例：${r.configured?'已配置':'尚未配置'}\n实例默认模型：${r.default_model||'Codex 自动选择'}\n模型认证：${r.account_ready?'已检测到':'尚未确认，请检查专用实例'}\n研究工具：${r.mcp_ready?'已发现':'尚未发现，请检查回连地址和服务状态'}\n检查不会运行模型，首次研究仍需验证实际执行。`;});
+async function loadSettings(){const c=await R.api('/api/research/settings');$('rundesk-url').value=c.rundesk_url;$('callback-url').value=(c.callback_url&&c.callback_url!==location.origin&&!['http://127.0.0.1:18080','http://localhost:18080'].includes(c.callback_url))?c.callback_url:'';$('runtime-mode').value=c.runtime_mode;$('docker-image').value=c.docker_image;$('docker-permissions').value=c.docker_permissions;$('mcp-callback-url').value=c.mcp_callback_url;$('rundesk-token').value='';const management=c.rundesk_url+'/#application/news2douyin';$('connection-summary').innerHTML=`<p>${R.esc(c.setup_message)}</p>${c.search_route_notice?`<p>${R.esc(c.search_route_notice)}</p>`:''}<p>${c.instance_id?'已绑定新闻研究应用':'尚未连接'} · ${c.runtime_mode==='docker'?'Docker 自动启动':'本机执行'}</p><a href="${R.esc(management)}" target="_blank" rel="noopener">在 RunDesk 中管理</a>`;}
+async function saveSettings(){await R.api('/api/research/settings','PUT',{rundesk_url:$('rundesk-url').value,rundesk_token:$('rundesk-token').value,callback_url:$('callback-url').value,search_provider:'rundesk',runtime_mode:$('runtime-mode').value,docker_image:$('docker-image').value,docker_permissions:$('docker-permissions').value,mcp_callback_url:$('mcp-callback-url').value,search_backend:'exa'});await loadSettings();}
+$('connection-form').onsubmit=e=>{e.preventDefault();R.action($('save-connection'),async()=>{await saveSettings();$('research-message').textContent='设置已保存。地址有变化时，请点击“连接并配置环境”。';});};
+$('setup-assistant').onclick=()=>R.action($('setup-assistant'),async()=>{await saveSettings();$('research-message').textContent='正在连接并登记新闻研究应用…';await R.api('/api/research/setup','POST',{});await loadSettings();$('research-message').textContent='已完成连接请求，详细状态见下方。';});
+$('check-assistant').onclick=()=>R.action($('check-assistant'),async()=>{const r=await R.api('/api/research/check','POST',{});$('research-message').textContent=r.runtime?`RunDesk ${r.version||''} · Docker ${r.runtime.environment?.state||'未知'}\n${r.message}`:`RunDesk ${r.version||''}：${r.demo?'演示模式':'已连接'}\n应用连接：${r.configured?'已配置':'尚未配置'}\n运行模型：${r.default_model||'Codex 自动选择'}\n模型认证：${r.account_ready?'已检测到':'尚未确认，请在 RunDesk 中检查'}\n研究工具：${r.mcp_ready?'已发现':'尚未发现，请在 RunDesk 中检查工具与访问地址'}\nExa：${r.search_ready?'已发现':'未就绪，请连接配置并检查'}\n${r.message||''}\n检查不会运行模型，首次研究仍需验证实际执行。`;});
 function editStrategy(s){revision=s?.revision||0;$('strategy-id').value=s?.strategy_id||'';$('strategy-id').readOnly=!!s;$('strategy-name').value=s?.name||'';$('strategy-questions').value=(s?.questions||[]).join('\n');$('strategy-domains').value=(s?.preferred_domains||[]).join('\n');$('strategy-language').value=s?.language||'zh';$('strategy-searches').value=s?.max_searches||10;$('strategy-reads').value=s?.max_reads||20;$('strategy-minutes').value=s?.max_minutes||20;$('strategy-enabled').checked=s?.enabled??true;}
 async function loadStrategies(selected){strategies=await R.api('/api/research/strategies');$('strategy-picker').innerHTML=strategies.map(s=>`<option value="${R.esc(s.strategy_id)}">${R.esc(s.name)}${s.enabled?'':'（已停用）'}</option>`).join('');if(selected)$('strategy-picker').value=selected;editStrategy(strategies.find(s=>s.strategy_id===$('strategy-picker').value));}
 $('strategy-picker').onchange=()=>editStrategy(strategies.find(s=>s.strategy_id===$('strategy-picker').value));$('new-strategy').onclick=()=>editStrategy(null);

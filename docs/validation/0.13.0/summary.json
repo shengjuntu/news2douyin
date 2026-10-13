@@ -1,0 +1,58 @@
+{
+  "version": "0.13.0",
+  "pairedRunDesk": "0.47.0",
+  "pytest": {
+    "passed": 274,
+    "skipped": 19,
+    "warnings": 15,
+    "skipReason": "optional media dependencies unavailable"
+  },
+  "ui": {
+    "passed": true,
+    "checks": [
+      "settings_saves_docker_selection_before_setup",
+      "runtime_check_result_visible",
+      "one_click_creates_case_starts_and_opens_progress",
+      "preparing_disables_duplicate_start_and_allows_stop",
+      "stop_refreshes_persisted_status"
+    ],
+    "scope": "Rendered templates and actual JS handlers in DOM stub; browser layout not tested"
+  },
+  "wheel": "news2douyin-0.13.0-py3-none-any.whl",
+  "date": "2026-10-12",
+  "source": {
+    "sha256": "0fede4dcab1d094f5ce3290ebc7eb601e6ed29c64bcd46ff4b9c4a3ed7720299",
+    "fileCount": 260,
+    "roots": [
+      "pyproject.toml",
+      "src",
+      "tests",
+      "tools",
+      "configs",
+      "examples"
+    ],
+    "algorithm": "sorted relative UTF-8 path, NUL, bytes, NUL; exclude Python caches and egg-info"
+  },
+  "http": {
+    "passed": true,
+    "checks": [
+      "real_http_registration_and_container_configuration",
+      "real_business_mcp_initialize_and_tools_list",
+      "one_click_bound_docker_session_and_duplicate_start",
+      "real_mcp_ticket_evidence_and_report_persistence",
+      "run_trace_and_guarded_stop",
+      "one_environment_reused_across_setup_check_and_research"
+    ],
+    "scope": "Actual RunDesk/news2douyin HTTP and business MCP; fixture Docker CLI, Codex and search; no real container/model/search quality",
+    "dockerCreates": 1,
+    "dockerStarts": 1
+  },
+  "limitations": [
+    "No real Docker Engine, Codex or online search",
+    "No real model-quality acceptance",
+    "No browser layout acceptance",
+    "No Windows acceptance"
+  ],
+  "documentationChecks": "passed",
+  "wheelVerification": "passed"
+}

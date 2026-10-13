@@ -64,6 +64,18 @@ class ResearchSubmission(SQLModel, table=True):
     legacy: bool = False
 
 
+class ResearchEnvironment(SQLModel, table=True):
+    # Additive table: keep the chosen mode and backend frozen for each run.
+    run_id: str = Field(primary_key=True)
+    mode: str = 'local'
+    search_provider: str = ''
+    search_backend: str = ''
+    status: str = 'pending'
+    environment_id: str = ''
+    image_id: str = ''
+    checked_at: str = ''
+
+
 class ResearchQuestion(SQLModel, table=True):
     question_id: str = Field(primary_key=True)
     case_id: str = Field(index=True)

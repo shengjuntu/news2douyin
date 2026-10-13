@@ -45,7 +45,7 @@ def main():
   proxy=ThreadingHTTPServer(('127.0.0.1',0),Proxy);threading.Thread(target=proxy.serve_forever,daemon=True).start();url='http://127.0.0.1:'+str(proxy.server_port)
   try:
    app=create_app(db_url='sqlite:///'+str(root/'news.db'),storage_root=str(root/'news'))
-   cfg=app.state.research_settings.get();cfg['rundesk_url']=url;app.state.research_settings.write(cfg)
+   cfg=app.state.research_settings.get();cfg.update(runtime_mode='local',search_provider='worldnewsapi');cfg['rundesk_url']=url;app.state.research_settings.write(cfg)
    class DemoFixtureClient(RunDeskClient):
     # ONLY the test bypasses the production demo guard to exercise wire formats.
     def request(self,method,path,*a,**kw):

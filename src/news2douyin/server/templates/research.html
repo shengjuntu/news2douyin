@@ -12,7 +12,7 @@
 <label>你希望查清什么？<textarea id="research-goal" rows="3" maxlength="6000" required>查清这条新闻的历史背景、发展过程、新变化、各方说法和证据分歧；区分已证实事实与分析推断。</textarea></label>
 <div class="grid"><label>研究策略<select id="research-strategy"></select></label><label>历史回溯起点（可留空）<input id="research-from" type="date"></label><label>资料截止时间（留空为创建时刻）<input id="research-cutoff" type="datetime-local"></label></div>
 <p class="small muted">截止时间按浏览器本地时区输入，保存为 UTC。来源发表时间未知时会标记，不能据此保证历史资料完整。</p>
-<div class="row"><button type="submit" id="create-and-start">开始研究</button><button type="button" class="ghost" id="create-draft">仅保存课题</button></div>
+<div class="row"><button type="submit" id="create-and-start">启动环境并深度研究</button><button type="button" class="ghost" id="create-draft">仅保存课题</button></div>
 </form></section>
 {% else %}<p class="card">请到<a href="/daily">每日选题</a>或<a href="/articles">新闻库</a>，在新闻旁点击“深入研究”；也可以从事件专题发起。</p>{% endif %}
 <h2>研究课题</h2><div id="research-cases" class="research-list"><p class="muted">正在读取…</p></div>

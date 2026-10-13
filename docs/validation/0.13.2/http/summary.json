@@ -1,0 +1,15 @@
+{
+  "passed": true,
+  "checks": [
+    "real_http_registration_and_container_configuration",
+    "native_permission_and_mcp_config_upgrade_preserves_secret_and_instance_scope",
+    "real_business_mcp_initialize_and_tools_list",
+    "one_click_bound_docker_session_and_duplicate_start",
+    "real_mcp_ticket_evidence_and_report_persistence",
+    "run_trace_and_guarded_stop",
+    "one_environment_reused_across_setup_check_and_research"
+  ],
+  "scope": "Actual RunDesk/news2douyin HTTP and business MCP; fixture Docker CLI, Codex and search; no real container/model/search quality",
+  "dockerCreates": 1,
+  "dockerStarts": 1
+}

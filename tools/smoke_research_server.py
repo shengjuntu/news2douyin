@@ -22,6 +22,7 @@ module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
 def fixture_app(root):
     root = Path(root); root.mkdir(parents=True, exist_ok=True)
     app = create_app(db_url='sqlite:///' + str(root / 'browser.db'), storage_root=str(root))
+    config=app.state.research_settings.get();config.update(runtime_mode='local',search_provider='worldnewsapi');app.state.research_settings.write(config)
     fake = module.FakeRunDesk(); app.state.research.client_factory = lambda config: fake
     with Session(app.state.engine) as s:
         if not s.exec(__import__('sqlmodel').select(Article).where(Article.article_key == 'research-demo')).first():

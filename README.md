@@ -1,7 +1,14 @@
+# news2douyin 0.14.0 · 研究搜索统一由 Codex 执行
 
+研究外部搜索统一由 RunDesk 中的 Codex 调用 Exa；news2douyin 只提供本地新闻库、搜索票据/预算、结果记录和证据保存。研究模块不再直连 WorldNewsAPI/Tavily，采集功能仍保留原有搜索服务。相同查询复用票据，本地检索不占外部预算；[设计、升级与验证](docs/RESEARCH-SEARCH.md)。
 
-# news2douyin 0.11.1 — RunDesk API v1 适配
+配套 **RunDesk 0.48.0**。已合入 GitHub `62ed074` 的超时与 Docker 配置重试修改，保留 Docker 完整访问和 MCP 持久授权，配合初始化阶段的 Exa + Agent-Reach 镜像准备；[合并说明与验证](docs/validation-0.13.2.md)。
 
+首次选好镜像并完成容器模型认证后，点击“启动环境并深度研究”，应用自动准备绑定的 Docker 环境、检查工具并提交研究；报告、证据和执行轨迹可回查。支持 Exa 搜索票据与结果记录，重复点击复用当前运行。
+
+保留容器持续授权：研究设置选择“完整访问”并连接配置，Codex 命令和当前已启用 MCP 持续允许。可写挂载文件会同步修改；已有任务先停止后重新开始。
+
+[首次部署与日常操作](docs/DOCKER-RESEARCH.md) · [应用接入](docs/APPLICATION-CONNECT.md) · [本版验证](docs/RESEARCH-SEARCH.md)
 
 已有工作流：**选择新闻 → 背景研究 → 证据与报告 → 继续追问**。由 RunDesk 管理 Codex 执行，news2douyin 保存研究成果；原有采集、脚本和作品库继续可用。
 
@@ -18,13 +25,13 @@
 - `/tasks`：任务中心，按类型、状态、标题和提交日期查找；显示排队位置、当前执行任务及耗时，可进入进度、失败处理与结果。
 - `/timeline`：原时间线已明确为“新闻长图排版”。
 
-本版要求 RunDesk 0.6.0 或更新版本，建议配合已验证的 0.6.1。通过 `/api/v1` 配置独立实例与实例级 Skill/MCP，新增持久提交回执和运行编号检查。支持研究中追加要求、停止和继续，报告逐版留存；所有判断和事件节点均作为待审核资料。运行设置和真实模型、搜索认证需要在部署后完成。
+Docker 研究需要 RunDesk 0.48.0 的应用运行环境接口。已有安装继续保留本机模式，明确切换 Docker 才配置容器。提交回执、运行编号守卫、追加要求、停止和继续保留；所有研究判断和事件节点仍是待审核资料。真实镜像、模型和搜索需在部署环境完成首次验收。
 
 首次使用可启动服务后在“采集策略”新增一个 `mock` 演示策略，回到首页采集并验证完整流程。
 真实新闻选择 `worldnewsapi`，在 `.env` 填入 `API_KEY`；AI 脚本配置 `OPENAI_BASE_URL`、`OPENAI_API_KEY`、`MODEL`。
 WorldNewsAPI 现在提供两种获取方式：**热门榜单**和**主动关键词检索**，随后执行策略筛选。专题中的补充检索先保存候选，用户选择后才收录。覆盖范围受新闻源和账户权限影响。
 
-[本版说明与升级步骤](docs/release-0.11.1.md) · [跑通一天的操作步骤](docs/first-day.md) · [模块关系与版本计划](docs/product-roadmap.md) · [验证记录](docs/validation-0.11.1.md)
+[部署与升级步骤](docs/DOCKER-RESEARCH.md) · [跑通一天的操作步骤](docs/first-day.md) · [模块关系与版本计划](docs/product-roadmap.md) · [验证记录](docs/validation-0.13.2.md)
 
 This repository now includes a V7 implementation focused on a long-running client/server workflow for market-impression news collection.
 

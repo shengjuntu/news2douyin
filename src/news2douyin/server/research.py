@@ -1,4 +1,5 @@
 """Research UI/API and stateless MCP Streamable HTTP endpoint."""
+import os
 import hmac
 import json
 from pathlib import Path
@@ -93,7 +94,8 @@ def register_research_routes(app, engine, storage_root):
         same_origin(request)
         payload = await body(request)
         call(ensure_idle)
-        return call(settings.update, payload)
+        payload['callback_url'] = payload.get('callback_url') or os.getenv('NEWS2DOUYIN_PUBLIC_URL') or str(request.base_url).rstrip('/')
+        return await run_in_threadpool(call, settings.update, payload)
 
     @app.post('/api/research/setup')
     def setup_research(request: Request):
@@ -207,7 +209,7 @@ def register_research_routes(app, engine, storage_root):
             version = params.get('protocolVersion')
             result = {'protocolVersion': version if version in supported else '2025-03-26',
                       'capabilities': {'tools': {'listChanged': False}},
-                      'serverInfo': {'name': 'news2douyin-research', 'version': '0.11.1'}}
+                      'serverInfo': {'name': 'news2douyin-research', 'version': '0.14.0'}}
         elif method == 'ping':
             result = {}
         elif method == 'tools/list':

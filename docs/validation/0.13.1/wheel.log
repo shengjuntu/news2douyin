@@ -1,0 +1,670 @@
+* Creating isolated environment: venv+pip...
+* Installing packages in isolated environment:
+  - setuptools>=68
+  - wheel
+* Getting build dependencies for wheel...
+running egg_info
+creating src/news2douyin.egg-info
+writing src/news2douyin.egg-info/PKG-INFO
+writing dependency_links to src/news2douyin.egg-info/dependency_links.txt
+writing entry points to src/news2douyin.egg-info/entry_points.txt
+writing requirements to src/news2douyin.egg-info/requires.txt
+writing top-level names to src/news2douyin.egg-info/top_level.txt
+writing manifest file 'src/news2douyin.egg-info/SOURCES.txt'
+reading manifest file 'src/news2douyin.egg-info/SOURCES.txt'
+reading manifest template 'MANIFEST.in'
+warning: no files found matching '*.zip' under directory 'docs'
+warning: no files found matching '*.mp4' under directory 'docs'
+warning: no files found matching '*.wav' under directory 'docs'
+warning: no files found matching '*.srt' under directory 'docs'
+warning: no files found matching '*.mp4' under directory 'examples'
+writing manifest file 'src/news2douyin.egg-info/SOURCES.txt'
+* Installed build dependency versions:
+  - setuptools==84.0.0
+  - wheel==0.48.0
+* Building wheel...
+running bdist_wheel
+running build
+running build_py
+creating build/lib/news2douyin
+copying src/news2douyin/__init__.py -> build/lib/news2douyin
+copying src/news2douyin/cli.py -> build/lib/news2douyin
+copying src/news2douyin/config.py -> build/lib/news2douyin
+copying src/news2douyin/pipeline.py -> build/lib/news2douyin
+copying src/news2douyin/logging.py -> build/lib/news2douyin
+creating build/lib/news2douyin/export
+copying src/news2douyin/export/script_builder_llm.py -> build/lib/news2douyin/export
+copying src/news2douyin/export/render.py -> build/lib/news2douyin/export
+copying src/news2douyin/export/script_builder.py -> build/lib/news2douyin/export
+creating build/lib/news2douyin/gui
+copying src/news2douyin/gui/main_window.py -> build/lib/news2douyin/gui
+copying src/news2douyin/gui/__init__.py -> build/lib/news2douyin/gui
+copying src/news2douyin/gui/worker.py -> build/lib/news2douyin/gui
+copying src/news2douyin/gui/app.py -> build/lib/news2douyin/gui
+copying src/news2douyin/gui/simple_app.py -> build/lib/news2douyin/gui
+copying src/news2douyin/gui/v7_client_app.py -> build/lib/news2douyin/gui
+copying src/news2douyin/gui/simple_window.py -> build/lib/news2douyin/gui
+copying src/news2douyin/gui/api_worker.py -> build/lib/news2douyin/gui
+copying src/news2douyin/gui/v7_client_window.py -> build/lib/news2douyin/gui
+creating build/lib/news2douyin/scheduler
+copying src/news2douyin/scheduler/__init__.py -> build/lib/news2douyin/scheduler
+copying src/news2douyin/scheduler/cron.py -> build/lib/news2douyin/scheduler
+copying src/news2douyin/scheduler/service.py -> build/lib/news2douyin/scheduler
+creating build/lib/news2douyin/llm
+copying src/news2douyin/llm/settings.py -> build/lib/news2douyin/llm
+copying src/news2douyin/llm/client_factory.py -> build/lib/news2douyin/llm
+creating build/lib/news2douyin/enrich
+copying src/news2douyin/enrich/__init__.py -> build/lib/news2douyin/enrich
+copying src/news2douyin/enrich/service.py -> build/lib/news2douyin/enrich
+creating build/lib/news2douyin/video
+copying src/news2douyin/video/workbench.py -> build/lib/news2douyin/video
+copying src/news2douyin/video/__init__.py -> build/lib/news2douyin/video
+copying src/news2douyin/video/media.py -> build/lib/news2douyin/video
+copying src/news2douyin/video/subtitles.py -> build/lib/news2douyin/video
+copying src/news2douyin/video/voice.py -> build/lib/news2douyin/video
+copying src/news2douyin/video/templates.py -> build/lib/news2douyin/video
+copying src/news2douyin/video/library.py -> build/lib/news2douyin/video
+copying src/news2douyin/video/visuals.py -> build/lib/news2douyin/video
+copying src/news2douyin/video/production.py -> build/lib/news2douyin/video
+copying src/news2douyin/video/service.py -> build/lib/news2douyin/video
+copying src/news2douyin/video/render.py -> build/lib/news2douyin/video
+creating build/lib/news2douyin/utils
+copying src/news2douyin/utils/disk_ttl_cache.py -> build/lib/news2douyin/utils
+copying src/news2douyin/utils/timeutil.py -> build/lib/news2douyin/utils
+copying src/news2douyin/utils/hashing.py -> build/lib/news2douyin/utils
+creating build/lib/news2douyin/ingest
+copying src/news2douyin/ingest/worldnewsapi.py -> build/lib/news2douyin/ingest
+creating build/lib/news2douyin/server
+copying src/news2douyin/server/video.py -> build/lib/news2douyin/server
+copying src/news2douyin/server/__init__.py -> build/lib/news2douyin/server
+copying src/news2douyin/server/scripts.py -> build/lib/news2douyin/server
+copying src/news2douyin/server/app.py -> build/lib/news2douyin/server
+copying src/news2douyin/server/research.py -> build/lib/news2douyin/server
+copying src/news2douyin/server/news.py -> build/lib/news2douyin/server
+copying src/news2douyin/server/webui.py -> build/lib/news2douyin/server
+copying src/news2douyin/server/__main__.py -> build/lib/news2douyin/server
+copying src/news2douyin/server/management.py -> build/lib/news2douyin/server
+copying src/news2douyin/server/events.py -> build/lib/news2douyin/server
+copying src/news2douyin/server/readiness.py -> build/lib/news2douyin/server
+copying src/news2douyin/server/tasks.py -> build/lib/news2douyin/server
+copying src/news2douyin/server/daily.py -> build/lib/news2douyin/server
+creating build/lib/news2douyin/tts
+copying src/news2douyin/tts/synth.py -> build/lib/news2douyin/tts
+copying src/news2douyin/tts/__init__.py -> build/lib/news2douyin/tts
+creating build/lib/news2douyin/client_sdk
+copying src/news2douyin/client_sdk/__init__.py -> build/lib/news2douyin/client_sdk
+copying src/news2douyin/client_sdk/api.py -> build/lib/news2douyin/client_sdk
+creating build/lib/news2douyin/storage
+copying src/news2douyin/storage/utils.py -> build/lib/news2douyin/storage
+copying src/news2douyin/storage/__init__.py -> build/lib/news2douyin/storage
+copying src/news2douyin/storage/repair.py -> build/lib/news2douyin/storage
+copying src/news2douyin/storage/models.py -> build/lib/news2douyin/storage
+copying src/news2douyin/storage/articles.py -> build/lib/news2douyin/storage
+copying src/news2douyin/storage/db.py -> build/lib/news2douyin/storage
+creating build/lib/news2douyin/editorial
+copying src/news2douyin/editorial/__init__.py -> build/lib/news2douyin/editorial
+copying src/news2douyin/editorial/generation.py -> build/lib/news2douyin/editorial
+copying src/news2douyin/editorial/daily_tasks.py -> build/lib/news2douyin/editorial
+copying src/news2douyin/editorial/service.py -> build/lib/news2douyin/editorial
+copying src/news2douyin/editorial/daily.py -> build/lib/news2douyin/editorial
+creating build/lib/news2douyin/store
+copying src/news2douyin/store/io_jsonl.py -> build/lib/news2douyin/store
+creating build/lib/news2douyin/events
+copying src/news2douyin/events/workbench.py -> build/lib/news2douyin/events
+copying src/news2douyin/events/__init__.py -> build/lib/news2douyin/events
+copying src/news2douyin/events/research.py -> build/lib/news2douyin/events
+copying src/news2douyin/events/schemas.py -> build/lib/news2douyin/events
+copying src/news2douyin/events/service.py -> build/lib/news2douyin/events
+creating build/lib/news2douyin/report
+copying src/news2douyin/report/__init__.py -> build/lib/news2douyin/report
+copying src/news2douyin/report/html_report.py -> build/lib/news2douyin/report
+creating build/lib/news2douyin/assets
+copying src/news2douyin/assets/prepare.py -> build/lib/news2douyin/assets
+copying src/news2douyin/assets/prep.py -> build/lib/news2douyin/assets
+creating build/lib/news2douyin/research
+copying src/news2douyin/research/__init__.py -> build/lib/news2douyin/research
+copying src/news2douyin/research/config.py -> build/lib/news2douyin/research
+copying src/news2douyin/research/runtime.py -> build/lib/news2douyin/research
+copying src/news2douyin/research/tools.py -> build/lib/news2douyin/research
+copying src/news2douyin/research/models.py -> build/lib/news2douyin/research
+copying src/news2douyin/research/service.py -> build/lib/news2douyin/research
+copying src/news2douyin/research/rundesk.py -> build/lib/news2douyin/research
+copying src/news2douyin/research/sources.py -> build/lib/news2douyin/research
+creating build/lib/news2douyin/platform
+copying src/news2douyin/platform/app.py -> build/lib/news2douyin/platform
+copying src/news2douyin/platform/__main__.py -> build/lib/news2douyin/platform
+copying src/news2douyin/platform/models.py -> build/lib/news2douyin/platform
+copying src/news2douyin/platform/db.py -> build/lib/news2douyin/platform
+creating build/lib/news2douyin/timeline
+copying src/news2douyin/timeline/__init__.py -> build/lib/news2douyin/timeline
+copying src/news2douyin/timeline/timeline_html.py -> build/lib/news2douyin/timeline
+creating build/lib/news2douyin/dedup
+copying src/news2douyin/dedup/__init__.py -> build/lib/news2douyin/dedup
+copying src/news2douyin/dedup/normalize.py -> build/lib/news2douyin/dedup
+copying src/news2douyin/dedup/llm_arbiter.py -> build/lib/news2douyin/dedup
+copying src/news2douyin/dedup/service.py -> build/lib/news2douyin/dedup
+creating build/lib/news2douyin/search
+copying src/news2douyin/search/__init__.py -> build/lib/news2douyin/search
+copying src/news2douyin/search/dates.py -> build/lib/news2douyin/search
+copying src/news2douyin/search/index.py -> build/lib/news2douyin/search
+copying src/news2douyin/search/schemas.py -> build/lib/news2douyin/search
+copying src/news2douyin/search/service.py -> build/lib/news2douyin/search
+creating build/lib/news2douyin/tasks
+copying src/news2douyin/tasks/__init__.py -> build/lib/news2douyin/tasks
+copying src/news2douyin/tasks/worker.py -> build/lib/news2douyin/tasks
+copying src/news2douyin/tasks/monitor.py -> build/lib/news2douyin/tasks
+copying src/news2douyin/tasks/control.py -> build/lib/news2douyin/tasks
+copying src/news2douyin/tasks/service.py -> build/lib/news2douyin/tasks
+creating build/lib/news2douyin/storyline
+copying src/news2douyin/storyline/builder_llm.py -> build/lib/news2douyin/storyline
+copying src/news2douyin/storyline/cluster.py -> build/lib/news2douyin/storyline
+creating build/lib/news2douyin/collect
+copying src/news2douyin/collect/__init__.py -> build/lib/news2douyin/collect
+copying src/news2douyin/collect/diagnostics.py -> build/lib/news2douyin/collect
+copying src/news2douyin/collect/llm_filter.py -> build/lib/news2douyin/collect
+copying src/news2douyin/collect/filters.py -> build/lib/news2douyin/collect
+copying src/news2douyin/collect/profiles.py -> build/lib/news2douyin/collect
+copying src/news2douyin/collect/management.py -> build/lib/news2douyin/collect
+copying src/news2douyin/collect/service.py -> build/lib/news2douyin/collect
+creating build/lib/news2douyin/prompts
+copying src/news2douyin/prompts/__init__.py -> build/lib/news2douyin/prompts
+copying src/news2douyin/prompts/manager.py -> build/lib/news2douyin/prompts
+creating build/lib/news2douyin/triage
+copying src/news2douyin/triage/prompts.py -> build/lib/news2douyin/triage
+copying src/news2douyin/triage/scorer_llm.py -> build/lib/news2douyin/triage
+copying src/news2douyin/triage/rules.py -> build/lib/news2douyin/triage
+creating build/lib/news2douyin/llm/client
+copying src/news2douyin/llm/client/cache_store.py -> build/lib/news2douyin/llm/client
+copying src/news2douyin/llm/client/__init__.py -> build/lib/news2douyin/llm/client
+copying src/news2douyin/llm/client/embedding_client.py -> build/lib/news2douyin/llm/client
+copying src/news2douyin/llm/client/embedding.py -> build/lib/news2douyin/llm/client
+copying src/news2douyin/llm/client/openai_client.py -> build/lib/news2douyin/llm/client
+copying src/news2douyin/llm/client/client_config.py -> build/lib/news2douyin/llm/client
+creating build/lib/news2douyin/llm/client/configs
+copying src/news2douyin/llm/client/configs/env.py -> build/lib/news2douyin/llm/client/configs
+creating build/lib/news2douyin/server/schemas
+copying src/news2douyin/server/schemas/__init__.py -> build/lib/news2douyin/server/schemas
+copying src/news2douyin/server/schemas/common.py -> build/lib/news2douyin/server/schemas
+creating build/lib/news2douyin/server/routes
+copying src/news2douyin/server/routes/__init__.py -> build/lib/news2douyin/server/routes
+creating build/lib/news2douyin/collect/providers
+copying src/news2douyin/collect/providers/__init__.py -> build/lib/news2douyin/collect/providers
+copying src/news2douyin/collect/providers/search_news.py -> build/lib/news2douyin/collect/providers
+copying src/news2douyin/collect/providers/mock.py -> build/lib/news2douyin/collect/providers
+copying src/news2douyin/collect/providers/worldnewsapi.py -> build/lib/news2douyin/collect/providers
+running egg_info
+writing src/news2douyin.egg-info/PKG-INFO
+writing dependency_links to src/news2douyin.egg-info/dependency_links.txt
+writing entry points to src/news2douyin.egg-info/entry_points.txt
+writing requirements to src/news2douyin.egg-info/requires.txt
+writing top-level names to src/news2douyin.egg-info/top_level.txt
+reading manifest file 'src/news2douyin.egg-info/SOURCES.txt'
+reading manifest template 'MANIFEST.in'
+warning: no files found matching '*.zip' under directory 'docs'
+warning: no files found matching '*.mp4' under directory 'docs'
+warning: no files found matching '*.wav' under directory 'docs'
+warning: no files found matching '*.srt' under directory 'docs'
+warning: no files found matching '*.mp4' under directory 'examples'
+writing manifest file 'src/news2douyin.egg-info/SOURCES.txt'
+creating build/lib/news2douyin/server/templates
+copying src/news2douyin/server/templates/runs.html -> build/lib/news2douyin/server/templates
+copying src/news2douyin/server/templates/404.html -> build/lib/news2douyin/server/templates
+copying src/news2douyin/server/templates/setup.html -> build/lib/news2douyin/server/templates
+copying src/news2douyin/server/templates/scripts.html -> build/lib/news2douyin/server/templates
+copying src/news2douyin/server/templates/run_detail.html -> build/lib/news2douyin/server/templates
+copying src/news2douyin/server/templates/script_editor.html -> build/lib/news2douyin/server/templates
+copying src/news2douyin/server/templates/research.html -> build/lib/news2douyin/server/templates
+copying src/news2douyin/server/templates/tasks.html -> build/lib/news2douyin/server/templates
+copying src/news2douyin/server/templates/events.html -> build/lib/news2douyin/server/templates
+copying src/news2douyin/server/templates/article_detail.html -> build/lib/news2douyin/server/templates
+copying src/news2douyin/server/templates/diagnostics.html -> build/lib/news2douyin/server/templates
+copying src/news2douyin/server/templates/video_setup.html -> build/lib/news2douyin/server/templates
+copying src/news2douyin/server/templates/task_detail.html -> build/lib/news2douyin/server/templates
+copying src/news2douyin/server/templates/dashboard.html -> build/lib/news2douyin/server/templates
+copying src/news2douyin/server/templates/research_case.html -> build/lib/news2douyin/server/templates
+copying src/news2douyin/server/templates/handoff.html -> build/lib/news2douyin/server/templates
+copying src/news2douyin/server/templates/event_workspace.html -> build/lib/news2douyin/server/templates
+copying src/news2douyin/server/templates/script_generate.html -> build/lib/news2douyin/server/templates
+copying src/news2douyin/server/templates/videos.html -> build/lib/news2douyin/server/templates
+copying src/news2douyin/server/templates/research_settings.html -> build/lib/news2douyin/server/templates
+copying src/news2douyin/server/templates/event_detail.html -> build/lib/news2douyin/server/templates
+copying src/news2douyin/server/templates/timeline.html -> build/lib/news2douyin/server/templates
+copying src/news2douyin/server/templates/video_detail.html -> build/lib/news2douyin/server/templates
+copying src/news2douyin/server/templates/profiles.html -> build/lib/news2douyin/server/templates
+copying src/news2douyin/server/templates/daily.html -> build/lib/news2douyin/server/templates
+copying src/news2douyin/server/templates/articles.html -> build/lib/news2douyin/server/templates
+copying src/news2douyin/server/templates/base.html -> build/lib/news2douyin/server/templates
+copying src/news2douyin/server/templates/task_labels.html -> build/lib/news2douyin/server/templates
+copying src/news2douyin/server/templates/pagination.html -> build/lib/news2douyin/server/templates
+creating build/lib/news2douyin/server/static
+copying src/news2douyin/server/static/research-case.js -> build/lib/news2douyin/server/static
+copying src/news2douyin/server/static/research.js -> build/lib/news2douyin/server/static
+creating build/lib/news2douyin/platform/templates
+copying src/news2douyin/platform/templates/event.html -> build/lib/news2douyin/platform/templates
+copying src/news2douyin/platform/templates/index.html -> build/lib/news2douyin/platform/templates
+copying src/news2douyin/platform/templates/dashboard.html -> build/lib/news2douyin/platform/templates
+copying src/news2douyin/platform/templates/run.html -> build/lib/news2douyin/platform/templates
+creating build/lib/news2douyin/prompts/en
+copying src/news2douyin/prompts/en/scoring_v1.txt -> build/lib/news2douyin/prompts/en
+copying src/news2douyin/prompts/en/story_v1.txt -> build/lib/news2douyin/prompts/en
+copying src/news2douyin/prompts/en/script_v1.txt -> build/lib/news2douyin/prompts/en
+creating build/lib/news2douyin/prompts/zh
+copying src/news2douyin/prompts/zh/scoring_v1.txt -> build/lib/news2douyin/prompts/zh
+copying src/news2douyin/prompts/zh/story_v1.txt -> build/lib/news2douyin/prompts/zh
+copying src/news2douyin/prompts/zh/script_v1.txt -> build/lib/news2douyin/prompts/zh
+creating build/lib/news2douyin/export/templates
+copying src/news2douyin/export/templates/explain_60s.j2 -> build/lib/news2douyin/export/templates
+copying src/news2douyin/export/templates/three_stories.j2 -> build/lib/news2douyin/export/templates
+copying src/news2douyin/export/templates/fast_news.j2 -> build/lib/news2douyin/export/templates
+copying src/news2douyin/research/news-research.md -> build/lib/news2douyin/research
+installing to build/bdist.linux-x86_64/wheel
+running install
+running install_lib
+creating build/bdist.linux-x86_64/wheel
+creating build/bdist.linux-x86_64/wheel/news2douyin
+creating build/bdist.linux-x86_64/wheel/news2douyin/export
+copying build/lib/news2douyin/export/script_builder_llm.py -> build/bdist.linux-x86_64/wheel/./news2douyin/export
+creating build/bdist.linux-x86_64/wheel/news2douyin/export/templates
+copying build/lib/news2douyin/export/templates/explain_60s.j2 -> build/bdist.linux-x86_64/wheel/./news2douyin/export/templates
+copying build/lib/news2douyin/export/templates/three_stories.j2 -> build/bdist.linux-x86_64/wheel/./news2douyin/export/templates
+copying build/lib/news2douyin/export/templates/fast_news.j2 -> build/bdist.linux-x86_64/wheel/./news2douyin/export/templates
+copying build/lib/news2douyin/export/render.py -> build/bdist.linux-x86_64/wheel/./news2douyin/export
+copying build/lib/news2douyin/export/script_builder.py -> build/bdist.linux-x86_64/wheel/./news2douyin/export
+creating build/bdist.linux-x86_64/wheel/news2douyin/gui
+copying build/lib/news2douyin/gui/main_window.py -> build/bdist.linux-x86_64/wheel/./news2douyin/gui
+copying build/lib/news2douyin/gui/__init__.py -> build/bdist.linux-x86_64/wheel/./news2douyin/gui
+copying build/lib/news2douyin/gui/worker.py -> build/bdist.linux-x86_64/wheel/./news2douyin/gui
+copying build/lib/news2douyin/gui/app.py -> build/bdist.linux-x86_64/wheel/./news2douyin/gui
+copying build/lib/news2douyin/gui/simple_app.py -> build/bdist.linux-x86_64/wheel/./news2douyin/gui
+copying build/lib/news2douyin/gui/v7_client_app.py -> build/bdist.linux-x86_64/wheel/./news2douyin/gui
+copying build/lib/news2douyin/gui/simple_window.py -> build/bdist.linux-x86_64/wheel/./news2douyin/gui
+copying build/lib/news2douyin/gui/api_worker.py -> build/bdist.linux-x86_64/wheel/./news2douyin/gui
+copying build/lib/news2douyin/gui/v7_client_window.py -> build/bdist.linux-x86_64/wheel/./news2douyin/gui
+creating build/bdist.linux-x86_64/wheel/news2douyin/scheduler
+copying build/lib/news2douyin/scheduler/__init__.py -> build/bdist.linux-x86_64/wheel/./news2douyin/scheduler
+copying build/lib/news2douyin/scheduler/cron.py -> build/bdist.linux-x86_64/wheel/./news2douyin/scheduler
+copying build/lib/news2douyin/scheduler/service.py -> build/bdist.linux-x86_64/wheel/./news2douyin/scheduler
+copying build/lib/news2douyin/__init__.py -> build/bdist.linux-x86_64/wheel/./news2douyin
+creating build/bdist.linux-x86_64/wheel/news2douyin/llm
+creating build/bdist.linux-x86_64/wheel/news2douyin/llm/client
+copying build/lib/news2douyin/llm/client/cache_store.py -> build/bdist.linux-x86_64/wheel/./news2douyin/llm/client
+copying build/lib/news2douyin/llm/client/__init__.py -> build/bdist.linux-x86_64/wheel/./news2douyin/llm/client
+copying build/lib/news2douyin/llm/client/embedding_client.py -> build/bdist.linux-x86_64/wheel/./news2douyin/llm/client
+copying build/lib/news2douyin/llm/client/embedding.py -> build/bdist.linux-x86_64/wheel/./news2douyin/llm/client
+copying build/lib/news2douyin/llm/client/openai_client.py -> build/bdist.linux-x86_64/wheel/./news2douyin/llm/client
+copying build/lib/news2douyin/llm/client/client_config.py -> build/bdist.linux-x86_64/wheel/./news2douyin/llm/client
+creating build/bdist.linux-x86_64/wheel/news2douyin/llm/client/configs
+copying build/lib/news2douyin/llm/client/configs/env.py -> build/bdist.linux-x86_64/wheel/./news2douyin/llm/client/configs
+copying build/lib/news2douyin/llm/settings.py -> build/bdist.linux-x86_64/wheel/./news2douyin/llm
+copying build/lib/news2douyin/llm/client_factory.py -> build/bdist.linux-x86_64/wheel/./news2douyin/llm
+creating build/bdist.linux-x86_64/wheel/news2douyin/enrich
+copying build/lib/news2douyin/enrich/__init__.py -> build/bdist.linux-x86_64/wheel/./news2douyin/enrich
+copying build/lib/news2douyin/enrich/service.py -> build/bdist.linux-x86_64/wheel/./news2douyin/enrich
+creating build/bdist.linux-x86_64/wheel/news2douyin/video
+copying build/lib/news2douyin/video/workbench.py -> build/bdist.linux-x86_64/wheel/./news2douyin/video
+copying build/lib/news2douyin/video/__init__.py -> build/bdist.linux-x86_64/wheel/./news2douyin/video
+copying build/lib/news2douyin/video/media.py -> build/bdist.linux-x86_64/wheel/./news2douyin/video
+copying build/lib/news2douyin/video/subtitles.py -> build/bdist.linux-x86_64/wheel/./news2douyin/video
+copying build/lib/news2douyin/video/voice.py -> build/bdist.linux-x86_64/wheel/./news2douyin/video
+copying build/lib/news2douyin/video/templates.py -> build/bdist.linux-x86_64/wheel/./news2douyin/video
+copying build/lib/news2douyin/video/library.py -> build/bdist.linux-x86_64/wheel/./news2douyin/video
+copying build/lib/news2douyin/video/visuals.py -> build/bdist.linux-x86_64/wheel/./news2douyin/video
+copying build/lib/news2douyin/video/production.py -> build/bdist.linux-x86_64/wheel/./news2douyin/video
+copying build/lib/news2douyin/video/service.py -> build/bdist.linux-x86_64/wheel/./news2douyin/video
+copying build/lib/news2douyin/video/render.py -> build/bdist.linux-x86_64/wheel/./news2douyin/video
+creating build/bdist.linux-x86_64/wheel/news2douyin/utils
+copying build/lib/news2douyin/utils/disk_ttl_cache.py -> build/bdist.linux-x86_64/wheel/./news2douyin/utils
+copying build/lib/news2douyin/utils/timeutil.py -> build/bdist.linux-x86_64/wheel/./news2douyin/utils
+copying build/lib/news2douyin/utils/hashing.py -> build/bdist.linux-x86_64/wheel/./news2douyin/utils
+creating build/bdist.linux-x86_64/wheel/news2douyin/ingest
+copying build/lib/news2douyin/ingest/worldnewsapi.py -> build/bdist.linux-x86_64/wheel/./news2douyin/ingest
+creating build/bdist.linux-x86_64/wheel/news2douyin/server
+copying build/lib/news2douyin/server/video.py -> build/bdist.linux-x86_64/wheel/./news2douyin/server
+copying build/lib/news2douyin/server/__init__.py -> build/bdist.linux-x86_64/wheel/./news2douyin/server
+copying build/lib/news2douyin/server/scripts.py -> build/bdist.linux-x86_64/wheel/./news2douyin/server
+copying build/lib/news2douyin/server/app.py -> build/bdist.linux-x86_64/wheel/./news2douyin/server
+copying build/lib/news2douyin/server/research.py -> build/bdist.linux-x86_64/wheel/./news2douyin/server
+copying build/lib/news2douyin/server/news.py -> build/bdist.linux-x86_64/wheel/./news2douyin/server
+copying build/lib/news2douyin/server/webui.py -> build/bdist.linux-x86_64/wheel/./news2douyin/server
+copying build/lib/news2douyin/server/__main__.py -> build/bdist.linux-x86_64/wheel/./news2douyin/server
+copying build/lib/news2douyin/server/management.py -> build/bdist.linux-x86_64/wheel/./news2douyin/server
+creating build/bdist.linux-x86_64/wheel/news2douyin/server/schemas
+copying build/lib/news2douyin/server/schemas/__init__.py -> build/bdist.linux-x86_64/wheel/./news2douyin/server/schemas
+copying build/lib/news2douyin/server/schemas/common.py -> build/bdist.linux-x86_64/wheel/./news2douyin/server/schemas
+copying build/lib/news2douyin/server/events.py -> build/bdist.linux-x86_64/wheel/./news2douyin/server
+copying build/lib/news2douyin/server/readiness.py -> build/bdist.linux-x86_64/wheel/./news2douyin/server
+creating build/bdist.linux-x86_64/wheel/news2douyin/server/templates
+copying build/lib/news2douyin/server/templates/runs.html -> build/bdist.linux-x86_64/wheel/./news2douyin/server/templates
+copying build/lib/news2douyin/server/templates/404.html -> build/bdist.linux-x86_64/wheel/./news2douyin/server/templates
+copying build/lib/news2douyin/server/templates/setup.html -> build/bdist.linux-x86_64/wheel/./news2douyin/server/templates
+copying build/lib/news2douyin/server/templates/scripts.html -> build/bdist.linux-x86_64/wheel/./news2douyin/server/templates
+copying build/lib/news2douyin/server/templates/run_detail.html -> build/bdist.linux-x86_64/wheel/./news2douyin/server/templates
+copying build/lib/news2douyin/server/templates/script_editor.html -> build/bdist.linux-x86_64/wheel/./news2douyin/server/templates
+copying build/lib/news2douyin/server/templates/research.html -> build/bdist.linux-x86_64/wheel/./news2douyin/server/templates
+copying build/lib/news2douyin/server/templates/tasks.html -> build/bdist.linux-x86_64/wheel/./news2douyin/server/templates
+copying build/lib/news2douyin/server/templates/events.html -> build/bdist.linux-x86_64/wheel/./news2douyin/server/templates
+copying build/lib/news2douyin/server/templates/article_detail.html -> build/bdist.linux-x86_64/wheel/./news2douyin/server/templates
+copying build/lib/news2douyin/server/templates/diagnostics.html -> build/bdist.linux-x86_64/wheel/./news2douyin/server/templates
+copying build/lib/news2douyin/server/templates/video_setup.html -> build/bdist.linux-x86_64/wheel/./news2douyin/server/templates
+copying build/lib/news2douyin/server/templates/task_detail.html -> build/bdist.linux-x86_64/wheel/./news2douyin/server/templates
+copying build/lib/news2douyin/server/templates/dashboard.html -> build/bdist.linux-x86_64/wheel/./news2douyin/server/templates
+copying build/lib/news2douyin/server/templates/research_case.html -> build/bdist.linux-x86_64/wheel/./news2douyin/server/templates
+copying build/lib/news2douyin/server/templates/handoff.html -> build/bdist.linux-x86_64/wheel/./news2douyin/server/templates
+copying build/lib/news2douyin/server/templates/event_workspace.html -> build/bdist.linux-x86_64/wheel/./news2douyin/server/templates
+copying build/lib/news2douyin/server/templates/script_generate.html -> build/bdist.linux-x86_64/wheel/./news2douyin/server/templates
+copying build/lib/news2douyin/server/templates/videos.html -> build/bdist.linux-x86_64/wheel/./news2douyin/server/templates
+copying build/lib/news2douyin/server/templates/research_settings.html -> build/bdist.linux-x86_64/wheel/./news2douyin/server/templates
+copying build/lib/news2douyin/server/templates/event_detail.html -> build/bdist.linux-x86_64/wheel/./news2douyin/server/templates
+copying build/lib/news2douyin/server/templates/timeline.html -> build/bdist.linux-x86_64/wheel/./news2douyin/server/templates
+copying build/lib/news2douyin/server/templates/video_detail.html -> build/bdist.linux-x86_64/wheel/./news2douyin/server/templates
+copying build/lib/news2douyin/server/templates/profiles.html -> build/bdist.linux-x86_64/wheel/./news2douyin/server/templates
+copying build/lib/news2douyin/server/templates/daily.html -> build/bdist.linux-x86_64/wheel/./news2douyin/server/templates
+copying build/lib/news2douyin/server/templates/articles.html -> build/bdist.linux-x86_64/wheel/./news2douyin/server/templates
+copying build/lib/news2douyin/server/templates/base.html -> build/bdist.linux-x86_64/wheel/./news2douyin/server/templates
+copying build/lib/news2douyin/server/templates/task_labels.html -> build/bdist.linux-x86_64/wheel/./news2douyin/server/templates
+copying build/lib/news2douyin/server/templates/pagination.html -> build/bdist.linux-x86_64/wheel/./news2douyin/server/templates
+creating build/bdist.linux-x86_64/wheel/news2douyin/server/routes
+copying build/lib/news2douyin/server/routes/__init__.py -> build/bdist.linux-x86_64/wheel/./news2douyin/server/routes
+creating build/bdist.linux-x86_64/wheel/news2douyin/server/static
+copying build/lib/news2douyin/server/static/research-case.js -> build/bdist.linux-x86_64/wheel/./news2douyin/server/static
+copying build/lib/news2douyin/server/static/research.js -> build/bdist.linux-x86_64/wheel/./news2douyin/server/static
+copying build/lib/news2douyin/server/tasks.py -> build/bdist.linux-x86_64/wheel/./news2douyin/server
+copying build/lib/news2douyin/server/daily.py -> build/bdist.linux-x86_64/wheel/./news2douyin/server
+creating build/bdist.linux-x86_64/wheel/news2douyin/tts
+copying build/lib/news2douyin/tts/synth.py -> build/bdist.linux-x86_64/wheel/./news2douyin/tts
+copying build/lib/news2douyin/tts/__init__.py -> build/bdist.linux-x86_64/wheel/./news2douyin/tts
+creating build/bdist.linux-x86_64/wheel/news2douyin/client_sdk
+copying build/lib/news2douyin/client_sdk/__init__.py -> build/bdist.linux-x86_64/wheel/./news2douyin/client_sdk
+copying build/lib/news2douyin/client_sdk/api.py -> build/bdist.linux-x86_64/wheel/./news2douyin/client_sdk
+creating build/bdist.linux-x86_64/wheel/news2douyin/storage
+copying build/lib/news2douyin/storage/utils.py -> build/bdist.linux-x86_64/wheel/./news2douyin/storage
+copying build/lib/news2douyin/storage/__init__.py -> build/bdist.linux-x86_64/wheel/./news2douyin/storage
+copying build/lib/news2douyin/storage/repair.py -> build/bdist.linux-x86_64/wheel/./news2douyin/storage
+copying build/lib/news2douyin/storage/models.py -> build/bdist.linux-x86_64/wheel/./news2douyin/storage
+copying build/lib/news2douyin/storage/articles.py -> build/bdist.linux-x86_64/wheel/./news2douyin/storage
+copying build/lib/news2douyin/storage/db.py -> build/bdist.linux-x86_64/wheel/./news2douyin/storage
+copying build/lib/news2douyin/cli.py -> build/bdist.linux-x86_64/wheel/./news2douyin
+creating build/bdist.linux-x86_64/wheel/news2douyin/editorial
+copying build/lib/news2douyin/editorial/__init__.py -> build/bdist.linux-x86_64/wheel/./news2douyin/editorial
+copying build/lib/news2douyin/editorial/generation.py -> build/bdist.linux-x86_64/wheel/./news2douyin/editorial
+copying build/lib/news2douyin/editorial/daily_tasks.py -> build/bdist.linux-x86_64/wheel/./news2douyin/editorial
+copying build/lib/news2douyin/editorial/service.py -> build/bdist.linux-x86_64/wheel/./news2douyin/editorial
+copying build/lib/news2douyin/editorial/daily.py -> build/bdist.linux-x86_64/wheel/./news2douyin/editorial
+copying build/lib/news2douyin/config.py -> build/bdist.linux-x86_64/wheel/./news2douyin
+creating build/bdist.linux-x86_64/wheel/news2douyin/store
+copying build/lib/news2douyin/store/io_jsonl.py -> build/bdist.linux-x86_64/wheel/./news2douyin/store
+creating build/bdist.linux-x86_64/wheel/news2douyin/events
+copying build/lib/news2douyin/events/workbench.py -> build/bdist.linux-x86_64/wheel/./news2douyin/events
+copying build/lib/news2douyin/events/__init__.py -> build/bdist.linux-x86_64/wheel/./news2douyin/events
+copying build/lib/news2douyin/events/research.py -> build/bdist.linux-x86_64/wheel/./news2douyin/events
+copying build/lib/news2douyin/events/schemas.py -> build/bdist.linux-x86_64/wheel/./news2douyin/events
+copying build/lib/news2douyin/events/service.py -> build/bdist.linux-x86_64/wheel/./news2douyin/events
+creating build/bdist.linux-x86_64/wheel/news2douyin/report
+copying build/lib/news2douyin/report/__init__.py -> build/bdist.linux-x86_64/wheel/./news2douyin/report
+copying build/lib/news2douyin/report/html_report.py -> build/bdist.linux-x86_64/wheel/./news2douyin/report
+copying build/lib/news2douyin/pipeline.py -> build/bdist.linux-x86_64/wheel/./news2douyin
+creating build/bdist.linux-x86_64/wheel/news2douyin/assets
+copying build/lib/news2douyin/assets/prepare.py -> build/bdist.linux-x86_64/wheel/./news2douyin/assets
+copying build/lib/news2douyin/assets/prep.py -> build/bdist.linux-x86_64/wheel/./news2douyin/assets
+creating build/bdist.linux-x86_64/wheel/news2douyin/research
+copying build/lib/news2douyin/research/__init__.py -> build/bdist.linux-x86_64/wheel/./news2douyin/research
+copying build/lib/news2douyin/research/config.py -> build/bdist.linux-x86_64/wheel/./news2douyin/research
+copying build/lib/news2douyin/research/runtime.py -> build/bdist.linux-x86_64/wheel/./news2douyin/research
+copying build/lib/news2douyin/research/tools.py -> build/bdist.linux-x86_64/wheel/./news2douyin/research
+copying build/lib/news2douyin/research/news-research.md -> build/bdist.linux-x86_64/wheel/./news2douyin/research
+copying build/lib/news2douyin/research/models.py -> build/bdist.linux-x86_64/wheel/./news2douyin/research
+copying build/lib/news2douyin/research/service.py -> build/bdist.linux-x86_64/wheel/./news2douyin/research
+copying build/lib/news2douyin/research/rundesk.py -> build/bdist.linux-x86_64/wheel/./news2douyin/research
+copying build/lib/news2douyin/research/sources.py -> build/bdist.linux-x86_64/wheel/./news2douyin/research
+creating build/bdist.linux-x86_64/wheel/news2douyin/platform
+copying build/lib/news2douyin/platform/app.py -> build/bdist.linux-x86_64/wheel/./news2douyin/platform
+copying build/lib/news2douyin/platform/__main__.py -> build/bdist.linux-x86_64/wheel/./news2douyin/platform
+copying build/lib/news2douyin/platform/models.py -> build/bdist.linux-x86_64/wheel/./news2douyin/platform
+creating build/bdist.linux-x86_64/wheel/news2douyin/platform/templates
+copying build/lib/news2douyin/platform/templates/event.html -> build/bdist.linux-x86_64/wheel/./news2douyin/platform/templates
+copying build/lib/news2douyin/platform/templates/index.html -> build/bdist.linux-x86_64/wheel/./news2douyin/platform/templates
+copying build/lib/news2douyin/platform/templates/dashboard.html -> build/bdist.linux-x86_64/wheel/./news2douyin/platform/templates
+copying build/lib/news2douyin/platform/templates/run.html -> build/bdist.linux-x86_64/wheel/./news2douyin/platform/templates
+copying build/lib/news2douyin/platform/db.py -> build/bdist.linux-x86_64/wheel/./news2douyin/platform
+creating build/bdist.linux-x86_64/wheel/news2douyin/timeline
+copying build/lib/news2douyin/timeline/__init__.py -> build/bdist.linux-x86_64/wheel/./news2douyin/timeline
+copying build/lib/news2douyin/timeline/timeline_html.py -> build/bdist.linux-x86_64/wheel/./news2douyin/timeline
+creating build/bdist.linux-x86_64/wheel/news2douyin/dedup
+copying build/lib/news2douyin/dedup/__init__.py -> build/bdist.linux-x86_64/wheel/./news2douyin/dedup
+copying build/lib/news2douyin/dedup/normalize.py -> build/bdist.linux-x86_64/wheel/./news2douyin/dedup
+copying build/lib/news2douyin/dedup/llm_arbiter.py -> build/bdist.linux-x86_64/wheel/./news2douyin/dedup
+copying build/lib/news2douyin/dedup/service.py -> build/bdist.linux-x86_64/wheel/./news2douyin/dedup
+creating build/bdist.linux-x86_64/wheel/news2douyin/search
+copying build/lib/news2douyin/search/__init__.py -> build/bdist.linux-x86_64/wheel/./news2douyin/search
+copying build/lib/news2douyin/search/dates.py -> build/bdist.linux-x86_64/wheel/./news2douyin/search
+copying build/lib/news2douyin/search/index.py -> build/bdist.linux-x86_64/wheel/./news2douyin/search
+copying build/lib/news2douyin/search/schemas.py -> build/bdist.linux-x86_64/wheel/./news2douyin/search
+copying build/lib/news2douyin/search/service.py -> build/bdist.linux-x86_64/wheel/./news2douyin/search
+creating build/bdist.linux-x86_64/wheel/news2douyin/tasks
+copying build/lib/news2douyin/tasks/__init__.py -> build/bdist.linux-x86_64/wheel/./news2douyin/tasks
+copying build/lib/news2douyin/tasks/worker.py -> build/bdist.linux-x86_64/wheel/./news2douyin/tasks
+copying build/lib/news2douyin/tasks/monitor.py -> build/bdist.linux-x86_64/wheel/./news2douyin/tasks
+copying build/lib/news2douyin/tasks/control.py -> build/bdist.linux-x86_64/wheel/./news2douyin/tasks
+copying build/lib/news2douyin/tasks/service.py -> build/bdist.linux-x86_64/wheel/./news2douyin/tasks
+creating build/bdist.linux-x86_64/wheel/news2douyin/storyline
+copying build/lib/news2douyin/storyline/builder_llm.py -> build/bdist.linux-x86_64/wheel/./news2douyin/storyline
+copying build/lib/news2douyin/storyline/cluster.py -> build/bdist.linux-x86_64/wheel/./news2douyin/storyline
+creating build/bdist.linux-x86_64/wheel/news2douyin/collect
+copying build/lib/news2douyin/collect/__init__.py -> build/bdist.linux-x86_64/wheel/./news2douyin/collect
+copying build/lib/news2douyin/collect/diagnostics.py -> build/bdist.linux-x86_64/wheel/./news2douyin/collect
+copying build/lib/news2douyin/collect/llm_filter.py -> build/bdist.linux-x86_64/wheel/./news2douyin/collect
+copying build/lib/news2douyin/collect/filters.py -> build/bdist.linux-x86_64/wheel/./news2douyin/collect
+creating build/bdist.linux-x86_64/wheel/news2douyin/collect/providers
+copying build/lib/news2douyin/collect/providers/__init__.py -> build/bdist.linux-x86_64/wheel/./news2douyin/collect/providers
+copying build/lib/news2douyin/collect/providers/search_news.py -> build/bdist.linux-x86_64/wheel/./news2douyin/collect/providers
+copying build/lib/news2douyin/collect/providers/mock.py -> build/bdist.linux-x86_64/wheel/./news2douyin/collect/providers
+copying build/lib/news2douyin/collect/providers/worldnewsapi.py -> build/bdist.linux-x86_64/wheel/./news2douyin/collect/providers
+copying build/lib/news2douyin/collect/profiles.py -> build/bdist.linux-x86_64/wheel/./news2douyin/collect
+copying build/lib/news2douyin/collect/management.py -> build/bdist.linux-x86_64/wheel/./news2douyin/collect
+copying build/lib/news2douyin/collect/service.py -> build/bdist.linux-x86_64/wheel/./news2douyin/collect
+copying build/lib/news2douyin/logging.py -> build/bdist.linux-x86_64/wheel/./news2douyin
+creating build/bdist.linux-x86_64/wheel/news2douyin/prompts
+creating build/bdist.linux-x86_64/wheel/news2douyin/prompts/en
+copying build/lib/news2douyin/prompts/en/scoring_v1.txt -> build/bdist.linux-x86_64/wheel/./news2douyin/prompts/en
+copying build/lib/news2douyin/prompts/en/story_v1.txt -> build/bdist.linux-x86_64/wheel/./news2douyin/prompts/en
+copying build/lib/news2douyin/prompts/en/script_v1.txt -> build/bdist.linux-x86_64/wheel/./news2douyin/prompts/en
+copying build/lib/news2douyin/prompts/__init__.py -> build/bdist.linux-x86_64/wheel/./news2douyin/prompts
+creating build/bdist.linux-x86_64/wheel/news2douyin/prompts/zh
+copying build/lib/news2douyin/prompts/zh/scoring_v1.txt -> build/bdist.linux-x86_64/wheel/./news2douyin/prompts/zh
+copying build/lib/news2douyin/prompts/zh/story_v1.txt -> build/bdist.linux-x86_64/wheel/./news2douyin/prompts/zh
+copying build/lib/news2douyin/prompts/zh/script_v1.txt -> build/bdist.linux-x86_64/wheel/./news2douyin/prompts/zh
+copying build/lib/news2douyin/prompts/manager.py -> build/bdist.linux-x86_64/wheel/./news2douyin/prompts
+creating build/bdist.linux-x86_64/wheel/news2douyin/triage
+copying build/lib/news2douyin/triage/prompts.py -> build/bdist.linux-x86_64/wheel/./news2douyin/triage
+copying build/lib/news2douyin/triage/scorer_llm.py -> build/bdist.linux-x86_64/wheel/./news2douyin/triage
+copying build/lib/news2douyin/triage/rules.py -> build/bdist.linux-x86_64/wheel/./news2douyin/triage
+running install_egg_info
+Copying src/news2douyin.egg-info to build/bdist.linux-x86_64/wheel/./news2douyin-0.13.1-py3.12.egg-info
+running install_scripts
+creating build/bdist.linux-x86_64/wheel/news2douyin-0.13.1.dist-info/WHEEL
+creating '/workspace/scratch/3dce8d85f3e5/mcp-approval-review/news2douyin-v0.13.1/release-0.13.1/.tmp-a1yx1c0t/news2douyin-0.13.1-py3-none-any.whl' and adding 'build/bdist.linux-x86_64/wheel' to it
+adding 'news2douyin/__init__.py'
+adding 'news2douyin/cli.py'
+adding 'news2douyin/config.py'
+adding 'news2douyin/logging.py'
+adding 'news2douyin/pipeline.py'
+adding 'news2douyin/assets/prep.py'
+adding 'news2douyin/assets/prepare.py'
+adding 'news2douyin/client_sdk/__init__.py'
+adding 'news2douyin/client_sdk/api.py'
+adding 'news2douyin/collect/__init__.py'
+adding 'news2douyin/collect/diagnostics.py'
+adding 'news2douyin/collect/filters.py'
+adding 'news2douyin/collect/llm_filter.py'
+adding 'news2douyin/collect/management.py'
+adding 'news2douyin/collect/profiles.py'
+adding 'news2douyin/collect/service.py'
+adding 'news2douyin/collect/providers/__init__.py'
+adding 'news2douyin/collect/providers/mock.py'
+adding 'news2douyin/collect/providers/search_news.py'
+adding 'news2douyin/collect/providers/worldnewsapi.py'
+adding 'news2douyin/dedup/__init__.py'
+adding 'news2douyin/dedup/llm_arbiter.py'
+adding 'news2douyin/dedup/normalize.py'
+adding 'news2douyin/dedup/service.py'
+adding 'news2douyin/editorial/__init__.py'
+adding 'news2douyin/editorial/daily.py'
+adding 'news2douyin/editorial/daily_tasks.py'
+adding 'news2douyin/editorial/generation.py'
+adding 'news2douyin/editorial/service.py'
+adding 'news2douyin/enrich/__init__.py'
+adding 'news2douyin/enrich/service.py'
+adding 'news2douyin/events/__init__.py'
+adding 'news2douyin/events/research.py'
+adding 'news2douyin/events/schemas.py'
+adding 'news2douyin/events/service.py'
+adding 'news2douyin/events/workbench.py'
+adding 'news2douyin/export/render.py'
+adding 'news2douyin/export/script_builder.py'
+adding 'news2douyin/export/script_builder_llm.py'
+adding 'news2douyin/export/templates/explain_60s.j2'
+adding 'news2douyin/export/templates/fast_news.j2'
+adding 'news2douyin/export/templates/three_stories.j2'
+adding 'news2douyin/gui/__init__.py'
+adding 'news2douyin/gui/api_worker.py'
+adding 'news2douyin/gui/app.py'
+adding 'news2douyin/gui/main_window.py'
+adding 'news2douyin/gui/simple_app.py'
+adding 'news2douyin/gui/simple_window.py'
+adding 'news2douyin/gui/v7_client_app.py'
+adding 'news2douyin/gui/v7_client_window.py'
+adding 'news2douyin/gui/worker.py'
+adding 'news2douyin/ingest/worldnewsapi.py'
+adding 'news2douyin/llm/client_factory.py'
+adding 'news2douyin/llm/settings.py'
+adding 'news2douyin/llm/client/__init__.py'
+adding 'news2douyin/llm/client/cache_store.py'
+adding 'news2douyin/llm/client/client_config.py'
+adding 'news2douyin/llm/client/embedding.py'
+adding 'news2douyin/llm/client/embedding_client.py'
+adding 'news2douyin/llm/client/openai_client.py'
+adding 'news2douyin/llm/client/configs/env.py'
+adding 'news2douyin/platform/__main__.py'
+adding 'news2douyin/platform/app.py'
+adding 'news2douyin/platform/db.py'
+adding 'news2douyin/platform/models.py'
+adding 'news2douyin/platform/templates/dashboard.html'
+adding 'news2douyin/platform/templates/event.html'
+adding 'news2douyin/platform/templates/index.html'
+adding 'news2douyin/platform/templates/run.html'
+adding 'news2douyin/prompts/__init__.py'
+adding 'news2douyin/prompts/manager.py'
+adding 'news2douyin/prompts/en/scoring_v1.txt'
+adding 'news2douyin/prompts/en/script_v1.txt'
+adding 'news2douyin/prompts/en/story_v1.txt'
+adding 'news2douyin/prompts/zh/scoring_v1.txt'
+adding 'news2douyin/prompts/zh/script_v1.txt'
+adding 'news2douyin/prompts/zh/story_v1.txt'
+adding 'news2douyin/report/__init__.py'
+adding 'news2douyin/report/html_report.py'
+adding 'news2douyin/research/__init__.py'
+adding 'news2douyin/research/config.py'
+adding 'news2douyin/research/models.py'
+adding 'news2douyin/research/news-research.md'
+adding 'news2douyin/research/rundesk.py'
+adding 'news2douyin/research/runtime.py'
+adding 'news2douyin/research/service.py'
+adding 'news2douyin/research/sources.py'
+adding 'news2douyin/research/tools.py'
+adding 'news2douyin/scheduler/__init__.py'
+adding 'news2douyin/scheduler/cron.py'
+adding 'news2douyin/scheduler/service.py'
+adding 'news2douyin/search/__init__.py'
+adding 'news2douyin/search/dates.py'
+adding 'news2douyin/search/index.py'
+adding 'news2douyin/search/schemas.py'
+adding 'news2douyin/search/service.py'
+adding 'news2douyin/server/__init__.py'
+adding 'news2douyin/server/__main__.py'
+adding 'news2douyin/server/app.py'
+adding 'news2douyin/server/daily.py'
+adding 'news2douyin/server/events.py'
+adding 'news2douyin/server/management.py'
+adding 'news2douyin/server/news.py'
+adding 'news2douyin/server/readiness.py'
+adding 'news2douyin/server/research.py'
+adding 'news2douyin/server/scripts.py'
+adding 'news2douyin/server/tasks.py'
+adding 'news2douyin/server/video.py'
+adding 'news2douyin/server/webui.py'
+adding 'news2douyin/server/routes/__init__.py'
+adding 'news2douyin/server/schemas/__init__.py'
+adding 'news2douyin/server/schemas/common.py'
+adding 'news2douyin/server/static/research-case.js'
+adding 'news2douyin/server/static/research.js'
+adding 'news2douyin/server/templates/404.html'
+adding 'news2douyin/server/templates/article_detail.html'
+adding 'news2douyin/server/templates/articles.html'
+adding 'news2douyin/server/templates/base.html'
+adding 'news2douyin/server/templates/daily.html'
+adding 'news2douyin/server/templates/dashboard.html'
+adding 'news2douyin/server/templates/diagnostics.html'
+adding 'news2douyin/server/templates/event_detail.html'
+adding 'news2douyin/server/templates/event_workspace.html'
+adding 'news2douyin/server/templates/events.html'
+adding 'news2douyin/server/templates/handoff.html'
+adding 'news2douyin/server/templates/pagination.html'
+adding 'news2douyin/server/templates/profiles.html'
+adding 'news2douyin/server/templates/research.html'
+adding 'news2douyin/server/templates/research_case.html'
+adding 'news2douyin/server/templates/research_settings.html'
+adding 'news2douyin/server/templates/run_detail.html'
+adding 'news2douyin/server/templates/runs.html'
+adding 'news2douyin/server/templates/script_editor.html'
+adding 'news2douyin/server/templates/script_generate.html'
+adding 'news2douyin/server/templates/scripts.html'
+adding 'news2douyin/server/templates/setup.html'
+adding 'news2douyin/server/templates/task_detail.html'
+adding 'news2douyin/server/templates/task_labels.html'
+adding 'news2douyin/server/templates/tasks.html'
+adding 'news2douyin/server/templates/timeline.html'
+adding 'news2douyin/server/templates/video_detail.html'
+adding 'news2douyin/server/templates/video_setup.html'
+adding 'news2douyin/server/templates/videos.html'
+adding 'news2douyin/storage/__init__.py'
+adding 'news2douyin/storage/articles.py'
+adding 'news2douyin/storage/db.py'
+adding 'news2douyin/storage/models.py'
+adding 'news2douyin/storage/repair.py'
+adding 'news2douyin/storage/utils.py'
+adding 'news2douyin/store/io_jsonl.py'
+adding 'news2douyin/storyline/builder_llm.py'
+adding 'news2douyin/storyline/cluster.py'
+adding 'news2douyin/tasks/__init__.py'
+adding 'news2douyin/tasks/control.py'
+adding 'news2douyin/tasks/monitor.py'
+adding 'news2douyin/tasks/service.py'
+adding 'news2douyin/tasks/worker.py'
+adding 'news2douyin/timeline/__init__.py'
+adding 'news2douyin/timeline/timeline_html.py'
+adding 'news2douyin/triage/prompts.py'
+adding 'news2douyin/triage/rules.py'
+adding 'news2douyin/triage/scorer_llm.py'
+adding 'news2douyin/tts/__init__.py'
+adding 'news2douyin/tts/synth.py'
+adding 'news2douyin/utils/disk_ttl_cache.py'
+adding 'news2douyin/utils/hashing.py'
+adding 'news2douyin/utils/timeutil.py'
+adding 'news2douyin/video/__init__.py'
+adding 'news2douyin/video/library.py'
+adding 'news2douyin/video/media.py'
+adding 'news2douyin/video/production.py'
+adding 'news2douyin/video/render.py'
+adding 'news2douyin/video/service.py'
+adding 'news2douyin/video/subtitles.py'
+adding 'news2douyin/video/templates.py'
+adding 'news2douyin/video/visuals.py'
+adding 'news2douyin/video/voice.py'
+adding 'news2douyin/video/workbench.py'
+adding 'news2douyin-0.13.1.dist-info/METADATA'
+adding 'news2douyin-0.13.1.dist-info/WHEEL'
+adding 'news2douyin-0.13.1.dist-info/entry_points.txt'
+adding 'news2douyin-0.13.1.dist-info/top_level.txt'
+adding 'news2douyin-0.13.1.dist-info/RECORD'
+removing build/bdist.linux-x86_64/wheel
+Successfully built news2douyin-0.13.1-py3-none-any.whl
