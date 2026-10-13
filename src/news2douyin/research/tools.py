@@ -35,6 +35,12 @@ DEFINITIONS = [
     ('research_save_report', '保存不可变报告版本。每节关联实际支持它的 claim_ids；未查清事项写入 gaps。',
      {'title': S, 'sections': {'type': 'array', 'items': SECTION}, 'gaps': ARRAY,
       'completeness': {'type': 'string', 'enum': ['complete', 'partial']}}, ['title', 'sections', 'gaps', 'completeness']),
+    ('research_save_short_script', '仅用于 short_script 轻量任务：按指定语言保存可编辑短稿和素材报告。每段引用本课题已有 claim_ids；图片只能选择已读原文 provenance.image_candidates 中的 URL，最多4张。配图失败保留线索，不冒充已授权。可在时间用尽后交付现有证据。重复内容复用结果，不能覆盖已交付稿件。',
+     {'title': S, 'segments': {'type': 'array', 'items': schema({'kind': {'type': 'string', 'enum': ['fact', 'analysis']},
+        'text': S, 'claim_ids': ARRAY, 'visual': S, 'assets': S}, ['text', 'claim_ids'])},
+      'visual_notes': S, 'notes': S, 'gaps': ARRAY,
+      'images': {'type': 'array', 'items': schema({'source_id': S, 'url': S, 'caption': S}, ['source_id', 'url'])}},
+     ['title', 'segments']),
 ]
 
 
@@ -71,6 +77,9 @@ class ResearchTools:
 
     def call(self, name, args):
         validate_args(name, args)
+        if name == 'research_save_short_script':
+            from ..editorial.short_scripts import save_draft
+            return save_draft(self.engine, self.settings, args)
         if name == 'research_record_search':
             return self.record_search(args)
         run_id = args['run_id']

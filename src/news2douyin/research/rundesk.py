@@ -285,7 +285,7 @@ def configure_docker_full_access(client, config):
         client.request('PATCH', '/instances/' + iid, {'revision': instance['revision'], 'permissions': permissions})
 
 
-RESEARCH_TOOLS = {'research_get_case', 'research_search', 'research_record_search', 'research_read_source', 'research_save_question', 'research_save_claim', 'research_save_report'}
+RESEARCH_TOOLS = {'research_get_case', 'research_search', 'research_record_search', 'research_read_source', 'research_save_question', 'research_save_claim', 'research_save_report', 'research_save_short_script'}
 
 
 def validate_search_tools(servers, config):

@@ -192,6 +192,8 @@ def create_app(*, db_url: str = 'sqlite:///runs_v7/news2douyin_v7.db', storage_r
     register_news_routes(app, engine)
     from .daily import register_daily_routes
     register_daily_routes(app, engine, storage_root)
+    from .short_scripts import register_short_script_routes
+    register_short_script_routes(app, engine, storage_root)
 
     @app.get('/api/events/{event_key}')
     def api_get_event(event_key: str):

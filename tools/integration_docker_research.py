@@ -151,6 +151,26 @@ def main():
             wait(lambda:news('POST',base+'/sync',{}).get('status')=='paused')
             events=rd('GET','/sessions/'+current['session_id']+'/events?limit=1000')
             assert any(x['method']=='run/input' for x in events);checks.append('run_trace_and_guarded_stop')
+            short_payload={'article_keys':['wire-fixture'],'output_language':'en','duration_sec':90,
+                           'find_images':False,'idempotency_key':'wire-short-script'}
+            brief=news('POST','/api/short-scripts',short_payload)
+            assert news('POST','/api/short-scripts',short_payload)['case_id']==brief['case_id']
+            short_base='/api/research/cases/'+brief['case_id']
+            short_run=wait(lambda:next((r for r in news('GET',short_base)['runs'] if r['status'] in ['running','waiting']),None))
+            short_case=tool('research_get_case',{'run_id':short_run['run_id']})
+            short_claim=tool('research_save_claim',{'run_id':short_run['run_id'],'text':'旧政策于 2023 年实施。','kind':'fact',
+                'evidence':[{'source_id':short_case['sources'][0]['source_id'],'paragraph_id':'P1','quote':'旧政策于 2023 年实施。'}]})
+            short_args={'run_id':short_run['run_id'],'title':'Policy background','segments':[{'kind':'fact',
+                'text':'The previous policy took effect in 2023.','claim_ids':[short_claim['claim_id']]}],
+                'gaps':['Fixture writing only; model quality has not been tested.']}
+            saved_short=tool('research_save_short_script',short_args)
+            assert tool('research_save_short_script',short_args)==saved_short
+            script=news('GET','/api/scripts/'+saved_short['package_key'])
+            assert script['document']['output_language']=='en' and script['document']['target_duration_sec']==90
+            assert script['sources'][0]['excerpt']=='旧政策于 2023 年实施。'
+            assert news('GET','/api/short-scripts/'+brief['case_id'])['package_key']==saved_short['package_key']
+            news('POST',short_base+'/stop',{})
+            checks.append('short_material_pass_reuses_runtime_and_saves_language_bound_cited_draft')
             calls=[json.loads(line) for line in (engine/'calls.jsonl').read_text().splitlines()]
             assert sum(x[:2]==['container','create'] for x in calls)==1
             assert sum(x[:2]==['container','start'] for x in calls)==1

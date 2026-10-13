@@ -1,0 +1,18 @@
+{
+  "passed": true,
+  "baseline": "0.14.0",
+  "upgraded": "0.15.0",
+  "tables_unchanged": [
+    "article",
+    "dailyselection",
+    "scriptpackage",
+    "scriptstate",
+    "scriptrevision",
+    "scriptreviewevent",
+    "researchcase",
+    "researchsource",
+    "researchstrategy"
+  ],
+  "existing_files_unchanged": 3,
+  "additive_table": "shortscriptbrief"
+}

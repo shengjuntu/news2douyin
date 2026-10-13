@@ -36,10 +36,13 @@
 </div>
 {% include "pagination.html" %}
 </section><aside class="card pick-tray">
-<h2 style="margin-top:0">{{ day }} 已选 <span id="pick-count">0</span> 条</h2><p class="muted small">选择会自动保存，切换页面或刷新后仍在。每条选题生成一份脚本，建议每天 1–3 条。提交后可关闭页面，服务运行时在后台继续生成。</p>
+<h2 style="margin-top:0">{{ day }} 已选 <span id="pick-count">0</span> 条</h2><p class="muted small">选择会自动保存。基础稿与 AI 初稿每条新闻各生成一稿；轻量补材将最多 6 条相关报道合并成一稿。提交后可关闭页面，服务运行时在后台继续生成。</p>
 <div id="picked"></div>
-<label for="generation-mode">生成方式</label><select id="generation-mode"><option value="basic">基础摘录稿（不需要模型）</option><option value="llm">AI 中文初稿（需要模型连接）</option></select>
-<p class="muted small">基础稿保留原文语言；AI 稿根据所选原文写中文口播。两者均保留来源快照，之后可编辑、审核和导出。</p>
+<label for="generation-mode">生成方式</label><select id="generation-mode"><option value="basic">基础摘录稿（不需要模型）</option><option value="llm">AI 初稿（仅用所选资料）</option><option value="short">轻量补材并生成（RunDesk）</option></select>
+<label for="output-language">脚本语言</label><select id="output-language"><option value="zh-CN">简体中文</option><option value="en">English</option><option value="ja">日本語</option><option value="source">保留原文语言</option></select>
+<label for="short-duration">目标时长</label><select id="short-duration">{% for sec in [30,60,90,120,180] %}<option value="{{sec}}" {% if sec==60 %}selected{% endif %}>{{sec}} 秒</option>{% endfor %}</select>
+<div id="short-options" hidden><p><label><input type="checkbox" id="find-images" checked> 寻找并保存候选配图</label></p><label for="short-angle">讲述角度（可选）</label><textarea id="short-angle" maxlength="1500" rows="3" placeholder="例如：面向普通观众讲清此次政策改变" style="width:100%;box-sizing:border-box"></textarea><p class="muted small">按需补背景与配图，最多 3 次搜索、6 次正文读取。图片保留出处，授权与内容适配仍需核对。<a href="/research/settings">配置研究助手</a> · <a href="/short-scripts">找回补材任务</a></p></div>
+<p id="generation-help" class="muted small"></p>
 <button type="button" id="build-picks" class="build">生成所选脚本</button><p id="notice" role="status" aria-live="polite"></p>
 <p id="poll-status" class="muted small" role="status"></p><p><a href="/scripts">进入脚本工作台 / 找回生成任务 →</a></p>
 </aside></div>
@@ -61,20 +64,32 @@ function renderPicks(){
   const row=document.createElement('div');row.className='row';const status=document.createElement('span');status.className='badge';
   const g=pick.generation;status.textContent=pick.package_key?statusNames[pick.status]:(g?taskStatuses[g.task.status]:statusNames[pick.status]);row.append(status);
   if(pick.package_key)row.append(link('打开脚本','/scripts/'+encodeURIComponent(pick.package_key)));
-  if(g){row.append(link('进度与重试','/tasks/'+encodeURIComponent(g.task.task_id)));const info=document.createElement('p');info.className='muted small';info.textContent=(g.mode==='llm'?'AI 中文初稿':'基础摘录稿')+' · 使用提交时的报道';box.append(info);}
+  if(g){row.append(link('进度与重试','/tasks/'+encodeURIComponent(g.task.task_id)));const info=document.createElement('p');info.className='muted small';info.textContent=(g.mode==='llm'?'AI 初稿 · '+(g.output_language||'zh-CN'):'基础摘录稿')+' · 使用提交时的报道';box.append(info);}
   const remove=document.createElement('button');remove.type='button';remove.className='ghost small-button';remove.textContent='移出选题';remove.disabled=busy;remove.onclick=()=>selectNews(pick.article_key,false);row.append(remove);box.append(row);list.append(box);
  }
  for(const c of document.querySelectorAll('.choose-news')){if(!busy)c.checked=picks.some(p=>p.article_key===c.dataset.key);c.disabled=busy;}
  document.getElementById('generation-mode').disabled=busy;
  document.getElementById('build-picks').disabled=busy||!picks.length;
+ for(const id of ['output-language','short-duration','find-images','short-angle'])document.getElementById(id).disabled=busy||(id==='output-language'&&document.getElementById('generation-mode').value==='basic');
 }
+function generationOptions(){const mode=document.getElementById('generation-mode').value,lang=document.getElementById('output-language');if(mode==='basic')lang.value='source';else if(lang.value==='source')lang.value='zh-CN';lang.querySelector('[value="source"]').disabled=mode==='short';document.getElementById('short-options').hidden=mode!=='short';document.getElementById('build-picks').textContent=mode==='short'?'合并补材并生成一份短稿':'生成所选脚本';document.getElementById('generation-help').textContent=mode==='basic'?'基础稿保留原文语言，不进行翻译。':mode==='llm'?'按所选语言写初稿，例如英文新闻生成中文口播；不额外搜索。语言或时长改变时生成新稿，旧稿仍保留；相同要求复用已有稿件。':'将相关报道交给助手补材、去重并写一份短稿，原有脚本保留。稿件会进入脚本工作台，补材任务独立于每日选题，移出选题不会取消它。';renderPicks();}
+document.getElementById('generation-mode').onchange=generationOptions;
 async function selectNews(key,active){mutation++;busy=true;renderPicks();try{picks=await api('/api/daily/selections',{...selectionScope,article_key:key,active});notice.textContent=active?'':'已移出选题；未完成的生成任务同时取消，已有稿件仍保留在脚本工作台。';}catch(e){notice.textContent=e.message;}finally{busy=false;renderPicks();}}
 for(const c of document.querySelectorAll('.choose-news'))c.onchange=()=>selectNews(c.dataset.key,c.checked);
 async function refreshPicks(){picks=await api('/api/daily/selections?'+new URLSearchParams(selectionScope));renderPicks();}
 document.getElementById('build-picks').onclick=async()=>{
  const mode=document.getElementById('generation-mode').value,chosen=[...picks];mutation++;busy=true;renderPicks();notice.textContent='正在提交选题…';
  try{
-  const result=await api('/api/daily/script-tasks',{mode,selection_keys:chosen.map(p=>p.selection_key)});
+  const options={output_language:document.getElementById('output-language').value,duration_sec:Number(document.getElementById('short-duration').value)};
+  if(mode==='short'){
+   if(chosen.length>6)throw Error('轻量补材最多合并 6 条相关报道，请减少选题');
+   const payload={...options,article_keys:chosen.map(p=>p.article_key),find_images:document.getElementById('find-images').checked,angle:document.getElementById('short-angle').value};
+   const serialized=JSON.stringify(payload);let pending;try{pending=JSON.parse(sessionStorage.getItem('short-script-pending')||'null');}catch{}
+   if(!pending||pending.serialized!==serialized)pending={serialized,key:crypto.randomUUID?crypto.randomUUID():String(Date.now())+'-'+Math.random().toString(16).slice(2)};
+   sessionStorage.setItem('short-script-pending',JSON.stringify(pending));
+   const result=await api('/api/short-scripts',{...payload,idempotency_key:pending.key});sessionStorage.removeItem('short-script-pending');location.href='/short-scripts/'+encodeURIComponent(result.case_id);return;
+  }
+  const result=await api('/api/daily/script-tasks',{mode,...options,selection_keys:chosen.map(p=>p.selection_key)});
   // All selected requests are committed together before navigating away.
   const items=result.items;notice.textContent='已提交后台生成；重复提交会返回已有任务。可关闭页面，稍后查看进度与草稿。';
   await refreshPicks();
@@ -89,6 +104,6 @@ async function poll(){
 }
 window.addEventListener('pagehide',()=>clearTimeout(timer));
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){clearTimeout(timer);poll();}});
-renderPicks();timer=setTimeout(poll,3000);
+generationOptions();timer=setTimeout(poll,3000);
 </script>
 {% endblock %}

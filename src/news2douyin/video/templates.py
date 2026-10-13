@@ -1,6 +1,8 @@
 """Versioned, frozen layouts and deterministic links from narration to scenes."""
 from __future__ import annotations
 
+from .workbench import segment_narration
+
 import copy
 import re
 from .subtitles import split_narration
@@ -53,7 +55,7 @@ def scene_plan(snapshot, options):
         if not assigned and doc.get('segments') and options['image_ids']:
             assigned = options['image_ids'][index % len(options['image_ids'])]
         scenes.append(dict(scene_key=part['segment_key'], index=index + 1, kind=part['kind'],
-            narration=('分析：' if part['kind'] == 'analysis' else '') + part['text'],
+            narration=segment_narration([part], doc.get('output_language', 'zh-CN')),
             title=nodes.get(part['moment_keys'][0], {}).get('title', '') if part['moment_keys'] else '',
             visual=part['visual'], assets=part['assets'], evidence_ids=part['evidence_ids'], source_labels=labels,
             dates=dates, image_id=assigned))

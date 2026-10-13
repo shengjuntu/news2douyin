@@ -19,6 +19,7 @@ from sqlmodel import Session, select
 from ..storage.models import (ScriptPackage, ScriptState, ScriptRevision,
                               ScriptReviewEvent, ScriptExport, utc_now_iso)
 from ..storage.utils import loads
+from ..editorial.languages import OutputLanguage, analysis_prefix
 
 
 class ScriptConflict(ValueError):
@@ -45,8 +46,8 @@ class ScriptSegment(BaseModel):
         return self
 
 
-def segment_narration(segments):
-    return '\n\n'.join(('分析：' if s['kind'] == 'analysis' else '') + s['text'] for s in segments)
+def segment_narration(segments, language='zh-CN'):
+    return '\n\n'.join((analysis_prefix(language) if s['kind'] == 'analysis' else '') + s['text'] for s in segments)
 
 
 class ScriptDocument(BaseModel):
@@ -54,6 +55,7 @@ class ScriptDocument(BaseModel):
     title: str = Field(min_length=1, max_length=300)
     script_text: str = Field(min_length=1, max_length=50000)
     target_duration_sec: int = Field(default=60, ge=10, le=600)
+    output_language: OutputLanguage = 'zh-CN'
     visual_notes: str = Field(default='', max_length=10000)
     notes: str = Field(default='', max_length=5000)
     source_keys: list[str] = Field(default_factory=list, max_length=20)
@@ -64,7 +66,7 @@ class ScriptDocument(BaseModel):
         if self.segments:
             if len({s.segment_key for s in self.segments}) != len(self.segments):
                 raise ValueError('段落标识不能重复')
-            if self.script_text != segment_narration([s.model_dump() for s in self.segments]):
+            if self.script_text != segment_narration([s.model_dump() for s in self.segments], self.output_language):
                 raise ValueError('口播全文必须与分段正文一致；请在分段编辑中修改')
         return self
 
@@ -199,6 +201,10 @@ def _validate_sources(document, sources, editorial=None):
                 raise ValueError('段落引用不在冻结的来源或节点中')
             if cited - set().union(*(moments[n] for n in nodes)) or any(not cited & moments[n] for n in nodes):
                 raise ValueError('段落引用必须对应所选节点的来源')
+            if evidence.get('origin') == 'short_script_research' and part['kind'] == 'fact':
+                claims = {m['moment_key']: m for m in evidence['moments']}
+                if any(claims[n].get('kind') not in {'fact', 'attributed'} for n in nodes):
+                    raise ValueError('不能把推测或未证实判断改成事实段')
             if {refs[k]['article_key'] for k in cited} - set(document['source_keys']):
                 raise ValueError('段落使用的来源不能取消勾选')
 
@@ -215,9 +221,9 @@ def _revision_files(row, payload):
     document = payload['document']
     legacy = dict(payload, script_text=document['script_text'], profile_name=row.profile_name)
     files = {'script.txt': document['script_text'], 'script.json': json.dumps(legacy, ensure_ascii=False, indent=2),
-            'assets_manifest.json': json.dumps({'images': [], 'video_clips': [],
+            'assets_manifest.json': json.dumps({'images': payload['editorial'].get('image_candidates', []), 'video_clips': [],
               'visual_notes': document['visual_notes'], 'storyboard': document.get('segments', []),
-              'status': 'unassigned'}, ensure_ascii=False, indent=2)}
+              'status': 'candidates_need_review' if payload['editorial'].get('image_candidates') else 'unassigned'}, ensure_ascii=False, indent=2)}
     if document.get('segments'):
         files['storyboard.json'] = json.dumps(document['segments'], ensure_ascii=False, indent=2)
         files['evidence_snapshot.json'] = json.dumps(payload['editorial']['evidence'], ensure_ascii=False, indent=2)
@@ -381,6 +387,14 @@ def export_script(session, package_key, *, expected_version):
                    ScriptReviewEvent.package_key == package_key,
                    ScriptReviewEvent.revision == revision.revision).order_by(ScriptReviewEvent.id))]
         files = {name: value.encode('utf-8') for name, value in _revision_files(package, payload).items()}
+        if payload['editorial'].get('image_candidates'):
+            from ..editorial.short_scripts import image_bytes
+            for item in payload['editorial']['image_candidates']:
+                if item.get('status') == 'downloaded':
+                    try:
+                        files['images/' + item['filename']] = image_bytes(Path(state.root_dir).parents[2], item)
+                    except (FileNotFoundError, KeyError):
+                        raise ValueError('配图文件缺失；请恢复素材文件后再导出') from None
         files['revision.json'] = revision.payload_json.encode('utf-8')
         files['sources.json'] = json.dumps(sources, ensure_ascii=False, indent=2).encode()
         document = payload['document']
@@ -400,6 +414,7 @@ def export_script(session, package_key, *, expected_version):
                     'revision': revision.revision, 'state_version': state.version,
                     'status': 'approved', 'content_hash': revision.content_hash,
                     'target_duration_sec': document['target_duration_sec'],
+                    'output_language': document.get('output_language', 'zh-CN'),
                     'duration_kind': 'editorial_target', 'review_history': reviews,
                     'created_at': utc_now_iso(), 'files': {n: digest(v) for n, v in files.items()}}
         files['manifest.json'] = json.dumps(manifest, ensure_ascii=False, indent=2).encode()

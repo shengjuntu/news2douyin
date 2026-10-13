@@ -7,7 +7,7 @@ from urllib.parse import quote
 from sqlmodel import Session, select
 
 from . import service as svc
-from .models import ResearchRun, ResearchReport, ResearchActivity, ResearchSubmission, ResearchEnvironment
+from .models import ResearchRun, ResearchReport, ResearchActivity, ResearchSubmission, ResearchEnvironment, ShortScriptBrief
 from .rundesk import RunDeskClient, RemoteError, submit_once, require_v1, prepare_runtime, validate_runtime, local_runtime_status
 from .config import require_search_route
 
@@ -82,6 +82,9 @@ class ResearchRuntime:
         with Session(self.engine, expire_on_commit=False) as s:
             svc.locked(s)
             case = svc.require_case(s, case_id)
+            short = s.get(ShortScriptBrief, case_id)
+            if short and short.package_key:
+                raise ValueError('短稿已交付，请在脚本工作台编辑；需要重新补材请从每日选题创建新任务')
             previous = s.get(ResearchRun, case.active_run_id)
             if previous and previous.status in svc.ACTIVE:
                 if instruction and instruction != previous.instruction:
@@ -106,6 +109,9 @@ class ResearchRuntime:
                        'HTTP 400 表示请求被拒绝，不能凭状态码判断凭据或额度耗尽；查看具体错误，'
                        '在剩余预算内修正检索词重新申请票据。只在研究预算明确耗尽、时间用尽或检索确实不可用时保存 partial。'
                        '不要将旧轮次的搜索失败当作本轮 Exa 已失败。原文必须用 research_read_source 保存为课题证据，搜索摘要不能作为事实依据。')
+            if short:
+                from ..editorial.short_scripts import prompt as short_prompt
+                prompt += short_prompt(json.loads(short.options_json))
             prefix = 'n2d-' + config['installation_id'] + '-' + row.run_id
             s.add(ResearchSubmission(run_id=row.run_id, backend_url=config['rundesk_url'],
                 session_key=prefix+'-session', turn_key=prefix+'-turn',

@@ -56,7 +56,7 @@ async function loadScriptResult(){
   const daily=initial.kind==='daily_script';const response=await fetch((daily?'/api/daily/script-tasks/':'/api/script-tasks/')+encodeURIComponent(initial.task_id));if(!response.ok)return;
   const data=await response.json();const link=document.getElementById('script-result');link.hidden=!data.script_url;if(data.script_url)link.href=data.script_url;
   if(daily){
-   document.getElementById('script-input').textContent=(data.mode==='llm'?'AI 中文初稿':'基础摘录稿')+' · 选题日期 '+data.day+'（'+data.timezone+'） · '+(data.source.revision?'固定报道 r'+data.source.revision:'固定报道摘录')+(data.current?'':' · 历史任务，不能重试；请回每日选题生成新任务。');
+   document.getElementById('script-input').textContent=(data.mode==='llm'?'AI 初稿 · '+(data.output_language||'zh-CN'):'基础摘录稿')+' · 选题日期 '+data.day+'（'+data.timezone+'） · '+(data.source.revision?'固定报道 r'+data.source.revision:'固定报道摘录')+(data.current?'':' · 历史任务，不能重试；请回每日选题生成新任务。');
    document.getElementById('daily-input').href=data.daily_url;
    document.getElementById('retry').disabled=!data.can_retry;
   }else document.getElementById('script-input').textContent='已固定 '+data.moment_count+' 个节点、'+data.source_count+' 个来源版本 · '+data.options.duration_sec+' 秒 · '+(data.options.backend==='llm'?'AI 有据初稿':'证据提纲');

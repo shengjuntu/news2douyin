@@ -18,8 +18,8 @@ class PickPayload(BaseModel):
     active: bool = True
 
 
-class BuildPickPayload(BaseModel):
-    mode: Literal['basic', 'llm'] = 'basic'
+class BuildPickPayload(daily_tasks.DailyTaskRequest):
+    pass
 
 
 def register_daily_routes(app, engine, storage_root):
@@ -41,7 +41,7 @@ def register_daily_routes(app, engine, storage_root):
 
     @app.post('/api/daily/selections/{selection_key}/script-task')
     def single_task(selection_key: str, payload: daily_tasks.DailyTaskRequest):
-        return accepted(task_call(daily_tasks.submit_many, engine, dict(selection_keys=[selection_key], mode=payload.mode)))
+        return accepted(task_call(daily_tasks.submit_many, engine, dict(selection_keys=[selection_key], **payload.model_dump())))
 
     @app.get('/api/daily/selections')
     def selections(day: str = '', timezone: str = ''):
@@ -56,4 +56,4 @@ def register_daily_routes(app, engine, storage_root):
     @app.post('/api/daily/selections/{selection_key}/build')
     def build(selection_key: str, payload: BuildPickPayload):
         with session_scope(engine) as session:
-            return script_call(build_pick, session, selection_key, storage_root=storage_root, mode=payload.mode)
+            return script_call(build_pick, session, selection_key, storage_root=storage_root, **payload.model_dump())

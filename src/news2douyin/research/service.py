@@ -11,7 +11,7 @@ from sqlmodel import Session, select
 from ..storage.models import Article, ArticleEventLink, utc_now_iso
 from ..storage.articles import latest_version
 from .models import (ResearchLock, ResearchStrategy, ResearchCase, ResearchRun, ResearchQuestion,
-                     ResearchSource, ResearchClaim, ResearchReport, ResearchActivity, ResearchToolCall, ResearchEnvironment)
+                     ResearchSource, ResearchClaim, ResearchReport, ResearchActivity, ResearchToolCall, ResearchEnvironment, ShortScriptBrief)
 from .config import StrategyInput, DEFAULT_STRATEGIES
 
 ACTIVE = {'queued', 'preparing', 'starting', 'running', 'waiting', 'stopping', 'uncertain'}
@@ -137,7 +137,7 @@ def add_source(s, case, *, title, url, text, kind, published_at='', provenance=N
     return row
 
 
-def create_case(engine, payload):
+def create_case(engine, payload, *, preparation=None):
     goal = str(payload.get('goal', '')).strip()
     if not goal or len(goal) > 6000:
         raise ValueError('请填写研究目的，最多 6000 字')
@@ -155,6 +155,12 @@ def create_case(engine, payload):
             raise ValueError('回溯起始日期不能晚于截止日期')
     with Session(engine, expire_on_commit=False) as s:
         locked(s)
+        if preparation:
+            old = s.exec(select(ShortScriptBrief).where(ShortScriptBrief.request_key == preparation['request_key'])).first()
+            if old:
+                if old.request_hash != preparation['request_hash']:
+                    raise ValueError('此提交编号已用于其他短稿要求，请重新提交')
+                return detail(s, old.case_id)
         strategy = s.get(ResearchStrategy, payload.get('strategy_id', 'background'))
         if not strategy or not strategy.enabled:
             raise ValueError('研究策略不存在或已停用')
@@ -172,9 +178,16 @@ def create_case(engine, payload):
         title = str(payload.get('title') or articles[0].title).strip()[:250]
         snapshot = dict(strategy_id=strategy.strategy_id, name=strategy.name, revision=strategy.revision,
                         **json.loads(strategy.config_json))
+        if preparation:
+            snapshot.update(name='短稿轻量补材', language=preparation['options']['output_language'],
+                max_searches=3, max_reads=6, max_minutes=5,
+                questions=['核对所选消息是否同一事件，合并重复事实并补充必要背景', '寻找与事件相关且可追溯的配图，记录来源与未核实的授权'])
         case = ResearchCase(case_id=identifier('research'), title=title, goal=goal, article_keys_json=dump(keys),
                             event_key=event_key, strategy_json=dump(snapshot), date_from=date_from, cutoff=cutoff)
         s.add(case)
+        if preparation:
+            s.add(ShortScriptBrief(case_id=case.case_id, request_key=preparation['request_key'],
+                request_hash=preparation['request_hash'], options_json=dump(preparation['options'])))
         for article in articles:
             version = latest_version(s, article.article_key)
             add_source(s, case, title=article.title, url=article.url, text=article.content or article.title,
@@ -191,6 +204,9 @@ def detail(s, case_id):
     data = case.model_dump()
     data['article_keys'] = json.loads(data.pop('article_keys_json'))
     data['strategy'] = json.loads(data.pop('strategy_json'))
+    short = s.get(ShortScriptBrief, case_id)
+    data['short_script'] = (dict(json.loads(short.options_json), package_key=short.package_key,
+        script_url='/scripts/' + short.package_key if short.package_key else None) if short else None)
     data['runs'] = [r.model_dump() for r in s.exec(select(ResearchRun).where(ResearchRun.case_id == case_id).order_by(ResearchRun.started_at.desc()))]
     for run in data['runs']:
         env = s.get(ResearchEnvironment, run['run_id'])

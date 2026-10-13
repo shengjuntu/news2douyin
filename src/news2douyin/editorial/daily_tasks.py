@@ -21,11 +21,21 @@ from ..tasks.service import TERMINAL, add_event, task_dict
 from ..video import workbench as wb
 from . import daily
 from .service import build_editorial_pack
+from .languages import OutputLanguage, LANGUAGES
 
 
 class DailyTaskRequest(BaseModel):
     model_config = ConfigDict(extra='forbid')
     mode: Literal['basic', 'llm'] = 'basic'
+    output_language: OutputLanguage | None = None
+    duration_sec: Literal[30, 60, 90, 120, 180] = 60
+
+    @model_validator(mode='after')
+    def language(self):
+        self.output_language = self.output_language or ('source' if self.mode == 'basic' else 'zh-CN')
+        if self.mode == 'basic' and self.output_language != 'source':
+            raise ValueError('基础摘录稿保留原文；翻译请选择 AI 初稿或轻量补材并生成。')
+        return self
 
 
 class DailyBatchRequest(DailyTaskRequest):
@@ -80,6 +90,7 @@ def _result(row, task, pick, *, reused):
 
 
 def submit_many(engine, data):
+    explicit_options = set(data) if isinstance(data, dict) else set(data.model_fields_set)
     request = DailyBatchRequest.model_validate(data)
     results = []
     with Session(engine) as session:
@@ -91,11 +102,27 @@ def submit_many(engine, data):
             row = current(session, selection_key)
             old = session.get(TaskRecord, row.task_id) if row else None
             if pick.package_key:
-                results.append(_result(row, old, pick, reused=True))
-                continue
+                saved = wb.script_detail(session, pick.package_key)
+                doc = saved.get('document') or {}
+                regenerate = (('output_language' in explicit_options and
+                    doc.get('output_language', 'zh-CN') != request.output_language) or
+                    ('duration_sec' in explicit_options and doc.get('target_duration_sec', 60) != request.duration_sec))
+                if not regenerate:
+                    results.append(_result(row, old, pick, reused=True))
+                    continue
+                # Keep the old script/version history; only advance this pick.
+                pick.package_key = None
+                session.add(pick)
+                if row:
+                    row.active_selection_key = None
+                    session.add(row)
+                    session.flush()
+                row = old = None
             if row:
                 spec = json.loads(row.spec_json)
-                if spec['mode'] == request.mode:
+                if (spec['mode'] == request.mode and
+                        spec.get('output_language', 'source' if spec['mode'] == 'basic' else 'zh-CN') == request.output_language and
+                        spec.get('duration_sec', 60) == request.duration_sec):
                     results.append(_result(row, old, pick, reused=True))
                     continue
                 if old.status not in TERMINAL:
@@ -112,7 +139,8 @@ def submit_many(engine, data):
                 raise ValueError('所选新闻没有可用正文，请补充资料后再生成')
             scope = dict(selection_key=pick.selection_key, day=pick.day, timezone=pick.timezone)
             editorial['daily_selection'] = scope
-            spec = dict(schema_version=1, mode=request.mode, snapshot_at=utc_now_iso(), editorial=editorial)
+            spec = dict(schema_version=1, mode=request.mode, output_language=request.output_language,
+                        duration_sec=request.duration_sec, snapshot_at=utc_now_iso(), editorial=editorial)
             if request.mode == 'llm':
                 settings = get_settings()
                 spec['model_target'] = dict(base_url=settings.base_url, model=settings.model)
@@ -141,6 +169,8 @@ def _detail(session, row):
     can_retry = is_current and not pick.package_key and task.status in {'failed', 'cancelled'}
     return dict(task=task_dict(task), selection_key=row.selection_key, event_key=row.event_key,
         title=spec['editorial']['event_title'], mode=spec['mode'], snapshot_at=spec['snapshot_at'],
+        output_language=spec.get('output_language', 'source' if spec['mode'] == 'basic' else 'zh-CN'),
+        duration_sec=spec.get('duration_sec', 60),
         day=scope['day'], timezone=scope['timezone'], input_hash=row.input_hash,
         source=dict(article_key=source['article_key'], title=source['title'], revision=source['article_revision'],
                     content_hash=source['article_content_hash']),
@@ -199,7 +229,8 @@ def run_daily_generation(engine, task, storage_root, context):
             raise ValueError('每日脚本检查点与输入或生成稿不匹配')
         document = validate_document(spec, cached['document'])
     else:
-        document = daily.draft_document(copy.deepcopy(spec['editorial']), spec['mode'], model_target=spec.get('model_target'))
+        document = daily.draft_document(copy.deepcopy(spec['editorial']), spec['mode'], model_target=spec.get('model_target'),
+            output_language=spec.get('output_language'), duration_sec=spec.get('duration_sec', 60))
         context.check()
         document = validate_document(spec, document)
         context.progress('daily_validating', 1, 3)
@@ -217,7 +248,8 @@ def run_daily_generation(engine, task, storage_root, context):
                 package = ScriptPackage(package_key='pkg_' + task.task_id, event_key=row.event_key,
                     profile_name='daily_' + spec['mode'], script_text=document['script_text'], output_dir=str(folder))
                 editorial = copy.deepcopy(spec['editorial'])
-                editorial['generation'] = dict(mode=spec['mode'], label='AI 中文初稿' if spec['mode']=='llm' else '基础摘录稿',
+                editorial['generation'] = dict(mode=spec['mode'], label=('AI 初稿 · ' + LANGUAGES[document['output_language']]) if spec['mode']=='llm' else '基础摘录稿',
+                    output_language=document['output_language'], duration_sec=spec.get('duration_sec', 60),
                     task_id=task.task_id, snapshot_at=spec['snapshot_at'])
                 if spec['mode'] == 'llm':
                     editorial['generation']['model'] = spec['model_target']['model']

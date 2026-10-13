@@ -15,7 +15,7 @@
 
 ## MCP 调用约定
 
-保留现有 7 个工具名称，应用无需更换 MCP 地址或 Token。
+保留原有 7 个工具名称；0.15.0 新增 research_save_short_script，共 8 个工具，应用无需更换 MCP 地址或 Token。
 
 1. `research_get_case` 读取已有材料和 `search_policy`。先复用资料；旧报告里的 HTTP 400 不代表本轮 Exa 已失败。
 2. `research_search(scope=library)` 只查询本地库。它不增加 `search_count`；`max_searches` 现在只用于外部查询。原有本地匹配方式和最多 12 条结果保持不变。
@@ -35,7 +35,7 @@
 - 设置中的旧 WorldNewsAPI/Tavily/Wigolo 路径会自动迁移为 RunDesk / Exa。历史运行环境、来源、报告和旧密钥保留。
 - 旧轮次不被悄悄改写。旧路径的 web 查询返回明确的重启指导，即使同一查询曾缓存 400，也不会继续返回旧 400。
 - 旧轮次仍可查本地库、读取已有证据、保存判断和 partial 报告。停止旧轮次并在原课题继续研究后，新轮次使用 Exa。
-- Docker 和本机模式提交模型前都检查研究 MCP 的 7 个工具和 Exa；缺失时提前报配置问题，不回退新闻采集 API。
+- Docker 和本机模式提交模型前都检查研究 MCP 的 8 个工具和 Exa；缺失时提前报配置问题，不回退新闻采集 API。
 
 ## 升级
 

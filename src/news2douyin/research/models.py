@@ -143,3 +143,15 @@ class ResearchToolCall(SQLModel, table=True):
     status: str = 'running'
     result_json: str = '{}'
     created_at: str = Field(default_factory=utc_now_iso)
+
+
+class ShortScriptBrief(SQLModel, table=True):
+    """Additive table: a bounded material pass and its immutable first draft."""
+    case_id: str = Field(primary_key=True)
+    request_key: str = Field(unique=True, index=True)
+    request_hash: str
+    options_json: str
+    package_key: str = ''
+    draft_hash: str = ''
+    report_id: str = ''
+    created_at: str = Field(default_factory=utc_now_iso)

@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}短稿轻量补材 · news2douyin{% endblock %}
+{% block content %}
+<h1>短稿轻量补材</h1>
+<p class="muted">合并相关报道、按需补充背景与配图，再生成指定语言的短稿。任务关闭页面后继续运行。</p>
+<p><a href="/daily">选择新闻并生成</a> · <a href="/scripts">脚本工作台</a> · <a href="/research/settings">研究助手设置</a></p>
+<p id="short-message" role="status"></p><div id="short-list"></div>
+<script>window.shortScriptCase={{case_id|tojson}};</script><script src="/research-assets/short-scripts.js"></script>
+{% endblock %}

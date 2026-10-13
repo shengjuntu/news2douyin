@@ -15,7 +15,7 @@ button:disabled { opacity:.4; cursor:not-allowed; }
 #history-preview { white-space:pre-wrap; max-height:300px; }
 @media(max-width:850px) { .workspace { grid-template-columns:1fr; } header { flex-wrap:wrap; } nav { flex-wrap:wrap; } }
 </style>
-<div class="row" style="justify-content:space-between"><h1>脚本编辑</h1><div class="row"><a href="/events/{{ script.event_key }}">查看事件</a><a href="/scripts/{{ script.package_key }}/video">制作视频</a><a href="/scripts">全部脚本</a></div></div>
+<div class="row" style="justify-content:space-between"><h1>脚本编辑</h1><div class="row">{% if script.event_key %}<a href="/events/{{ script.event_key }}">查看事件</a>{% endif %}<a href="/scripts/{{ script.package_key }}/video">制作视频</a><a href="/scripts">全部脚本</a></div></div>
 <p class="muted small">{{ script.package_key }} · <span id="revision"></span> · <span id="status"></span> <span id="dirty"></span></p>
 <p class="muted small">审核通过后，可将导出的制作包交给独立 Go 视频 APP。<a href="/handoff">查看交接步骤</a></p>
 <div id="message" role="status" aria-live="polite"></div>
@@ -43,7 +43,7 @@ document.getElementById('adopt').onclick = async () => {
 <div class="editor">
 <form id="editor" class="card">
   <label class="field" for="title">标题</label><input id="title" type="text" maxlength="300" required>
-  <section id="segments-panel" hidden><h2>逐段编辑与分镜</h2><p class="muted small">事实与分析分段标注。每段都需绑定节点与来源；引用校验只确认对应关系，准确性仍需人工核实。分析段自动加“分析：”，口播全文随分段修改同步更新。</p><div id="segments-list"></div><button id="add-segment" type="button" class="ghost segment-control">增加一段</button></section>
+  <section id="segments-panel" hidden><h2>逐段编辑与分镜</h2><p class="muted small">事实与分析分段标注。每段都需绑定节点与来源；引用校验只确认对应关系，准确性仍需人工核实。分析段按稿件语言自动加分析标记，口播全文随分段修改同步更新。</p><div id="segments-list"></div><button id="add-segment" type="button" class="ghost segment-control">增加一段</button></section>
   <label class="field" for="script-text">口播正文<span id="narration-hint" class="muted small"></span></label><textarea id="script-text" class="narration" maxlength="50000" required></textarea>
   <div class="row small muted"><span id="word-count"></span><label for="duration">目标时长（秒）</label><input id="duration" type="number" min="10" max="600" required style="width:90px"></div>
   <p id="pace-hint" class="muted small"></p>
@@ -64,13 +64,15 @@ document.getElementById('adopt').onclick = async () => {
 </div>
 </div>
 <aside>
+{% if script.get('editorial',{}).get('research') %}<div class="card" style="margin-bottom:16px"><h2>补材结果</h2><p><a href="/short-scripts/{{script.editorial.research.case_id}}">轻量任务</a> · <a href="/research/{{script.editorial.research.case_id}}">原文与证据</a></p><p>脚本语言：{{script.document.get('output_language','zh-CN')}}</p>{% if script.editorial.get('gaps') %}<p>待核对 / 素材缺口：</p><ul>{% for gap in script.editorial.gaps %}<li>{{gap}}</li>{% endfor %}</ul>{% endif %}</div>{% endif %}
+{% if script.get('editorial',{}).get('image_candidates') %}<div class="card" style="margin-bottom:16px"><h2>候选配图</h2><p class="muted small">来源页面中发现的图片。图片授权、拍摄时间及是否为事件现场仍待核对；不会自动用于成片。审核后的制作包包含已下载图片及出处。</p>{% for image in script.editorial.image_candidates %}<figure style="margin:16px 0">{% if image.status=='downloaded' %}<img src="/api/scripts/{{script.package_key}}/images/{{image.filename}}" alt="{{image.caption}}" loading="lazy" style="max-width:100%;max-height:240px;object-fit:contain"><p><a href="/api/scripts/{{script.package_key}}/images/{{image.filename}}" download="{{image.filename}}">下载图片</a> · {{image.width}} × {{image.height}}</p>{% else %}<p class="muted">{{image.error}}</p>{% endif %}<figcaption>{{image.caption}}</figcaption>{% if image.source_page_url | safe_url %}<a href="{{image.source_page_url | safe_url}}" target="_blank" rel="noopener noreferrer">查看出处 ↗</a>{% endif %}<p class="small muted">授权：尚未核实</p></figure>{% endfor %}</div>{% endif %}
 <div class="card">
   <h2 style="margin-top:0">新闻来源快照</h2>
-  {% if script.get('editorial',{}).get('evidence') %}<details><summary>生成时固定的事件脉络</summary><p class="muted small">{{ script.editorial.evidence.snapshot_at }} · 专题版本 {{ script.editorial.evidence.event_version }}。后续专题修改不会更换此处证据。</p>{% for m in script.editorial.evidence.moments %}<div class="source"><strong>{{ m.title }}</strong><p class="small">{{ {'occurred':'发生日期','reported':'报道日期','unknown':'时间未知'}[m.time_kind] }} {{ m.date_start }} {{ m.date_end }} · {{ {'exact':'来源明确记载','approximate':'大致时间','disputed':'来源有争议','unknown':'未确定'}[m.certainty] }}</p><p class="small">{{ m.time_note }}<br>{{ m.description }}</p></div>{% endfor %}</details>{% endif %}
+  {% if script.get('editorial',{}).get('evidence') %}<details><summary>生成时固定的事实与引用</summary><p class="muted small">{{ script.editorial.evidence.snapshot_at }}{% if script.editorial.evidence.get("origin")=="short_script_research" %} · 轻量补材快照，判断待人工核对{% else %} · 专题版本 {{ script.editorial.evidence.event_version }}{% endif %}。后续资料修改不会更换此处证据。</p>{% for m in script.editorial.evidence.moments %}<div class="source"><strong>{{ m.title }}</strong><p class="small">{{ {'occurred':'发生日期','reported':'报道日期','unknown':'时间未知'}[m.time_kind] }} {{ m.date_start }} {{ m.date_end }} · {{ {'exact':'来源明确记载','approximate':'大致时间','disputed':'来源有争议','unknown':'未确定'}[m.certainty] }}</p><p class="small">{{ m.time_note }}<br>{{ m.description }}</p></div>{% endfor %}</details>{% endif %}
   <p class="muted small">勾选本稿使用的来源。摘录是收录时的资料，多个转载不等于多个独立来源。</p>
   {% if script.snapshot_origin=='legacy_adopted_now' %}<p class="muted small">此快照在旧稿启用版本管理时补充。</p>{% endif %}
   {% for s in script.sources %}
-  <div class="source">{% if s.evidence_id %}<strong>{{ s.evidence_id }} · 来源 r{{ s.article_revision }}</strong>{% endif %}<label><input class="source-key" type="checkbox" value="{{ s.article_key }}"> {{ s.title }}</label>
+  <div class="source">{% if s.evidence_id %}<strong>{{ s.evidence_id }} · {% if s.article_revision %}来源 r{{ s.article_revision }}{% else %}原文快照{% endif %}</strong>{% endif %}<label><input class="source-key" type="checkbox" value="{{ s.article_key }}"> {{ s.title }}</label>
     <p class="muted small">{{ s.source_domain }} · {{ s.published_at or '时间未知' }}{% if s.is_duplicate %} · 重复报道{% endif %}</p>
     {% if s.url | safe_url %}<a href="{{ s.url | safe_url }}" target="_blank" rel="noopener noreferrer">打开原文 ↗</a>{% endif %}
     {% if s.article_revision %}<p class="small"><a href="/articles/{{ s.article_key }}?revision={{ s.article_revision }}" target="_blank" rel="noopener">查看固定来源版本 ↗</a></p>{% endif %}
@@ -96,7 +98,7 @@ const byId = id => document.getElementById(id);
 let dirty = false, busy = false, lastHistory = null, parts = [];
 const evidence = current.editorial?.evidence || null;
 const esc = value => String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-function syncNarration(){if(parts.length)byId('script-text').value=parts.map(p=>(p.kind==='analysis'?'分析：':'')+p.text.trim()).join('\n\n');}
+function syncNarration(){if(parts.length)byId('script-text').value=parts.map(p=>(p.kind==='analysis'?(current.document.output_language==='en'?'Analysis: ':'分析：'):'')+p.text.trim()).join('\n\n');}
 function renderParts(){
   byId('segments-panel').hidden=!evidence;byId('script-text').readOnly=!!evidence;byId('narration-hint').textContent=evidence?'（由上方分段组成）':'';
   if(!evidence)return;
@@ -109,7 +111,7 @@ const statusNames = {draft:'草稿', in_review:'待审核', approved:'已通过'
 const actionNames = {created:'生成草稿',adopted:'启用版本管理',saved:'保存',restored:'恢复',submit:'送审',approve:'通过',request_changes:'退回'};
 function documentValue() {
   return {title:byId('title').value, script_text:byId('script-text').value,
-    target_duration_sec:Number(byId('duration').value), visual_notes:byId('visual-notes').value,
+    output_language:current.document.output_language||'zh-CN', target_duration_sec:Number(byId('duration').value), visual_notes:byId('visual-notes').value,
     notes:byId('notes').value, segments:parts.map(p=>({...p,text:p.text.trim()})), source_keys:[...new Set(Array.from(document.querySelectorAll('.source-key:checked')).map(e=>e.value))]};
 }
 function message(text) { byId('message').textContent = text; }
@@ -131,7 +133,7 @@ function controls() {
   document.querySelectorAll('#editor input, #editor textarea, #editor select, .source-key, .segment-control').forEach(e=>e.disabled=busy);
   document.querySelectorAll('[data-part]').forEach(card=>{const i=Number(card.dataset.part);card.querySelector('.part-up').disabled=busy||i===0;card.querySelector('.part-down').disabled=busy||i===parts.length-1;card.querySelector('.part-remove').disabled=busy||parts.length===1;});
   byId('add-segment').disabled=busy||parts.length>=30;
-  const count=Array.from(byId('script-text').value.replace(/\s/g,'')).length;byId('pace-hint').textContent='按每秒 3–4 个字符粗估：'+Math.ceil(count/4)+'–'+Math.ceil(count/3)+' 秒；含数字和外语时误差较大，实际以配音为准。';
+  const english=current.document.output_language==='en';const count=english?byId('script-text').value.trim().split(/\s+/).filter(Boolean).length:Array.from(byId('script-text').value.replace(/\s/g,'')).length;byId('pace-hint').textContent=(english?'按每分钟 130–160 词粗估：'+Math.ceil(count/160*60)+'–'+Math.ceil(count/130*60):'按每秒 3–4 个字符粗估：'+Math.ceil(count/4)+'–'+Math.ceil(count/3))+' 秒；含数字和外语时误差较大，实际以配音为准。';
 }
 function fill(data) {
   current = data;

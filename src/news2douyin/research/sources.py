@@ -71,6 +71,7 @@ class TextReader(HTMLParser):
         self.parts, self.title, self.skip = [], [], []
         self.in_title = False
         self.published_at = ''
+        self.images = []
 
     def handle_starttag(self, tag, attrs):
         attrs = dict(attrs)
@@ -82,6 +83,12 @@ class TextReader(HTMLParser):
             self.parts.append('\n')
         if tag == 'meta' and (attrs.get('property') or attrs.get('name')) in {'article:published_time', 'datePublished', 'date'}:
             self.published_at = attrs.get('content', '')
+        if len(self.images) < 24:
+            if tag == 'meta' and (attrs.get('property') or attrs.get('name')) in {'og:image', 'og:image:url', 'twitter:image'}:
+                self.images.append({'url': attrs.get('content', ''), 'alt': '', 'discovered_as': 'page_metadata'})
+            elif tag == 'img' and not self.skip:
+                self.images.append({'url': attrs.get('src') or attrs.get('data-src', ''),
+                                    'alt': attrs.get('alt', '')[:500], 'discovered_as': 'page_image'})
 
     def handle_endtag(self, tag):
         if self.skip and tag == self.skip[-1]:
@@ -132,7 +139,18 @@ def read_document(url):
     if 'html' in mime or '<html' in text[:1000].lower():
         parser = TextReader(); parser.feed(text)
         cleaned = '\n'.join(line.strip() for line in ''.join(parser.parts).splitlines() if line.strip())
+        images, seen = [], set()
+        for item in parser.images:
+            image_url = urljoin(final, item['url']) if item['url'] else ''
+            try:
+                p = urlsplit(image_url)
+                valid = p.scheme in {'https', 'http'} and p.hostname and not p.username and not p.password and p.port in {None, 80, 443}
+            except ValueError:
+                valid = False
+            if valid and len(image_url) <= 2048 and image_url not in seen:
+                images.append(dict(item, url=image_url, page_url=final, rights_status='unknown'))
+                seen.add(image_url)
         return dict(url=final, title=''.join(parser.title).strip() or final, text=cleaned,
                     kind='webpage', published_at=parser.published_at,
-                    provenance={'reader': 'html-text', 'truncated': len(cleaned) > 100000})
+                    provenance={'reader': 'html-text', 'truncated': len(cleaned) > 100000, 'image_candidates': images[:12]})
     return dict(url=final, title=final, text=text, kind='text', published_at='', provenance={'reader': 'text', 'truncated': len(text) > 100000})

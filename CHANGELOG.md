@@ -1,3 +1,12 @@
+# 0.15.0
+
+- Add explicit Chinese/English/Japanese output language and short duration options to daily and evidence-based script generation; preserve source-language extraction without pretending to translate.
+- Add a bounded short-material pass using the existing RunDesk/Codex/Exa runtime: up to six selected articles, three external searches and six new source reads, with a five-minute material budget.
+- Add `research_save_short_script`, which validates claim ownership and fact/analysis citations and atomically saves an evidence-bound editable draft plus material report.
+- Discover image candidates from actual source pages; retrieve up to four bounded public JPEG/PNG/WebP files, show previews/provenance, and include images and an unverified-rights manifest in reviewed exports. Image failures retain text results.
+- Preserve idempotency, cancellation fences and immutable evidence. New language/duration requests retain previous drafts. Add the additive ShortScriptBrief table; RunDesk 0.48.0 and its Docker image remain compatible.
+- See docs/SHORT-SCRIPTS.md and docs/validation/0.15.0 for upgrade and validation scope. No live model/search or actual container verification is claimed.
+
 # 0.14.0
 
 - Remove direct WorldNewsAPI/Tavily adapters from agent research. Codex / Exa is the sole external research search route; collection and event material gathering remain unchanged.
