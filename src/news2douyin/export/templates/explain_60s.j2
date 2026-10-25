@@ -1,0 +1,19 @@
+# {{ script.video_title_candidates[0] }}
+
+> 解释型脚本（60-90s）
+
+**Hook**
+- 口播：{{ script.hook.spoken }}
+- 字幕：{{ script.hook.on_screen }}
+
+{% for seg in script.segments %}
+### {{ loop.index }}.
+- 口播：{{ seg.spoken }}
+- 字幕：{{ seg.on_screen }}
+- 画面：{{ seg.visual }}
+{% endfor %}
+
+**结尾**：{{ script.closing.spoken }}
+
+**免责声明**：{{ script.disclaimer }}
+**话题**：{{ script.hashtags | join(" ") }}

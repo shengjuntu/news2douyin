@@ -1,0 +1,25 @@
+{
+  "rundesk": "0.15.0",
+  "news2douyin": "0.12.0",
+  "video": "0.6.0",
+  "rundesk_go_tests": "passed",
+  "rundesk_go_vet": "passed",
+  "registration_race_tests": "passed",
+  "video_go_tests": "passed",
+  "video_go_vet": "passed",
+  "news_pytest": {
+    "passed": 263,
+    "skipped": 17
+  },
+  "adapter_http_checks": 8,
+  "ui_checks": {
+    "rundesk": 5,
+    "news": 5
+  },
+  "limits": [
+    "Demo Codex execution only; no live model/search/render",
+    "No deployment to user LAN",
+    "Application capability workers require business IDs; no automatic business object creation",
+    "Registration requires administrator credentials"
+  ]
+}

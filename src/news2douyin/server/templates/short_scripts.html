@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}补充材料与配图 · news2douyin{% endblock %}
+{% block content %}
+<h1>补充材料与配图</h1>
+<p class="muted">合并相关报道、按需补充背景与配图，再生成指定语言的短稿。任务关闭页面后继续运行。</p>
+<section class="card preparation-entry" aria-labelledby="new-preparation-title">
+<h2 id="new-preparation-title">发起材料补充</h2>
+<p>选择 1–6 条相关报道 → 设置脚本语言、时长与配图 → 开始补材并生成短稿。</p>
+<div class="row"><a class="action-link" href="/daily?mode=short#script-builder">选择新闻，开始补材</a><a href="/research/settings">配置研究助手</a><a href="/scripts">查看生成的短稿</a></div>
+<p class="muted small">入口会直接选好补材模式；确认选题后才启动。需要完整研究报告时，可使用<a href="/research">深入研究</a>。</p>
+</section>
+<h2>{{ '当前补材任务' if case_id else '补材任务与结果' }}</h2>
+<p id="short-message" role="status"></p><div id="short-list"></div>
+<script>window.shortScriptCase={{case_id|tojson}};</script><script src="/research-assets/short-scripts.js"></script>
+{% endblock %}

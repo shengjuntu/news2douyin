@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}事件 · news2douyin v7{% endblock %}
+{% block content %}
+<h1>事件专题 <span class="muted small">（共 {{ paging.total }} 个）</span></h1>
+<p class="muted">一个事件专题关联新闻库中讲述同一件事的多篇报道，用于交叉阅读和整理脚本来源。自动关联可能误分；打开专题可以增删报道、整理有来源的发展脉络、补充检索和合并拆分。已合并的专题通过原地址仍可查看历史。</p>
+<details class="card" style="margin-bottom:16px"><summary>新建事件专题</summary><form id="new-event-form" class="row" style="margin-top:14px"><input id="new-event-title" required maxlength="250" placeholder="专题标题，例如某项政策的出台与后续"><button>创建专题</button><span id="new-event-error" role="status"></span></form></details>
+<script>document.getElementById('new-event-form').onsubmit=async e=>{e.preventDefault();try{const r=await fetch('/api/events',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:document.getElementById('new-event-title').value})});const d=await r.json();if(!r.ok)throw Error(typeof d.detail==='string'?d.detail:'请填写有效标题');location.href='/events/'+d.event_key;}catch(error){document.getElementById('new-event-error').textContent=error.message;}};</script>
+<div class="card">
+<form method="get" action="/events" class="row">
+  <input name="q" value="{{ q }}" placeholder="关键词（含关联报道全文）" style="width:260px">
+  <input name="country" value="{{ country }}" placeholder="国家 如 us / cn" style="width:140px">
+  <input name="topic" value="{{ topic }}" placeholder="主题" style="width:140px">
+  <input name="limit" value="{{ limit }}" style="width:70px">
+  <select name="mode"><option value="contains" {{ 'selected' if mode=='contains' }}>连续文本</option><option value="terms" {{ 'selected' if mode=='terms' }}>全部关键词（空格分隔）</option></select>
+  <button type="submit">搜索</button>
+  <a href="/events"><button type="button" class="ghost">重置</button></a>
+</form>
+</div>
+<table style="margin-top:12px">
+<tr><th>事件</th><th>主题</th><th>文章数</th><th>重要度</th><th>情感</th><th>最近出现</th></tr>
+{% for e in events %}
+<tr>
+  <td><a href="/events/{{ e.key }}">{{ e.title }}</a><div class="snippet">{{ e.summary }}…</div></td>
+  <td class="muted small">{{ e.topic }}</td>
+  <td>{{ e.article_count }}</td>
+  <td>{{ '%.2f' % e.importance }}</td>
+  <td><span class="badge {{ 'pos' if e.sentiment=='positive' else ('neg' if e.sentiment=='negative' else '') }}">{{ e.sentiment }}</span></td>
+  <td class="small">{{ (e.last_seen_at or '')[:16] }}</td>
+</tr>
+{% else %}
+<tr><td colspan="6" class="muted">没有匹配的事件</td></tr>
+{% endfor %}
+</table>
+{% include "pagination.html" %}
+{% endblock %}

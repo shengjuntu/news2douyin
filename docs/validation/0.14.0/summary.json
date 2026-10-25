@@ -1,0 +1,10 @@
+{
+  "version": "0.14.0",
+  "research_tests": 72,
+  "collection_tests": 4,
+  "http_checks": 8,
+  "collection_files_unchanged": 12,
+  "live_model_search_docker_tested": false,
+  "frontend": "Node syntax checks; no browser visual test",
+  "skill": "quick_validate passed"
+}

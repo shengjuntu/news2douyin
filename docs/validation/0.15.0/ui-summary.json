@@ -1,0 +1,7 @@
+{
+  "passed": true,
+  "rendered_pages": 6,
+  "inline_scripts": 7,
+  "static_scripts": 1,
+  "scope": "Actual HTML render and Node syntax check; no browser visual or live-model verification"
+}

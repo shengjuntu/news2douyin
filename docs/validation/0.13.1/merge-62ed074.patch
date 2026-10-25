@@ -1,0 +1,136 @@
+--- a/src/news2douyin/research/rundesk.py
++++ b/src/news2douyin/research/rundesk.py
+@@ -49,7 +49,7 @@
+         if key: headers['Idempotency-Key'] = key
+         try:
+             response = requests.request(method, self.base + path, json=payload, params=params,
+-                                        headers=headers, timeout=(4,180 if path.endswith('/runtime/prepare') else 20), allow_redirects=False)
++                                        headers=headers, timeout=(10,180 if path.endswith('/runtime/prepare') else 60), allow_redirects=False)
+         except requests.RequestException:
+             raise RemoteError('RunDesk 连接失败或超时；将用原请求编号查询接收结果',uncertain=method!='GET') from None
+         if len(response.content) > 4*1024*1024:
+@@ -163,19 +163,28 @@
+     config = settings.get()
+     callback = callback_for_docker(config)
+     iid, wid = quote(config['instance_id'], safe=''), quote(config['workspace_id'], safe='')
+-    instance = client.request('GET', '/instances/' + iid + '/configuration', params={'workspaceId': config['workspace_id']})['instance']
+-    if ((instance.get('agentRuntime') or {}).get('kind') or 'codex') != 'codex':
+-        raise ValueError('新闻 Docker 完整访问配置只支持 Codex 实例')
+-    execution = instance.get('execution') or {}
+     image = config.get('docker_image')
+-    if execution.get('mode', 'local') != 'docker':
++    for attempt in range(2):
++        instance = client.request('GET', '/instances/' + iid + '/configuration', params={'workspaceId': config['workspace_id']})['instance']
++        if ((instance.get('agentRuntime') or {}).get('kind') or 'codex') != 'codex':
++            raise ValueError('新闻 Docker 完整访问配置只支持 Codex 实例')
++        execution = instance.get('execution') or {}
++        if execution.get('mode', 'local') == 'docker':
++            if image and execution.get('image') != image:
++                raise ValueError('填写的镜像与已绑定镜像不同；请在 RunDesk 选择并显式更新环境，避免替换现有任务')
++            break
+         if not image:
+             raise ValueError('应用已登记。请填写已构建的 news2douyin 镜像，或先在 RunDesk 为应用选择 Docker 镜像')
+-        client.request('PUT', '/instances/' + iid + '/execution', {'revision': instance['revision'],
+-            'spec': {'mode': 'docker', 'image': image, 'cpus': 2, 'memoryMB': 4096, 'pidsLimit': 512,
+-                     'idleMinutes': 15, 'network': 'bridge'}})
+-    elif image and execution.get('image') != image:
+-        raise ValueError('填写的镜像与已绑定镜像不同；请在 RunDesk 选择并显式更新环境，避免替换现有任务')
++        try:
++            client.request('PUT', '/instances/' + iid + '/execution', {'revision': instance['revision'],
++                'spec': {'mode': 'docker', 'image': image, 'cpus': 2, 'memoryMB': 4096, 'pidsLimit': 512,
++                         'idleMinutes': 15, 'network': 'bridge'}})
++            break
++        except RemoteError as exc:
++            # Only a revision conflict permits one fresh read and retry. A
++            # changed image/backend is checked again; other failures propagate.
++            if attempt or exc.status != 409 or exc.code != 'revision_conflict':
++                raise
+     runtime = prepare_runtime(client, config, probe=False)
+     environment_id = runtime.get('environment', {}).get('id', '')
+     if not environment_id or runtime.get('executionMode') != 'docker' or runtime.get('instanceId') != config['instance_id'] or runtime.get('workspaceId') != config['workspace_id']:
+--- a/tests/test_research_v1.py
++++ b/tests/test_research_v1.py
+@@ -141,3 +141,16 @@
+     assert client.post('/api/research/setup').status_code==200
+     assert fake.servers['news2douyin-research']['enabled'] is False
+     assert not any('/skills/' in p or '/mcp/' in p for m,p,_,_ in fake.calls if m in {'POST','PUT'})
++
++
++@pytest.mark.parametrize(('path', 'expected'), [('/meta', (10, 60)), ('/sessions', (10, 60)), ('/applications/news2douyin/runtime/prepare', (10, 180))])
++def test_merged_http_timeouts_keep_container_start_allowance(monkeypatch, path, expected):
++    class Response:
++        content = b'{}'
++        status_code = 200
++        def json(self): return {}
++    calls = []
++    monkeypatch.setattr('requests.request', lambda *args, **kw: (calls.append(kw) or Response()))
++    RunDeskClient({'rundesk_url': 'http://localhost:3210'}).request('POST', path, {})
++    assert calls[0]['timeout'] == expected
++    assert calls[0]['allow_redirects'] is False
+--- a/tests/test_research_docker.py
++++ b/tests/test_research_docker.py
+@@ -279,3 +279,64 @@
+ def test_invalid_docker_permission_setting(research):
+     _, client, _ = research
+     assert client.put('/api/research/settings', json={'docker_permissions': 'anything'}).status_code == 400
++
++
++@pytest.mark.parametrize('concurrent', ['local', 'same-image', 'other-image'])
++def test_execution_conflict_refreshes_once_without_overwriting_image(research, concurrent):
++    app, client, _ = research; _, _, fake = docker_case(research)
++    fake.execution = {'mode': 'local'}
++    original = fake._request
++    revisions = []
++    def request(method, path, payload=None, params=None):
++        if method == 'PUT' and path.endswith('/execution'):
++            revisions.append(payload['revision'])
++            if len(revisions) == 1:
++                fake.revision += 1
++                if concurrent != 'local':
++                    fake.execution = {'mode': 'docker', 'image': 'rundesk-news:test' if concurrent == 'same-image' else 'admin-image:keep'}
++                raise RemoteError('conflict', status=409, code='revision_conflict')
++        return original(method, path, payload, params)
++    fake._request = request
++    response = client.post('/api/research/setup')
++    if concurrent == 'other-image':
++        assert response.status_code == 400 and '已绑定镜像不同' in response.json()['detail']
++        assert fake.execution['image'] == 'admin-image:keep' and len(revisions) == 1
++    else:
++        assert response.status_code == 200, response.text
++        assert fake.execution['image'] == 'rundesk-news:test'
++        if concurrent == 'local': assert revisions == [revisions[0], revisions[0] + 1]
++        else: assert len(revisions) == 1
++
++
++@pytest.mark.parametrize(('status', 'code', 'attempts'), [(401, 'unauthorized', 1), (502, 'docker_unavailable', 1), (409, 'other_conflict', 1), (409, 'revision_conflict', 2)])
++def test_execution_setup_errors_propagate_with_bounded_retry(research, status, code, attempts):
++    app, client, _ = research; _, _, fake = docker_case(research)
++    fake.execution = {'mode': 'local'}
++    original = fake._request
++    writes = []
++    def request(method, path, payload=None, params=None):
++        if method == 'PUT' and path.endswith('/execution'):
++            writes.append(payload)
++            fake.revision += 1
++            raise RemoteError('expected remote failure', status=status, code=code)
++        return original(method, path, payload, params)
++    fake._request = request; fake.calls.clear()
++    response = client.post('/api/research/setup')
++    assert response.status_code == 400 and 'expected remote failure' in response.json()['detail']
++    assert len(writes) == attempts
++    assert not any(path.endswith('/runtime/prepare') for _, path, _, _ in fake.calls)
++
++
++def test_managed_docker_skill_does_not_send_stale_host_path(research):
++    app, client, _ = research; case, _, fake = docker_case(research)
++    config = app.state.research_settings.get()
++    config.update(codex_home='/old-host/instance/codex', skill_path='/old-host/instance/codex/skills/news-research/SKILL.md')
++    app.state.research_settings.write(config)
++    fake.skills['news-research']['path'] = '/docker/environment/codex/skills/news-research/SKILL.md'
++    assert client.post('/api/research/setup').status_code == 200
++    run = app.state.research.enqueue(case['case_id']); app.state.research.dispatch(run['run_id'])
++    turn = next(payload for method, path, payload, _ in fake.calls if method == 'POST' and path.endswith('/turns'))
++    assert turn['skills'] == []
++    assert '/old-host/' not in json.dumps(turn)
++    assert fake.skills['news-research']['path'].startswith('/docker/environment/')
++    assert app.state.research_settings.get()['managed_by_rundesk'] is True

@@ -1,0 +1,82 @@
+{
+  "version": "0.15.0",
+  "regression": {
+    "passed": 161,
+    "skipped": 17,
+    "scope": "scripts, research, runtime and video contracts; render dependencies unavailable"
+  },
+  "new_short_script_tests": {
+    "passed": 15,
+    "includes_post_image_parallelization_rerun": true
+  },
+  "http": {
+    "passed": true,
+    "checks": [
+      "real_http_registration_and_container_configuration",
+      "native_permission_and_mcp_config_upgrade_preserves_secret_and_instance_scope",
+      "real_business_mcp_initialize_and_tools_list",
+      "one_click_bound_docker_session_and_duplicate_start",
+      "single_external_search_ticket_reused_and_library_uses_no_external_budget",
+      "real_mcp_ticket_evidence_and_report_persistence",
+      "run_trace_and_guarded_stop",
+      "short_material_pass_reuses_runtime_and_saves_language_bound_cited_draft",
+      "one_environment_reused_across_setup_check_and_research"
+    ],
+    "scope": "Actual RunDesk/news2douyin HTTP and business MCP; fixture Docker CLI, Codex and search; no real container/model/search quality",
+    "dockerCreates": 1,
+    "dockerStarts": 1
+  },
+  "ui": {
+    "passed": true,
+    "rendered_pages": 6,
+    "inline_scripts": 7,
+    "static_scripts": 1,
+    "scope": "Actual HTML render and Node syntax check; no browser visual or live-model verification"
+  },
+  "upgrade": {
+    "passed": true,
+    "baseline": "0.14.0",
+    "upgraded": "0.15.0",
+    "tables_unchanged": [
+      "article",
+      "dailyselection",
+      "scriptpackage",
+      "scriptstate",
+      "scriptrevision",
+      "scriptreviewevent",
+      "researchcase",
+      "researchsource",
+      "researchstrategy"
+    ],
+    "existing_files_unchanged": 3,
+    "additive_table": "shortscriptbrief"
+  },
+  "changed_production_files": [
+    "src/news2douyin/editorial/daily.py",
+    "src/news2douyin/editorial/daily_tasks.py",
+    "src/news2douyin/editorial/generation.py",
+    "src/news2douyin/editorial/languages.py",
+    "src/news2douyin/editorial/short_scripts.py",
+    "src/news2douyin/research/models.py",
+    "src/news2douyin/research/rundesk.py",
+    "src/news2douyin/research/runtime.py",
+    "src/news2douyin/research/service.py",
+    "src/news2douyin/research/sources.py",
+    "src/news2douyin/research/tools.py",
+    "src/news2douyin/server/app.py",
+    "src/news2douyin/server/daily.py",
+    "src/news2douyin/server/research.py",
+    "src/news2douyin/server/short_scripts.py",
+    "src/news2douyin/server/static/short-scripts.js",
+    "src/news2douyin/server/templates/daily.html",
+    "src/news2douyin/server/templates/script_editor.html",
+    "src/news2douyin/server/templates/script_generate.html",
+    "src/news2douyin/server/templates/scripts.html",
+    "src/news2douyin/server/templates/setup.html",
+    "src/news2douyin/server/templates/short_scripts.html",
+    "src/news2douyin/server/templates/task_detail.html",
+    "src/news2douyin/video/templates.py",
+    "src/news2douyin/video/workbench.py"
+  ],
+  "live_model_search_container_tested": false
+}

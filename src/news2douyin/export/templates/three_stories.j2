@@ -1,0 +1,11 @@
+# {{ script.video_title_candidates[0] }}
+
+{% for seg in script.segments %}
+## 新闻 {{ loop.index }}（{{ seg.duration_sec }}s）
+- 口播：{{ seg.spoken }}
+- 字幕：{{ seg.on_screen }}
+- 画面：{{ seg.visual }}
+{% endfor %}
+
+**免责声明**：{{ script.disclaimer }}
+**话题**：{{ script.hashtags | join(" ") }}

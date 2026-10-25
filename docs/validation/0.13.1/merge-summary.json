@@ -1,0 +1,33 @@
+{
+  "version": "0.13.1",
+  "edition": "github-62ed074-merged",
+  "sourceRepository": "https://github.com/shengjuntu/news2douyin",
+  "sourceCommit": "62ed0741a6d0f96d26c01e85f92f556b335cf161",
+  "sourceChange": {
+    "file": "src/news2douyin/research/rundesk.py",
+    "insertions": 19,
+    "deletions": 4
+  },
+  "productionFilesChanged": [
+    "src/news2douyin/research/rundesk.py"
+  ],
+  "researchTestsPassed": 58,
+  "newRegressionCases": 11,
+  "http": {
+    "passed": true,
+    "checks": [
+      "real_http_registration_and_container_configuration",
+      "native_permission_and_mcp_config_upgrade_preserves_secret_and_instance_scope",
+      "real_business_mcp_initialize_and_tools_list",
+      "one_click_bound_docker_session_and_duplicate_start",
+      "real_mcp_ticket_evidence_and_report_persistence",
+      "run_trace_and_guarded_stop",
+      "one_environment_reused_across_setup_check_and_research"
+    ],
+    "scope": "Actual RunDesk/news2douyin HTTP and business MCP; fixture Docker CLI, Codex and search; no real container/model/search quality",
+    "dockerCreates": 1,
+    "dockerStarts": 1
+  },
+  "wheel": "news2douyin-0.13.1-py3-none-any.whl",
+  "liveDockerModelVerified": false
+}

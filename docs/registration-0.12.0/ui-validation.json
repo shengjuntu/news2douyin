@@ -1,0 +1,10 @@
+{
+  "checks": [
+    "callback address is automatic and advanced field collapsed",
+    "single connect registers application",
+    "management link present",
+    "mobile fits viewport",
+    "no browser exceptions"
+  ],
+  "passed": 5
+}

@@ -1,0 +1,24 @@
+# {{ script.video_title_candidates[0] }}
+
+**Hook（前3秒）**
+- 口播：{{ script.hook.spoken }}
+- 字幕：{{ script.hook.on_screen }}
+
+---
+
+{% for seg in script.segments %}
+## 段落 {{ loop.index }}（{{ seg.duration_sec }}s）
+- 口播：{{ seg.spoken }}
+- 字幕：{{ seg.on_screen }}
+- 画面：{{ seg.visual }}
+
+{% endfor %}
+
+---
+
+**结尾**
+- 口播：{{ script.closing.spoken }}
+- 字幕：{{ script.closing.on_screen }}
+
+**免责声明**：{{ script.disclaimer }}
+**话题**：{{ script.hashtags | join(" ") }}
