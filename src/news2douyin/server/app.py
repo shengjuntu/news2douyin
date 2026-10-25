@@ -98,6 +98,9 @@ def create_app(*, db_url: str = 'sqlite:///runs_v7/news2douyin_v7.db', storage_r
     from .readiness import register_readiness_routes
     register_readiness_routes(app)
 
+    from .topics import register_topic_routes
+    register_topic_routes(app,engine)
+
     @app.get('/api/health')
     def health():
         return {'ok': True, 'service': 'news2douyin-v7'}

@@ -133,7 +133,6 @@ def register_webui_routes(app: FastAPI, engine, scheduler, storage_root: str) ->
         return render('video_detail.html', active='videos', video=video)
 
     # ------------------------------------------------------------------ pages
-    @app.get('/', response_class=HTMLResponse)
     @app.get('/daily', response_class=HTMLResponse)
     def page_daily(day: str = '', timezone: str = '', q: str = '', profile_name: str = '',
                    time_field: str = 'collected', task_id: str = '', mode: str = '',

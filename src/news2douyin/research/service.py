@@ -137,7 +137,7 @@ def add_source(s, case, *, title, url, text, kind, published_at='', provenance=N
     return row
 
 
-def create_case(engine, payload, *, preparation=None):
+def create_case(engine, payload, *, preparation=None, frozen_sources=None, fixed_case_id='', budget_override=None):
     goal = str(payload.get('goal', '')).strip()
     if not goal or len(goal) > 6000:
         raise ValueError('请填写研究目的，最多 6000 字')
@@ -155,6 +155,8 @@ def create_case(engine, payload, *, preparation=None):
             raise ValueError('回溯起始日期不能晚于截止日期')
     with Session(engine, expire_on_commit=False) as s:
         locked(s)
+        if fixed_case_id and s.get(ResearchCase,fixed_case_id):
+            return detail(s,fixed_case_id)
         if preparation:
             old = s.exec(select(ShortScriptBrief).where(ShortScriptBrief.request_key == preparation['request_key'])).first()
             if old:
@@ -168,8 +170,15 @@ def create_case(engine, payload, *, preparation=None):
         if event_key and not keys:
             keys = list(s.exec(select(ArticleEventLink.article_key).where(ArticleEventLink.event_key == event_key).limit(12)))
         articles = []
+        frozen = {d['article_key']:d for d in frozen_sources} if frozen_sources is not None else None
+        if frozen is not None and set(frozen)!=set(keys): raise ValueError('选题快照与选择不一致')
         for key in keys:
-            article = s.exec(select(Article).where(Article.article_key == key)).first()
+            if frozen is not None:
+                from types import SimpleNamespace
+                doc=frozen[key]
+                article=SimpleNamespace(article_key=key,title=doc['title'],content=doc['content'],url=doc.get('url',''),published_at=doc.get('published_at',''),duplicate_of_article_key=doc.get('duplicate_of_article_key',''))
+            else:
+                article = s.exec(select(Article).where(Article.article_key == key)).first()
             if not article:
                 raise ValueError('所选新闻不存在')
             articles.append(article)
@@ -182,17 +191,19 @@ def create_case(engine, payload, *, preparation=None):
             snapshot.update(name='短稿轻量补材', language=preparation['options']['output_language'],
                 max_searches=3, max_reads=6, max_minutes=5,
                 questions=['核对所选消息是否同一事件，合并重复事实并补充必要背景', '寻找与事件相关且可追溯的配图，记录来源与未核实的授权'])
-        case = ResearchCase(case_id=identifier('research'), title=title, goal=goal, article_keys_json=dump(keys),
+        if budget_override: snapshot.update(budget_override)
+        case = ResearchCase(case_id=fixed_case_id or identifier('research'), title=title, goal=goal, article_keys_json=dump(keys),
                             event_key=event_key, strategy_json=dump(snapshot), date_from=date_from, cutoff=cutoff)
         s.add(case)
         if preparation:
             s.add(ShortScriptBrief(case_id=case.case_id, request_key=preparation['request_key'],
                 request_hash=preparation['request_hash'], options_json=dump(preparation['options'])))
         for article in articles:
-            version = latest_version(s, article.article_key)
+            version = latest_version(s, article.article_key) if frozen is None else None
             add_source(s, case, title=article.title, url=article.url, text=article.content or article.title,
                        kind='news_snapshot', published_at=article.published_at,
-                       provenance={'article_key': article.article_key, 'article_version': version.revision if version else None,
+                       provenance={'article_key': article.article_key, 'article_version': (version.revision if version else None) if frozen is None else frozen[article.article_key].get('revision'),
+                                   'topic_source_id': frozen[article.article_key].get('topic_source_id','') if frozen is not None else '',
                                    'independence_group': article.duplicate_of_article_key or article.article_key})
         activity(s, case.case_id, 'created', '已创建研究课题并保存新闻快照')
         s.commit()

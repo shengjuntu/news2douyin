@@ -55,13 +55,12 @@ button:disabled { opacity:.45; cursor:not-allowed; }
 </head>
 <body>
 <header>
-  <div class="logo">news2douyin<span class="dot">·</span>0.15.1</div>
+  <div class="logo">news2douyin<span class="dot">·</span>0.16.0</div>
   <nav>
-    <a href="/" class="{{ 'on' if active=='daily' }}">每日选题</a>
+    <a href="/topics" class="{{ 'on' if active=='topics' }}">选题工作台</a>
     <a href="/articles" class="{{ 'on' if active=='articles' }}">新闻库</a>
     <a href="/events" class="{{ 'on' if active=='events' }}">事件专题</a>
-    <a href="/research" class="{{ 'on' if active=='research' }}">深入研究</a>
-    <a href="/short-scripts" class="{{ 'on' if active=='short_scripts' }}">补充材料</a>
+    <a href="/research" class="{{ 'on' if active=='research' }}">研究任务</a>
     <a href="/scripts" class="{{ 'on' if active=='scripts' }}">脚本工作台</a>
     <a href="/videos" class="{{ 'on' if active=='videos' }}">作品库</a>
     <a href="/profiles" class="{{ 'on' if active=='profiles' }}">采集策略</a>

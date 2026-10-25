@@ -9,7 +9,7 @@
  function link(text,url){const e=element('a',text);e.href=url;return e;}
  async function action(url){if(busy)return;busy=true;try{await api(url,{});message.textContent='请求已保存';}catch(e){message.textContent=e.message;}finally{busy=false;await load();}}
  function render(rows){box.replaceChildren();if(!rows.length){box.append(element('p','还没有补材任务。点击上方“选择新闻，开始补材”，选好报道后确认启动。'));return;}
-  for(const row of rows){const card=element('article');card.className='card';card.style.marginBottom='16px';card.append(element('h2',row.title));card.append(element('p',(row.package_key?'短稿已保存 · 待审核':names[row.status]||row.status)+' · '+languages[row.options.output_language]+' · '+row.options.duration_sec+' 秒'));card.append(element('p','外部搜索 '+row.search_count+'/3 · 新增正文读取 '+row.read_count+'/6 · 配图 '+(row.options.find_images?'开启':'关闭')));
+  for(const row of rows){const card=element('article');card.className='card';card.style.marginBottom='16px';card.append(element('h2',row.title));card.append(element('p',(row.package_key?'短稿已保存 · 待审核':names[row.status]||row.status)+' · '+languages[row.options.output_language]+' · '+row.options.duration_sec+' 秒'));card.append(element('p','外部搜索 '+row.search_count+'/'+(row.max_searches??3)+' · 新增正文读取 '+row.read_count+'/'+(row.max_reads??6)+' · 配图 '+(row.options.find_images?'开启':'关闭')));
    if(row.error)card.append(element('p',row.error));
    if(!active.has(row.status)&&!row.package_key)card.append(element('p','本次尚未生成可用短稿。查看证据与缺口后可继续补材。'));
    const controls=element('div');controls.className='row';controls.append(link('查看原文、证据和执行进度','/research/'+encodeURIComponent(row.case_id)));if(!id)controls.append(link('打开任务','/short-scripts/'+encodeURIComponent(row.case_id)));

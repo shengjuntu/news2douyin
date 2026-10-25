@@ -123,7 +123,8 @@ def register_research_routes(app, engine, storage_root):
     def get_cases():
         with Session(engine, expire_on_commit=False) as s:
             result = []
-            for row in s.exec(select(ResearchCase).order_by(ResearchCase.updated_at.desc()).limit(100)):
+            from ..topics.models import TopicWorkspace
+            for row in s.exec(select(ResearchCase).where(~ResearchCase.case_id.in_(select(TopicWorkspace.case_id))).order_by(ResearchCase.updated_at.desc()).limit(100)):
                 run = s.get(ResearchRun, row.active_run_id)
                 result.append(dict(case_id=row.case_id, title=row.title, goal=row.goal, updated_at=row.updated_at,
                                    status=run.status if run else 'draft'))
@@ -209,7 +210,7 @@ def register_research_routes(app, engine, storage_root):
             version = params.get('protocolVersion')
             result = {'protocolVersion': version if version in supported else '2025-03-26',
                       'capabilities': {'tools': {'listChanged': False}},
-                      'serverInfo': {'name': 'news2douyin-research', 'version': '0.15.1'}}
+                      'serverInfo': {'name': 'news2douyin-research', 'version': '0.16.0'}}
         elif method == 'ping':
             result = {}
         elif method == 'tools/list':

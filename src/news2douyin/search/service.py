@@ -78,11 +78,13 @@ def _time_predicate(column, start, end):
 
 
 def article_page(session: Session, *, query='', country='', category='', duplicates='any', limit=50, offset=0, mode='contains',
-                 period='all', date_from='', date_to='', time_field='published', timezone='', task_id='', profile_name=''):
+                 period='all', date_from='', date_to='', time_field='published', timezone='', task_id='', profile_name='', event_key=''):
     if duplicates not in {'any', 'yes', 'no'}:
         raise ValueError('duplicates must be any, yes or no')
     indexed = index_available(session)
     stmt = select(Article)
+    if event_key:
+        stmt = stmt.where(Article.article_key.in_(select(ArticleEventLink.article_key).where(ArticleEventLink.event_key == event_key)))
     for i, term in enumerate(_terms(query, mode)):
         stmt = stmt.where(_match(Article, [Article.title, Article.content, Article.source_domain], term, indexed, f'article_term_{i}'))
     if country:

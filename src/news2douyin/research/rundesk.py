@@ -285,7 +285,13 @@ def configure_docker_full_access(client, config):
         client.request('PATCH', '/instances/' + iid, {'revision': instance['revision'], 'permissions': permissions})
 
 
-RESEARCH_TOOLS = {'research_get_case', 'research_search', 'research_record_search', 'research_read_source', 'research_save_question', 'research_save_claim', 'research_save_report', 'research_save_short_script'}
+RESEARCH_TOOLS = {'research_get_case', 'research_search', 'research_record_search', 'research_read_source', 'research_save_question', 'research_save_claim', 'research_save_report', 'research_save_short_script'} | {'topic_get_workspace','topic_search_library','topic_read_article','topic_save_candidates','topic_save_reply'}
+
+
+def validate_library_tools(servers):
+    from ..topics.tools import NAMES
+    if not NAMES <= set(servers.get('news2douyin-research', [])):
+        raise ValueError('未发现完整选题工具，请更新 news2douyin 并刷新 RunDesk 中的 MCP 工具列表')
 
 
 def validate_search_tools(servers, config):
@@ -297,7 +303,7 @@ def validate_search_tools(servers, config):
         raise ValueError('未发现 Exa 搜索工具，请在 RunDesk 启用 Exa MCP 并检查网络；不会回退到新闻采集的搜索服务')
 
 
-def validate_runtime(value, config):
+def validate_runtime(value, config, *, library_only=False):
     if not isinstance(value, dict) or value.get('instanceId') != config['instance_id'] or value.get('workspaceId') != config['workspace_id']:
         raise ValueError('容器回执与研究应用绑定不一致')
     env = value.get('environment') or {}
@@ -308,11 +314,11 @@ def validate_runtime(value, config):
     if not value.get('accountReady'):
         raise ValueError('Docker 环境尚未配置模型认证，请在 RunDesk 此应用的模型与认证页面完成配置')
     servers = value.get('servers') or {}
-    validate_search_tools(servers, config)
+    validate_library_tools(servers) if library_only else validate_search_tools(servers, config)
     return env
 
 
-def local_runtime_status(client, config):
+def local_runtime_status(client, config, *, library_only=False):
     path = '/workspaces/' + quote(config['workspace_id'], safe='')
     account = client.request('GET', path + '/account', params={'instanceId': config['instance_id']})
     overview = client.request('GET', '/instances/' + quote(config['instance_id'], safe='') + '/configuration',
@@ -335,7 +341,7 @@ def local_runtime_status(client, config):
             raise ValueError('尚未配置模型认证，请在 RunDesk 完成认证')
         if result['configuration_errors']:
             raise ValueError('RunDesk 配置探测未通过，请检查模型和 MCP 配置')
-        validate_search_tools(servers, config)
+        validate_library_tools(servers) if library_only else validate_search_tools(servers, config)
         result.update(ready=True, message='模型认证、研究工具和 Exa 检查完成；尚未验证真实研究质量')
     except ValueError as exc:
         result.update(ready=False, message=str(exc))

@@ -70,9 +70,8 @@ class ResearchRuntime:
             with self.busy_lock:
                 self.busy.discard(run_id)
 
-    def enqueue(self, case_id, instruction='', refresh_cutoff=False):
+    def enqueue(self, case_id, instruction='', refresh_cutoff=False, topic_request=None, handoff_id=''):
         config = self.settings.get()
-        require_search_route(config['search_provider'], config['search_backend'])
         if not all(config.get(k) for k in ('instance_id', 'workspace_id')):
             raise ValueError('请先在研究设置中连接 RunDesk')
         if not isinstance(instruction, str) or len(instruction) > 6000:
@@ -82,11 +81,39 @@ class ResearchRuntime:
         with Session(self.engine, expire_on_commit=False) as s:
             svc.locked(s)
             case = svc.require_case(s, case_id)
+            from ..topics import service as topics
+            from ..topics.models import TopicMessage
+            topic = topics.by_case(s, case_id)
+            message_input = None
+            handoff = None
+            if handoff_id:
+                from ..topics.models import TopicHandoff
+                handoff=s.get(TopicHandoff,handoff_id)
+                if not handoff or handoff.case_id!=case_id: raise ValueError('任务交接编号不匹配')
+                if handoff.run_id: return s.get(ResearchRun,handoff.run_id).model_dump()
+            if topic:
+                if topic_request is None: raise ValueError('请从选题工作台发送讨论消息')
+                message_input = topics.Message.model_validate(topic_request)
+                message_key = 'topicmsg_' + svc.digest([topic.workspace_id,message_input.request_id])[:24]
+                message_hash = svc.digest(message_input.model_dump())
+                old_message = s.get(TopicMessage,message_key)
+                if old_message:
+                    if old_message.request_hash != message_hash: raise ValueError('消息编号已用于不同内容')
+                    return s.get(ResearchRun,old_message.run_id).model_dump()
+                if topic.revision != message_input.revision: raise ValueError('选题版本已变化，请刷新后发送')
+                instruction = message_input.text
+                if not instruction.strip(): raise ValueError('请输入选题要求')
+                if len(list(s.exec(select(TopicMessage.message_id).where(TopicMessage.workspace_id==topic.workspace_id)))) >= 100:
+                    raise ValueError('此选题已有100轮讨论，请新建后续选题')
+            else:
+                if topic_request is not None: raise ValueError('此课题不是选题会话')
+                require_search_route(config['search_provider'], config['search_backend'])
             short = s.get(ShortScriptBrief, case_id)
             if short and short.package_key:
                 raise ValueError('短稿已交付，请在脚本工作台编辑；需要重新补材请从每日选题创建新任务')
             previous = s.get(ResearchRun, case.active_run_id)
             if previous and previous.status in svc.ACTIVE:
+                if topic: raise ValueError('上一轮仍在执行，请等待或停止后再发送')
                 if instruction and instruction != previous.instruction:
                     raise ValueError('该课题已有活动任务；新的要求请通过“追加到当前研究”发送')
                 # A double click or a lost HTTP acknowledgement resumes the
@@ -112,14 +139,26 @@ class ResearchRuntime:
             if short:
                 from ..editorial.short_scripts import prompt as short_prompt
                 prompt += short_prompt(json.loads(short.options_json))
+            if topic:
+                message = TopicMessage(message_id=message_key,request_id=message_input.request_id,workspace_id=topic.workspace_id,request_hash=message_hash,
+                    run_id=row.run_id,text=instruction,context_json=svc.dump(topics.message_context(s,topic)))
+                s.add(message)
+                prompt = topics.prompt(topic,message,row.run_id)
+                if previous and previous.session_id:
+                    saved = s.get(ResearchSubmission,previous.run_id)
+                    if not saved or saved.backend_url!=config['rundesk_url'] or previous.instance_id!=row.instance_id or previous.workspace_id!=row.workspace_id:
+                        raise ValueError('原选题会话属于其他环境，请恢复连接或新建选题')
+                    row.session_id=previous.session_id
             prefix = 'n2d-' + config['installation_id'] + '-' + row.run_id
             s.add(ResearchSubmission(run_id=row.run_id, backend_url=config['rundesk_url'],
                 session_key=prefix+'-session', turn_key=prefix+'-turn',
                 session_payload=svc.dump({'workspaceId':row.workspace_id,'instanceId':row.instance_id,'title':case.title[:120],'model':'',
                                          'source':{'kind':'application','appId':'news2douyin','taskId':row.run_id}}),
-                turn_payload=svc.dump({'text':prompt,'files':[],'skills':([] if config.get('managed_by_rundesk') else [{'name':'news-research','path':config['skill_path']}])})))
+                turn_payload=svc.dump({'text':prompt,'files':[],'skills':([] if topic or config.get('managed_by_rundesk') else [{'name':'news-research','path':config['skill_path']}])})))
             s.add(ResearchEnvironment(run_id=row.run_id, mode=config.get('runtime_mode', 'local'),
                                       search_provider=config['search_provider'], search_backend=config.get('search_backend', 'exa')))
+            if handoff:
+                handoff.run_id=row.run_id;s.add(handoff)
             s.add(row); s.add(case)
             svc.activity(s, case_id, 'queued', '研究已排队' + ('：' + instruction if instruction else ''), row.run_id)
             s.commit()
@@ -161,6 +200,8 @@ class ResearchRuntime:
             run=s.get(ResearchRun,run_id); submission=s.get(ResearchSubmission,run_id)
             if not run or run.status not in svc.ACTIVE or run.status=='stopping' or not submission or submission.legacy or submission.rundesk_run_id:
                 return
+            from ..topics import service as topics
+            library_only = topics.by_case(s,run.case_id) is not None
             if run.status=='queued': run.started_at=svc.utc_now_iso()
             run.status='starting'; run.dispatch_done=False; s.add(run); s.commit()
         config=self.settings.get(); client=self.client_factory(config)
@@ -177,9 +218,9 @@ class ResearchRuntime:
             with Session(self.engine, expire_on_commit=False) as s:
                 plan = s.get(ResearchEnvironment, run_id)
             if not submission.turn_attempted:
-                require_search_route(plan.search_provider if plan else '', plan.search_backend if plan else '')
+                if not library_only: require_search_route(plan.search_provider if plan else '', plan.search_backend if plan else '')
                 if plan.mode == 'local':
-                    status = local_runtime_status(client, config)
+                    status = local_runtime_status(client, config, library_only=library_only)
                     if not status['ready']:
                         raise ValueError(status['message'])
             if plan and plan.mode == 'docker' and not submission.turn_attempted:
@@ -195,7 +236,7 @@ class ResearchRuntime:
                     p.status = 'preparing'; s.add(p); s.commit()
                 fixed = {**config, 'search_provider': plan.search_provider, 'search_backend': plan.search_backend}
                 prepared = prepare_runtime(client, fixed)
-                env = validate_runtime(prepared, fixed)
+                env = validate_runtime(prepared, fixed, library_only=library_only)
                 with Session(self.engine, expire_on_commit=False) as s:
                     svc.locked(s); current = s.get(ResearchRun, run_id)
                     if current.status == 'stopping' or current.status not in svc.ACTIVE: return
@@ -332,8 +373,12 @@ class ResearchRuntime:
                 elif status == 'interrupted':
                     current.status = 'paused'
                 else:
-                    current.status = 'completed' if report and report.completeness == 'complete' else 'partial'
-                    if not report:
+                    from ..topics.models import TopicMessage
+                    topic_message=s.exec(select(TopicMessage).where(TopicMessage.run_id==run_id)).first()
+                    current.status = ('completed' if topic_message.reply_json else 'partial') if topic_message else ('completed' if report and report.completeness == 'complete' else 'partial')
+                    if topic_message and not topic_message.reply_json:
+                        current.error='本轮结束但未保存选题回复；可在下一轮要求整理已取得资料'
+                    if not topic_message and not report:
                         current.error = '本轮已结束，但未通过 MCP 保存报告；可以继续研究要求补齐'
                 if current.status not in svc.ACTIVE:
                     current.finished_at = svc.utc_now_iso()

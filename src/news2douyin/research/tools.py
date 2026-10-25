@@ -8,6 +8,7 @@ from .models import ResearchSource, ResearchToolCall, ResearchEnvironment
 from . import service as svc
 from . import sources
 from .config import require_search_route
+from ..topics.tools import tool_list as topic_tool_list
 
 
 def schema(properties, required):
@@ -47,7 +48,7 @@ DEFINITIONS = [
 def tool_list():
     return [dict(name=name, description=description,
                  inputSchema=schema({'run_id': S, **properties}, ['run_id', *required]))
-            for name, description, properties, required in DEFINITIONS]
+            for name, description, properties, required in DEFINITIONS] + topic_tool_list()
 
 
 def validate_args(name, args):
@@ -76,7 +77,14 @@ class ResearchTools:
         self.engine, self.settings = engine, settings
 
     def call(self, name, args):
+        from ..topics import tools as topic_tools
+        from ..topics.models import TopicMessage
+        if name in topic_tools.NAMES:
+            return topic_tools.call(self.engine, name, args)
         validate_args(name, args)
+        with Session(self.engine) as session:
+            if session.exec(select(TopicMessage).where(TopicMessage.run_id == args['run_id'])).first():
+                raise ValueError('选题会话只使用 topic_* 库内工具；请在工作台发起补材或深入研究')
         if name == 'research_save_short_script':
             from ..editorial.short_scripts import save_draft
             return save_draft(self.engine, self.settings, args)
