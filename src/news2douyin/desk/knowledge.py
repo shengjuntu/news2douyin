@@ -7,6 +7,10 @@ from .models import WatchReview
 
 def carry_history(session, case, watch):
     from ..research.service import add_source
+    from ..extraction.outline import points
+    outline = points(session,watch,case.cutoff)
+    if outline:
+        case.goal += '\n本专题的长期子问题（在报告中标明对应问题及仍缺证据）：\n' + '\n'.join(p.text[:200] for p in outline[:12])
     cases = select(WatchReview.case_key).where(WatchReview.watch == watch,
         WatchReview.case_key != case.case_id, WatchReview.created <= case.cutoff)
     gaps = session.exec(select(ResearchQuestion).where(ResearchQuestion.case_id.in_(cases),

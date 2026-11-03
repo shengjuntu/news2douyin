@@ -7,6 +7,7 @@ from sqlmodel import Session, select
 from ..storage.articles import lock_news
 from .models import GraphPending, RadarEntry, Watch, WatchEvent, WatchReview, EventPlace
 from .rules import terms, ALIASES
+from ..extraction import graph as extraction_graph
 
 class GraphMirror:
     def __init__(self):
@@ -46,6 +47,7 @@ class GraphMirror:
             q('MATCH (a:Article {id:$a}) UNWIND $xs AS code MERGE (p:Place {iso:code}) '
               'MERGE (a)-[r:MENTIONS_PLACE]->(p) SET r.stamp=$v',a=src['key'],xs=src['mention_iso'],v=stamp)
             q('MATCH (:Article {id:$a})-[r:MENTIONS_PLACE]->() WHERE r.stamp<>$v DELETE r',a=src['key'],v=stamp)
+            extraction_graph.project(q,src['key'],src.get('actions',[]),stamp)
         for place in places:
             relation='ACTION_AT' if place.role=='action' else 'IMPACTS'
             q('MATCH (e:Event {id:$k}) MERGE (p:Place {iso:$iso}) MERGE (e)-[r:'+relation+
@@ -54,8 +56,10 @@ class GraphMirror:
         for relation in ('ACTION_AT','IMPACTS'):
             q('MATCH (:Event {id:$k})-[r:'+relation+']->() WHERE r.stamp<>$v DELETE r',k=key,v=stamp)
         q('MATCH (:Event {id:$k})-[r:HAS_SOURCE]->() WHERE r.stamp<>$v DELETE r',k=key,v=stamp)
+        q('MATCH (a:Article) WHERE NOT (a)<-[:HAS_SOURCE]-() DETACH DELETE a')
+        extraction_graph.clean(q)
 
-    def watch(self,w,events,reviews,questions,claims,reports):
+    def watch(self,w,events,reviews,questions,claims,reports,points=(),point_reviews=()):
         graph='focus_'+w.key
         root=lambda query,**ps:self.query('active_global',query,**ps)
         local=lambda query,**ps:self.query(graph,query,**ps)
@@ -64,6 +68,12 @@ class GraphMirror:
         aliases=list(dict.fromkeys([a for k in terms(w.scope) for a in (k,*ALIASES.get(k,()))]))
         root('MATCH (f:Focus {id:$k}) UNWIND $xs AS a MERGE (n:Entity {id:a}) MERGE (f)-[r:WATCHES]->(n) SET r.stamp=$v',k=w.key,xs=aliases,v=stamp)
         local('MERGE (q:Question {id:$k}) SET q.text=$t,q.scope=$scope',k=w.key,t=w.question or w.name,scope=w.scope)
+        for point in points:
+            local('MERGE (p:OutlinePoint {id:$id}) SET p.text=$text',id=point.key,text=point.text)
+        for point in points:
+            parent_type = 'Question' if point.parent==w.key else 'OutlinePoint'
+            local('MATCH (p:'+parent_type+' {id:$p}),(n:OutlinePoint {id:$id}) MERGE (p)-[:HAS_SUBQUESTION]->(n)',
+                  p=point.parent,id=point.key)
         for c,l in events:
             root('MATCH (f:Focus {id:$w}) MERGE (e:Event {id:$e}) MERGE (f)-[r:TRACKS]->(e) SET r.stamp=$v,r.reason=$why,r.branch=$b,r.relevance=$p',
                  w=w.key,e=c.key,v=stamp,why=l.reason,b=l.branch,p=l.relevance)
@@ -73,15 +83,20 @@ class GraphMirror:
                 local('MATCH (e:Event {id:$e}) MERGE (a:Article {id:$a}) SET a.url=$url '
                       'MERGE (e)-[r:CITES]->(a) SET r.stamp=$v',
                       e=c.key,a=source['key'],url=source['url'],v=stamp)
+                extraction_graph.project(local,source['key'],source.get('actions',[]),stamp)
         for relation in ('WATCHES','TRACKS'):
             root('MATCH (:Focus {id:$w})-[r:'+relation+']->() WHERE r.stamp<>$v DELETE r',w=w.key,v=stamp)
         local('MATCH (e:Event) WHERE e.stamp<>$v DETACH DELETE e',v=stamp)
         local('MATCH ()-[r:CITES]->() WHERE r.stamp<>$v DELETE r',v=stamp)
-        local('MATCH (a:Article) WHERE NOT (a)<-[:CITES]-() DELETE a')
+        local('MATCH (a:Article) WHERE NOT (a)<-[:CITES]-() DETACH DELETE a')
+        extraction_graph.clean(local)
         for r in reviews:
             local('MATCH (q:Question {id:$w}) MERGE (c:Investigation {id:$k}) SET c.status=$s,c.case_id=$c '
                   'MERGE (q)-[:CHECKED_BY]->(c)',w=w.key,k=r.key,s=r.status,c=r.case_key)
 
+        for point,ticket in point_reviews:
+            local('MATCH (p:OutlinePoint {id:$p}),(i:Investigation {id:$i}) MERGE (p)-[:CHECKED_BY]->(i)',
+                  p=point,i=ticket)
         for question in questions:
             local('MATCH (i:Investigation {case_id:$case}) MERGE (q:ResearchQuestion {id:$id}) '
                   'SET q.text=$text,q.status=$s MERGE (i)-[:ASKS]->(q)',
@@ -129,13 +144,16 @@ class GraphMirror:
                 w=s.get(Watch,key)
                 events=s.exec(select(RadarEntry,WatchEvent).join(WatchEvent,WatchEvent.event==RadarEntry.key)
                        .where(WatchEvent.watch==key,WatchEvent.choice!='exclude')).all()
+                from ..extraction.outline import points as get_points, history
+                points=get_points(s,key)
+                point_reviews=[(link.point,link.ticket) for link,_ in history(s,key)]
                 from ..research.models import ResearchQuestion, ResearchClaim, ResearchReport
                 reviews=s.exec(select(WatchReview).where(WatchReview.watch==key)).all()
                 cases=select(WatchReview.case_key).where(WatchReview.watch==key)
                 questions,claims,reports=[s.exec(select(model).where(model.case_id.in_(cases))).all()
                     for model in (ResearchQuestion,ResearchClaim,ResearchReport)]
         if kind=='event':self.event(card,key,places)
-        else:self.watch(w,events,reviews,questions,claims,reports)
+        else:self.watch(w,events,reviews,questions,claims,reports,points,point_reviews)
         with Session(engine) as s:
             lock_news(s)
             current=s.get(GraphPending,row.key)

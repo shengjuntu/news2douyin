@@ -49,6 +49,8 @@ def snapshot(s,event):
                 .outerjoin(GkgSource,GkgSource.article_key==Article.article_key)
                 .outerjoin(GdeltDiscovery,GdeltDiscovery.article_key==Article.article_key)
                 .where(ArticleEventLink.event_key==event.event_key).order_by(Article.id)).unique().all()
+    from ..storage.articles import latest_version
+    from ..extraction.service import mentions
     titles=[event.event_title]; material=[event.summary]; source=[]; places=set(); dates=[]
     for art,gkg,discovery in rows:
         attrs=loads(gkg.attributes,{}) if gkg else {}
@@ -57,7 +59,9 @@ def snapshot(s,event):
         places.update(attrs.get('locations',[]))
         when=art.published_at or (discovery.seen_at if discovery else '') or art.created_at
         dates.append(when)
-        source.append(dict(key=art.article_key,title=art.title,domain=art.source_domain,
+        version = latest_version(s, art.article_key)
+        actions = mentions(s, version.id) if version else []
+        source.append(dict(actions=actions, key=art.article_key,title=art.title,domain=art.source_domain,
             when=when,time_kind='发布' if art.published_at else ('GDELT 收录' if discovery and discovery.seen_at else '入库'),
             url=art.url,media_country=art.country,mention_iso=attrs.get('mention_iso',[]),author=attrs.get('author',''),duplicate=bool(art.is_duplicate),
             duplicate_of=art.duplicate_of_article_key or '',

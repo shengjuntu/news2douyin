@@ -1,4 +1,5 @@
 """Explainable topic routing. Place mentions never supply publisher location."""
+import json
 import re
 import unicodedata
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -65,6 +66,15 @@ def hits(keys, text):
                 break
     return result
 
+def person_actions(w, card):
+    # An exact argument alias can affect personal relevance. Surname substrings in
+    # another person's full name and mere co-occurrence do not grant actor status.
+    aliases = {norm(a) for key in terms(w.scope) for a in (key,*ALIASES.get(key,()))}
+    return [m for article in json.loads(card.sources) for m in article.get('actions',[])
+            if any(a['role'] in ('actor','speaker','participant') and norm(a['text']) in aliases
+                   for a in m['arguments'])]
+
+
 def match(w,card):
     text=card.headings+'\n'+card.material
     if hits(terms(w.exclude),text): return ''
@@ -73,6 +83,8 @@ def match(w,card):
     dims=terms(w.dimensions)
     matched=hits(dims,text)
     if dims and not matched:return ''
+    if w.kind=='人物' and person_actions(w,card):
+        return '角色命中 · '+'、'.join(anchors[:3]+matched[:3])
     background=w.kind=='人物' and not hits(anchors,card.headings)
     prefix='背景提及' if background else ('待核线索' if w.kind=='线索核查' else '范围命中')
     return prefix+' · '+'、'.join(anchors[:3]+matched[:3])
@@ -86,9 +98,12 @@ def focus_context(w,card,reason):
     in_title = hits(terms(w.scope), card.headings)
     dimensions = hits(terms(w.dimensions), card.headings) or hits(terms(w.dimensions), card.material)
     if w.kind == '人物':
-        branch = '会见与访问' if re.search(r'会见|访问|\b(meets?|met|visits?)\b',card.headings) else (
-            '表态与决定' if re.search(r'表示|签署|讲话|宣布|\b(says?|said|speaks?|signed|orders?)\b',card.headings)
-            else '相关活动')
+        from ..extraction.schema import LABELS
+        actions = person_actions(w,card)
+        if actions:
+            match = next((m for m in actions if m['status']=='reported'), actions[0])
+            return (2 if match['status']=='reported' else 1), LABELS[match['kind']]+' · '+LABELS[match['status']]
+        return 1, '标题或材料命中 · 角色待查'
     else:
         branch = '、'.join(dimensions[:3]) or '综合进展'
     return (2 if in_title else 1), branch

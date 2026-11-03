@@ -25,6 +25,7 @@ def init_db(engine) -> None:
     from .articles import backfill_versions
     from ..search.index import init_search
     from ..desk import models as desk_models
+    from ..extraction import models as extraction_models
     SQLModel.metadata.create_all(engine)
     backfill_versions(engine)
     init_search(engine)
@@ -34,6 +35,8 @@ def init_db(engine) -> None:
     init_research(engine)
     from ..desk.service import initialize as init_desk
     init_desk(engine)
+    from ..extraction.service import initialize as init_extraction
+    init_extraction(engine)
 
 
 def session_scope(engine) -> Session:

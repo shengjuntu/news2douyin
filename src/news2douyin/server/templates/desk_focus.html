@@ -29,10 +29,13 @@
 <details class="card"><summary>跨事件历史时间线 · 发生或生效日期</summary>
 {% for m in timeline %}<p><time>{{ m.date_start }}</time>{% if m.date_end %} 至 {{ m.date_end }}{% endif %} · <a href="/events/{{ m.event_key|urlencode }}?back={{ back|urlencode }}">{{ m.title }}</a> · {{ '已核对' if m.reviewed else '待核' }}{% if m.time_note %} · {{ m.time_note }}{% endif %}</p>{% else %}<p>还没有标注发生日期的进展。在事件详情里添加有出处的节点，就会出现在这里。</p>{% endfor %}<small>显示最近 100 个有发生日期的节点。</small></details>
 {% if excluded %}<details class="card"><summary>手动排除的材料</summary>{% for e in excluded %}<p><a href="/events/{{ e.key|urlencode }}?back={{ back|urlencode }}">{{ e.title }}</a> <button class="ghost" data-restore="{{ e.key }}">恢复自动匹配</button></p>{% endfor %}</details>{% endif %}
+<details class="card"><summary>报道陈述中的日期 · 区分计划、否认和已报道行动</summary>
+{% for m in candidate_dates %}<p>{{ m.date }} · {{ action_labels[m.kind] }} · {{ action_labels[m.status] }} · <a href="/articles/{{ m.article|urlencode }}?revision={{ m.revision }}#m-{{ m.id }}">{{ m.quote }}</a></p>{% else %}<p>暂无带可解析日期的陈述。</p>{% endfor %}<small>最近 60 条有日期且未排除的陈述，可与人工核对的时间线对照。</small></details>
+{% include 'focus_outline.html' %}
 <h2>待查问题与研究记录</h2>
 {% for q in questions %}<p><a href="/research/{{ q.case_id }}">{{ q.text }}</a> · {{ q.status }}</p>{% endfor %}
 {% for r in summaries %}<p>研究报告 · <a href="/research/{{ r.case_id }}">{{ r.title }}</a> · v{{ r.version }} · 截至 {{ r.cutoff }}</p>{% endfor %}
-<label>综述截止日期（UTC，留空为现在，只引用截至当时已保存的本地版本）<input type="date" id="summary-cutoff"></label> <button class="ghost" id="summary-run">生成带来源的专题综述</button><p>自动补查{{ ('已启用 · 下次复查 '+w.next_review) if w.enabled and w.auto_research else '已关闭' }} · <a href="/research/settings">连接 RunDesk</a></p>
+<label>综述截止日期（UTC，留空为现在，只引用截至当时已保存的本地版本）<input type="date" id="summary-cutoff"></label> <button class="ghost" id="summary-run">生成带来源的专题综述</button> <a href="/focus/{{ w.key }}/survey">预览综述大纲与证据</a><p>自动补查{{ ('已启用 · 下次复查 '+w.next_review) if w.enabled and w.auto_research else '已关闭' }} · <a href="/research/settings">连接 RunDesk</a></p>
 {% for r,case,run in reviews %}<p>{{ r.created }} · {{ r.question }} · {{ run.status if run else r.status }}　{% if case %}<a href="/research/{{ r.case_key }}">查看证据与版本报告</a>{% endif %} {{ r.message }} {% if r.status=='blocked' %}<button class="ghost" data-retry="{{ r.key }}">重试此项</button>{% endif %}</p>{% else %}<p class="desk-meta">尚无补查任务。</p>{% endfor %}{% endif %}</section></div>
 <script>
 (()=>{const form=document.querySelector('#focus-form'), presets={{ presets|tojson }},watch={{ data|tojson }},seed={{ seed|tojson }},msg=document.querySelector('#focus-msg');

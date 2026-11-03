@@ -137,7 +137,7 @@ def add_source(s, case, *, title, url, text, kind, published_at='', provenance=N
     return row
 
 
-def create_case(engine, payload, *, preparation=None, frozen_sources=None, fixed_case_id='', budget_override=None, allow_empty=False, prior_watch=''):
+def create_case(engine, payload, *, preparation=None, frozen_sources=None, fixed_case_id='', budget_override=None, allow_empty=False, prior_watch='', survey_packet=None):
     goal = str(payload.get('goal', '')).strip()
     if not goal or len(goal) > 6000:
         raise ValueError('请填写研究目的，最多 6000 字')
@@ -200,7 +200,10 @@ def create_case(engine, payload, *, preparation=None, frozen_sources=None, fixed
                 request_hash=preparation['request_hash'], options_json=dump(preparation['options'])))
         for article in articles:
             version = latest_version(s, article.article_key) if frozen is None else None
-            add_source(s, case, title=article.title, url=article.url, text=article.content or article.title,
+            evidence_text = article.content or article.title
+            if survey_packet is not None and article.content and article.title != article.content:
+                evidence_text = article.title+'\n'+article.content
+            add_source(s, case, title=article.title, url=article.url, text=evidence_text,
                        kind='news_snapshot', published_at=article.published_at,
                        provenance={'article_key': article.article_key, 'article_version': (version.revision if version else None) if frozen is None else frozen[article.article_key].get('revision'),
                                    'topic_source_id': frozen[article.article_key].get('topic_source_id','') if frozen is not None else '',
@@ -208,6 +211,9 @@ def create_case(engine, payload, *, preparation=None, frozen_sources=None, fixed
         if prior_watch:
             from ..desk.knowledge import carry_history
             carry_history(s, case, prior_watch)
+        if survey_packet is not None:
+            from ..extraction.survey import bind
+            bind(s,case,survey_packet)
         activity(s, case.case_id, 'created', '已创建研究课题并保存新闻快照')
         s.commit()
         return detail(s, case.case_id)

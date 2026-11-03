@@ -1,0 +1,53 @@
+version: '1.0'
+owner: SQLite
+projection: FalkorDB
+identity: "同名实体仅为提及名称；旧图的 Entity.id 仍按名称建立。不能从共现推断身份或因果。"
+shared_nodes:
+  Referent: {id: string}
+  OccurrenceCandidate: {id: string}
+  Event: {id: string, title: string}
+  Article: {id: string}
+  EventMention: {id: string, revision: integer, field: string, start: integer, end: integer, quote: string, trigger: string, kind: string, status: string, raw_time: string, date: string, review: string, extractor: string}
+  Argument: {id: string, role: string, text: string, entity_type: string, field: string, start: integer, end: integer, quote: string}
+shared_relationships:
+  REFERS_TO: {from: Argument, to: Referent, source: explicit curated equivalent only}
+  HAS_MATCH_KEY: {from: EventMention, to: OccurrenceCandidate, source: action + status + day + roles + place}
+  DESCRIBES: {from: Article, to: EventMention, cardinality: "1:N per graph", source: "one immutable source revision, unique original passage"}
+  HAS_ARGUMENT: {from: EventMention, to: Argument, cardinality: "1:N per graph", source: "same-revision passage; may cite a second passage for coreference"}
+global_nodes:
+  Entity: {id: string, optional_labels: [Person, Organization]}
+  Place: {iso: string}
+  Focus: {id: string, name: string, enabled: boolean}
+global_extensions:
+  Event: {seen: string}
+  Article: {title: string, domain: string}
+global_relationships:
+  HAS_SOURCE: {from: Event, to: Article}
+  MENTIONS: {from: Article, to: Entity}
+  MENTIONS_PLACE: {from: Article, to: Place}
+  ACTION_AT: {from: Event, to: Place, evidence: [article, revision, quote]}
+  IMPACTS: {from: Event, to: Place, evidence: [article, revision, quote]}
+  WATCHES: {from: Focus, to: Entity}
+  TRACKS: {from: Focus, to: Event, attributes: [reason, branch, relevance]}
+focus_nodes:
+  Question: {id: string, text: string, scope: string}
+  OutlinePoint: {id: string, text: string}
+  Investigation: {id: string, case_id: string, status: string}
+  ResearchQuestion: {id: string, text: string, status: string}
+  Claim: {id: string, text: string, kind: string}
+  EvidenceRef: {id: string, source: string, paragraph: string}
+  Report: {id: string, title: string, version: integer}
+focus_extensions:
+  Article: {url: string}
+focus_relationships:
+  HAS_MATERIAL: {from: Question, to: Event, attributes: [reason]}
+  CITES: {from: Event, to: Article}
+  HAS_SUBQUESTION: {from: [Question, OutlinePoint], to: OutlinePoint, parents_per_child: 1}
+  CHECKED_BY: {from: [Question, OutlinePoint], to: Investigation}
+  ASKS: {from: Investigation, to: ResearchQuestion}
+  FOUND: {from: Investigation, to: Claim}
+  HAS_EVIDENCE: {from: Claim, to: EvidenceRef, attributes: [kind]}
+  ANSWERED_BY: {from: ResearchQuestion, to: Claim}
+  PRODUCED: {from: Investigation, to: Report}
+primary_keys: {default: id, Place: iso}
+units: {offset: "Unicode code points, half open", date: "ISO date or month; empty when unknown"}

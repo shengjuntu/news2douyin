@@ -50,6 +50,11 @@ class Create(Scope):
 def register_desk(app,engine,render):
     def db():
         with Session(engine,expire_on_commit=False) as s:yield s
+    from .extraction import register as register_extraction
+    from ..extraction import outline
+    from ..extraction.service import focus_timeline
+    from ..extraction.schema import LABELS
+    register_extraction(app,db)
     def remember(response,view):
         response.set_cookie('n2d_desk',view,max_age=31536000,httponly=True,samesite='lax')
         return response
@@ -128,8 +133,16 @@ def register_desk(app,engine,render):
         return remember(render('desk_focus.html',active='focus',w=w,data=w.model_dump() if w else {},watches=watches,
             counts=counts,total=total,items=items,offset=offset,reviews=reviews,presets=PRESETS,seed=seed,
             order=order,branch=branch,branches=branches,tags=tags,questions=questions,summaries=summaries,
+            candidate_dates=focus_timeline(s,key) if w else [],action_labels=LABELS,points=outline.points(s,key) if w else [],point_history=outline.history(s,key) if w else [],
             timeline=moments,excluded=excluded,paging=urlencode(dict(order=order,branch=branch)),
             seed_title=seed_event.event_title if seed_event else '',**context(request,s)),'focus')
+
+    @app.get('/focus/{key}/survey')
+    def survey_page(key:str,day:str='',s=Depends(db)):
+        from ..extraction import survey
+        watch=task_call(desk.get_watch,s,key)
+        plan=survey.build(s,watch,task_call(survey.cutoff_date,day))
+        return render('focus_survey.html',active='focus',w=watch,plan=plan,day=day)
 
     @app.post('/api/focus',status_code=201,dependencies=[Depends(same_origin)])
     def create(p:Create,s=Depends(db)):

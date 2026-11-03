@@ -1,0 +1,15 @@
+<details class="card" open><summary>长期问题大纲</summary>
+<p class="muted">子问题跨轮次保留；可就同一问题再次补查，查看前后两次的证据与结论。</p>
+{% for p in points %}<p>↳ <strong>{{ p.text }}</strong>　{% if p.parent!=w.key %}{% for parent in points if parent.key==p.parent %}<small>上级 · {{ parent.text }}</small>{% endfor %}{% endif %} <button class="ghost" data-point="{{ p.key }}">补查这个问题</button></p>
+{% for link,review in point_history if link.point==p.key %}<small>{{ review.created }} · {{ review.status }} {% if review.status in ['submitted','blocked'] %}<a href="/research/{{ review.case_key }}">研究记录</a>{% endif %}</small>{% endfor %}
+{% endfor %}
+<form id="point-form" class="desk-row"><label>上级问题<select name="parent"><option value="{{ w.key }}">专题根问题</option>{% for p in points %}<option value="{{ p.key }}">{{ p.text }}</option>{% endfor %}</select></label>
+<label>新增长期子问题<input name="text" required maxlength="400"></label><button>加入大纲</button></form>
+<p id="point-msg" role="status"></p></details>
+<script>
+(()=>{const form=document.querySelector('#point-form'),message=document.querySelector('#point-msg'),base='/api/focus/'+{{ w.key|tojson }}+'/outline';
+async function add(url,body){const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw Error((await r.json()).detail);location.reload()}
+form.onsubmit=e=>{e.preventDefault();add(base,Object.fromEntries(new FormData(form))).catch(err=>message.textContent=err.message)};
+for(const b of document.querySelectorAll('[data-point]'))b.onclick=()=>add(base+'/'+b.dataset.point+'/review',{}).catch(err=>message.textContent=err.message);
+})();
+</script>

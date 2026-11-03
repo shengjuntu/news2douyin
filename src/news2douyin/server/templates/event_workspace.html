@@ -16,6 +16,10 @@
 {% for r in reports|sort(attribute='when') %}<p>{{ r.when }} · {{ r.time_kind }} · <a href="/articles/{{ r.key|urlencode }}">{{ r.title }}</a> · {{ r.domain or '来源未知' }}{% if r.author %} · 署名 {{ r.author }}{% endif %}{% if r.duplicate %} · 转载候选{% endif %}</p>{% else %}<p>尚无可展示的传播记录。</p>{% endfor %}
 <p>GKG 提及地点：{{ places|join('、') or '暂无' }}。发生地和影响范围需另查原文。</p></details></section>
 <script>document.getElementById('desk-link')?.addEventListener('submit',async function(e){e.preventDefault();try{const r=await fetch('/api/focus/'+this.elements.watch.value+'/links',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({event:{{ view.event_key|tojson }},action:'include'})});if(!r.ok)throw Error((await r.json()).detail);location.reload()}catch(err){document.getElementById('desk-status').textContent=err.message}})</script>
+<details class="card"><summary>动作、角色与原文证据</summary>
+{% set ns=namespace(n=0) %}{% for src in reports %}{% for m in src.get('actions',[]) %}{% set ns.n=ns.n+1 %}
+<p><a href="/articles/{{ src.key|urlencode }}?revision={{ m.revision }}#m-{{ m.id }}">{{ action_labels[m.kind] }} · {{ action_labels[m.status] }}</a> · {{ m.time }} {{ m.date }} · {{ m.quote }}</p>{% endfor %}{% endfor %}
+{% if not ns.n %}<p>当前还没有可展示的动作陈述，可从报道详情查看处理状态。</p>{% endif %}</details>
 {% include 'desk_geography.html' %}
 <p id="merged-notice" class="card" hidden></p><p class="work-summary muted" id="event-summary"></p>
 <p class="small-help">报道是新闻库中的原始资料；脉络是你整理的进展与证据。每个节点明确区分发生日期、报道日期和未知时间。日期按来源描述记录到日，时分与时区写入时间说明。</p>

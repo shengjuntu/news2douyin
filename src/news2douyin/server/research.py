@@ -79,9 +79,12 @@ def register_research_routes(app, engine, storage_root):
         with Session(engine, expire_on_commit=False) as s:
             case = call(svc.require_case, s, case_id)
             from ..desk.models import WatchReview, Watch
+            from ..extraction.models import SurveyPacket
+            packet = s.get(SurveyPacket,case_id)
+            plan = json.loads(packet.data) if packet else None
             watch = s.exec(select(Watch).join(WatchReview, WatchReview.watch == Watch.key)
                            .where(WatchReview.case_key == case_id)).first()
-        return page('research_case.html', case_id=case_id, watch=watch, event_key=case.event_key)
+        return page('research_case.html', case_id=case_id, watch=watch, event_key=case.event_key, plan=plan)
 
     @app.get('/api/research/settings')
     def read_settings():
@@ -213,7 +216,7 @@ def register_research_routes(app, engine, storage_root):
             version = params.get('protocolVersion')
             result = {'protocolVersion': version if version in supported else '2025-03-26',
                       'capabilities': {'tools': {'listChanged': False}},
-                      'serverInfo': {'name': 'news2douyin-research', 'version': '0.18.0'}}
+                      'serverInfo': {'name': 'news2douyin-research', 'version': '0.19.0'}}
         elif method == 'ping':
             result = {}
         elif method == 'tools/list':

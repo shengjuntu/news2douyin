@@ -1,0 +1,23 @@
+<section class="card" id="article-mentions" data-endpoint="/api/desk/articles/{{ article.article_key|urlencode }}/{{ selected.revision }}">
+<h2>报道中的事件陈述</h2>
+<p>版本 r{{ selected.revision }} · {{ {'baseline':'等待规则抽取','rule_running':'正在抽取','model_queued':'等待模型','model_running':'模型运行中','error':'抽取失败','ready':'已完成'}.get(actions.state,actions.state) }}
+{% if actions.method %} · {{ '模型' if actions.method=='model' else '规则' }} {{ actions.model }}{% endif %} · {{ actions.note }}</p>
+<p class="muted">原句描述的是报道者或受访者的说法。核对角色与状态时可打开该固定版本的正文。</p>
+{% for m in actions['items'] %}<article class="desk-pane" id="m-{{ m.id }}">
+<strong>{{ action_labels[m.kind] }} · {{ action_labels[m.status] }}</strong> · {{ {'pending':'待核','rejected':'已排除','accepted':'原文关系已核对'}[m.decision] }}
+<p>{{ '标题' if m.field=='title' else '正文' }} [{{ m.start }}, {{ m.end }}) · {{ m.extractor }} · “{{ m.quote }}”</p>
+<p>动作「{{ m.trigger }}」{% if m.time %} · 时间「{{ m.time }}」 {{ m.date or '无可靠日期锚点' }}{% endif %}</p>
+{% for a in m.arguments %}<span class="badge" title="{{ a.evidence }}">{{ action_labels[a.role] }} · {{ a.text }}</span>{% endfor %}
+<div class="desk-row"><button class="ghost" data-id="{{ m.id }}" data-decision="accepted">已核对原文</button><button class="ghost" data-id="{{ m.id }}" data-decision="{{ 'pending' if m.decision=='rejected' else 'rejected' }}">{{ '恢复待核' if m.decision=='rejected' else '排除' }}</button>
+<button class="ghost" data-match="{{ m.id }}">查找其他报道中的相似陈述</button></div><div data-results="{{ m.id }}"></div></article>
+{% else %}<p>尚无带原句依据的陈述。</p>{% endfor %}
+<button class="ghost" id="run-reader">用已配置模型重新抽取本版本</button>
+<button class="ghost" onclick="location.reload()">刷新结果</button><p id="reader-message" role="status"></p></section>
+<script>
+(()=>{const box=document.querySelector('#article-mentions'),msg=box.querySelector('#reader-message');
+async function post(url,body={}){const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw Error((await r.json()).detail||'提交失败')}
+box.onclick=async e=>{const b=e.target.closest('button');if(!b)return;try{if(b.id==='run-reader'){await post(box.dataset.endpoint+'/model');msg.textContent='已提交，将使用新闻服务配置的模型端点。稍后刷新查看。'}
+else if(b.dataset.decision){await post('/api/desk/mentions/'+b.dataset.id+'/review',{decision:b.dataset.decision});location.reload()}
+else if(b.dataset.match){const r=await fetch('/api/desk/mentions/'+b.dataset.match+'/candidates');if(!r.ok)throw Error('查询失败');const data=await r.json(),area=document.querySelector('[data-results="'+b.dataset.match+'"]');area.replaceChildren();area.append(data.items.length?'候选线索，尚未合并：':'没有同时满足动作、状态、日期、角色和地点条件的其他报道。');for(const x of data.items){const p=document.createElement('p'),a=document.createElement('a');a.textContent=x.quote;a.href='/articles/'+encodeURIComponent(x.article)+'?revision='+x.revision;p.append(a);area.append(p)}}}catch(error){msg.textContent=String(error)}};
+})();
+</script>

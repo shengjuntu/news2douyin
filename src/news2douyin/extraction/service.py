@@ -1,0 +1,174 @@
+"""Durable revision queue. Model work runs outside SQLite transactions."""
+import json
+import os
+import time
+from uuid import uuid4
+from sqlalchemy import delete, or_
+from sqlmodel import Session, select
+from ..storage.articles import lock_news
+from ..storage.models import ArticleVersion, ArticleEventLink
+from ..desk.models import DeskDirty
+from . import reader
+from .models import VersionReading, TextMention, MentionReview
+from .schema import cluster_key
+
+VERSION = '1.0'
+NEW = 'baseline'
+MODEL = 'model_queued'
+
+
+def initialize(engine):
+    with engine.begin() as db:
+        db.exec_driver_sql("""CREATE TRIGGER IF NOT EXISTS extraction_version AFTER INSERT ON articleversion BEGIN
+          INSERT OR IGNORE INTO versionreading(version_id,state,lease,until,method,model,note)
+          VALUES(NEW.id,'baseline','',0,'','',''); END""")
+        # Only the latest version of each historical article requires background backfill.
+        db.exec_driver_sql("""INSERT OR IGNORE INTO versionreading(version_id,state,lease,until,method,model,note)
+            SELECT max(id),'baseline','',0,'','','' FROM articleversion GROUP BY article_key""")
+
+
+def schedule_model(session, version):
+    lock_news(session)
+    job = session.get(VersionReading, version.id)
+    if not job:
+        job = VersionReading(version_id=version.id,state=NEW)
+    if job.state == NEW or (job.state=='rule_running'):
+        job.note = 'model_after_baseline'
+    elif job.state != 'model_running':
+        job.state = MODEL
+    session.add(job)
+    session.commit()
+    return job.state
+
+
+def pick(engine, model):
+    now = time.time()
+    queued = MODEL if model else NEW
+    running = 'model_running' if model else 'rule_running'
+    query = select(VersionReading).where(or_(VersionReading.state==queued,
+        (VersionReading.state==running) & (VersionReading.until < now))).order_by(VersionReading.version_id).limit(1)
+    with Session(engine, expire_on_commit=False) as s:
+        if not s.exec(query).first():
+            return None
+        lock_news(s)
+        job = s.exec(query).first()
+        if not job:
+            return None
+        version = s.get(ArticleVersion,job.version_id)
+        if version is None:
+            s.delete(job)
+            s.commit()
+            return None
+        job.state, job.lease, job.until = running, uuid4().hex, now+180
+        s.add(job)
+        s.commit()
+        return version, job.lease
+
+
+def touch_events(s, article):
+    for key in s.exec(select(ArticleEventLink.event_key).where(ArticleEventLink.article_key==article)):
+        s.merge(DeskDirty(key=key))
+
+
+def step(engine, model=False):
+    chosen = pick(engine, model)
+    if not chosen:
+        return False
+    version, lease = chosen
+    method = 'model' if model else 'rules'
+    model_name = ''
+    error = ''
+    try:
+        if model:
+            from ..llm.settings import get_settings
+            model_name = get_settings().model
+        items, rejected = reader.extract(version, json.loads(version.payload_json), method)
+    except Exception as exc:
+        # Do not expose credentials, endpoint bodies or source text in task messages.
+        error = type(exc).__name__
+    with Session(engine) as s:
+        lock_news(s)
+        job = s.get(VersionReading, version.id)
+        if not job or job.lease != lease:
+            return True
+        wants_model = job.note=='model_after_baseline' or os.getenv('NEWS2DOUYIN_EVENT_READER','rules')=='model'
+        job.until, job.lease = 0.0, ''
+        if error:
+            job.state, job.note = 'error', '抽取失败，可重试 · '+error
+        else:
+            if model and not items and s.exec(select(TextMention.id).where(
+                    TextMention.version_id==version.id).limit(1)).first():
+                job.state,job.note='ready','模型未返回陈述，保留已有抽取'
+                s.add(job)
+                s.commit()
+                return True
+            s.exec(delete(TextMention).where(TextMention.version_id==version.id))
+            for row in items:
+                s.add(TextMention(id=row['id'],version_id=version.id,article=version.article_key,
+                    revision=version.revision,action_date=row['date'],signature=cluster_key(row),data=json.dumps(row,ensure_ascii=False)))
+            job.method, job.model = method, model_name
+            job.state = MODEL if not model and wants_model else 'ready'
+            job.note = f'{len(items)} 条陈述，拒绝 {rejected} 条无依据输出'
+            touch_events(s, version.article_key)
+        s.add(job)
+        s.commit()
+    return True
+
+
+def mentions(s, version_id, include_rejected=False):
+    stmt = select(TextMention,MentionReview).outerjoin(MentionReview,MentionReview.id==TextMention.id
+        ).where(TextMention.version_id==version_id).order_by(TextMention.id)
+    rows = []
+    for item, choice in s.exec(stmt):
+        decision = choice.decision if choice else 'pending'
+        if include_rejected or decision!='rejected':
+            rows.append(dict(json.loads(item.data), decision=decision))
+    return sorted(rows,key=lambda x:(x['field']!='title',x['start'],x['quote'].find(x['trigger'])))
+
+
+def article_view(s, version):
+    job = s.get(VersionReading, version.id)
+    return dict(state=job.state if job else NEW, method=job.method if job else '',
+                model=job.model if job else '',note=job.note if job and job.note!='model_after_baseline' else '',
+                items=mentions(s,version.id,True),revision=version.revision)
+
+
+def decide(s, mention, decision):
+    lock_news(s)
+    row = s.get(TextMention, mention)
+    if not row:
+        raise KeyError('陈述不存在或已更新')
+    if decision not in ('accepted','rejected','pending'):
+        raise ValueError('无效核对状态')
+    s.merge(MentionReview(id=mention,decision=decision))
+    touch_events(s,row.article)
+    s.commit()
+
+
+def neighbors(s,key):
+    item = s.get(TextMention,key)
+    if not item:
+        raise KeyError('陈述不存在')
+    choice = s.get(MentionReview,key)
+    if not item.signature or (choice and choice.decision=='rejected'):
+        return []
+    # Historical versions remain readable; only current versions are eligible as peers.
+    from sqlalchemy import func
+    latest = select(func.max(ArticleVersion.id)).group_by(ArticleVersion.article_key)
+    pairs = s.exec(select(TextMention).outerjoin(MentionReview,MentionReview.id==TextMention.id)
+        .where(TextMention.signature==item.signature,TextMention.article!=item.article,
+               TextMention.version_id.in_(latest),or_(MentionReview.id==None,MentionReview.decision!='rejected'))
+        .order_by(TextMention.article,TextMention.id).limit(30)).all()
+    return [dict(article=p.article,revision=p.revision,quote=json.loads(p.data)['quote']) for p in pairs]
+
+def focus_timeline(s, watch):
+    from sqlalchemy import func
+    from ..desk.models import WatchEvent
+    members=select(ArticleEventLink.article_key).join(WatchEvent,WatchEvent.event==ArticleEventLink.event_key
+        ).where(WatchEvent.watch==watch,WatchEvent.choice!='exclude')
+    latest=select(func.max(ArticleVersion.id)).where(ArticleVersion.article_key.in_(members)).group_by(ArticleVersion.article_key)
+    stmt=select(TextMention).outerjoin(MentionReview,MentionReview.id==TextMention.id).where(
+        TextMention.version_id.in_(latest),TextMention.action_date!='',
+        or_(MentionReview.id==None,MentionReview.decision!='rejected')).order_by(
+        TextMention.action_date.desc(),TextMention.id).limit(60)
+    return [json.loads(row.data) for row in s.exec(stmt)]

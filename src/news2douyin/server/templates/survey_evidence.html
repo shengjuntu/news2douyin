@@ -1,0 +1,6 @@
+<p>截至 {{ plan.cutoff }} · 检查 {{ plan.scanned }} 份存档版本 · 已选 {{ plan.selected|length }}/{{ plan.budget }} 篇。
+{% if plan.truncated %}达到 250 篇候选上限。{% endif %}{% if plan.remaining_questions %}本轮未展开的长期问题 {{ plan.remaining_questions }} 项。{% endif %}</p>
+{% for part in plan.sections %}<section class="desk-pane"><b>{{ part.title }}</b> <span class="badge">{{ part.origin }}</span>
+{% if part.gap %}<p>待查 · {{ part.gap }}</p>{% endif %}
+{% for e in part.evidence %}<p><a href="/articles/{{ e.article|urlencode }}?revision={{ e.revision }}{% if e.mention %}#m-{{ e.mention }}{% endif %}">{{ e.title }} · r{{ e.revision }}</a>
+ · {{ e.basis }} · {{ '原文关系已核对' if e.review=='accepted' else '待核' }}<br>“{{ e.quote }}”{% if e.source_id %} · {{ e.source_id }}/{{ e.paragraph_ids|join('、') }}{% endif %}</p>{% endfor %}</section>{% endfor %}

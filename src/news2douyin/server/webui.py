@@ -305,7 +305,9 @@ def register_webui_routes(app: FastAPI, engine, scheduler, storage_root: str) ->
             diff = '\n'.join(unified_diff((old.get('title', '') + '\n' + old.get('content', '')).splitlines(),
                     (document.get('title', '') + '\n' + document.get('content', '')).splitlines(),
                     fromfile=f'r{selected.revision - 1}', tofile=f'r{selected.revision}', lineterm='')) if previous else ''
-            return render('article_detail.html', active='articles', article=row, document=document,
+            from ..extraction.service import article_view
+            from ..extraction.schema import LABELS
+            return render('article_detail.html', actions=article_view(session,selected), action_labels=LABELS, active='articles', article=row, document=document,
                           selected=selected, current=current, history=history, diff=diff,
                           discovery=session.get(GdeltDiscovery, article_key))
 
@@ -341,10 +343,11 @@ def register_webui_routes(app: FastAPI, engine, scheduler, storage_root: str) ->
                     'media':sorted({r.get('media_country','') for r in reports if r.get('media_country')}),
                     'mention':sorted({iso for r in reports for iso in r.get('mention_iso',[])})}
 
+        from ..extraction.schema import LABELS
         back=safe_back(back)
         return render('event_workspace.html', active='focus' if back.startswith('/focus') else 'radar',
                       view=view, scripts=scripts, timezone=timezone_name(),related=related,watches=watches,
-                      back=back,reports=reports,source_groups=source_groups,places=places,layers=layers,marks=marks,countries=country_labels())
+                      back=back,action_labels=LABELS,reports=reports,source_groups=source_groups,places=places,layers=layers,marks=marks,countries=country_labels())
 
     @app.get('/report/{run_id}')
     def page_report(run_id: int):

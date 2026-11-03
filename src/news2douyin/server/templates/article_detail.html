@@ -24,4 +24,5 @@
 {% if history.offset %}<a href="?revision={{ selected.revision }}&amp;offset={{ [0, history.offset - history.limit]|max }}">上一页</a>{% endif %}
 {% if history.offset + history.limit < history.total %}<a href="?revision={{ selected.revision }}&amp;offset={{ history.offset + history.limit }}">下一页</a>{% endif %}
 </div>
+{% include 'article_mentions.html' %}
 {% endblock %}
