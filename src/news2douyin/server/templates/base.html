@@ -39,6 +39,11 @@ input, select, textarea { background: #0f1115; color: #e6e8ee; border: 1px solid
 input:focus, select:focus { outline: none; border-color: #fe2c55; }
 button { background: #fe2c55; border: none; color: #fff; padding: 8px 16px; border-radius: 6px; font-size: 13.5px; cursor: pointer; }
 button:hover { background: #e91e47; }
+a.action-link { display:inline-block; background:#fe2c55; color:#fff; padding:10px 16px; border-radius:6px; font-weight:600; text-align:center; }
+a.action-link:hover { background:#e91e47; text-decoration:none; }
+a.action-link:focus-visible { outline:2px solid #4dd0e1; outline-offset:3px; }
+.preparation-entry { margin:16px 0; border-color:#29736c; }
+.preparation-entry h2 { margin-top:0; }
 button.ghost { background: #222836; color: #cfd6e6; } button.ghost:hover { background: #2a3145; }
 .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 .snippet { color: #9aa3b8; font-size: 12.5px; max-width: 420px; }
@@ -46,25 +51,26 @@ pre { background: #0b0d11; border: 1px solid #262b38; border-radius: 8px; paddin
 footer { text-align: center; color: #5b647a; font-size: 12px; padding: 16px; }
 button:disabled { opacity:.45; cursor:not-allowed; }
 @media(max-width:800px){header{position:static;flex-wrap:wrap}main{padding:16px 12px}table{display:block;overflow-x:auto}}
+.desk-menu{position:relative}.desk-menu summary{cursor:pointer;padding:6px 10px;color:#afbdc8}.desk-menu>div{position:absolute;min-width:145px;background:#202731;border:1px solid #414c5a;z-index:9;border-radius:8px;padding:6px}.desk-menu a{display:block}nav{align-items:center}
+.desk-grid{display:grid;grid-template-columns:minmax(190px,1fr) minmax(0,3fr);gap:16px}.desk-pane{border-top:1px solid #34404a;padding:14px 0}.desk-form label{display:block;margin:9px 0}.desk-form input:not([type=checkbox]),.desk-form textarea,.desk-form select{display:block;width:100%;max-width:650px}.desk-topic{display:block;margin:8px 0;padding:8px;background:#1e2630;border-radius:6px}.desk-title{font-size:16px;font-weight:600}.desk-meta{color:#a4b4bf;font-size:13px}.desk-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.desk-alert{color:#ffbe7c}.desk-error{color:#ffa29e;white-space:pre-wrap}.desk-gap{margin:14px 0}button:focus-visible,a:focus-visible,summary:focus-visible{outline:2px solid #4dd0e1;outline-offset:2px}
+@media(max-width:760px){.desk-grid{grid-template-columns:1fr}.desk-menu>div{position:relative}.desk-form{width:100%}}
+.source-tree,.source-tree ul{list-style:none;padding-left:1.2rem}.source-tree ul{border-left:1px solid #667487}.source-tree li{padding:.2rem 0 .2rem .55rem}
 </style>
 </head>
 <body>
 <header>
-  <div class="logo">news2douyin<span class="dot">·</span>0.13.0</div>
-  <nav>
-    <a href="/" class="{{ 'on' if active=='daily' }}">每日选题</a>
-    <a href="/articles" class="{{ 'on' if active=='articles' }}">新闻库</a>
-    <a href="/events" class="{{ 'on' if active=='events' }}">事件专题</a>
-    <a href="/research" class="{{ 'on' if active=='research' }}">深入研究</a>
-    <a href="/scripts" class="{{ 'on' if active=='scripts' }}">脚本工作台</a>
-    <a href="/videos" class="{{ 'on' if active=='videos' }}">作品库</a>
-    <a href="/profiles" class="{{ 'on' if active=='profiles' }}">采集策略</a>
-    <a href="/admin" class="{{ 'on' if active in ['home','tasks','runs','timeline','setup'] }}">运行管理</a>
-  </nav>
+  <div class="logo">news2douyin<span class="dot">·</span>0.18.0</div>
+  {% if standalone %}<span class="muted">资源 / 国家与地区</span>{% else %}<nav>
+    <a href="/radar" class="{{ 'on' if active=='radar' }}">事件雷达</a>
+    <a href="/focus" class="{{ 'on' if active=='focus' }}">我的专题</a>
+    <details class="desk-menu"><summary>资料与研究</summary><div><a href="/articles">新闻库</a><a href="/profiles">采集策略</a><a href="/country-reference.html">国家与地区</a><a href="/research">研究记录</a><a href="/topics">选题草稿</a><a href="/daily">每日选题</a></div></details>
+    <details class="desk-menu"><summary>创作与作品</summary><div><a href="/short-scripts">短稿</a><a href="/scripts">脚本工作台</a><a href="/videos">作品库</a><a href="/timeline">新闻长图排版</a><a href="/handoff">制作交接</a></div></details>
+    <details class="desk-menu"><summary>运行管理</summary><div><a href="/admin">运行概览</a><a href="/tasks">任务中心</a><a href="/runs">采集记录</a><a href="/setup">首次运行检查</a></div></details>
+  </nav>{% endif %}
 </header>
 <main>
 {% block content %}{% endblock %}
 </main>
-<footer>news2douyin 0.13.0 · <a href="/setup">首次运行检查</a> · <a href="/tasks">任务中心</a> · <a href="/runs">运行记录</a> · <a href="/timeline">新闻长图排版</a> · <a href="/docs">API</a></footer>
+<footer>news2douyin 0.18.0{% if not standalone %} · <a href="/setup">首次运行检查</a> · <a href="/tasks">任务中心</a> · <a href="/runs">运行记录</a> · <a href="/timeline">新闻长图排版</a> · <a href="/docs">API</a>{% endif %}</footer>
 </body>
 </html>

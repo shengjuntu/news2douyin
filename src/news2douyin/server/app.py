@@ -79,9 +79,11 @@ def create_app(*, db_url: str = 'sqlite:///runs_v7/news2douyin_v7.db', storage_r
         worker.start()
         scheduler.start()
         app.state.research.start()
+        app.state.desk.start()
         try:
             yield
         finally:
+            app.state.desk.stop()
             app.state.research.stop()
             scheduler.stop()
             worker.stop()
@@ -94,9 +96,14 @@ def create_app(*, db_url: str = 'sqlite:///runs_v7/news2douyin_v7.db', storage_r
     app.state.worker = worker
     from .research import register_research_routes
     register_research_routes(app, engine, storage_root)
+    from ..desk.runtime import DeskWorker
+    app.state.desk=DeskWorker(engine,app.state.research)
     register_task_routes(app, tasks, worker, _run_to_dict)
     from .readiness import register_readiness_routes
     register_readiness_routes(app)
+
+    from .topics import register_topic_routes
+    register_topic_routes(app,engine)
 
     @app.get('/api/health')
     def health():

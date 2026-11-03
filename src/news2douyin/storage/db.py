@@ -21,8 +21,10 @@ def make_engine(db_url: str):
 
 def init_db(engine) -> None:
     from ..research import models as research_models
+    from ..topics import models as topic_models
     from .articles import backfill_versions
     from ..search.index import init_search
+    from ..desk import models as desk_models
     SQLModel.metadata.create_all(engine)
     backfill_versions(engine)
     init_search(engine)
@@ -30,6 +32,8 @@ def init_db(engine) -> None:
     backfill_works(engine)
     from ..research.service import initialize as init_research
     init_research(engine)
+    from ..desk.service import initialize as init_desk
+    init_desk(engine)
 
 
 def session_scope(engine) -> Session:

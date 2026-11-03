@@ -31,6 +31,14 @@ class CollectProfile(SQLModel, table=True):
     updated_at: str = Field(default_factory=utc_now_iso)
 
 
+class GdeltDiscovery(SQLModel, table=True):
+    """DOC index metadata retained even if another source supplies the article."""
+    article_key: str = Field(primary_key=True)
+    seen_at: str = ''
+    source_country: str = ''
+    source_language: str = ''
+
+
 class ProfileState(SQLModel, table=True):
     """Added separately so pre-0.7 databases need no table rewrite."""
     name: str = Field(primary_key=True)

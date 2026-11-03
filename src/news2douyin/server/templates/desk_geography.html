@@ -1,0 +1,21 @@
+<details class="card desk-gap" id="desk-geography"><summary>地理分层与实体关系</summary>
+<label>图层 <select id="geo-layer"><option value="action">行动地 · 已标注</option><option value="impact">影响范围 · 已标注</option><option value="media">媒体来源国</option><option value="mention">GKG 提及国家或地区</option></select></label>
+<p id="geo-list" class="desk-meta"></p><svg id="geo-map" viewBox="0 0 604 260" style="max-height:280px;width:100%" role="img" aria-label="选定图层的国家或地区"></svg>
+<p class="desk-meta">底图 Natural Earth · @d3-maps/atlas。无标注时不推测地点；小岛或未绘制地区仍在文字列表中列出。</p>
+{% for m in marks %}<p>{{ '行动地' if m.role=='action' else '影响范围' }} · {{ countries.get(m.iso,m.iso) }} · <a href="/articles/{{ m.article|urlencode }}?revision={{ m.revision }}">“{{ m.quote }}”</a> <button class="ghost" data-unmark="{{ m.key }}">撤销标注</button></p>{% endfor %}
+{% if view.sources %}<details><summary>从原文标注行动地或影响范围</summary>
+<form class="desk-form" id="geo-form"><label>地理角色<select name="role"><option value="action">行动地</option><option value="impact">影响范围</option></select></label>
+<label>国家与地区<select name="iso">{% for code,name in countries.items() %}<option value="{{ code }}">{{ name }} · {{ code|upper }}</option>{% endfor %}</select></label>
+<label>引用的报道版本<select name="article">{% for s in view.sources if s.revision %}<option value="{{ s.article_key }}" data-rev="{{ s.revision }}">{{ s.title }} · r{{ s.revision }}</option>{% endfor %}</select></label>
+<label>依据（原文中的连续摘录）<input name="quote" required maxlength="1500"></label><button>保存标注</button></form></details>{% endif %}
+<p><button id="neighbors" class="ghost">查询共享人物或机构的其他事件</button></p><div id="neighbor-list"></div><p class="desk-error" id="geo-status" role="status"></p>
+</details>
+<script>
+(()=>{const box=document.querySelector('#desk-geography'),sel=document.querySelector('#geo-layer'),map=document.querySelector('#geo-map'),message=document.querySelector('#geo-status'),layers={{ layers|tojson }},names={{ countries|tojson }},base='/api/desk/events/'+encodeURIComponent({{ view.event_key|tojson }});let shapes;
+async function draw(){try{const codes=new Set(layers[sel.value]);document.querySelector('#geo-list').textContent=[...codes].map(c=>names[c]||c).join('、')||'本层暂无已记录地点';if(!shapes){const r=await fetch('/api/desk/map-shapes');if(!r.ok)throw Error('底图加载失败');shapes=await r.json()}map.replaceChildren();for(const [code,name,d] of shapes){const n=document.createElementNS('http://www.w3.org/2000/svg','path');n.setAttribute('d',d);n.setAttribute('fill',codes.has(code)?'#27ad99':'#354454');n.setAttribute('stroke','#172027');n.setAttribute('stroke-width','.4');map.append(n)}}catch(e){message.textContent=e.message}}
+box.addEventListener('toggle',()=>{if(box.open)draw()});sel.onchange=draw;
+document.querySelector('#neighbors').onclick=async()=>{const out=document.querySelector('#neighbor-list');try{const r=await fetch(base+'/neighbors');if(!r.ok)throw Error('查询失败');const v=await r.json();out.textContent=v.state;for(const x of v.items){const p=document.createElement('p'),a=document.createElement('a');a.href='/events/'+encodeURIComponent(x.key);a.textContent=x.title+' · '+x.entity;p.append(a);out.append(p)}}catch(e){message.textContent=e.message}};
+document.querySelector('#geo-form')?.addEventListener('submit',async function(e){e.preventDefault();try{let v=Object.fromEntries(new FormData(this));v.revision=Number(this.elements.article.selectedOptions[0].dataset.rev);const r=await fetch(base+'/places',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(v)});if(!r.ok)throw Error((await r.json()).detail);location.reload()}catch(e){message.textContent=e.message}});
+for(const b of box.querySelectorAll('[data-unmark]'))b.onclick=async()=>{try{const r=await fetch(base+'/places/'+b.dataset.unmark,{method:'DELETE'});if(!r.ok)throw Error('撤销失败');location.reload()}catch(e){message.textContent=e.message}};
+})();
+</script>

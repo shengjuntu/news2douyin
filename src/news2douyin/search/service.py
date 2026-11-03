@@ -78,11 +78,13 @@ def _time_predicate(column, start, end):
 
 
 def article_page(session: Session, *, query='', country='', category='', duplicates='any', limit=50, offset=0, mode='contains',
-                 period='all', date_from='', date_to='', time_field='published', timezone='', task_id='', profile_name=''):
+                 period='all', date_from='', date_to='', time_field='published', timezone='', task_id='', profile_name='', event_key=''):
     if duplicates not in {'any', 'yes', 'no'}:
         raise ValueError('duplicates must be any, yes or no')
     indexed = index_available(session)
     stmt = select(Article)
+    if event_key:
+        stmt = stmt.where(Article.article_key.in_(select(ArticleEventLink.article_key).where(ArticleEventLink.event_key == event_key)))
     for i, term in enumerate(_terms(query, mode)):
         stmt = stmt.where(_match(Article, [Article.title, Article.content, Article.source_domain], term, indexed, f'article_term_{i}'))
     if country:
@@ -118,7 +120,7 @@ def article_page(session: Session, *, query='', country='', category='', duplica
     return _page(session, stmt, [Article.id.desc()], offset=offset, limit=limit, indexed=indexed)
 
 
-def event_page(session: Session, *, query='', country='', topic='', limit=50, offset=0, mode='contains'):
+def event_query(session: Session, *, query='', country='', topic='', mode='contains'):
     indexed = index_available(session)
     from ..storage.models import EventState
     stmt = select(Event).where(~Event.event_key.in_(select(EventState.event_key).where(EventState.merged_into != None)))
@@ -131,7 +133,11 @@ def event_page(session: Session, *, query='', country='', topic='', limit=50, of
         stmt = stmt.where(or_(_json_string_member(Event.countries_json, country), Event.market_scope == country))
     if topic:
         stmt = stmt.where(Event.topic == topic)
-    return _page(session, stmt, [Event.last_seen_at.desc(), Event.id.desc()], offset=offset, limit=limit, indexed=indexed)
+    return stmt
+
+def event_page(session: Session, *, query='', country='', topic='', limit=50, offset=0, mode='contains'):
+    stmt = event_query(session,query=query,country=country,topic=topic,mode=mode)
+    return _page(session,stmt,[Event.last_seen_at.desc(),Event.id.desc()],offset=offset,limit=limit,indexed=index_available(session))
 
 
 def search_articles(session: Session, *, limit=50, **kwargs):

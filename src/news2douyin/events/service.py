@@ -78,6 +78,25 @@ def choose_event(session: Session, item: dict, decision) -> Assignment:
             return Assignment(link.event_key, 'republication', decision.score, parent)
         article = session.exec(select(Article).where(Article.article_key == parent)).first()
         parent = article.duplicate_of_article_key if article else None
+    if item.get('gkg') and len(decision.normalized.normalized_title)>=24:
+        from ..desk.models import GkgSource
+        from ..storage.models import GdeltDiscovery
+        from ..storage.utils import loads
+        indexed=timestamp(item['gdelt']['seen_at'])
+        lo=(indexed-timedelta(days=2)).strftime('%Y-%m-%dT%H:%M:%SZ')
+        hi=(indexed+timedelta(days=2)).strftime('%Y-%m-%dT%H:%M:%SZ')
+        entities=set(item['gkg']['persons']+item['gkg']['orgs'])
+        stmt=(select(Article,ArticleEventLink.event_key,GkgSource)
+              .join(ArticleEventLink,ArticleEventLink.article_key==Article.article_key)
+              .join(GkgSource,GkgSource.article_key==Article.article_key)
+              .join(GdeltDiscovery,GdeltDiscovery.article_key==Article.article_key)
+              .where(Article.title_hash==decision.normalized.title_hash,GdeltDiscovery.seen_at.between(lo,hi))
+              .order_by(Article.id).limit(50))
+        for other,key,source in session.exec(stmt):
+            attrs=loads(source.attributes,{})
+            if other.normalized_title==decision.normalized.normalized_title and entities.intersection(
+                    attrs.get('persons',[])+attrs.get('orgs',[])):
+                return Assignment(key,'gkg_same_title_entity_window',1.0,other.article_key)
     published = timestamp(item.get('published_at'))
     if published:
         # Compare publication times, never ingestion time: historical backfills work.

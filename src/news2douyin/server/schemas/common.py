@@ -7,9 +7,9 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 class ProfilePayload(BaseModel):
     name: str = Field(pattern=r'^[^/\\\x00-\x1f]{1,80}$')
-    provider: Literal['worldnewsapi', 'mock'] = 'worldnewsapi'
-    country: str = Field(default='us', min_length=1, max_length=8)
-    language: str = Field(default='en', min_length=1, max_length=8)
+    provider: Literal['worldnewsapi', 'mock', 'gdelt', 'gkg'] = 'worldnewsapi'
+    country: str = Field(default='us', max_length=8)
+    language: str = Field(default='en', max_length=8)
     categories: list[str] = Field(default_factory=list)
     keywords_include: list[str] = Field(default_factory=list)
     keywords_exclude: list[str] = Field(default_factory=list)
@@ -20,7 +20,7 @@ class ProfilePayload(BaseModel):
     market_tags: list[str] = Field(default_factory=list)
     extra: dict[str, Any] = Field(default_factory=dict)
 
-    @field_validator('name', 'country', 'language')
+    @field_validator('name')
     @classmethod
     def nonblank(cls, value):
         value = value.strip()
@@ -38,12 +38,26 @@ class ProfilePayload(BaseModel):
     @model_validator(mode='after')
     def validate_options(self):
         from ...search.dates import timezone_name, calendar_day
+        if self.provider in ('gdelt','gkg'):
+            from ...collect.providers.gdelt import query_for
+            self.country = self.country.strip().lower() if 'country' in self.model_fields_set else ''
+            self.language = self.language.strip().lower() if 'language' in self.model_fields_set else ''
+            self.extra.setdefault('collection_mode', 'search')
+            self.extra.setdefault('filter_mode', 'rules')
+            if self.provider=='gkg':
+                from ...collect.providers.gkg import validate as query_for
+            query_for({**self.extra, 'country': self.country, 'language': self.language, 'max_items': self.max_items})
+            self.extra['search_query'] = self.extra['search_query'].strip()
+        else:
+            self.country, self.language = self.country.strip(), self.language.strip()
+            if not self.country or not self.language:
+                raise ValueError('国家和语言不能为空')
         if self.extra.get('filter_mode', 'auto') not in ('auto', 'rules'):
             raise ValueError('filter_mode 必须为 auto 或 rules')
         mode = self.extra.get('collection_mode', 'top')
         if mode not in ('top','search'):
             raise ValueError('获取方式必须为 top 或 search')
-        if mode == 'search':
+        if mode == 'search' and self.provider not in ('gdelt','gkg'):
             query = self.extra.get('search_query','')
             if not isinstance(query,str) or not 3 <= len(query.strip()) <= 100:
                 raise ValueError('检索词需要 3–100 个字符')

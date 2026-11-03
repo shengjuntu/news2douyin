@@ -23,13 +23,13 @@ def register_short_script_routes(app, engine, storage_root):
 
     @app.get('/short-scripts', response_class=HTMLResponse)
     def page():
-        return HTMLResponse(env.get_template('short_scripts.html').render(active='scripts', case_id=''))
+        return HTMLResponse(env.get_template('short_scripts.html').render(active='short_scripts', case_id=''))
 
     @app.get('/short-scripts/{case_id}', response_class=HTMLResponse)
     def detail_page(case_id: str):
         with Session(engine) as s:
             call(require, s, case_id)
-        return HTMLResponse(env.get_template('short_scripts.html').render(active='scripts', case_id=case_id))
+        return HTMLResponse(env.get_template('short_scripts.html').render(active='short_scripts', case_id=case_id))
 
     @app.get('/api/short-scripts')
     def listing():

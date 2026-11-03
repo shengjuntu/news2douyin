@@ -119,6 +119,9 @@ class TaskService:
             from ..search.dates import calendar_day, timezone_name
             profile['timezone'] = timezone_name(profile.get('timezone', ''))
             profile['date_str'] = calendar_day(profile.get('date_str', ''), profile['timezone'])
+            if profile.get('provider')=='gkg':
+                from ..collect.providers.gkg import batch, scheduled_batch
+                profile['gkg_batch'] = scheduled_batch(profile, local) if scheduled else batch(profile)
             task = TaskRecord(task_id=uuid4().hex, profile_name=profile_name,
                               profile_json=dumps(profile), request_hash=request_hash,
                               idempotency_key=key, max_attempts=max_attempts)

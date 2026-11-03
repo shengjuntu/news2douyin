@@ -77,7 +77,8 @@ def create(engine, payload):
 
 
 def prompt(options):
-    return (' 本轮是短稿轻量补材任务，优先遵守这里的范围：不展开完整深度研究。'
+    restriction = ' 本次仅用已选资料写稿，禁止检索和新增 URL 读取；用已保存 source_id 读原文、保存判断与短稿。预算为0，下文一般补材建议不适用于本次。' if options.get('source_only') else ''
+    return restriction + (' 本轮是短稿轻量补材任务，优先遵守这里的范围：不展开完整深度研究。'
             '先读所选原文，合并同一事件的事实；不相关的报道不要强行合并，写入 gaps。'
             '优先复用已保存资料和本地新闻。仅在补背景、核对冲突、寻找配图有必要时申请外部搜索；'
             '总计最多 3 次外部搜索、6 次新增正文读取，5 分钟补材预算，够用即停，不要求用完预算。'
@@ -104,6 +105,7 @@ def summary(s, row):
     case = research.require_case(s, row.case_id)
     run = s.get(ResearchRun, case.active_run_id)
     return dict(case_id=row.case_id, title=case.title, options=json.loads(row.options_json),
+                max_searches=json.loads(case.strategy_json)['max_searches'],max_reads=json.loads(case.strategy_json)['max_reads'],
                 status=run.status if run else 'not_started', error=run.error if run else '',
                 search_count=run.search_count if run else 0, read_count=run.read_count if run else 0,
                 package_key=row.package_key, script_url='/scripts/' + row.package_key if row.package_key else None,

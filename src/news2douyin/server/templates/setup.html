@@ -10,7 +10,7 @@
 <div class="setup-grid">
  <section class="card setup-card" id="news-card"><h2>1 · 新闻与自动采集</h2>
   <div id="news-summary" class="muted">正在检查…</div><div id="news-profiles"></div>
-  <details><summary>如何接入真实新闻</summary><p>在运行服务的目录复制 <code>.env.example</code> 为 <code>.env</code>，填写 <code>API_KEY</code>，重启服务。在策略中选择 WorldNewsAPI，并设置国家、语言和关注词。自定义密钥变量沿用策略配置。</p><p>保存后到采集策略点击“试跑”，核对抓取数、过滤原因和样本。密钥存在不代表账户权限或额度已经验证。</p></details>
+  <details><summary>如何接入真实新闻</summary><p>GDELT 无需密钥。到采集策略选择 GDELT，填写英文关键词，保存后试跑。</p><p>在运行服务的目录复制 <code>.env.example</code> 为 <code>.env</code>，填写 <code>API_KEY</code>，重启服务。在策略中选择 WorldNewsAPI，并设置国家、语言和关注词。自定义密钥变量沿用策略配置。</p><p>保存后到采集策略点击“试跑”，核对抓取数、过滤原因和样本。密钥存在不代表账户权限或额度已经验证。</p></details>
   <div class="setup-actions"><a href="/profiles">新增策略 / 试跑 →</a><a href="/daily">每日选题 →</a></div>
   <h3>自动采集计划</h3><p id="schedule-summary" class="muted">正在检查…</p><div id="setup-schedules"></div>
   <p><a href="/profiles#schedules">管理计划与时区 →</a></p>
@@ -51,7 +51,7 @@ const badge=(text,kind='')=>`<span class="badge ${kind}">${esc(text)}</span>`;
 function checked(value){return new Date(value).toLocaleString('zh-CN',{hour12:false})+'（浏览器本地时间）';}
 async function api(url,method='GET'){const r=await fetch(url,{method,cache:'no-store'});const data=await r.json();if(!r.ok)throw Error(data.message||'检查请求失败，请稍后重试。');return data;}
 function renderConfig(d){
- el('news-summary').textContent=`已启用 ${d.summary.enabled_profiles} 个策略：${d.summary.configured_news} 个真实新闻策略已填写密钥，${d.summary.demo_profiles} 个演示策略。`;
+ el('news-summary').textContent=`已启用 ${d.summary.enabled_profiles} 个策略：${d.summary.configured_news} 个真实新闻策略已配置，${d.summary.demo_profiles} 个演示策略。`;
  const labels={configured:['已配置 · 待试跑','warn'],demo:['演示数据',''],missing:['缺少密钥','bad'],invalid:['需修正','bad']};
  el('news-profiles').innerHTML=d.profiles.length?d.profiles.map(p=>`<div class="setup-detail"><div class="setup-row"><strong>${esc(p.name)}</strong>${p.enabled?badge(...labels[p.state]):badge('已停用')}</div><p class="muted small">${esc(p.note)}</p></div>`).join(''):'<p>还没有策略。先新增“演示数据”策略，即可验证完整流程。</p>';
  el('schedule-summary').textContent=`已启用 ${d.summary.enabled_schedules} 个计划`+(d.summary.schedule_issues?`，其中 ${d.summary.schedule_issues} 个需修正。`:'。')+(d.scheduler_running?'当前服务调度器运行中。':'当前服务调度器已停止。');

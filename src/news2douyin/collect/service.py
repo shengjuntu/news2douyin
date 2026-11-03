@@ -11,11 +11,14 @@ from sqlalchemy import inspect
 from sqlmodel import Session, select
 
 from .profiles import PROFILE_FIELDS, normalize_profile_dict, load_profile_file
+from .providers.gdelt import fetch_news as fetch_gdelt, query_for as gdelt_query
+from .providers import gkg
+from ..desk.models import GkgSource
 from .providers.mock import fetch_mock_news
 from .providers.worldnewsapi import fetch_news as fetch_worldnewsapi
 from ..dedup.service import decide_duplicate
 from ..enrich.service import enrich_item
-from ..storage.models import CollectProfile, RunRecord, Article, Event, ArticleEventLink, ArticleIdentity, EventAssignment, ArticleVersion, CollectedObservation, utc_now_iso
+from ..storage.models import CollectProfile, RunRecord, Article, Event, ArticleEventLink, ArticleIdentity, EventAssignment, ArticleVersion, GdeltDiscovery, CollectedObservation, utc_now_iso
 from ..storage.articles import lock_news, identity_key, find_article, record_version, latest_version
 from ..events.service import choose_event, refresh_event
 from ..storage.utils import dumps, loads
@@ -24,6 +27,8 @@ from ..store.io_jsonl import write_json, write_jsonl
 PROVIDERS = {
     'worldnewsapi': fetch_worldnewsapi,
     'mock': fetch_mock_news,
+    'gdelt': fetch_gdelt,
+    'gkg': gkg.fetch_news,
 }
 
 
@@ -58,6 +63,9 @@ def get_profile(session: Session, profile_name: str) -> dict[str, Any]:
 
 def create_or_update_profile(session: Session, profile: dict[str, Any]) -> CollectProfile:
     profile = normalize_profile_dict(profile)
+    if profile['provider'] == 'gdelt':
+        gdelt_query(profile)
+    if profile['provider']=='gkg':gkg.validate(profile)
     lock_news(session)
     row = session.exec(select(CollectProfile).where(CollectProfile.name == profile['name'])).first()
     now = utc_now_iso()
@@ -113,7 +121,7 @@ def _utc_timestamp(value: str, fallback: str) -> str:
 def _upsert_event(session: Session, item: dict[str, Any], event_key: str) -> Event:
     row = session.exec(select(Event).where(Event.event_key == event_key).execution_options(populate_existing=True)).first()
     now = utc_now_iso()
-    published = _utc_timestamp(item.get('published_at'), now)
+    published = _utc_timestamp(item.get('published_at') or (item.get('gdelt') or {}).get('seen_at'), now)
     if not row:
         row = Event(
             event_key=event_key,
@@ -275,7 +283,10 @@ def run_collection(session: Session, profile_name: str, *, storage_root: str | P
                 # Legacy/directly inserted rows get an honest baseline first.
                 record_version(session, existing, origin='legacy_baseline')
                 session.flush()
-                changed = record_version(session, row, run_key=run.run_key)
+                # A discovery hit cannot replace a full article or its attribution.
+                protect_article = provider in ('gdelt','gkg') and (existing.provider not in ('gdelt','gkg') or
+                                                           existing.content or existing.published_at)
+                changed = not protect_article and record_version(session, row, run_key=run.run_key)
                 if changed:
                     for field in Article.model_fields:
                         if field not in {'id', 'article_key', 'created_at'}:
@@ -319,6 +330,22 @@ def run_collection(session: Session, profile_name: str, *, storage_root: str | P
                 created_events += int(is_new_event)
                 dup_count += int(decision.is_duplicate)
                 stored_articles.append(row)
+            if provider=='gkg':
+                attrs=item.get('gkg') or {}
+                old=session.get(GkgSource,article_key)
+                if not old or attrs['record_id'][:14]>=old.record_id[:14]:
+                    saved_gkg=GkgSource(article_key=article_key,record_id=attrs['record_id'],attributes=dumps(attrs))
+                    session.merge(saved_gkg)
+            if provider in ('gdelt','gkg'):
+                meta = item['gdelt']
+                discovery = session.get(GdeltDiscovery, article_key)
+                if discovery is None:
+                    discovery = GdeltDiscovery(article_key=article_key)
+                if not discovery.seen_at or (meta['seen_at'] and meta['seen_at'] < discovery.seen_at):
+                    discovery.seen_at = meta['seen_at']
+                discovery.source_country = meta['source_country'] or discovery.source_country
+                discovery.source_language = meta['source_language'] or discovery.source_language
+                session.add(discovery)
             session.flush()
             version = latest_version(session, article_key)
             session.add(CollectedObservation(observation_key=f'{scope_id}:{index}', scope_id=scope_id,

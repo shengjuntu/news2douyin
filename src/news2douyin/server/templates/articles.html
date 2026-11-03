@@ -33,8 +33,9 @@ period.addEventListener('change',()=>{if(period.value!=='custom')dates.forEach(i
 {% for a in articles %}
 <tr>
   <td><a href="/articles/{{ a.key }}">{{ a.title }}</a> <a class="small" href="/research?article_key={{ a.key|urlencode }}">深入研究</a>
+    {% if a.provider=='gdelt' %}<span class="badge">GDELT · 报道线索</span>{% endif %}
     {% if a.is_duplicate %}<span class="badge">转载/副本</span>{% endif %}
-    <div class="snippet">{{ a.snippet }}…</div></td>
+    <div class="snippet">{% if a.snippet %}{{ a.snippet }}…{% endif %}</div></td>
   <td class="muted small">{{ a.domain }}</td>
   <td>{{ a.country }}</td>
   <td>{% for c in a.categories %}<span class="badge cat">{{ c }}</span> {% endfor %}</td>

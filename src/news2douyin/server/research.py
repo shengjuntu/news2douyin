@@ -29,7 +29,7 @@ def call(fn, *args, **kwargs):
         raise HTTPException(400, str(exc)[:1200]) from None
 
 
-def same_origin(request):
+def same_origin(request: Request):
     origin = request.headers.get('origin')
     if origin:
         parsed = urlsplit(origin)
@@ -77,8 +77,11 @@ def register_research_routes(app, engine, storage_root):
     @app.get('/research/{case_id}', response_class=HTMLResponse)
     def research_case(case_id: str):
         with Session(engine, expire_on_commit=False) as s:
-            call(svc.require_case, s, case_id)
-        return page('research_case.html', case_id=case_id)
+            case = call(svc.require_case, s, case_id)
+            from ..desk.models import WatchReview, Watch
+            watch = s.exec(select(Watch).join(WatchReview, WatchReview.watch == Watch.key)
+                           .where(WatchReview.case_key == case_id)).first()
+        return page('research_case.html', case_id=case_id, watch=watch, event_key=case.event_key)
 
     @app.get('/api/research/settings')
     def read_settings():
@@ -123,7 +126,8 @@ def register_research_routes(app, engine, storage_root):
     def get_cases():
         with Session(engine, expire_on_commit=False) as s:
             result = []
-            for row in s.exec(select(ResearchCase).order_by(ResearchCase.updated_at.desc()).limit(100)):
+            from ..topics.models import TopicWorkspace
+            for row in s.exec(select(ResearchCase).where(~ResearchCase.case_id.in_(select(TopicWorkspace.case_id))).order_by(ResearchCase.updated_at.desc()).limit(100)):
                 run = s.get(ResearchRun, row.active_run_id)
                 result.append(dict(case_id=row.case_id, title=row.title, goal=row.goal, updated_at=row.updated_at,
                                    status=run.status if run else 'draft'))
@@ -209,7 +213,7 @@ def register_research_routes(app, engine, storage_root):
             version = params.get('protocolVersion')
             result = {'protocolVersion': version if version in supported else '2025-03-26',
                       'capabilities': {'tools': {'listChanged': False}},
-                      'serverInfo': {'name': 'news2douyin-research', 'version': '0.15.0'}}
+                      'serverInfo': {'name': 'news2douyin-research', 'version': '0.18.0'}}
         elif method == 'ping':
             result = {}
         elif method == 'tools/list':

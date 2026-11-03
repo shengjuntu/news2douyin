@@ -1,0 +1,49 @@
+{% extends 'base.html' %}{% block title %}我的专题 · 新闻研究台{% endblock %}{% block content %}
+<div class="desk-row"><h1>我的专题</h1><a href="/radar">事件雷达 →</a><a href="/focus?new=1">＋ 新建专题</a></div>
+{% if indexing %}<p class="desk-alert">尚有 {{ indexing }} 个事件待建立索引。后台完成后自动归集，刷新可查看。</p>{% endif %}
+<div class="desk-grid"><aside class="card"><strong>长期关注</strong>{% for t in watches %}<a class="desk-topic" href="/focus/{{ t.key }}" {% if w and t.key==w.key %}aria-current="page"{% endif %}>{{ t.name }} <small>· {{ counts.get(t.key,0) }} 项</small>{% if not t.enabled %} · 暂停{% endif %}</a>{% else %}<p class="muted">可以从零建题，也可以从事件详情开始。</p>{% endfor %}
+<details><summary>后台状态</summary><p>专题匹配：服务端运行。图投影：{{ ('待重试 · '+graph_error) if graph_error else ('已配置' if graph_enabled else '未配置') }}。</p><a href="/api/desk/status">查看队列状态</a></details></aside>
+<section>
+{% if w %}<span class="badge">{{ w.kind }}</span> <span>{{ '跟踪中' if w.enabled else '已暂停归集' }}</span><h2>{{ w.name }}</h2><p>{{ w.question or '尚未设置长期问题' }}</p>
+<p class="desk-meta">关注范围 {{ w.scope }}{% if w.dimensions %} · 限定 {{ w.dimensions }}{% endif %} · 已归集 {{ counts.get(w.key,0) }} 项</p>{% endif %}
+<details id="desk-editor" class="card" {% if not w %}open{% endif %}><summary>{{ '编辑范围与补查' if w else '建立长期专题' }}</summary>
+<form id="focus-form" class="desk-form"><label>选择预设（也可直接填写）<select id="preset"><option value="">自定义</option>{% for p in presets %}<option value="{{ loop.index0 }}">{{ p.name }}</option>{% endfor %}</select></label>
+<label>名称<input name="name" maxlength="80" required value="{{ w.name if w else seed_title[:80] }}"></label>
+<label>类型<select name="kind">{% for k in ['人物','长期事件','区域态势','线索核查'] %}<option {% if (w and k==w.kind) or (not w and k=='长期事件') %}selected{% endif %}>{{ k }}</option>{% endfor %}</select></label>
+<label>关注对象、别名或地区（任一匹配，可用逗号分隔）<input name="scope" maxlength="600" required value="{{ w.scope if w else '' }}" placeholder="例如 特朗普，Donald Trump"></label>
+<label>还需命中至少一个议题（可空）<input name="dimensions" maxlength="600" value="{{ w.dimensions if w else '' }}"></label>
+<label>排除词（可空）<input name="exclude" maxlength="600" value="{{ w.exclude if w else '' }}"></label>
+<label>希望长期弄清什么？<textarea name="question" maxlength="600" rows="2">{{ w.question if w else '' }}</textarea></label>
+<label><input type="checkbox" name="enabled" {{ 'checked' if not w or w.enabled }}> 启用跟踪</label>
+<label><input type="checkbox" name="auto_research" {{ 'checked' if w and w.auto_research }}> 自动交给 RunDesk 定向补查（需要已连接研究环境，可能产生外部搜索及模型费用）</label>
+<label>定期复查间隔（天）<input name="review_days" type="number" min="1" max="90" value="{{ w.review_days if w else 7 }}"></label>
+{% if seed %}<p>将手动关联起始事件：{{ seed_title }}</p>{% endif %}
+<div class="desk-row"><button>保存专题</button><button type="button" class="ghost" id="preview">预览匹配</button></div><pre id="preview-result" hidden></pre></form></details>
+<p id="focus-msg" class="desk-error" role="status"></p>
+{% if w %}<h2>近期进展与来源</h2>
+<form class="desk-row"><label>排序 <select name="order"><option value="recent">最新材料</option><option value="relevance" {{ 'selected' if order=='relevance' }}>与本专题的相关度</option></select></label>
+<label>分支 <select name="branch"><option value="">全部分支</option>{% for label in branches if label %}<option value="{{ label }}" {{ 'selected' if label==branch }}>{{ label }}</option>{% endfor %}</select></label><button class="ghost">查看</button></form>
+{% for e,why in items %}<article class="desk-pane"><a class="desk-title" href="/events/{{ e.key|urlencode }}?back={{ back|urlencode }}">{{ e.title }}</a><div>{{ tags[e.key] }} · {{ why }} · 全局{{ e.band }}</div><p class="desk-meta">{{ e.evidence }} · {{ e.seen }}</p><button class="ghost" data-check="{{ e.key }}">核查此事</button> <button class="ghost" data-hide="{{ e.key }}">排除此项</button></article>
+{% else %}<p class="card">暂无匹配，专题已保留。可以编辑范围、查看历史索引进度，或从事件详情手动加入。</p>{% endfor %}
+{% if offset %}<a href="?{{ paging }}&offset={{ [0,offset-30]|max }}">上一页</a>{% endif %} {% if offset+30<total %}<a href="?{{ paging }}&offset={{ offset+30 }}">下一页</a>{% endif %}
+<details class="card"><summary>跨事件历史时间线 · 发生或生效日期</summary>
+{% for m in timeline %}<p><time>{{ m.date_start }}</time>{% if m.date_end %} 至 {{ m.date_end }}{% endif %} · <a href="/events/{{ m.event_key|urlencode }}?back={{ back|urlencode }}">{{ m.title }}</a> · {{ '已核对' if m.reviewed else '待核' }}{% if m.time_note %} · {{ m.time_note }}{% endif %}</p>{% else %}<p>还没有标注发生日期的进展。在事件详情里添加有出处的节点，就会出现在这里。</p>{% endfor %}<small>显示最近 100 个有发生日期的节点。</small></details>
+{% if excluded %}<details class="card"><summary>手动排除的材料</summary>{% for e in excluded %}<p><a href="/events/{{ e.key|urlencode }}?back={{ back|urlencode }}">{{ e.title }}</a> <button class="ghost" data-restore="{{ e.key }}">恢复自动匹配</button></p>{% endfor %}</details>{% endif %}
+<h2>待查问题与研究记录</h2>
+{% for q in questions %}<p><a href="/research/{{ q.case_id }}">{{ q.text }}</a> · {{ q.status }}</p>{% endfor %}
+{% for r in summaries %}<p>研究报告 · <a href="/research/{{ r.case_id }}">{{ r.title }}</a> · v{{ r.version }} · 截至 {{ r.cutoff }}</p>{% endfor %}
+<label>综述截止日期（UTC，留空为现在，只引用截至当时已保存的本地版本）<input type="date" id="summary-cutoff"></label> <button class="ghost" id="summary-run">生成带来源的专题综述</button><p>自动补查{{ ('已启用 · 下次复查 '+w.next_review) if w.enabled and w.auto_research else '已关闭' }} · <a href="/research/settings">连接 RunDesk</a></p>
+{% for r,case,run in reviews %}<p>{{ r.created }} · {{ r.question }} · {{ run.status if run else r.status }}　{% if case %}<a href="/research/{{ r.case_key }}">查看证据与版本报告</a>{% endif %} {{ r.message }} {% if r.status=='blocked' %}<button class="ghost" data-retry="{{ r.key }}">重试此项</button>{% endif %}</p>{% else %}<p class="desk-meta">尚无补查任务。</p>{% endfor %}{% endif %}</section></div>
+<script>
+(()=>{const form=document.querySelector('#focus-form'), presets={{ presets|tojson }},watch={{ data|tojson }},seed={{ seed|tojson }},msg=document.querySelector('#focus-msg');
+async function send(url,obj,method='POST'){const r=await fetch(url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(obj)});const value=await r.json();if(!r.ok)throw Error(typeof value.detail==='string'?value.detail:JSON.stringify(value.detail));return value}
+function payload(){const d=Object.fromEntries(new FormData(form));d.enabled=form.elements.enabled.checked;d.auto_research=form.elements.auto_research.checked;d.review_days=Number(d.review_days);return d}
+const base='/api/focus'+(watch.key?'/'+watch.key:'');
+form.onsubmit=async ev=>{ev.preventDefault();try{let d=payload();if(watch.key)d.version=watch.version;else d.seed=seed;const x=await send(base,d,watch.key?'PUT':'POST');location.href='/focus/'+x.key}catch(e){msg.textContent=e.message}};
+document.querySelector('#preset').onchange=e=>{let p=presets[e.target.value];if(p)for(let [k,v] of Object.entries(p))form.elements[k].value=v};
+document.querySelector('#preview').onclick=async()=>{try{const r=await send('/api/focus/preview',payload());const out=document.querySelector('#preview-result');out.hidden=false;out.textContent='最近 '+r.checked+' 个已索引事件中命中 '+r.matched+' 个\n'+r.examples.map(x=>x.title+' · '+x.reason).join('\n')+'\n未纳入的样例：\n'+r.excluded.join('\n')}catch(e){msg.textContent=e.message}};
+document.querySelector('#summary-run')?.addEventListener('click',async function(){this.disabled=true;try{await send(base+'/reviews',{event:'',action:'summary',cutoff:document.querySelector('#summary-cutoff').value});location.reload()}catch(e){msg.textContent=e.message;this.disabled=false}});
+for(const b of document.querySelectorAll('[data-hide],[data-check],[data-retry],[data-restore]'))b.onclick=async()=>{b.disabled=true;try{if(b.dataset.restore)await send(base+'/links',{event:b.dataset.restore,action:'auto'});else if(b.dataset.retry)await send(base+'/reviews/'+b.dataset.retry+'/retry',{});else await send(base+(b.dataset.check?'/reviews':'/links'),{event:b.dataset.check||b.dataset.hide,action:b.dataset.check?'check':'exclude'});location.reload()}catch(e){msg.textContent=e.message;b.disabled=false}};
+})();
+</script>
+{% endblock %}

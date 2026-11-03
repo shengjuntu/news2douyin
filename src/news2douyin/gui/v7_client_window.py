@@ -114,7 +114,7 @@ class V7ClientWindow(QMainWindow):
         form = QFormLayout(right)
         self.p_name = QLineEdit(right)
         self.p_provider = QComboBox(right)
-        self.p_provider.addItems(['worldnewsapi', 'mock'])
+        self.p_provider.addItems(['worldnewsapi', 'gdelt', 'gkg', 'mock'])
         self.p_country = QLineEdit(right)
         self.p_language = QLineEdit(right)
         self.p_categories = QLineEdit(right)
@@ -448,8 +448,8 @@ class V7ClientWindow(QMainWindow):
             payload = {
                 'name': self.p_name.text().strip(),
                 'provider': self.p_provider.currentText().strip() or 'worldnewsapi',
-                'country': self.p_country.text().strip() or 'us',
-                'language': self.p_language.text().strip() or 'en',
+                'country': self.p_country.text().strip() or ('' if self.p_provider.currentText() in ('gdelt','gkg') else 'us'),
+                'language': self.p_language.text().strip() or ('' if self.p_provider.currentText() in ('gdelt','gkg') else 'en'),
                 'categories': self._parse_csv(self.p_categories.text()),
                 'keywords_include': self._parse_csv(self.p_keywords_include.text()),
                 'keywords_exclude': self._parse_csv(self.p_keywords_exclude.text()),

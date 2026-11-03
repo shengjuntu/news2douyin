@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}国家与地区 · news2douyin{% endblock %}
+{% block content %}
+<style>
+.directory{--ink:#eef3f7;--muted:#a1adbf;--line:#303946;--accent:#67d9c8;max-width:1060px;margin:18px auto 0;color:var(--ink)}
+.directory h1{font-size:clamp(27px,4vw,39px);margin:4px 0 8px;letter-spacing:-.04em}
+.dir-eyebrow{color:var(--accent);font:600 11px/1.4 monospace;letter-spacing:.16em}
+.dir-intro,.dir-sources{color:var(--muted);line-height:1.7}
+.dir-controls{background:#182029;border:1px solid var(--line);border-radius:10px;padding:15px 18px;margin:17px 0 12px}
+.dir-bar{display:flex;align-items:center;gap:16px;flex-wrap:wrap;justify-content:space-between}
+.dir-tabs{display:inline-flex;gap:3px;background:#10161d;padding:3px;border-radius:7px}
+.directory button{background:transparent;color:#b5c1cd;padding:6px 10px;border:1px solid transparent;font-size:14px}
+.directory button:hover{background:#2b3642}.directory button[aria-pressed="true"]{background:#22403f;color:#abf6e5;border-color:#3b7169}
+.directory :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.dir-search{flex:1;min-width:210px;max-width:420px;display:flex;align-items:center;gap:8px}
+.dir-search input{flex:1;min-width:0;width:100%;padding:8px 10px;border-color:#3b4755}
+.dir-groups{display:flex;align-items:center;gap:2px;flex-wrap:wrap;margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}
+.dir-groups button{font:600 13px/1.35 system-ui;padding:4px 7px}
+.dir-meta{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:12px 0;color:var(--muted);font-size:13px}
+.dir-sources{font-size:13px;margin:12px 0}.dir-sources summary{cursor:pointer;color:#96d7cd}.dir-sources p{margin:5px 0}
+.directory table{display:table;table-layout:fixed;overflow:visible;border-radius:0}
+.directory td,.directory th{padding:10px 13px;overflow-wrap:anywhere}
+.directory .group-row th{padding:7px 13px;font-size:15px;letter-spacing:.04em;background:#202e37;color:#a6e3d8}
+.dir-en,.city-en,.city-note{display:block;color:var(--muted);line-height:1.4;font-size:12px;margin-top:3px}
+.dir-name{font-weight:600}.dir-code{font:500 14px/1.5 ui-monospace,Consolas,monospace}
+.city{margin-bottom:5px}.city:last-child{margin-bottom:0}.city-role{font-size:11px;color:#abd8ce}
+#country-empty{padding:18px;border:1px dashed var(--line);border-radius:8px}
+.dir-tablewrap{overflow-x:auto}.directory [hidden]{display:none!important}
+@media(max-width:650px){.dir-controls{padding:12px}.dir-bar{gap:10px}.dir-search{max-width:none}.directory table{min-width:560px}.dir-meta{align-items:baseline;flex-wrap:wrap}.directory{margin:8px auto}.directory th,.directory td{padding:8px}}
+</style>
+<section class="directory" aria-labelledby="directory-title">
+<div class="dir-eyebrow">资源目录 / 01</div>
+<h1 id="directory-title">国家与地区</h1>
+<p class="dir-intro">查阅中英文名称、ISO 3166-1 代码，以及首都、首府或行政中心。</p>
+<div class="dir-controls" hidden id="country-controls">
+  <div class="dir-bar">
+    <div class="dir-tabs" role="group" aria-label="浏览方式">
+      <button type="button" id="by-name" aria-pressed="true">按字母 A–Z</button>
+      <button type="button" id="by-continent" aria-pressed="false">按洲</button>
+    </div>
+    <label class="dir-search">搜索 <input id="country-query" type="search" placeholder="波兰、Poland、PL 或华沙" autocomplete="off"></label>
+  </div>
+  <div class="dir-groups" id="country-groups" role="group" aria-label="筛选分组"></div>
+</div>
+<div class="dir-meta"><span id="country-count" role="status">{{ countries|length }} 项</span><span>两位码 Alpha-2 · 三位码 Alpha-3 · 数字码 Numeric-3</span></div>
+<details class="dir-sources"><summary>资料口径与来源</summary>
+<p>收录 ISO 3166-1 正式分配代码的国家和地区。字母按页面所示英文常用名排序。洲别参考联合国 M49 统计分区，北美洲包括中美洲及加勒比地区，南极洲单列。台湾条目在本页归入亚洲。此目录供代码查询，新闻源的实际覆盖范围由服务商决定。</p>
+<p>首都资料单独整理。分设首都、行政中心或未设首府的条目附有说明。资料整理于 2026-11-01。</p>
+<p><a href="https://www.iso.org/iso-3166-country-codes.html">ISO 3166</a> · <a href="https://unstats.un.org/unsd/methodology/m49/overview/">联合国 M49</a> · <a href="https://github.com/mledoze/countries">基础数据 mledoze/countries 5.1.0</a> · <a href="https://opendatacommons.org/licenses/odbl/1-0/">衍生数据许可 ODbL 1.0</a></p>
+<p>部分特别条目依据 <a href="https://www.gov.za/about-sa/south-africa-glance-1">南非政府</a>、<a href="https://www.guineaecuatorialpress.com/noticias/decreto_ley_por_el_que_se_declara_la_ciudad_de_la_paz_djibloho_capital_de_la_republica_de_guinea_ecuatorial">赤道几内亚政府</a>、<a href="https://www.mfa.gov.lk/en/national-profile-and-geography">斯里兰卡外交部</a>、<a href="https://taaf.fr/collectivites/presentation/">法属南部领地行政当局</a>及<a href="https://www.un.org/unispal/permanent-status-issues/">联合国耶路撒冷地位资料</a>。</p>
+</details>
+<div id="country-empty" hidden>没有匹配的条目。<button type="button" id="country-reset">清除筛选</button></div>
+<div class="dir-tablewrap" tabindex="0" aria-label="国家与地区资料表，可横向滚动"><table>
+<colgroup><col style="width:26%"><col style="width:11%"><col style="width:9%"><col style="width:9%"><col style="width:9%"><col style="width:36%"></colgroup>
+<thead><tr><th scope="col">国家 / 地区</th><th scope="col">洲</th><th scope="col">两位码</th><th scope="col">三位码</th><th scope="col">数字码</th><th scope="col">首都 / 行政中心</th></tr></thead>
+<tbody id="country-rows">
+{% for c in countries %}
+{% if loop.changed(c.initial) %}<tr class="group-row"><th colspan="6">{{ c.initial }}</th></tr>{% endif %}
+<tr data-country="{{ c.a2 }}" data-iso3="{{ c.a3 }}" data-numeric="{{ c.num }}" data-letter="{{ c.initial }}" data-continent="{{ c.continent }}" data-alias="{{ c.aliases }}">
+<td><span class="dir-name">{{ c.zh }}</span><span class="dir-en" lang="en">{{ c.en }}</span></td><td>{{ c.continent }}</td><td class="dir-code">{{ c.a2 }}</td><td class="dir-code">{{ c.a3 }}</td><td class="dir-code">{{ c.num }}</td>
+<td>{% for city in c.capitals %}<div class="city">{{ city[0] }} {% if city|length > 2 %}<span class="city-role">{{ city[2] }}</span>{% endif %}<span class="city-en" lang="en">{{ city[1] }}</span></div>{% endfor %}{% if c.note %}<span class="city-note">{{ c.note }}</span>{% endif %}</td></tr>
+{% endfor %}
+</tbody></table></div></section>
+<script>
+(() => {
+  const byId = id => document.getElementById(id);
+  const tbody = byId('country-rows'), input = byId('country-query');
+  const literal = text => text.normalize('NFC').toLowerCase().trim();
+  const normalize = text => literal(text).normalize('NFKD').replace(/\p{M}/gu, '');
+  const entries = Array.from(tbody.querySelectorAll('[data-country]'), row => {
+    const words = Array.from(row.querySelectorAll('td, td span, .city'), cell => cell.textContent);
+    const text = literal(words.join(' ') + ' ' + row.dataset.alias);
+    return {row, data: row.dataset, text, search: normalize(text),
+            codes: [row.dataset.country, row.dataset.iso3, row.dataset.numeric].map(normalize)};
+  });
+  const byCode = new Map(entries.flatMap(entry => entry.codes.map(code => [code, entry])));
+  byCode.set('uk', byCode.get('gb')); // Common search alias; the table retains the ISO code GB.
+  const continents = {{ continents|tojson }};
+  const alphabet = [...new Set(entries.map(entry => entry.data.letter))];
+  let mode = 'letter', selected = '';
+  function updateGroups() {
+    const container = byId('country-groups');
+    container.replaceChildren();
+    for (const key of ['', ...(mode === 'letter' ? alphabet : continents)]) {
+      const button = document.createElement('button');
+      button.type = 'button'; button.textContent = key || '全部'; button.dataset.group = key;
+      button.setAttribute('aria-pressed', String(selected === key));
+      button.onclick = () => {
+        selected = key;
+        for (const sibling of container.children) sibling.setAttribute('aria-pressed', String(sibling === button));
+        draw();
+      };
+      container.append(button);
+    }
+  }
+  function draw() {
+    const typed = literal(input.value), query = normalize(typed), exact = byCode.get(query);
+    const accented = typed !== query;
+    const groups = mode === 'letter' ? alphabet : continents;
+    const matches = entries.filter(entry =>
+      (!selected || entry.data[mode] === selected) && (exact ? entry === exact : (accented ? entry.text.includes(typed) : entry.search.includes(query))));
+    const result = document.createDocumentFragment();
+    for (const group of groups) {
+      const members = matches.filter(entry => entry.data[mode] === group);
+      if (!members.length) continue;
+      const heading = document.createElement('tr'), title = document.createElement('th');
+      heading.className = 'group-row'; title.colSpan = 6; title.textContent = group;
+      heading.append(title); result.append(heading, ...members.map(entry => entry.row));
+    }
+    tbody.replaceChildren(result);
+    byId('country-count').textContent = '显示 ' + matches.length + ' / ' + entries.length + ' 项';
+    byId('country-empty').hidden = matches.length !== 0;
+  }
+  function switchMode(value) {
+    mode = value; selected = '';
+    byId('by-name').setAttribute('aria-pressed', String(mode === 'letter'));
+    byId('by-continent').setAttribute('aria-pressed', String(mode === 'continent'));
+    updateGroups(); draw();
+  }
+  byId('by-name').onclick = () => switchMode('letter');
+  byId('by-continent').onclick = () => switchMode('continent');
+  byId('country-reset').onclick = () => {input.value = ''; switchMode(mode); input.focus();};
+  input.addEventListener('input', draw);
+  byId('country-controls').hidden = false; updateGroups(); draw();
+})();
+</script>
+{% endblock %}

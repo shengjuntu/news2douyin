@@ -25,10 +25,11 @@ from .news import query_call
 from urllib.parse import urlencode
 from difflib import unified_diff
 from ..storage.db import session_scope
-from ..storage.models import Article, ArticleEventLink, CollectJob, CollectProfile, Event, RunRecord, ArticleVersion, EventAssignment
+from ..storage.models import GdeltDiscovery, Article, ArticleEventLink, CollectJob, CollectProfile, Event, RunRecord, ArticleVersion, EventAssignment
 from ..storage.utils import loads
 from ..search.dates import calendar_day, timezone_name
 from ..editorial.daily import list_picks
+from ..collect.providers.gdelt import CODES as GDELT_CODES
 from ..collect.management import profile_enabled, job_dict, save_job, set_job_enabled
 from ..collect.diagnostics import task_diagnostics, summary as diagnostic_summary, REASONS, FALLBACKS
 
@@ -48,6 +49,12 @@ def register_webui_routes(app: FastAPI, engine, scheduler, storage_root: str) ->
     def render(name: str, **ctx) -> HTMLResponse:
         page = env.get_template(name)
         return HTMLResponse(page.render(fmt_ts=_fmt_ts, active=ctx.pop('active', ''), **ctx))
+
+    @app.get('/resources/countries', response_class=HTMLResponse, include_in_schema=False, name='country_directory_legacy')
+    @app.get('/country-reference.html', response_class=HTMLResponse)
+    def country_directory():
+        from .countries import directory_context
+        return render('country-reference.html', active='countries', **directory_context())
 
     @app.get('/handoff', response_class=HTMLResponse)
     def video_app_handoff():
@@ -133,10 +140,9 @@ def register_webui_routes(app: FastAPI, engine, scheduler, storage_root: str) ->
         return render('video_detail.html', active='videos', video=video)
 
     # ------------------------------------------------------------------ pages
-    @app.get('/', response_class=HTMLResponse)
     @app.get('/daily', response_class=HTMLResponse)
     def page_daily(day: str = '', timezone: str = '', q: str = '', profile_name: str = '',
-                   time_field: str = 'collected', task_id: str = '',
+                   time_field: str = 'collected', task_id: str = '', mode: str = '',
                    offset: int = Query(0, ge=0), limit: int = Query(30, ge=1, le=100)):
         zone = query_call(timezone_name, timezone)
         day = query_call(calendar_day, day, zone)
@@ -154,7 +160,7 @@ def register_webui_routes(app: FastAPI, engine, scheduler, storage_root: str) ->
             rows = [{'key': r.article_key, 'title': r.title, 'domain': r.source_domain,
                      'published_at': r.published_at, 'is_duplicate': r.is_duplicate,
                      'snippet': r.content[:220], 'provider': r.provider} for r in page.items]
-        params = dict(day=day, timezone=zone, q=q, profile_name=profile_name, time_field=time_field, task_id=task_id, limit=limit)
+        params = dict(day=day, timezone=zone, q=q, profile_name=profile_name, time_field=time_field, task_id=task_id, limit=limit, mode='short' if mode == 'short' else '')
         return render('daily.html', active='daily', articles=rows, profiles=profiles,
                       enabled_profiles=[p for p in profiles if p['enabled']], picks=picks, task=task,
                       paging=pagination('/daily', page, params), **params)
@@ -165,7 +171,7 @@ def register_webui_routes(app: FastAPI, engine, scheduler, storage_root: str) ->
         with session_scope(engine) as session:
             profiles = [_profile_to_dict(p, session) for p in session.exec(select(CollectProfile).order_by(CollectProfile.name))]
             jobs = [job_dict(j) for j in session.exec(select(CollectJob).where(CollectJob.schedule_type != 'archived').order_by(CollectJob.id))]
-        return render('profiles.html', active='profiles', profiles=profiles, jobs=jobs, selected=selected,
+        return render('profiles.html', active='profiles', profiles=profiles, jobs=jobs, selected=selected, gdelt=GDELT_CODES,
                       today=calendar_day(), timezone=timezone_name())
 
     @app.get('/admin', response_class=HTMLResponse)
@@ -271,7 +277,7 @@ def register_webui_routes(app: FastAPI, engine, scheduler, storage_root: str) ->
                               duplicates=duplicates, limit=limit, offset=offset, mode=mode,
                               period=period, date_from=date_from, date_to=date_to, time_field=time_field, timezone=timezone)
             rows = [{'key': r.article_key, 'title': r.title, 'url': r.url, 'domain': r.source_domain,
-                     'country': r.country, 'published_at': r.published_at, 'categories': loads(r.category_tags_json, []),
+                     'provider': r.provider, 'country': r.country, 'published_at': r.published_at, 'categories': loads(r.category_tags_json, []),
                      'sentiment': r.sentiment, 'score': r.market_relevance_score,
                      'is_duplicate': r.is_duplicate, 'snippet': r.content[:200]} for r in page.items]
             countries = list(session.exec(select(Article.country).distinct().order_by(Article.country)))
@@ -300,29 +306,45 @@ def register_webui_routes(app: FastAPI, engine, scheduler, storage_root: str) ->
                     (document.get('title', '') + '\n' + document.get('content', '')).splitlines(),
                     fromfile=f'r{selected.revision - 1}', tofile=f'r{selected.revision}', lineterm='')) if previous else ''
             return render('article_detail.html', active='articles', article=row, document=document,
-                          selected=selected, current=current, history=history, diff=diff)
+                          selected=selected, current=current, history=history, diff=diff,
+                          discovery=session.get(GdeltDiscovery, article_key))
 
-    @app.get('/events', response_class=HTMLResponse)
-    def page_events(q: str = '', country: str = '', topic: str = '', limit: int = Query(60, ge=1, le=500),
-                    offset: int = Query(0, ge=0), mode: str = 'contains'):
-        with session_scope(engine) as session:
-            page = query_call(event_page, session, query=q, country=country, topic=topic,
-                              limit=limit, offset=offset, mode=mode)
-            rows = [{'key': r.event_key, 'title': r.event_title, 'topic': r.topic,
-                     'summary': r.summary[:160], 'article_count': r.article_count,
-                     'importance': r.importance, 'sentiment': r.sentiment,
-                     'last_seen_at': r.last_seen_at} for r in page.items]
-        params = dict(q=q, country=country, topic=topic, limit=limit, mode=mode)
-        return render('events.html', active='events', events=rows,
-                      paging=pagination('/events', page, params), **params)
+    from .desk import register_desk, safe_back
+    from ..desk import service as desk
+    from ..desk.models import Watch, RadarEntry, EventPlace
+    from ..desk.places import countries as country_labels
+    register_desk(app,engine,render)
 
     @app.get('/events/{event_key}', response_class=HTMLResponse)
-    def page_event_detail(event_key: str):
+    def page_event_detail(event_key: str, back: str = '/radar'):
         from ..events.workbench import workspace
         with session_scope(engine) as session:
             view = task_call(workspace, session, event_key)
             scripts = script_workbench.list_scripts(session, event_key=event_key, limit=10)
-        return render('event_workspace.html', active='events', view=view, scripts=scripts, timezone=timezone_name())
+            related=desk.memberships(session,event_key)
+            watches=[(w.key,w.name) for w in session.exec(select(Watch).order_by(Watch.name))]
+            card=session.get(RadarEntry,event_key)
+            reports=loads(card.sources,[]) if card else []
+            places=loads(card.geography,[]) if card else []
+            source_groups={}
+            for row in reports:
+                if row.get('duplicate_of'):
+                    label='系统判为副本 · 对照 '+row['duplicate_of']
+                elif row.get('author'):
+                    label='署名 '+row['author']
+                else:
+                    label='媒体 '+(row['domain'] or '待查')
+                source_groups.setdefault(label,[]).append(row)
+            marks=[m.model_dump() for m in session.exec(select(EventPlace).where(EventPlace.event==event_key))]
+            layers={'action':[m['iso'] for m in marks if m['role']=='action'],
+                    'impact':[m['iso'] for m in marks if m['role']=='impact'],
+                    'media':sorted({r.get('media_country','') for r in reports if r.get('media_country')}),
+                    'mention':sorted({iso for r in reports for iso in r.get('mention_iso',[])})}
+
+        back=safe_back(back)
+        return render('event_workspace.html', active='focus' if back.startswith('/focus') else 'radar',
+                      view=view, scripts=scripts, timezone=timezone_name(),related=related,watches=watches,
+                      back=back,reports=reports,source_groups=source_groups,places=places,layers=layers,marks=marks,countries=country_labels())
 
     @app.get('/report/{run_id}')
     def page_report(run_id: int):

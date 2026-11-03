@@ -16,6 +16,10 @@ FALLBACKS = {'configured_rules': '按策略配置使用规则筛选', 'model_una
 def summary(stats, status='succeeded', error=''):
     if status == 'failed':
         text = (error or '').lower()
+        if 'gdelt' in text:
+            if '429' in text:
+                return 'GDELT 限制了当前请求频率，请稍后再试或降低定时采集频率。'
+            return 'GDELT 试跑或采集失败，请查看上游错误信息，检查网络、日期与检索条件后重试。'
         if 'missing env' in text:
             return '新闻源凭据未配置，请在服务端 .env 中设置对应 API Key，再重试。'
         if '429' in text or 'quota' in text or '402' in text:

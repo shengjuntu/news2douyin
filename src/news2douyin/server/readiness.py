@@ -46,6 +46,15 @@ def _profile(row, enabled):
     env_name = config.get('api_key_env', 'API_KEY')
     if provider == 'mock':
         state, note = 'demo', '演示资料，仅用于跑通操作。'
+    elif provider in ('gdelt','gkg'):
+        from ..collect.providers.gdelt import query_for
+        if provider=='gkg':
+            from ..collect.providers.gkg import validate as query_for
+        try:
+            query_for(config)
+            state, note = 'configured', 'GDELT 无需密钥。请试跑以验证连通性与报道样本。'
+        except (TypeError, ValueError, AttributeError):
+            state, note = 'invalid', 'GDELT 检索条件无效，请编辑策略。'
     elif provider != 'worldnewsapi':
         state, note = 'invalid', '当前服务不支持此新闻源，请编辑策略。'
     elif not isinstance(env_name, str) or not env_name.strip() or '=' in env_name or '\x00' in env_name:
