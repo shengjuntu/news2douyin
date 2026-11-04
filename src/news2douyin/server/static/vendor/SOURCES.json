@@ -1,0 +1,26 @@
+[
+  {
+    "file": "cytoscape.min.js",
+    "url": "https://unpkg.com/cytoscape@3.33.1/dist/cytoscape.min.js",
+    "bytes": 434037,
+    "sha256": "f55947f3daa3bae53209d4b885c195c157f595c225e508a6b382598d9452d6e2"
+  },
+  {
+    "file": "cytoscape-LICENSE.txt",
+    "url": "https://unpkg.com/cytoscape@3.33.1/LICENSE",
+    "bytes": 1082,
+    "sha256": "e4b62495bacaefaf330f38f226e20d1d60d658d444998ba7406a191f96a2e701"
+  },
+  {
+    "file": "d3.min.js",
+    "url": "https://unpkg.com/d3@7.9.0/dist/d3.min.js",
+    "bytes": 279706,
+    "sha256": "f2094bbf6141b359722c4fe454eb6c4b0f0e42cc10cc7af921fc158fceb86539"
+  },
+  {
+    "file": "d3-LICENSE.txt",
+    "url": "https://unpkg.com/d3@7.9.0/LICENSE",
+    "bytes": 731,
+    "sha256": "3e6849627f74ff73c257a3ae1efb574015d94fc1035c05ec3c15805165efcbc4"
+  }
+]

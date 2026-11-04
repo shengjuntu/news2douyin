@@ -34,7 +34,21 @@ def register(app,engine,render):
     @app.get('/api/knowledge/graph')
     def graph(event:str='',watch:str='',s=Depends(db)):
         state=info(s)
-        return dict(**knowledge.graph_view(s,event=event,watch=watch),state=state)
+        from ..knowledge.radar import sources
+        data=knowledge.graph_view(s,event=event,watch=watch)
+        provenance=sources(s,[node['id'] for node in data['nodes']])
+        for node in data['nodes']:
+            node['sources']=[{k:v for k,v in group.items() if k!='articles'} for group in provenance.get(node['id'],[])]
+        return dict(**data,state=state)
+
+    @app.get('/api/radar/view')
+    def radar_view(q:str='',country:str='',topic:str='',mode:str='contains',band:str='',
+                   period:str='auto',channel:str='all',provider:str='all',view:str='list',s=Depends(db)):
+        from ..knowledge import radar as projection
+        from .tasks import task_call
+        filters=task_call(projection.checked,q=q,country=country,topic=topic,mode=mode,band=band,
+            period=period,channel=channel,provider=provider,view=view)
+        return dict(**task_call(projection.view,s,filters),state=info(s))
 
     @app.post('/api/knowledge/rebuild',dependencies=[Depends(same_origin)])
     def rebuild(s=Depends(db)):

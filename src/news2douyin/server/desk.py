@@ -74,40 +74,22 @@ def register_desk(app,engine,render):
 
     @app.get('/radar')
     def radar(request:Request,q:str='',country:str='',topic:str='',mode:str='contains',band:str='',
-              period:str='auto',limit:int=Query(30,ge=1,le=500),offset:int=Query(0,ge=0),s=Depends(db)):
+              period:str='auto',channel:str='all',provider:str='all',view:str='list',
+              limit:int=Query(30,ge=1,le=500),offset:int=Query(0,ge=0),s=Depends(db)):
+        from ..knowledge import radar as projection
         desk.drain(engine,24)
-        base=task_call(event_query,s,query=q,country=country,topic=topic,mode=mode)
-        stmt=select(RadarEntry).where(RadarEntry.key.in_(base.with_only_columns(Event.event_key)))
-        from ..knowledge.models import GraphMetric
-        from sqlalchemy import case
-        stmt=stmt.outerjoin(GraphMetric,GraphMetric.event==RadarEntry.key)
-        graph_band=case((GraphMetric.score==None,RadarEntry.band),(GraphMetric.score>=60,'优先看'),(GraphMetric.score>=35,'优先核查'),else_='其他进展')
-        if band:stmt=stmt.where(graph_band==band)
-        historical = False
-        if period == 'auto':
-            since=(datetime.now(timezone.utc)-timedelta(days=7)).isoformat(timespec='seconds').replace('+00:00','Z')
-            recent=stmt.where(RadarEntry.seen>=since)
-            if s.exec(recent.limit(1)).first():
-                stmt=recent
-            else:
-                historical=True
-        if period in ('1','7','30'):
-            since=(datetime.now(timezone.utc)-timedelta(days=int(period))).isoformat(timespec='seconds').replace('+00:00','Z')
-            stmt=stmt.where(RadarEntry.seen>=since)
-        total=s.exec(select(func.count()).select_from(stmt.subquery())).one()
-        items=s.exec(stmt.order_by(func.coalesce(GraphMetric.score,-1).desc(),RadarEntry.priority.desc(),RadarEntry.seen.desc(),RadarEntry.key).offset(offset).limit(limit)).all()
-        import json
-        metrics={m.event:json.loads(m.data) for m in s.exec(select(GraphMetric).where(GraphMetric.event.in_([e.key for e in items])))}
+        params=task_call(projection.checked,q=q,country=country,topic=topic,mode=mode,band=band,
+            period=period,channel=channel,provider=provider,view=view)
+        data=task_call(projection.page,s,params,offset,limit)
         from ..desk.places import countries
-        labels=countries()
-        areas={}
-        for mark in s.exec(select(EventPlace).where(EventPlace.event.in_([e.key for e in items]))):
+        labels=countries();areas={}
+        for mark in s.exec(select(EventPlace).where(EventPlace.event.in_([e.key for e in data['items']]))):
             label=('行动地' if mark.role=='action' else '影响')+' · '+labels.get(mark.iso,mark.iso)
             areas.setdefault(mark.event,set()).add(label)
-        params=dict(q=q,country=country,topic=topic,mode=mode,band=band,period=period,limit=limit)
-        return remember(render('desk_radar.html',active='radar',items=items,total=total,offset=offset,limit=limit,
-            params=params,areas=areas,historical=historical,metrics=metrics,querystr=urlencode(params),members={c.key:desk.memberships(s,c.key) for c in items},
-            **context(request,s)),'radar')
+        params['limit']=limit
+        return remember(render('desk_radar.html',active='radar',offset=offset,limit=limit,
+            params=params,areas=areas,querystr=urlencode(params),members={c.key:desk.memberships(s,c.key) for c in data['items']},
+            **data,**context(request,s)),'radar')
 
     @app.get('/focus')
     @app.get('/focus/{key}')

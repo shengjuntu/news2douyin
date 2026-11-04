@@ -1,5 +1,5 @@
 {% extends 'base.html' %}{% block title %}知识处理状态 · news2douyin{% endblock %}{% block content %}
-<h1>知识处理状态</h1><p class="muted">采集材料 → 原文版本 → 事件抽取 → 图更新 → 事件分析与专题归集。关闭浏览器后仍在后台运行。</p>
+<div class="row"><h1>知识处理状态</h1><a href="/knowledge/browser">打开图数据库浏览器配置 →</a></div><p class="muted">采集材料 → 原文版本 → 事件抽取 → 图更新 → 事件分析与专题归集。关闭浏览器后仍在后台运行。</p>
 {% set knowledge=state %}{% include 'graph_status.html' %}
 <div class="grid"><section class="card"><h2>事件抽取</h2>{% for k,n in state.extraction.items() %}<p>{{ {'baseline':'等待规则抽取','rule_running':'规则抽取中','model_queued':'等待模型抽取','model_running':'模型抽取中','model_wait':'模型重试等待','ready':'本轮完成','error':'抽取失败'}.get(k,k) }}：{{ n }}</p>{% else %}<p>尚无原文版本。</p>{% endfor %}<p>规则完成 {{ state.methods.get('rules',0) }} · 模型完成 {{ state.methods.get('model',0) }}</p><p class="muted">规则覆盖有限。接入模型后可完成上下文抽取；所有结果保留原文依据和待核状态。</p><button id="retry-extraction" class="ghost">重试失败抽取（最多 100 项）</button></section>
 <section class="card"><h2>图更新与分析</h2><p>待建立事件索引：{{ state.indexing }}</p><p>待同步图记录：{{ state.pending }}</p><p>最近分析：{{ state.analyzed_at or '尚未完成' }}</p><p>活跃全局图与每个专题图独立保存，事件和人物共享身份引用。</p><button id="rebuild-graph" class="ghost">从保存的证据重建图</button></section></div>

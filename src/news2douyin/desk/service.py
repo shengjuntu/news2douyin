@@ -61,7 +61,8 @@ def snapshot(s,event):
         dates.append(when)
         version = latest_version(s, art.article_key)
         actions = mentions(s, version.id) if version else []
-        source.append(dict(actions=actions, key=art.article_key,title=art.title,domain=art.source_domain,
+        source.append(dict(actions=actions, key=art.article_key,title=art.title,domain=art.source_domain,provider=art.provider,
+            collection_paths=sorted({art.provider or 'unknown'} | ({'gkg'} if gkg else set()) | ({'gdelt'} if discovery and not gkg and art.provider!='gkg' else set())),
             when=when,time_kind='发布' if art.published_at else ('GDELT 收录' if discovery and discovery.seen_at else '入库'),
             url=art.url,media_country=art.country,mention_iso=attrs.get('mention_iso',[]),author=attrs.get('author',''),duplicate=bool(art.is_duplicate),
             duplicate_of=art.duplicate_of_article_key or '',
