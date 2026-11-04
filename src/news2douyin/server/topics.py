@@ -12,7 +12,12 @@ from .research import call, same_origin
 def register_topic_routes(app,engine):
     env=Environment(loader=FileSystemLoader(str(Path(__file__).parent/'templates')),autoescape=select_autoescape(['html']))
     @app.get('/topics',response_class=HTMLResponse)
-    def page():return HTMLResponse(env.get_template('topics.html').render(active='topics'))
+    def page(workspace:str=''):
+        if workspace:
+            with Session(engine) as s:
+                call(ts.require,s,workspace)
+            return RedirectResponse('/workbench/'+workspace+'/selection',303)
+        return RedirectResponse('/workbench',303)
 
     @app.get('/api/topics')
     def listing():

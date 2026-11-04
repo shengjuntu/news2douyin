@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}运行 #{{ run.id }} · news2douyin v7{% endblock %}
+{% block title %}运行 #{{ run.id }} · news2douyin{% endblock %}
 {% block content %}
 <h1>运行 #{{ run.id }} <span class="badge {{ 'ok' if run.status=='succeeded' else ('bad' if run.status=='failed' else 'warn') }}">{{ run.status }}</span></h1>
 <div class="row small muted">

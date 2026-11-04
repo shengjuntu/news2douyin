@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "news2douyin"
-version = "0.19.0"
-description = "Daily news collection -> scoring -> storyline -> Douyin script export"
+version = "0.20.0"
+description = "Event intelligence, persistent knowledge tracking and evidence-based content workflow"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
@@ -17,6 +17,7 @@ dependencies = [
   "python-dotenv>=1.0,<2",
   "PyYAML>=6.0.1,<7",
   "requests>=2.31,<3",
+  "redis>=5,<8",
   "worldnewsapi>=1.0,<3",
   "loguru>=0.7,<1",
   "mistune>=3.0,<4",

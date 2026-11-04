@@ -45,6 +45,7 @@
  function citations(parent,ids){const row=node('div',undefined,'topic-citations');for(const [i,id] of ids.entries()){const b=node('button','来源 '+(i+1),'ghost');b.onclick=()=>showSource(id);row.append(b);}parent.append(row);}
  function draw(w){
   state.workspace=w;$('topic-workspace').hidden=false;
+  if(window.contentTask){$('work-title').textContent=w.title;$('work-angle').textContent=w.angle;$('work-angle').hidden=!w.angle;}
   const pending=stored(pendingKey('message',w.workspace_id));
   if(pending&&w.messages.some(m=>m.request_id===pending.request_id)){sessionStorage.removeItem(pendingKey('message',w.workspace_id));if($('topic-prompt').value===pending.text)$('topic-prompt').value='';}
   const pendingTask=stored(pendingKey('handoff',w.workspace_id));if(pendingTask&&w.tasks.some(t=>t.request_id===pendingTask.request_id))sessionStorage.removeItem(pendingKey('handoff',w.workspace_id));
@@ -70,7 +71,7 @@
  }
  async function refreshList(){const rows=await api('/api/topics');const select=$('topic-list');select.replaceChildren(node('option','选择选题…'));select.firstChild.value='';for(const w of rows){const o=node('option',w.title);o.value=w.workspace_id;select.append(o);}if(state.workspace)select.value=state.workspace.workspace_id;return rows;}
  async function refresh(){if(!state.workspace)return;const gen=state.epoch,serial=state.serial,wid=state.workspace.workspace_id;const w=await api('/api/topics/'+wid);if(gen!==state.epoch||serial!==state.serial)return;draw(w);}
- async function open(wid){if(state.dirty){note('请先保存当前选题的修改，再切换。');$('topic-list').value=state.workspace.workspace_id;return;}state.epoch++;state.chatKey=state.candidateKey=state.taskKey='';const w=await api('/api/topics/'+encodeURIComponent(wid));applyFields(w);draw(w);state.offset=0;const url=new URL(location.href);url.searchParams.set('workspace',wid);history.replaceState(null,'',url.pathname+url.search);await search();}
+ async function open(wid){if(state.dirty){note('请先保存当前选题的修改，再切换。');$('topic-list').value=state.workspace.workspace_id;return;}state.epoch++;state.chatKey=state.candidateKey=state.taskKey='';const w=await api('/api/topics/'+encodeURIComponent(wid));applyFields(w);draw(w);state.offset=0;const url=new URL(location.href);if(!window.contentTask){url.searchParams.set('workspace',wid);history.replaceState(null,'',url.pathname+url.search);}await search();}
  async function save(ids){const w=state.workspace;if(!state.dirty&&ids===undefined)return;const d=await api('/api/topics/'+w.workspace_id,{revision:w.revision,title:$('topic-title').value.trim()||'未命名选题',angle:$('topic-angle').value,scope:scope(),source_ids:ids||w.source_ids},'PUT');applyFields(d);draw(d);}
  async function search(offset=0){state.offset=offset;const w=state.workspace,gen=state.epoch;const s=scope();const data=await api('/api/topics/'+w.workspace_id+'/search?'+new URLSearchParams({kind:$('topic-kind').value,scope:JSON.stringify(s),offset:String(offset)}));if(gen!==state.epoch)return;state.total=data.total;const box=$('topic-results');box.replaceChildren();
   $('topic-search-scope').textContent=(s.period==='all'?'全部历史':s.period==='custom'?(s.date_from||'不限')+' 至 '+(s.date_to||'不限'):s.period==='today'?'今天':s.period==='last7'?'最近7天':'最近30天')+' · '+(s.event_key?'当前事件关联报道 · ':'')+'只搜索本地资料库';
@@ -88,9 +89,10 @@
  $('topic-query').addEventListener('input',()=>state.scopeEvent='');$('topic-source-close').onclick=()=>$('topic-source-dialog').close();
  async function handoff(action){const wid=state.workspace.workspace_id;if(!stored(pendingKey('handoff'))){await save();}
   const w=state.workspace;const result=await receipt('handoff',{revision:w.revision,request_id:uid(),action,output_language:$('topic-language').value,duration_sec:Number($('topic-duration').value),find_images:$('topic-images').checked,write_script:$('topic-write').checked},body=>api('/api/topics/'+wid+'/handoffs',body),wid);
+  if(window.contentTask){location.href=result.url;return;}
   await refresh();note(result.pending?'任务已保存但尚未启动：'+result.error+'。请在任务列表继续提交原任务。':'任务已保存，点击任务链接查看进度。');const a=node('a','打开任务');a.href=result.url;$('topic-message').append(' ',a);}
  for(const kind of ['short','materials','deep'])$('topic-'+kind).onclick=action(()=>handoff(kind));
  let timer;async function poll(){try{if(!state.busy&&!state.loading&&!document.hidden){state.loading=true;await refresh();}}catch(e){note('暂时无法同步；已保存的请求和选题保留。');}finally{state.loading=false;timer=setTimeout(poll,3000);}}
  window.addEventListener('pagehide',()=>clearTimeout(timer));
- (async()=>{try{const rows=await refreshList(),wid=new URL(location.href).searchParams.get('workspace');if(wid)await open(wid);else if(rows.length)await open(rows[0].workspace_id);else controls();timer=setTimeout(poll,3000);}catch(e){note(e.message);}})();
+ (async()=>{try{const rows=await refreshList(),wid=window.contentTask?.key||new URL(location.href).searchParams.get('workspace');if(wid)await open(wid);else if(rows.length)await open(rows[0].workspace_id);else controls();timer=setTimeout(poll,3000);}catch(e){note(e.message);}})();
 })();

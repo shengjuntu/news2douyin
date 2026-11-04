@@ -86,13 +86,7 @@ def register_webui_routes(app: FastAPI, engine, scheduler, storage_root: str) ->
 
     @app.get('/scripts', response_class=HTMLResponse)
     def page_scripts(event_key: str = ''):
-        from ..editorial.generation import list_generations
-        from ..editorial.daily_tasks import list_generations as daily_generations
-        with session_scope(engine) as session:
-            rows = script_workbench.list_scripts(session, event_key=event_key, limit=100)
-        return render('scripts.html', active='scripts', scripts=rows, event_key=event_key,
-                      generations=list_generations(engine, event_key, 30),
-                      daily_generations=daily_generations(engine, event_key=event_key, limit=30))
+        return RedirectResponse('/workbench?view=creation',303)
 
     @app.get('/events/{event_key}/generate', response_class=HTMLResponse)
     def page_generation(event_key: str):
@@ -103,7 +97,12 @@ def register_webui_routes(app: FastAPI, engine, scheduler, storage_root: str) ->
 
     @app.get('/scripts/{package_key}', response_class=HTMLResponse)
     def page_script(package_key: str):
+        from .workbench import owner
+        from ..workbench.service import sync
         with session_scope(engine) as session:
+            sync(session);session.commit()
+            task=owner(session,'script',package_key)
+            if task:return RedirectResponse(f'/workbench/{task}/creation?script={package_key}',303)
             script = script_call(script_workbench.script_detail, session, package_key)
         return render('script_editor.html', active='scripts', script=script)
 
@@ -124,7 +123,10 @@ def register_webui_routes(app: FastAPI, engine, scheduler, storage_root: str) ->
 
     @app.get('/scripts/{package_key}/video', response_class=HTMLResponse)
     def page_video_setup(package_key: str, from_task: str = ''):
+        from .workbench import owner
         with session_scope(engine) as session:
+            task=owner(session,'script',package_key)
+            if task and not from_task:return RedirectResponse(f'/workbench/{task}/creation?mode=video&script={package_key}',303)
             script = video_call(script_workbench.script_detail, session, package_key)
         previous = video_call(production_detail, engine, from_task) if from_task else None
         if previous and previous['package_key'] != package_key:
@@ -136,6 +138,12 @@ def register_webui_routes(app: FastAPI, engine, scheduler, storage_root: str) ->
 
     @app.get('/videos/{task_id}', response_class=HTMLResponse)
     def page_video_result(task_id: str):
+        from .workbench import owner
+        from ..storage.models import VideoProduction
+        with session_scope(engine) as session:
+            production=session.get(VideoProduction,task_id)
+            task=owner(session,'script',production.package_key) if production else None
+            if task:return RedirectResponse(f'/workbench/{task}/works?video={task_id}',303)
         video = video_call(production_detail, engine, task_id)
         return render('video_detail.html', active='videos', video=video)
 
@@ -144,26 +152,10 @@ def register_webui_routes(app: FastAPI, engine, scheduler, storage_root: str) ->
     def page_daily(day: str = '', timezone: str = '', q: str = '', profile_name: str = '',
                    time_field: str = 'collected', task_id: str = '', mode: str = '',
                    offset: int = Query(0, ge=0), limit: int = Query(30, ge=1, le=100)):
-        zone = query_call(timezone_name, timezone)
-        day = query_call(calendar_day, day, zone)
-        with session_scope(engine) as session:
-            profiles = [{**p.model_dump(), 'enabled': profile_enabled(session, p.name)}
-                        for p in session.exec(select(CollectProfile).order_by(CollectProfile.name))]
-            task = task_call(app.state.tasks.get, task_id) if task_id else None
-            if task and task['kind'] != 'collect':
-                raise HTTPException(422, '请选择新闻采集任务')
-            page = query_call(article_page, session, query=q, profile_name=profile_name,
-                              period='all' if task_id else 'custom',
-                              date_from='' if task_id else day, date_to='' if task_id else day,
-                              time_field=time_field, timezone=zone, task_id=task_id, offset=offset, limit=limit)
-            picks = query_call(list_picks, session, day, zone)
-            rows = [{'key': r.article_key, 'title': r.title, 'domain': r.source_domain,
-                     'published_at': r.published_at, 'is_duplicate': r.is_duplicate,
-                     'snippet': r.content[:220], 'provider': r.provider} for r in page.items]
-        params = dict(day=day, timezone=zone, q=q, profile_name=profile_name, time_field=time_field, task_id=task_id, limit=limit, mode='short' if mode == 'short' else '')
-        return render('daily.html', active='daily', articles=rows, profiles=profiles,
-                      enabled_profiles=[p for p in profiles if p['enabled']], picks=picks, task=task,
-                      paging=pagination('/daily', page, params), **params)
+        if task_id:
+            task_call(app.state.tasks.get,task_id)
+            return RedirectResponse('/articles?'+urlencode(dict(task_id=task_id,q=q,timezone=timezone)),303)
+        return RedirectResponse('/articles?'+urlencode(dict(period='custom' if day else 'all',date_from=day,date_to=day,q=q,profile_name=profile_name,time_field=time_field,timezone=timezone,limit=limit,offset=offset,mode=mode or 'contains')),303)
 
     @app.get('/profiles', response_class=HTMLResponse)
     def page_profiles(selected: str = ''):
@@ -270,19 +262,20 @@ def register_webui_routes(app: FastAPI, engine, scheduler, storage_root: str) ->
     @app.get('/articles', response_class=HTMLResponse)
     def page_articles(q: str = '', country: str = '', category: str = '', duplicates: str = 'any',
                       limit: int = Query(60, ge=1, le=500), offset: int = Query(0, ge=0), mode: str = 'contains',
-                      period: str = 'all', date_from: str = '', date_to: str = '', time_field: str = 'published', timezone: str = ''):
+                      period: str = 'all', date_from: str = '', date_to: str = '', time_field: str = 'published', timezone: str = '', task_id: str = '', profile_name: str = ''):
         timezone = query_call(timezone_name, timezone)
+        if task_id:task_call(app.state.tasks.get,task_id)
         with session_scope(engine) as session:
             page = query_call(article_page, session, query=q, country=country, category=category,
                               duplicates=duplicates, limit=limit, offset=offset, mode=mode,
-                              period=period, date_from=date_from, date_to=date_to, time_field=time_field, timezone=timezone)
+                              period=period, date_from=date_from, date_to=date_to, time_field=time_field, timezone=timezone,task_id=task_id,profile_name=profile_name)
             rows = [{'key': r.article_key, 'title': r.title, 'url': r.url, 'domain': r.source_domain,
                      'provider': r.provider, 'country': r.country, 'published_at': r.published_at, 'categories': loads(r.category_tags_json, []),
                      'sentiment': r.sentiment, 'score': r.market_relevance_score,
                      'is_duplicate': r.is_duplicate, 'snippet': r.content[:200]} for r in page.items]
             countries = list(session.exec(select(Article.country).distinct().order_by(Article.country)))
         params = dict(q=q, country=country, category=category, duplicates=duplicates, limit=limit, mode=mode,
-                      period=period, date_from=date_from, date_to=date_to, time_field=time_field, timezone=timezone)
+                      period=period, date_from=date_from, date_to=date_to, time_field=time_field, timezone=timezone,task_id=task_id,profile_name=profile_name)
         return render('articles.html', active='articles', articles=rows, countries=countries,
                       paging=pagination('/articles', page, params), **params)
 
@@ -316,6 +309,10 @@ def register_webui_routes(app: FastAPI, engine, scheduler, storage_root: str) ->
     from ..desk.models import Watch, RadarEntry, EventPlace
     from ..desk.places import countries as country_labels
     register_desk(app,engine,render)
+    from .workbench import register as register_workbench
+    register_workbench(app,engine,storage_root,render)
+    from .knowledge import register as register_knowledge
+    register_knowledge(app,engine,render)
 
     @app.get('/events/{event_key}', response_class=HTMLResponse)
     def page_event_detail(event_key: str, back: str = '/radar'):
@@ -325,6 +322,10 @@ def register_webui_routes(app: FastAPI, engine, scheduler, storage_root: str) ->
             scripts = script_workbench.list_scripts(session, event_key=event_key, limit=10)
             related=desk.memberships(session,event_key)
             watches=[(w.key,w.name) for w in session.exec(select(Watch).order_by(Watch.name))]
+            from ..workbench.service import related as related_work
+            content_tasks=related_work(session,event=event_key)
+            from ..knowledge.service import status as graph_status
+            knowledge=graph_status(session,app.state.desk.graph)
             card=session.get(RadarEntry,event_key)
             reports=loads(card.sources,[]) if card else []
             places=loads(card.geography,[]) if card else []
@@ -346,7 +347,7 @@ def register_webui_routes(app: FastAPI, engine, scheduler, storage_root: str) ->
         from ..extraction.schema import LABELS
         back=safe_back(back)
         return render('event_workspace.html', active='focus' if back.startswith('/focus') else 'radar',
-                      view=view, scripts=scripts, timezone=timezone_name(),related=related,watches=watches,
+                      view=view, scripts=scripts, timezone=timezone_name(),related=related,watches=watches,content_tasks=content_tasks,knowledge=knowledge,
                       back=back,action_labels=LABELS,reports=reports,source_groups=source_groups,places=places,layers=layers,marks=marks,countries=country_labels())
 
     @app.get('/report/{run_id}')

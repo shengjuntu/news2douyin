@@ -14,12 +14,12 @@
     <button id="retry" class="ghost" type="button">从已保存进度重试</button>
     <a id="video" href="/videos/{{ task.task_id }}" {% if task.kind != 'video' %}hidden{% endif %}>查看视频结果</a>
     <a id="script-result" hidden>打开生成草稿 →</a><a id="run" hidden>查看运行结果</a>
-    <a id="choose-result" hidden>选择本次新闻 →</a>
+    <a id="choose-result" hidden>查看本次新闻 →</a>
     {% if task.kind not in ['video','script','daily_script'] %}<a href="/tasks/{{ task.task_id }}/diagnostics">{{ '查看试跑诊断' if task.kind=='trial' else '查看采集诊断' }} →</a>{% endif %}
     <a href="/tasks">任务列表</a>
   </div>
 </div>
-{% if task.kind == 'daily_script' %}<p class="muted small">每日脚本使用提交时固定的报道。可关闭页面，稍后从<a href="/daily">每日选题</a>或<a href="/scripts">脚本工作台</a>返回。移出选题会取消未完成任务；重新选择不会接纳旧任务的晚到结果。模型请求取消需等待返回或超时。</p><p id="script-input" class="muted small"></p><a id="daily-input">返回本次选题 →</a>{% elif task.kind == 'script' %}<p class="muted small">脚本任务固定提交时的节点和来源版本。可关闭页面，稍后从<a href="/scripts">脚本工作台</a>返回。取消需等待当前模型请求返回或超时；重试复用已验证的生成结果，每个任务只创建一份草稿。</p><p id="script-input" class="muted small"></p>{% elif task.kind == 'video' %}<p class="muted small">视频任务取消时会终止正在运行的配音或编码子进程。重试复用校验通过的音频检查点。</p>{% else %}<p class="muted small">取消在安全检查点生效；正在进行的网络请求会先返回或超时。重试保留已入库新闻，复用已完成的筛选结果。需要重新抓取时，请回仪表盘提交新任务。</p>{% endif %}
+{% if task.kind == 'daily_script' %}<p class="muted small">每日脚本使用提交时固定的报道。可关闭页面，稍后从<a href="/profiles">采集配置</a>或<a href="/scripts">脚本工作台</a>返回。移出选题会取消未完成任务；重新选择不会接纳旧任务的晚到结果。模型请求取消需等待返回或超时。</p><p id="script-input" class="muted small"></p><a id="daily-input">返回本次选题 →</a>{% elif task.kind == 'script' %}<p class="muted small">脚本任务固定提交时的节点和来源版本。可关闭页面，稍后从<a href="/scripts">脚本工作台</a>返回。取消需等待当前模型请求返回或超时；重试复用已验证的生成结果，每个任务只创建一份草稿。</p><p id="script-input" class="muted small"></p>{% elif task.kind == 'video' %}<p class="muted small">视频任务取消时会终止正在运行的配音或编码子进程。重试复用校验通过的音频检查点。</p>{% else %}<p class="muted small">取消在安全检查点生效；正在进行的网络请求会先返回或超时。重试保留已入库新闻，复用已完成的筛选结果。需要重新抓取时，请回采集配置提交新任务。</p>{% endif %}
 <section class="card" style="margin-top:16px"><h2 style="margin-top:0">排队与耗时</h2><p id="queue-position">正在读取队列…</p><p id="queue-duration"></p><p id="queue-worker" class="muted small"></p><p id="queue-recovery" class="muted small" hidden></p><a href="/tasks?status=active">查看全部进行中的任务 →</a><p class="muted small">排队位置是当前等待队列中的顺序，不含执行中的任务；认领、取消或重试后会更新。“提交至结束”包含排队和重试期间的等待。</p></section>
 <p id="connection" class="muted small">正在连接进度流…</p>
 <h2>任务记录</h2>
@@ -49,14 +49,14 @@ function display(t) {
   const choose=document.getElementById('choose-result');
   choose.hidden=t.kind!=='collect'||!['succeeded','failed','cancelled'].includes(t.status);
   if(t.kind==='script'||t.kind==='daily_script')loadScriptResult();
-  choose.href='/daily?'+new URLSearchParams({task_id:t.task_id,day:t.collection_date||'',timezone:t.timezone||'Asia/Shanghai'});
+  choose.href='/articles?'+new URLSearchParams({task_id:t.task_id,timezone:t.timezone||'Asia/Shanghai'});
 }
 async function loadScriptResult(){
  try{
   const daily=initial.kind==='daily_script';const response=await fetch((daily?'/api/daily/script-tasks/':'/api/script-tasks/')+encodeURIComponent(initial.task_id));if(!response.ok)return;
   const data=await response.json();const link=document.getElementById('script-result');link.hidden=!data.script_url;if(data.script_url)link.href=data.script_url;
   if(daily){
-   document.getElementById('script-input').textContent=(data.mode==='llm'?'AI 初稿 · '+(data.output_language||'zh-CN'):'基础摘录稿')+' · 选题日期 '+data.day+'（'+data.timezone+'） · '+(data.source.revision?'固定报道 r'+data.source.revision:'固定报道摘录')+(data.current?'':' · 历史任务，不能重试；请回每日选题生成新任务。');
+   document.getElementById('script-input').textContent=(data.mode==='llm'?'AI 初稿 · '+(data.output_language||'zh-CN'):'基础摘录稿')+' · 选题日期 '+data.day+'（'+data.timezone+'） · '+(data.source.revision?'固定报道 r'+data.source.revision:'固定报道摘录')+(data.current?'':' · 历史任务，不能重试；请在内容工作台新建任务。');
    document.getElementById('daily-input').href=data.daily_url;
    document.getElementById('retry').disabled=!data.can_retry;
   }else document.getElementById('script-input').textContent='已固定 '+data.moment_count+' 个节点、'+data.source_count+' 个来源版本 · '+data.options.duration_sec+' 秒 · '+(data.options.backend==='llm'?'AI 有据初稿':'证据提纲');

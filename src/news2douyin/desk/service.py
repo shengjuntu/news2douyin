@@ -112,16 +112,21 @@ def update_event(s,key,watches):
             enqueue_graph(s,'watch/'+link.watch)
             s.delete(link)
     else:
+        old_sources=current.sources if current else ''
         card=s.merge(snapshot(s,event))
         for w in watches:
             before=s.get(WatchEvent,(w.key,key))
             if w.enabled:sync_auto(s,w,card)
             after=s.get(WatchEvent,(w.key,key))
+            if after and after.choice!='exclude' and card.sources!=old_sources:
+                from ..knowledge.service import note_change
+                from ..extraction.schema import stable_id
+                note_change(s,w.key,key,'updated' if before else 'added',card.title,stable_id(card.sources))
             if before or after:enqueue_graph(s,'watch/'+w.key)
             today=utc_now_iso()[:10]
             if (w.enabled and w.auto_research and w.last_auto_day!=today and after
                     and after.choice!='exclude' and not after.reason.startswith('背景')
-                    and card.priority>=2 and card.seen>=w.created and event.created_at>=w.created):
+                    and card.priority>=2 and card.seen>=w.created and card.sources!=old_sources):
                 make_review(s,w,key,'signal-'+today)
                 w.last_auto_day=today;w.next_review=iso_after(w.review_days);s.add(w)
     enqueue_graph(s,'event/'+key)
@@ -167,6 +172,14 @@ def save_watch(s,scope:Scope,key=None,expected=None,seed=''):
         for card in s.exec(select(RadarEntry).execution_options(yield_per=100)):
             sync_auto(s,w,card)
     if seed:link_event(s,w.key,seed,'include',commit=False)
+    if not key:
+        from ..extraction.models import FocusPoint
+        from ..extraction.schema import stable_id
+        from .rules import terms
+        for label in terms(w.dimensions)[:6]:
+            question=f'关于“{label}”，有哪些进展、证据和未解问题？'
+            s.add(FocusPoint(key='point_'+stable_id(w.key,w.key,question.casefold()),watch=w.key,parent=w.key,
+                text=question,created=utc_now_iso()))
     enqueue_graph(s,'watch/'+w.key)
     s.commit();s.refresh(w)
     return w

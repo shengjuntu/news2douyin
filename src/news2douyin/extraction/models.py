@@ -11,6 +11,12 @@ class VersionReading(SQLModel, table=True):
     note: str = ''
 
 
+class ExtractionAttempt(SQLModel, table=True):
+    version_id: int = Field(primary_key=True)
+    attempts: int = 0
+    method: str = ''
+
+
 class TextMention(SQLModel, table=True):
     id: str = Field(primary_key=True)
     version_id: int = Field(index=True)

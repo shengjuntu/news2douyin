@@ -72,12 +72,20 @@ def register_research_routes(app, engine, storage_root):
 
     @app.get('/research', response_class=HTMLResponse)
     def research_page(article_key: str = '', event_key: str = ''):
-        return page('research.html', article_key=article_key, event_key=event_key)
+        from fastapi.responses import RedirectResponse
+        from urllib.parse import urlencode
+        if article_key or event_key:
+            return RedirectResponse('/workbench/new?'+urlencode(dict(article=article_key,event=event_key)),303)
+        return RedirectResponse('/workbench?view=history',303)
 
     @app.get('/research/{case_id}', response_class=HTMLResponse)
     def research_case(case_id: str):
+        from .workbench import owner
+        from fastapi.responses import RedirectResponse
         with Session(engine, expire_on_commit=False) as s:
             case = call(svc.require_case, s, case_id)
+            task=owner(s,'case',case_id)
+            if task:return RedirectResponse(f'/workbench/{task}/research?case={case_id}&mode=evidence',303)
             from ..desk.models import WatchReview, Watch
             from ..extraction.models import SurveyPacket
             packet = s.get(SurveyPacket,case_id)
@@ -216,7 +224,7 @@ def register_research_routes(app, engine, storage_root):
             version = params.get('protocolVersion')
             result = {'protocolVersion': version if version in supported else '2025-03-26',
                       'capabilities': {'tools': {'listChanged': False}},
-                      'serverInfo': {'name': 'news2douyin-research', 'version': '0.19.0'}}
+                      'serverInfo': {'name': 'news2douyin-research', 'version': '0.20.0'}}
         elif method == 'ping':
             result = {}
         elif method == 'tools/list':

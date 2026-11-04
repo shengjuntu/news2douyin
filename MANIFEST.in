@@ -4,3 +4,4 @@ recursive-include configs *.yaml *.toml
 recursive-include tools *.py *.md *.txt *.bat *.cjs
 recursive-include tests *.py *.json
 recursive-include examples *.md *.mp4 *.srt
+recursive-include deploy *.yaml

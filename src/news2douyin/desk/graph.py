@@ -17,14 +17,68 @@ class GraphMirror:
             raise ValueError('NEWS2DOUYIN_GRAPH_PREFIX 只支持 1–48 个字母、数字、下划线或短横线')
         self.client=None
         self.last_error=''
+        self.bootstrapped=False
+        self.last_ok=''
 
     def query(self,graph,query,**params):
+        if not self.url:
+            raise ValueError('FalkorDB 未配置')
         if self.client is None:
             from redis import Redis
             self.client=Redis.from_url(self.url,decode_responses=True,socket_connect_timeout=2,socket_timeout=10)
         prefix=' '.join(key+'='+json.dumps(val,ensure_ascii=False) for key,val in params.items())
         return self.client.execute_command('GRAPH.QUERY',self.prefix+'_'+graph,
             ('CYPHER '+prefix+' ' if prefix else '')+query)
+
+    def read(self,graph,query,**params):
+        if self.client is None:
+            self.query(graph,'RETURN 1')
+        prefix=' '.join(key+'='+json.dumps(val,ensure_ascii=False) for key,val in params.items())
+        result=self.client.execute_command('GRAPH.RO_QUERY',self.prefix+'_'+graph,
+            ('CYPHER '+prefix+' ' if prefix else '')+query)
+        return result[1] if len(result)>2 else []
+
+    def bootstrap(self,engine):
+        from .models import DeskMeta
+        from ..storage.models import utc_now_iso
+        with Session(engine) as s:
+            lock_news(s)
+            owner=s.get(DeskMeta,'graph_owner')
+            if not owner:
+                owner=DeskMeta(key='graph_owner',value=uuid4().hex);s.add(owner);s.commit()
+            ident=owner.value
+        # Also detects a lost or newly configured graph after an app restart.
+        self.query('active_global','MERGE (m:GraphMeta {id:$id})',id='schema')
+        rows=self.read('active_global','MATCH (m:GraphMeta {id:$id}) RETURN m.owner,m.schema',id='schema')
+        actual=rows[0][0] if rows else None
+        if actual and actual!=ident:
+            raise ValueError('graph_namespace_belongs_to_another_database')
+        if not actual or not rows or rows[0][1]!='2.0':
+            with Session(engine) as s:
+                lock_news(s)
+                for row in s.exec(select(GraphPending)):
+                    row.written='';s.add(row)
+                old=s.get(DeskMeta,'graph_analysis')
+                if old:s.delete(old)
+                s.commit()
+            self.query('active_global','MATCH (m:GraphMeta {id:$id}) SET m.owner=$owner,m.schema=$schema',
+                id='schema',owner=ident,schema='2.0')
+        # Each focus is a separate graph key and can be lost independently.
+        with Session(engine) as s:
+            watches=list(s.exec(select(Watch.key)))
+        if watches:
+            with self.client.pipeline(transaction=False) as pipe:
+                for key in watches:pipe.exists(self.prefix+'_focus_'+key)
+                present=pipe.execute()
+            missing=[key for key,exists in zip(watches,present) if not exists]
+            if missing:
+                from .service import enqueue_graph
+                with Session(engine) as s:
+                    lock_news(s)
+                    for key in missing:enqueue_graph(s,'watch/'+key)
+                    s.commit()
+        self.last_ok=utc_now_iso()
+        self.bootstrapped=True
 
     def event(self,data,key,places):
         q=lambda query,**params:self.query('active_global',query,**params)
@@ -34,8 +88,9 @@ class GraphMirror:
         q('MERGE (e:Event {id:$k}) SET e.title=$title,e.seen=$seen',k=key,title=data.title,seen=data.seen)
         stamp=uuid4().hex
         for src in json.loads(data.sources):
-            q('MATCH (e:Event {id:$k}) MERGE (s:Article {id:$a}) SET s.domain=$d,s.title=$t '
-              'MERGE (e)-[r:HAS_SOURCE]->(s) SET r.stamp=$v',k=key,a=src['key'],d=src['domain'],t=src['title'],v=stamp)
+            q('MATCH (e:Event {id:$k}) MERGE (s:Article {id:$a}) SET s.domain=$d,s.title=$t,s.duplicate_root=$root '
+              'MERGE (e)-[r:HAS_SOURCE]->(s) SET r.stamp=$v',k=key,a=src['key'],d=src['domain'],t=src['title'],
+              root=src.get('duplicate_of') or src['key'],v=stamp)
             people=[x.casefold().strip() for x in src['persons'] if x.strip()]
             orgs=[x.casefold().strip() for x in src['orgs'] if x.strip()]
             entities=list(dict.fromkeys(people+orgs))
@@ -59,7 +114,7 @@ class GraphMirror:
         q('MATCH (a:Article) WHERE NOT (a)<-[:HAS_SOURCE]-() DETACH DELETE a')
         extraction_graph.clean(q)
 
-    def watch(self,w,events,reviews,questions,claims,reports,points=(),point_reviews=()):
+    def watch(self,w,events,reviews,questions,claims,reports,points=(),point_reviews=(),point_material=()):
         graph='focus_'+w.key
         root=lambda query,**ps:self.query('active_global',query,**ps)
         local=lambda query,**ps:self.query(graph,query,**ps)
@@ -70,6 +125,8 @@ class GraphMirror:
         local('MERGE (q:Question {id:$k}) SET q.text=$t,q.scope=$scope',k=w.key,t=w.question or w.name,scope=w.scope)
         for point in points:
             local('MERGE (p:OutlinePoint {id:$id}) SET p.text=$text',id=point.key,text=point.text)
+        local('MATCH (p:OutlinePoint) WHERE NOT p.id IN $ids DETACH DELETE p',ids=[p.key for p in points])
+        local('MATCH ()-[r:HAS_SUBQUESTION]->() DELETE r')
         for point in points:
             parent_type = 'Question' if point.parent==w.key else 'OutlinePoint'
             local('MATCH (p:'+parent_type+' {id:$p}),(n:OutlinePoint {id:$id}) MERGE (p)-[:HAS_SUBQUESTION]->(n)',
@@ -90,6 +147,10 @@ class GraphMirror:
         local('MATCH ()-[r:CITES]->() WHERE r.stamp<>$v DELETE r',v=stamp)
         local('MATCH (a:Article) WHERE NOT (a)<-[:CITES]-() DETACH DELETE a')
         extraction_graph.clean(local)
+        local('MATCH (:OutlinePoint)-[r:RELEVANT_MATERIAL]->() DELETE r')
+        for item in point_material:
+            local('MATCH (p:OutlinePoint {id:$p}),(e:Event {id:$e}) MERGE (p)-[r:RELEVANT_MATERIAL]->(e) '
+                  'SET r.reason=$reason',p=item.point,e=item.event,reason=item.reason)
         for r in reviews:
             local('MATCH (q:Question {id:$w}) MERGE (c:Investigation {id:$k}) SET c.status=$s,c.case_id=$c '
                   'MERGE (q)-[:CHECKED_BY]->(c)',w=w.key,k=r.key,s=r.status,c=r.case_key)
@@ -133,6 +194,7 @@ class GraphMirror:
 
     def step(self,engine):
         if not self.url:return False
+        if not self.bootstrapped:self.bootstrap(engine)
         with Session(engine,expire_on_commit=False) as s:
             row=s.exec(select(GraphPending).where(GraphPending.token!=GraphPending.written)
                        .order_by(GraphPending.key).limit(1)).first()
@@ -146,6 +208,8 @@ class GraphMirror:
                        .where(WatchEvent.watch==key,WatchEvent.choice!='exclude')).all()
                 from ..extraction.outline import points as get_points, history
                 points=get_points(s,key)
+                from ..knowledge.models import PointMaterial
+                point_material=s.exec(select(PointMaterial).where(PointMaterial.point.in_([p.key for p in points]))).all()
                 point_reviews=[(link.point,link.ticket) for link,_ in history(s,key)]
                 from ..research.models import ResearchQuestion, ResearchClaim, ResearchReport
                 reviews=s.exec(select(WatchReview).where(WatchReview.watch==key)).all()
@@ -153,7 +217,7 @@ class GraphMirror:
                 questions,claims,reports=[s.exec(select(model).where(model.case_id.in_(cases))).all()
                     for model in (ResearchQuestion,ResearchClaim,ResearchReport)]
         if kind=='event':self.event(card,key,places)
-        else:self.watch(w,events,reviews,questions,claims,reports,points,point_reviews)
+        else:self.watch(w,events,reviews,questions,claims,reports,points,point_reviews,point_material)
         with Session(engine) as s:
             lock_news(s)
             current=s.get(GraphPending,row.key)

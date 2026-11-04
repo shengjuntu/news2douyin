@@ -11,7 +11,7 @@
  <section class="card setup-card" id="news-card"><h2>1 · 新闻与自动采集</h2>
   <div id="news-summary" class="muted">正在检查…</div><div id="news-profiles"></div>
   <details><summary>如何接入真实新闻</summary><p>GDELT 无需密钥。到采集策略选择 GDELT，填写英文关键词，保存后试跑。</p><p>在运行服务的目录复制 <code>.env.example</code> 为 <code>.env</code>，填写 <code>API_KEY</code>，重启服务。在策略中选择 WorldNewsAPI，并设置国家、语言和关注词。自定义密钥变量沿用策略配置。</p><p>保存后到采集策略点击“试跑”，核对抓取数、过滤原因和样本。密钥存在不代表账户权限或额度已经验证。</p></details>
-  <div class="setup-actions"><a href="/profiles">新增策略 / 试跑 →</a><a href="/daily">每日选题 →</a></div>
+  <div class="setup-actions"><a href="/profiles">新增策略 / 试跑 →</a><a href="/profiles">采集配置 →</a></div>
   <h3>自动采集计划</h3><p id="schedule-summary" class="muted">正在检查…</p><div id="setup-schedules"></div>
   <p><a href="/profiles#schedules">管理计划与时区 →</a></p>
  </section>
@@ -33,18 +33,17 @@ MODEL=实际模型名称</pre><p><code>127.0.0.1</code> 指 news2douyin 服务�
   <div class="setup-actions"><a href="/scripts">打开脚本并审核 →</a><a href="/videos">查看已完成作品 →</a></div>
  </section>
  <section class="card setup-card" id="service-card"><h2>服务与存储</h2><div id="service-config">正在检查…</div>
-  <p class="muted small">这里显示当前服务实例的状态。多实例共用数据库时，其他实例可能正在处理任务。目录权限仅做预检；磁盘空间、实际写入及媒体编码需在完整流程中验证。</p>
+  <p class="muted small">这里显示当前服务实例的状态。当前知识图部署使用单个应用服务进程。目录权限仅做预检；磁盘空间、实际写入及媒体编码需在完整流程中验证。</p>
   <details><summary>启动与数据保存</summary><p>关闭网页后，后台任务继续执行；关闭服务则暂停处理。从同一目录启动，或用 <code>--db-url</code> 与 <code>--storage-root</code> 指向原位置，才能继续使用原新闻、稿件和视频。</p><p>每日默认时区由 <code>NEWS2DOUYIN_TIMEZONE</code> 设置。自动采集计划各自使用计划中保存的时区。</p></details>
   <p><a href="/tasks">查看任务与排队 →</a></p>
  </section>
 </div>
-<section class="card setup-card"><h2>跑通第一条新闻</h2><ol class="setup-steps">
- <li>到<a href="/profiles">采集策略</a>新增演示策略，或配置真实新闻源并试跑。</li>
- <li>到<a href="/daily">每日选题</a>采集今天的新闻，完成后选一条，生成基础摘录稿或 AI 初稿。</li>
- <li>在<a href="/scripts">脚本工作台</a>编辑、核对来源，通过审核后进入视频制作。</li>
- <li>选新闻简报模板与快速预览规格，使用离线配音或上传配音，检查画面并提交制作。</li>
- <li>到<a href="/videos">作品库</a>播放视频并下载 MP4；第二天从每日选题继续。</li>
-</ol><p class="muted">演示资料和机械配音用于验证操作。真实新闻覆盖、稿件准确性和配音效果需要你实际核对。</p></section>
+<section class="card setup-card"><h2>跑通核心流程</h2><ol class="setup-steps">
+ <li>到<a href="/profiles">采集配置</a>保存策略，试跑后点击“正式采集入库”。</li>
+ <li>在<a href="/knowledge">知识处理状态</a>确认抽取和图连接，在<a href="/radar">事件雷达</a>发现变化，或建立长期专题。</li>
+ <li>点击“形成选题”，在<a href="/workbench">内容工作台</a>确定角度和资料，补充研究后生成带引用的可编辑初稿。</li>
+ <li>核对、编辑、审核、导出；需要视频时再进入制作。报告、稿件和视频保存在同一任务的“作品”阶段。</li>
+</ol><p class="muted">演示资料用于验证操作；配置自己的模型和研究助手后，再核对实际抽取与研究结果。</p></section>
 <script>
 const el=id=>document.getElementById(id),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const badge=(text,kind='')=>`<span class="badge ${kind}">${esc(text)}</span>`;

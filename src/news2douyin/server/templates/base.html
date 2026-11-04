@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{% block title %}news2douyin v7{% endblock %}</title>
+<title>{% block title %}news2douyin{% endblock %}</title>
 <style>
 :root { color-scheme: dark; }
 * { box-sizing: border-box; }
@@ -55,22 +55,24 @@ button:disabled { opacity:.45; cursor:not-allowed; }
 .desk-grid{display:grid;grid-template-columns:minmax(190px,1fr) minmax(0,3fr);gap:16px}.desk-pane{border-top:1px solid #34404a;padding:14px 0}.desk-form label{display:block;margin:9px 0}.desk-form input:not([type=checkbox]),.desk-form textarea,.desk-form select{display:block;width:100%;max-width:650px}.desk-topic{display:block;margin:8px 0;padding:8px;background:#1e2630;border-radius:6px}.desk-title{font-size:16px;font-weight:600}.desk-meta{color:#a4b4bf;font-size:13px}.desk-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.desk-alert{color:#ffbe7c}.desk-error{color:#ffa29e;white-space:pre-wrap}.desk-gap{margin:14px 0}button:focus-visible,a:focus-visible,summary:focus-visible{outline:2px solid #4dd0e1;outline-offset:2px}
 @media(max-width:760px){.desk-grid{grid-template-columns:1fr}.desk-menu>div{position:relative}.desk-form{width:100%}}
 .source-tree,.source-tree ul{list-style:none;padding-left:1.2rem}.source-tree ul{border-left:1px solid #667487}.source-tree li{padding:.2rem 0 .2rem .55rem}
+.work-header{padding:4px 0 22px;margin-bottom:24px;border-bottom:1px solid #34404a}.work-header h1{font-size:25px;margin:16px 0}.work-stages{margin:18px 0;gap:10px}.work-stages a{padding:10px 18px;background:#19212e}.work-stages a.on{background:#245361;color:#fff}.work-context{padding:12px 0;color:#b8c3d3}.work-actions{margin:18px 0}.work-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(285px,1fr));gap:16px}.work-cards h2{margin-top:15px;font-size:18px}.work-cards p{min-height:30px}.graph-status{padding:12px 16px;border:1px solid #375367;border-radius:8px;margin:16px 0;background:#12202b}.graph-status.warn{border-color:#795f34}.graph-box{width:100%;height:420px;background:#101923;border:1px solid #304151;border-radius:10px}.graph-box text{fill:#d3e0e9;font-size:12px}.graph-box circle{stroke:#4dd0e1;stroke-width:2}.graph-box a:focus circle{stroke:#fff;stroke-width:4}.graph-caption{color:#a5b4c4}.score-parts{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}.work-header select{max-width:100%}
 </style>
 </head>
 <body>
 <header>
-  <div class="logo">news2douyin<span class="dot">·</span>0.19.0</div>
+  <div class="logo">news2douyin<span class="dot">·</span>0.20.0</div>
   {% if standalone %}<span class="muted">资源 / 国家与地区</span>{% else %}<nav>
     <a href="/radar" class="{{ 'on' if active=='radar' }}">事件雷达</a>
     <a href="/focus" class="{{ 'on' if active=='focus' }}">我的专题</a>
-    <details class="desk-menu"><summary>资料与研究</summary><div><a href="/articles">新闻库</a><a href="/profiles">采集策略</a><a href="/country-reference.html">国家与地区</a><a href="/research">研究记录</a><a href="/topics">选题草稿</a><a href="/daily">每日选题</a></div></details>
-    <details class="desk-menu"><summary>创作与作品</summary><div><a href="/short-scripts">短稿</a><a href="/scripts">脚本工作台</a><a href="/videos">作品库</a><a href="/timeline">新闻长图排版</a><a href="/handoff">制作交接</a></div></details>
-    <details class="desk-menu"><summary>运行管理</summary><div><a href="/admin">运行概览</a><a href="/tasks">任务中心</a><a href="/runs">采集记录</a><a href="/setup">首次运行检查</a></div></details>
+    <a href="/workbench" class="{{ 'on' if active=='workbench' }}">内容工作台</a>
+    <a href="/articles" class="{{ 'on' if active=='articles' }}">新闻库</a>
+    <details class="desk-menu"><summary>运行管理</summary><div><a href="/admin">运行概览</a><a href="/knowledge">知识处理状态</a><a href="/profiles">采集配置</a><a href="/research/settings">研究助手设置</a><a href="/tasks">执行任务</a><a href="/runs">采集记录</a><a href="/setup">首次运行检查</a><a href="/country-reference.html">国家与地区</a></div></details>
   </nav>{% endif %}
 </header>
 <main>
+{% if work is defined %}{% include 'work_header.html' %}{% endif %}
 {% block content %}{% endblock %}
 </main>
-<footer>news2douyin 0.19.0{% if not standalone %} · <a href="/setup">首次运行检查</a> · <a href="/tasks">任务中心</a> · <a href="/runs">运行记录</a> · <a href="/timeline">新闻长图排版</a> · <a href="/docs">API</a>{% endif %}</footer>
+<footer>news2douyin 0.20.0{% if not standalone %} · <a href="/knowledge">知识处理状态</a> · <a href="/tasks">执行任务</a> · <a href="/docs">API</a>{% endif %}</footer>
 </body>
 </html>

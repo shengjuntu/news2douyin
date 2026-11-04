@@ -1,234 +1,68 @@
-# news2douyin 0.19.0 · 从新闻陈述到持续专题综述
+# news2douyin 0.20.0 · 持续理解与内容工作台
 
-新增分版本的事件角色与原句抽取、状态与时间规范化、跨报道候选、长期子问题和逐节的综述取证预览。论文评述、操作、数据范围与小样本评测见[事件抽取与专题综述](docs/EVENT-EXTRACTION-SURVEY.md)。
+从事件雷达理解新变化，用专题持续积累知识，在同一内容任务中完成选题、研究、创作和作品交付。
 
-从 **事件雷达** 发现重要变化，从 **我的专题** 定义长期跟踪的问题。两个视图共用报道、事件详情和来源记录。首次打开可直接用「特朗普活动」「俄乌战争」等预设建题，随后配置采集计划及可选的自动研究。详见[升级与使用](docs/DUAL-WORKBENCH.md)。
+| 主入口 | 用途 |
+| --- | --- |
+| 事件雷达 `/radar` | 事件、来源、时间和地理脉络；基于知识图的关联与可解释排序 |
+| 我的专题 `/focus` | 长期关注、知识纲要、未读变化、缺口和主动补查 |
+| 内容工作台 `/workbench` | 选题 → 研究 → 创作 → 作品；材料、引用和版本持续保留 |
+| 新闻库 `/articles` | 原始报道、全文检索、来源及不可变原文版本 |
 
-## 新闻采集与原有工作流
+采集配置、执行记录、研究助手设置、知识处理状态与国家资料位于运行管理。
 
-打开「采集策略」→「新建策略」，新闻源选 **GDELT DOC 2.0（免密钥）**。例如填写 `Warsaw`，来源国选「全球媒体」，语言选「全部语言」，最多 20 条。保存后选最近一个完整日期试跑，在诊断中查看标题、筛选原因并打开原文。到「每日选题」选择同一策略和日期可正式入库，或在策略页设定计划。
+## 安装与升级
 
-GDELT 按所选时区的收录日期检索，每次取最近的 1–250 条匹配报道。输入国家名称对应的选项即可，程序将 ISO 代码转换为 GDELT 的 FIPS 代码。「来源国家」表示媒体所在国。例如，选择波兰只看波兰媒体，留空可检索全球媒体对波兰的报道。报道语言也可留空。仅提供有明确映射的国家选项。该接口返回标题、链接等索引资料，原文发布时间和正文缺失时留空。相同网址再次命中会保留已有正文，GDELT 的收录时间单独展示。上游超时或限流时，可在任务中心稍后重试。参考 [GDELT DOC 2.0 官方文档](https://blog.gdeltproject.org/gdelt-doc-2-0-api-debuts/)、[来源国代码表](https://data.gdeltproject.org/api/v2/guides/LOOKUP-COUNTRIES.TXT)和[语言表](https://data.gdeltproject.org/api/v2/guides/LOOKUP-LANGUAGES.TXT)。
-
-
-从顶部「国家与地区」或采集策略页进入 `/country-reference.html`。已有书签 `/resources/countries` 同样可用。可按英文名称 A–Z 或七大洲查阅中英文国名、ISO 两位 / 三位 / 数字代码及首都、首府或行政中心。支持中文、英文和代码检索。资源内置，运行时可离线查阅。
-
-选题与内容制作入口：**选题工作台 `/topics`**。可以手动跨日期搜索新闻与事件，也可以输入一句话，通过 RunDesk / Codex 讨论选题。候选卡片带原文依据，采用后与手动选择共用同一份持久化选题草稿。
-
-选题确定后，可仅用现有资料写短稿、补充材料，或深入研究。补材支持直接生成短稿，也支持只保存素材报告和配图线索。选题、原文快照、讨论、关联任务跨日期保留；[操作、接口与升级](docs/TOPICS.md)。旧每日选题与采集保留在 `/daily`。
-
-研究外部搜索统一由 RunDesk 中的 Codex 调用 Exa；news2douyin 只提供本地新闻库、搜索票据/预算、结果记录和证据保存。研究模块不再直连 WorldNewsAPI/Tavily，采集功能仍保留原有搜索服务。相同查询复用票据，本地检索不占外部预算；[设计、升级与验证](docs/RESEARCH-SEARCH.md)。
-
-配套 **RunDesk 0.48.0**。已合入 GitHub `62ed074` 的超时与 Docker 配置重试修改，保留 Docker 完整访问和 MCP 持久授权，配合初始化阶段的 Exa + Agent-Reach 镜像准备；[合并说明与验证](docs/validation-0.13.2.md)。
-
-首次选好镜像并完成容器模型认证后，点击“启动环境并深度研究”，应用自动准备绑定的 Docker 环境、检查工具并提交研究；报告、证据和执行轨迹可回查。支持 Exa 搜索票据与结果记录，重复点击复用当前运行。
-
-保留容器持续授权：研究设置选择“完整访问”并连接配置，Codex 命令和当前已启用 MCP 持续允许。可写挂载文件会同步修改；已有任务先停止后重新开始。
-
-[首次部署与日常操作](docs/DOCKER-RESEARCH.md) · [应用接入](docs/APPLICATION-CONNECT.md) · [本版说明与验证](docs/SHORT-SCRIPTS.md)
-
-已有工作流：**选择新闻 → 背景研究 → 证据与报告 → 继续追问**。由 RunDesk 管理 Codex 执行，news2douyin 保存研究成果；原有采集、脚本和作品库继续可用。
-
-- `/research`：新闻研究课题、问题、证据、报告版本与运行记录。
-- `/research/settings`：配置 RunDesk 专用实例、研究 Skill 与 MCP；管理研究策略和搜索凭据。
-- `/setup`：首次运行检查，集中查看新闻源、模型配置、定时计划与视频依赖；提供主动连接检查和操作步骤。
-- `/daily`：每日选题，默认 Asia/Shanghai；已选内容自动保存。
-- `/articles`：历史新闻库，支持发布时间、采集时间和首次入库时间筛选。
-- `/profiles`：策略增改、复制与启停；可选择热门榜或主动关键词检索；试跑诊断及定时配置。`cn_policy_sectors` 指中国政策与板块，并非 CNN。
-- `/events`：旧列表转到事件雷达。既有事件详情支持增删报道，整理绑定文章版本和原文摘录的进展节点，关联背景与后续，合并/拆分，补充检索和证据包导出。
-- `/short-scripts`：轻量补材任务、进度、停止/继续以及生成稿入口。
-- `/scripts`：逐段脚本、分镜、素材需求与审核；从事件专题的已核对节点后台生成快讯、解释或复盘，可选时长和风格。支持无需模型的证据提纲和 AI 有据初稿。
-- `/videos`：可检索作品库，按标题、日期、状态和模板查找，支持收藏、归档、播放与 MP4/字幕/制作包下载。
-- `/admin`：原仪表盘、自动采集任务和运行管理。
-- `/tasks`：任务中心，按类型、状态、标题和提交日期查找；显示排队位置、当前执行任务及耗时，可进入进度、失败处理与结果。
-- `/timeline`：原时间线已明确为“新闻长图排版”。
-
-Docker 研究需要 RunDesk 0.48.0 的应用运行环境接口。已有安装继续保留本机模式，明确切换 Docker 才配置容器。提交回执、运行编号守卫、追加要求、停止和继续保留；所有研究判断和事件节点仍是待审核资料。真实镜像、模型和搜索需在部署环境完成首次验收。
-
-首次使用可启动服务后在“采集策略”新增一个 `mock` 演示策略，到「每日选题」采集并验证完整流程。
-使用 WorldNewsAPI 选择 `worldnewsapi`，在 `.env` 填入 `API_KEY`；AI 脚本配置 `OPENAI_BASE_URL`、`OPENAI_API_KEY`、`MODEL`。
-WorldNewsAPI 现在提供两种获取方式：**热门榜单**和**主动关键词检索**，随后执行策略筛选。专题中的补充检索先保存候选，用户选择后才收录。覆盖范围受新闻源和账户权限影响。
-
-[部署与升级步骤](docs/DOCKER-RESEARCH.md) · [跑通一天的操作步骤](docs/first-day.md) · [模块关系与版本计划](docs/product-roadmap.md) · [验证记录](docs/validation-0.13.2.md)
-
-This repository now includes a V7 implementation focused on a long-running client/server workflow for market-impression news collection.
-
-Version 0.5.0 adds immutable article versions, independent-report event grouping, and SQLite FTS5 search with pagination. See [release notes and upgrade steps](docs/release-0.5.0.md).
-
-Version 0.4.1 adds a handoff guide and paired demo bundles for RunDesk Video App 0.3.0. See [cross-app handoff](docs/release-0.4.1.md).
-
-Version 0.4.0 adds a local video pipeline: approved script → speech or uploaded
-PCM WAV + SRT → captioned portrait frames → H.264/AAC MP4. Video tasks use the
-existing queue, cancellation and checkpoints. See [video setup and limits](docs/release-0.4.0.md).
-The [versioned script workbench from 0.3.0](docs/release-0.3.0.md) is included.
-[Persistent background tasks from 0.2.0](docs/release-0.2.0.md) are included.
-The [0.1.1 correctness and packaging fixes](docs/release-0.1.1.md) are included.
-
-Python 3.10+ is required. The default install is the headless service. Optional
-features are installed explicitly:
+Python 3.10+。先停止原服务，备份原数据库、运行目录与配置，然后在原环境安装：
 
 ```bash
-pip install -e ".[research]"     # news research PDF reading; RunDesk runs Codex
-pip install -e ".[llm]"          # legacy LLM scoring/story/script pipeline
-pip install -e ".[assets,tts]"   # legacy asset preparation and voice generation
-pip install -e ".[video,voice-offline]" # local video + offline preview speech
-pip install -e ".[desktop]"      # PyQt clients
-pip install -e ".[dev,assets,llm,video,voice-offline]" # tests and release validation
+python -m pip install --upgrade "./release-0.20.0/news2douyin-0.20.0-py3-none-any.whl[research]"
 ```
 
-The server loads `.env` from the working directory (or its parents), or the
-explicit `NEWS2DOUYIN_ENV_FILE` path. Existing environment variables take
-precedence. Never expose an unauthenticated instance to untrusted networks.
+源码安装使用 `python -m pip install '.[research]'`。沿用原有 `--db-url` 与 `--storage-root`，不要建立空库代替原库。升级新增表并建立已有选题的任务关联，保留旧研究、脚本和视频。
 
-## What is new
-- Long-running FastAPI server (`news2douyin-server` or `news2douyin v7-serve`)
-- Scheduled jobs stored in SQLite
-- User-configurable collect profiles (country, language, categories, keywords, source white/black lists)
-- Manual backfill / run-now collection
-- Stronger de-dup based on canonical URL, normalized title/content hash, and near-duplicate matching
-- Persistent article / event storage and search APIs
-- Decoupled editorial + video script package generation
+## 必要服务与连接
 
-## Quick start
-```bash
-python -m pip install -e .
-news2douyin v7-init --profile configs/v7/profiles/mock_market.yaml
-news2douyin v7-run-now --profile-name mock_market
-news2douyin v7-search-events
-news2douyin-server --host 127.0.0.1 --port 18080
-```
-
-## Real collection example
-```bash
-news2douyin v7-init \
-  --profile configs/v7/profiles/us_market_macro.yaml \
-  --profile configs/v7/profiles/cn_policy_sectors.yaml \
-  --jobs-yaml configs/v7/jobs/example_jobs.yaml
-
-news2douyin-server --host 0.0.0.0 --port 18080
-```
-
-Main APIs:
-- `GET /api/task-queue` / `GET /api/tasks/{task_id}/queue-status`
-- `POST|GET /api/daily/script-tasks` / `GET /api/daily/script-tasks/{task_id}`
-- `POST /api/daily/selections/{selection_key}/script-task`
-- `POST /api/profiles` / `DELETE /api/profiles/{name}`
-- `POST /api/profiles/{name}/enable` / `disable` / `test`
-- `GET /api/tasks/{task_id}/diagnostics`
-- `POST /api/jobs/preview` / `PUT|DELETE /api/jobs/{id}`
-- `POST /api/jobs`
-- `POST /api/tasks/collect` (202 + task ID)
-- `GET /api/tasks/{task_id}` / `events` / `stream`
-- `POST /api/tasks/{task_id}/cancel` / `retry`
-- `POST /api/collect/run-now` (legacy wait; `?wait=false` queues)
-- `GET /api/articles/search`
-- `GET /api/events/search`
-- `POST /api/events/{event_key}/script-tasks` / `GET /api/script-tasks/{task_id}`
-- `GET /api/script-tasks?event_key=...`
-- `POST /api/scripts/build`
-- `GET /api/scripts` / `GET|PUT /api/scripts/{package_key}`
-- `GET /api/scripts/{package_key}/revisions`
-- `POST /api/scripts/{package_key}/review` / `exports`
-- `GET /api/video/templates` / `POST /api/video/preview` / `POST /api/video/preflight`
-- `GET /api/video/works` / `PUT /api/video/works/{task_id}`
-- `GET /api/video/tasks/{task_id}/recovery`
-- `GET /api/video/capabilities`
-- `POST /api/video/assets` / `GET /api/video/assets?package_key=...`
-- `POST /api/video/tasks` / `GET /api/video/tasks/{task_id}`
-
-# news2douyin
-
-MVP pipeline:
-1) Collect daily news (WorldNewsAPI)
-2) Filter + deduplicate
-3) Score/recommend via LLM (strict JSON)
-4) Build storyline packs per event
-5) Export Douyin-ready script packs (JSON + Markdown)
-
-Open `/scripts` for the script workbench, or generate a draft from an event page.
-V7 can render approved scripts as portrait MP4 videos. Install the `video` extra,
-FFmpeg/FFprobe (with libx264 and AAC), and a CJK font. Use `voice-offline` for
-mechanical preview speech, `tts` for Edge TTS (network required), or upload PCM
-WAV plus a matching SRT. Open the script's “制作视频” page.
-[Offline generated example](examples/video-demo.mp4) · [Reproduce it](tools/smoke_video.py).
-
-## Quick start
-
-### Install
-```bash
-pip install -U pip
-pip install -e .
-```
-
-### Configure
-Create `.env`:
-```bash
-API_KEY=YOUR_WORLDNEWSAPI_KEY
-```
-
-Edit `configs/pipeline.yaml`, install the `llm` extra, and configure
-`OPENAI_BASE_URL`, `OPENAI_API_KEY` and `MODEL` for the bundled compatible client.
-
-#### Prompts (file-based)
-
-Built-in prompts ship under `src/news2douyin/prompts/`. They are selected by
-`configs/pipeline.yaml`; a local `prompts/` directory overrides the built-ins:
-
-```yaml
-prompts:
-  dir: prompts
-  profile: china_zh
-  profiles:
-    china_zh:
-      scoring: zh/scoring_v1.txt
-      story: zh/story_v1.txt
-      script: zh/script_v1.txt
-    global_en:
-      scoring: en/scoring_v1.txt
-      story: en/story_v1.txt
-      script: en/script_v1.txt
-```
-
-By default, script packs are built deterministically (rule-based). To enable LLM script generation:
-
-```yaml
-script:
-  mode: llm
-```
-
-### Run
-```bash
-python -m news2douyin.cli run --config configs/pipeline.yaml
-```
-
-Outputs:
-- `runs/YYYY-MM-DD/run_HHMM/`
-
-## LLM integration contract
-
-The pipeline expects:
-`create_client_with_config(config_path)` -> client with method:
-`generate(prompt: str, max_tokens: int = 900) -> str`
-
-The bundled client implements `generate(prompt, max_tokens=...)`; temperature
-is configured in its TOML options. The V7 filter uses the HTTP-compatible client
-configuration directly and does not require the `llm` extra.
-
-
-## PyQt GUI
-
-Install deps and run:
+完整知识功能需要 FalkorDB。使用已有实例，或从源码包根目录启动配套服务：
 
 ```bash
-pip install -e ".[desktop,assets,tts,llm]"
-news2douyin-gui
+docker compose -f deploy/falkordb.compose.yaml up -d
 ```
 
-Workflow in GUI:
-1) **Pipeline** tab: click **Run now** (same as `news2douyin run --config configs/pipeline.yaml`).
-2) **Assets + TTS** tab: click **Prep assets** (same as `python tools/prep_assets.py --run-dir ... --out tools/out`).
-3) Select an event in **Library + Player**, click **Synthesize** (generates `voice_zh.*` and `voice_en.*`), then **Play**.
+复制 `.env.example` 为 `.env`，按实际环境配置：
 
-Notes:
-- TTS uses `edge-tts` if installed (recommended). Fallback is `pyttsx3` (WAV output).
-- Schedule: enable daily run in the **Pipeline** tab.
+```dotenv
+NEWS2DOUYIN_FALKOR_URL=redis://127.0.0.1:16379
+NEWS2DOUYIN_GRAPH_PREFIX=n2d
+NEWS2DOUYIN_EVENT_READER=model
+OPENAI_BASE_URL=http://你的模型服务:端口/v1
+OPENAI_API_KEY=你的密钥
+MODEL=你的模型名称
+```
+
+不同数据库使用不同图前缀。默认 Compose 仅向本机开放数据库端口，持久卷挂载到 `/var/lib/falkordb/data`。当前部署使用单个应用服务进程。
+
+```bash
+news2douyin-server --host 0.0.0.0 --port 18080 --db-url sqlite:///runs_v7/news2douyin_v7.db --storage-root runs_v7
+```
+
+打开 `/knowledge` 检查抽取与图分析状态。FalkorDB 未连接时可以查看原文和已有成果，图排序与关联会明确显示未就绪。未启用模型抽取时只有有限规则覆盖。
+
+深度研究和自动补查通过 `/research/settings` 连接 RunDesk/Codex，外部检索沿用 Exa 搜索票据和预算。图数据库、文本抽取模型和研究代理分别配置。
+
+## 跑通核心流程
+
+在采集配置中新建或选择策略，试跑检查后点击“正式采集入库”，或安排定时采集。支持原有 WorldNewsAPI、GDELT DOC 和 GKG。GDELT 的媒体来源国、地点提及与事件行动地分别处理。
+
+从雷达或专题“形成选题”，进入同一内容任务。选题阶段确定角度与原文，随后选择已有材料写稿、轻量补材或深度研究。研究结束后选择报告版本生成带引用的可编辑判断初稿，再整理脚本、审核、制作与导出。任务的作品阶段集中保存报告、制作包和视频；专题继续跟踪。
+
+[完整机制、算法边界、旧页面处理与恢复](docs/CORE-WORKFLOW.md) · [图结构契约](src/news2douyin/extraction/graph-schema.yaml) · [历史抽取与综述研究](docs/EVENT-EXTRACTION-SURVEY.md) · [RunDesk 配置](docs/DOCKER-RESEARCH.md)
+
+## 验证
+
+```bash
+python -m pip install '.[dev,research]' falkordblite==0.11.0
+pytest -q
+```
+
+`tests/test_content_foundation.py` 使用真实 FalkorDB 验证关联、更正、专题排除和图重建；未安装验证用 falkordblite 时，该项明确跳过。`tools/check_workbench_live.py` 可启动本地服务并运行浏览器流程，需 Node、playwright-core 和可用 Chromium。研究文本为测试夹具，不能替代部署后的真实模型、RunDesk 和搜索验证。详细结果见 `docs/validation/0.20.0/README.md`。

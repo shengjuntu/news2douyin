@@ -1,6 +1,7 @@
 <details class="card" open><summary>长期问题大纲</summary>
 <p class="muted">子问题跨轮次保留；可就同一问题再次补查，查看前后两次的证据与结论。</p>
 {% for p in points %}<p>↳ <strong>{{ p.text }}</strong>　{% if p.parent!=w.key %}{% for parent in points if parent.key==p.parent %}<small>上级 · {{ parent.text }}</small>{% endfor %}{% endif %} <button class="ghost" data-point="{{ p.key }}">补查这个问题</button></p>
+{% for material in point_material.get(p.key,[]) if point_material is defined %}<p class="small"><a href="/events/{{ material.key|urlencode }}">{{ material.title }}</a> · {{ material.reason }}</p>{% endfor %}
 {% for link,review in point_history if link.point==p.key %}<small>{{ review.created }} · {{ review.status }} {% if review.status in ['submitted','blocked'] %}<a href="/research/{{ review.case_key }}">研究记录</a>{% endif %}</small>{% endfor %}
 {% endfor %}
 <form id="point-form" class="desk-row"><label>上级问题<select name="parent"><option value="{{ w.key }}">专题根问题</option>{% for p in points %}<option value="{{ p.key }}">{{ p.text }}</option>{% endfor %}</select></label>

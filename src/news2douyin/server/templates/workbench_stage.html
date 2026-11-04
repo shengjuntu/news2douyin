@@ -1,0 +1,9 @@
+{% extends 'base.html' %}{% block title %}{{ work.title }} · {{ phases[work_stage] }}{% endblock %}{% block content %}
+{% if work_stage=='research' %}<div class="card"><h2>开始研究</h2><p>先在选题阶段确定问题与材料，然后选择补充材料或深入研究。已有材料足够时，也可以直接写稿。</p><a class="action-link" href="/workbench/{{ work.key }}/selection">确定材料与研究方向</a></div>
+{% elif work_stage=='creation' %}<div class="card"><h2>开始创作</h2>{% if work.reports %}<p>已有研究报告。回到研究阶段，选择报告并创建带引用的可编辑初稿。</p><a class="action-link" href="/workbench/{{ work.key }}/research">基于研究开始创作</a>{% else %}<p>可以先开展研究，或在选题阶段选择“用已有材料写稿”。</p><a class="action-link" href="/workbench/{{ work.key }}/selection">选择材料与写稿方式</a>{% endif %}</div>
+{% else %}<h2>这项工作的交付结果</h2>
+{% for r in work.reports %}<article class="card work-actions"><span class="badge">研究报告 · v{{ r.version }}</span><h3>{{ r.title }}</h3><p>资料截止 {{ r.cutoff }}</p><a href="/api/research/cases/{{ r.case }}/reports/{{ r.id }}/download">下载报告</a> · <a href="/workbench/{{ work.key }}/research?case={{ r.case }}">查看依据</a></article>{% endfor %}
+{% for e in work.exports %}<article class="card work-actions"><span class="badge">稿件制作包 · r{{ e.revision }}</span> <a href="{{ e.url }}">下载制作包</a> · <a href="/workbench/{{ work.key }}/creation?script={{ e.package }}">回到编辑</a></article>{% endfor %}
+{% for v in work.videos %}<article class="card work-actions"><span class="badge">视频 · {{ v.status }}</span> <a href="/workbench/{{ work.key }}/works?video={{ v.id }}">预览与下载</a></article>{% endfor %}
+{% if not work.reports and not work.exports and not work.videos %}<p class="card">还没有交付结果。完成研究报告，或在创作阶段审核、导出稿件和制作视频后，会出现在这里。</p>{% else %}<button id="work-complete">标记本次工作已完成</button>{% endif %}
+{% endif %}{% endblock %}

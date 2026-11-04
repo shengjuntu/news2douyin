@@ -1,27 +1,29 @@
-version: '1.0'
-owner: SQLite
-projection: FalkorDB
-identity: "同名实体仅为提及名称；旧图的 Entity.id 仍按名称建立。不能从共现推断身份或因果。"
+version: '2.0'
+owner: "SQLite: immutable evidence and editorial state; FalkorDB: queryable graph and derived analysis"
+projection: "FalkorDB required for graph ranking and focus propagation; replayable transactional outbox"
+identity: "Referent.identity_status=curated uses curated aliases; name_candidate joins normalized typed names only and is not a verified real-world identity. No causal inference from co-occurrence."
 shared_nodes:
-  Referent: {id: string}
+  Referent: {id: string, name: string, entity_type: string, identity_status: string}
   OccurrenceCandidate: {id: string}
   Event: {id: string, title: string}
   Article: {id: string}
   EventMention: {id: string, revision: integer, field: string, start: integer, end: integer, quote: string, trigger: string, kind: string, status: string, raw_time: string, date: string, review: string, extractor: string}
   Argument: {id: string, role: string, text: string, entity_type: string, field: string, start: integer, end: integer, quote: string}
 shared_relationships:
-  REFERS_TO: {from: Argument, to: Referent, source: explicit curated equivalent only}
+  REFERS_TO: {from: Argument, to: Referent, source: "curated alias or typed normalized name candidate; check identity_status"}
   HAS_MATCH_KEY: {from: EventMention, to: OccurrenceCandidate, source: action + status + day + roles + place}
   DESCRIBES: {from: Article, to: EventMention, cardinality: "1:N per graph", source: "one immutable source revision, unique original passage"}
   HAS_ARGUMENT: {from: EventMention, to: Argument, cardinality: "1:N per graph", source: "same-revision passage; may cite a second passage for coreference"}
 global_nodes:
+  GraphMeta: {id: string, owner: string, schema: string}
   Entity: {id: string, optional_labels: [Person, Organization]}
   Place: {iso: string}
   Focus: {id: string, name: string, enabled: boolean}
 global_extensions:
-  Event: {seen: string}
-  Article: {title: string, domain: string}
+  Event: {seen: string, score: float, community: string, analysis_generation: string}
+  Article: {title: string, domain: string, duplicate_root: string}
 global_relationships:
+  RELATED_EVENT: {from: Event, to: Event, attributes: [weight, evidence, generation], meaning: "shared participant within 30 days or strict action-match candidate; not causality or event identity"}
   HAS_SOURCE: {from: Event, to: Article}
   MENTIONS: {from: Article, to: Entity}
   MENTIONS_PLACE: {from: Article, to: Place}
@@ -40,6 +42,7 @@ focus_nodes:
 focus_extensions:
   Article: {url: string}
 focus_relationships:
+  RELEVANT_MATERIAL: {from: OutlinePoint, to: Event, attributes: [reason], meaning: "relevance hint, not supporting evidence"}
   HAS_MATERIAL: {from: Question, to: Event, attributes: [reason]}
   CITES: {from: Event, to: Article}
   HAS_SUBQUESTION: {from: [Question, OutlinePoint], to: OutlinePoint, parents_per_child: 1}

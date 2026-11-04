@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from fastapi import Request, HTTPException
-from fastapi.responses import HTMLResponse, Response
+from fastapi.responses import HTMLResponse, Response, RedirectResponse
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from sqlmodel import Session
 
@@ -23,12 +23,15 @@ def register_short_script_routes(app, engine, storage_root):
 
     @app.get('/short-scripts', response_class=HTMLResponse)
     def page():
-        return HTMLResponse(env.get_template('short_scripts.html').render(active='short_scripts', case_id=''))
+        return RedirectResponse('/workbench?view=research',303)
 
     @app.get('/short-scripts/{case_id}', response_class=HTMLResponse)
     def detail_page(case_id: str):
         with Session(engine) as s:
             call(require, s, case_id)
+            from .workbench import owner
+            task=owner(s,'case',case_id)
+            if task:return RedirectResponse(f'/workbench/{task}/research?case={case_id}',303)
         return HTMLResponse(env.get_template('short_scripts.html').render(active='short_scripts', case_id=case_id))
 
     @app.get('/api/short-scripts')

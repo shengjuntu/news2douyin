@@ -4,7 +4,7 @@
 <style>
 .queue-head{display:flex;justify-content:space-between;align-items:start;gap:16px;flex-wrap:wrap}.queue-counts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:12px 0}.queue-counts a{color:inherit}.queue-counts strong{display:block;font-size:27px;margin-top:8px}.queue-filters{display:flex;gap:12px;flex-wrap:wrap;align-items:end;margin:18px 0}.queue-filters label{display:flex;flex-direction:column;gap:5px}.queue-filters input,.queue-filters select{max-width:100%}.queue-filters input[name=query]{width:240px}.queue-executing{padding:10px 0;border-top:1px solid #262b38}.queue-task-title{font-size:15px;font-weight:600;overflow-wrap:anywhere}.queue-sub{line-height:1.75;margin:4px 0}.queue-table th:nth-child(1){width:32%}.queue-table td{overflow-wrap:anywhere;line-height:1.7}.queue-table .links{display:flex;gap:10px;flex-wrap:wrap}.queue-table .error-summary{color:#fbbf24;white-space:pre-wrap}.queue-bottom{justify-content:space-between;margin-top:14px}.queue-count-label{font-size:12px;color:#9aa3b8}.queue-notice{white-space:pre-wrap;line-height:1.7;color:#fbbf24;overflow-wrap:anywhere}#executing-list:empty{display:none}@media(max-width:700px){.queue-table{display:block;background:none;border:0;overflow:visible}.queue-table thead{display:none}.queue-table tbody,.queue-table tr,.queue-table td{display:block}.queue-table tr{background:#161922;border:1px solid #262b38;border-radius:10px;margin-bottom:12px;padding:8px 12px}.queue-table td{border:0;padding:5px 0}.queue-table td[data-label]::before{content:attr(data-label) '：';color:#7c8598}.queue-filters label{min-width:0;max-width:100%}.queue-filters input[name=query]{width:100%}.queue-filters{gap:10px}.queue-counts{grid-template-columns:repeat(2,minmax(0,1fr))}}
 </style>
-<div class="queue-head"><div><h1>任务中心</h1><p class="muted">查看采集、脚本和视频的处理进度，找到结果或处理失败。</p></div><div class="row"><a href="/daily">每日选题</a><a href="/scripts">脚本工作台</a><a href="/videos">作品库</a></div></div>
+<div class="queue-head"><div><h1>任务中心</h1><p class="muted">查看采集、脚本和视频的处理进度，找到结果或处理失败。</p></div><div class="row"><a href="/profiles">采集配置</a><a href="/workbench">内容工作台</a></div></div>
 <p class="queue-count-label">全部记录 · 下列统计不受搜索和日期筛选影响</p>
 <div class="queue-counts" id="queue-counts">
 {% for key,label,filter in [('total','全部任务','all'),('active','进行中','active'),('queued','排队中','queued'),('failed','已失败','failed'),('succeeded','已完成','succeeded')] %}<a class="card" href="/tasks?status={{ filter }}"><span>{{ label }}</span><strong id="count-{{ key }}">—</strong></a>{% endfor %}
@@ -55,7 +55,7 @@ function paint(data){
   if(item.result_url)links.append(link(item.result_label,item.result_url));if(item.diagnostics_url)links.append(link('采集诊断',item.diagnostics_url));actions.append(links);
   row.append(title,status,duration,created,actions);body.append(row);
  }
- if(!data.items.length){const row=node('tr'),cell=node('td',data.total?'此页已无任务，可返回上一页。':'没有符合条件的任务。调整筛选，或从每日选题发起采集和生成。','muted');cell.colSpan=5;row.append(cell);body.append(row);}
+ if(!data.items.length){const row=node('tr'),cell=node('td',data.total?'此页已无任务，可返回上一页。':'没有符合条件的任务。调整筛选，或从采集配置或内容工作台发起任务。','muted');cell.colSpan=5;row.append(cell);body.append(row);}
  el('queue-total').textContent=`筛选结果 ${data.total} 项 · ${data.order==='queue'?'按入队顺序':'按首次提交时间倒序'}`;
  el('paging').textContent=data.total?`第 ${Math.floor(data.offset/data.limit)+1} 页 · 本页 ${data.items.length} 项`:'共 0 项';
  el('prev').disabled=data.offset===0;el('next').disabled=data.offset+data.limit>=data.total;

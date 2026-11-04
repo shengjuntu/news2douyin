@@ -54,15 +54,17 @@ def register_desk(app,engine,render):
     from ..extraction import outline
     from ..extraction.service import focus_timeline
     from ..extraction.schema import LABELS
+    from ..extraction.models import FocusPoint
     register_extraction(app,db)
     def remember(response,view):
         response.set_cookie('n2d_desk',view,max_age=31536000,httponly=True,samesite='lax')
         return response
     def context(request,s):
         mirror=app.state.desk.graph
+        from ..knowledge.service import status
         return dict(back=request.url.path+('?' + request.url.query if request.url.query else ''),
             indexing=s.exec(select(func.count()).select_from(DeskDirty)).one(),
-            graph_enabled=bool(mirror.url),graph_error=mirror.last_error)
+            graph_enabled=bool(mirror.url),graph_error=mirror.last_error,knowledge=status(s,mirror))
     @app.get('/')
     def home(request:Request):
         return RedirectResponse('/focus' if request.cookies.get('n2d_desk')=='focus' else '/radar',302)
@@ -76,7 +78,11 @@ def register_desk(app,engine,render):
         desk.drain(engine,24)
         base=task_call(event_query,s,query=q,country=country,topic=topic,mode=mode)
         stmt=select(RadarEntry).where(RadarEntry.key.in_(base.with_only_columns(Event.event_key)))
-        if band:stmt=stmt.where(RadarEntry.band==band)
+        from ..knowledge.models import GraphMetric
+        from sqlalchemy import case
+        stmt=stmt.outerjoin(GraphMetric,GraphMetric.event==RadarEntry.key)
+        graph_band=case((GraphMetric.score==None,RadarEntry.band),(GraphMetric.score>=60,'优先看'),(GraphMetric.score>=35,'优先核查'),else_='其他进展')
+        if band:stmt=stmt.where(graph_band==band)
         historical = False
         if period == 'auto':
             since=(datetime.now(timezone.utc)-timedelta(days=7)).isoformat(timespec='seconds').replace('+00:00','Z')
@@ -89,7 +95,9 @@ def register_desk(app,engine,render):
             since=(datetime.now(timezone.utc)-timedelta(days=int(period))).isoformat(timespec='seconds').replace('+00:00','Z')
             stmt=stmt.where(RadarEntry.seen>=since)
         total=s.exec(select(func.count()).select_from(stmt.subquery())).one()
-        items=s.exec(stmt.order_by(RadarEntry.priority.desc(),RadarEntry.seen.desc(),RadarEntry.key).offset(offset).limit(limit)).all()
+        items=s.exec(stmt.order_by(func.coalesce(GraphMetric.score,-1).desc(),RadarEntry.priority.desc(),RadarEntry.seen.desc(),RadarEntry.key).offset(offset).limit(limit)).all()
+        import json
+        metrics={m.event:json.loads(m.data) for m in s.exec(select(GraphMetric).where(GraphMetric.event.in_([e.key for e in items])))}
         from ..desk.places import countries
         labels=countries()
         areas={}
@@ -98,7 +106,7 @@ def register_desk(app,engine,render):
             areas.setdefault(mark.event,set()).add(label)
         params=dict(q=q,country=country,topic=topic,mode=mode,band=band,period=period,limit=limit)
         return remember(render('desk_radar.html',active='radar',items=items,total=total,offset=offset,limit=limit,
-            params=params,areas=areas,historical=historical,querystr=urlencode(params),members={c.key:desk.memberships(s,c.key) for c in items},
+            params=params,areas=areas,historical=historical,metrics=metrics,querystr=urlencode(params),members={c.key:desk.memberships(s,c.key) for c in items},
             **context(request,s)),'radar')
 
     @app.get('/focus')
@@ -129,9 +137,20 @@ def register_desk(app,engine,render):
         summaries=s.exec(select(ResearchReport).where(ResearchReport.case_id.in_(cases))
             .order_by(ResearchReport.created_at.desc()).limit(12)).all() if w else []
         seed_event=s.exec(select(Event).where(Event.event_key==seed)).first() if seed else None
+        from ..knowledge.models import FocusChange,FocusVisit,PointMaterial
+        from ..workbench.service import related
+        visit=s.get(FocusVisit,key) if w else None
+        changes=s.exec(select(FocusChange).where(FocusChange.watch==key,FocusChange.created>(visit.seen if visit else ''))
+            .order_by(FocusChange.created.desc()).limit(30)).all() if w else []
+        point_material={}
+        if w:
+            for pm in s.exec(select(PointMaterial).join(FocusPoint,FocusPoint.key==PointMaterial.point).where(FocusPoint.watch==key)):
+                entry=s.get(RadarEntry,pm.event)
+                if entry:point_material.setdefault(pm.point,[]).append(dict(key=entry.key,title=entry.title,reason=pm.reason))
         if seed and not seed_event:raise HTTPException(404,'事件不存在')
         return remember(render('desk_focus.html',active='focus',w=w,data=w.model_dump() if w else {},watches=watches,
             counts=counts,total=total,items=items,offset=offset,reviews=reviews,presets=PRESETS,seed=seed,
+            changes=changes,point_material=point_material,content_tasks=related(s,watch=key) if w else [],
             order=order,branch=branch,branches=branches,tags=tags,questions=questions,summaries=summaries,
             candidate_dates=focus_timeline(s,key) if w else [],action_labels=LABELS,points=outline.points(s,key) if w else [],point_history=outline.history(s,key) if w else [],
             timeline=moments,excluded=excluded,paging=urlencode(dict(order=order,branch=branch)),

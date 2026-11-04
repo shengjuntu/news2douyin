@@ -134,6 +134,10 @@ def detail(s, workspace_id):
     data['tasks'] = [dict(handoff_id=h.handoff_id,request_id=h.request_id,case_id=h.case_id,
         action=json.loads(h.payload_json)['action'],started=bool(h.run_id),url=('/short-scripts/' if json.loads(h.payload_json).get('short_options') else '/research/')+h.case_id)
         for h in s.exec(select(TopicHandoff).where(TopicHandoff.workspace_id == workspace_id).order_by(TopicHandoff.created_at.desc()))]
+    from ..workbench.models import ContentTask
+    if s.get(ContentTask,workspace_id):
+        for task in data['tasks']:
+            task['url']=f'/workbench/{workspace_id}/research?case='+task['case_id']
     return data
 
 
@@ -151,7 +155,10 @@ def create(engine,payload):
         # separately and these transport cases are excluded from research lists.
         s.add(ResearchCase(case_id=cid,title=value.title,goal='历史库选题讨论',strategy_json=rs.dump(dict(
             purpose='topic_selection',max_minutes=10,max_searches=0,max_reads=30)),cutoff=rs.utc_now_iso()))
-        s.add(w);s.commit();return detail(s,wid)
+        s.add(w)
+        from ..workbench.service import ensure
+        ensure(s,w)
+        s.commit();return detail(s,wid)
 
 
 def edit(engine,wid,payload):
@@ -252,12 +259,23 @@ def handoff(engine,runtime,wid,payload):
                 budget_override=dict(language=value.output_language,**(dict(max_searches=0,max_reads=0,max_minutes=5) if value.action=='short' else dict(max_searches=3,max_reads=6,max_minutes=5) if value.action=='materials' else {})))
             old=TopicHandoff(handoff_id=hid,request_id=value.request_id,workspace_id=wid,request_hash=h,payload_json=rs.dump(prepared),case_id='research_'+rs.digest(hid)[:24])
             s.add(old);s.commit()
+    from ..workbench.service import bind, require as require_task
+    with Session(engine) as s:
+        rs.locked(s)
+        task,_=require_task(s,wid)
+        from ..workbench.models import ContentBinding
+        from ..extraction.schema import stable_id
+        new_binding=not s.get(ContentBinding,stable_id(wid,'case',old.case_id))
+        bind(s,wid,'case',old.case_id)
+        if new_binding:
+            task.phase='research';task.version+=1;task.updated=rs.utc_now_iso();s.add(task)
+        s.commit()
     try:
         return resume_handoff(engine,runtime,wid,hid)
     except ValueError as exc:
         # The handoff and frozen payload are already durable. Report acceptance
         # instead of telling a client that a fresh task may safely be created.
-        return dict(handoff_id=hid,case_id=old.case_id,url=('/short-scripts/' if json.loads(old.payload_json)['short_options'] else '/research/')+old.case_id,
+        return dict(handoff_id=hid,case_id=old.case_id,url=f'/workbench/{wid}/research?case='+old.case_id,
             pending=True,error=str(exc))
 
 
@@ -270,4 +288,4 @@ def resume_handoff(engine,runtime,wid,hid):
     prep=dict(request_key=hid,request_hash=rs.digest(opts),options=opts) if opts else None
     rs.create_case(engine,data['case_payload'],preparation=prep,frozen_sources=data['documents'],fixed_case_id=row.case_id,budget_override=data['budget_override'])
     runtime.enqueue(row.case_id,handoff_id=hid)
-    return dict(handoff_id=hid,case_id=row.case_id,url=('/short-scripts/' if opts else '/research/')+row.case_id)
+    return dict(handoff_id=hid,case_id=row.case_id,url=f'/workbench/{wid}/research?case='+row.case_id)

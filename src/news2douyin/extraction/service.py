@@ -9,7 +9,7 @@ from ..storage.articles import lock_news
 from ..storage.models import ArticleVersion, ArticleEventLink
 from ..desk.models import DeskDirty
 from . import reader
-from .models import VersionReading, TextMention, MentionReview
+from .models import VersionReading, TextMention, MentionReview, ExtractionAttempt
 from .schema import cluster_key
 
 VERSION = '1.0'
@@ -25,6 +25,10 @@ def initialize(engine):
         # Only the latest version of each historical article requires background backfill.
         db.exec_driver_sql("""INSERT OR IGNORE INTO versionreading(version_id,state,lease,until,method,model,note)
             SELECT max(id),'baseline','',0,'','','' FROM articleversion GROUP BY article_key""")
+        if os.getenv('NEWS2DOUYIN_EVENT_READER','rules')=='model':
+            db.exec_driver_sql("""UPDATE versionreading SET state='model_queued'
+                WHERE state='ready' AND method='rules' AND model=''
+                AND version_id IN (SELECT max(id) FROM articleversion GROUP BY article_key)""")
 
 
 def schedule_model(session, version):
@@ -46,7 +50,8 @@ def pick(engine, model):
     queued = MODEL if model else NEW
     running = 'model_running' if model else 'rule_running'
     query = select(VersionReading).where(or_(VersionReading.state==queued,
-        (VersionReading.state==running) & (VersionReading.until < now))).order_by(VersionReading.version_id).limit(1)
+        (VersionReading.state==running) & (VersionReading.until < now),
+        (VersionReading.state==('model_wait' if model else 'rule_wait')) & (VersionReading.until < now))).order_by(VersionReading.version_id).limit(1)
     with Session(engine, expire_on_commit=False) as s:
         if not s.exec(query).first():
             return None
@@ -94,11 +99,20 @@ def step(engine, model=False):
         wants_model = job.note=='model_after_baseline' or os.getenv('NEWS2DOUYIN_EVENT_READER','rules')=='model'
         job.until, job.lease = 0.0, ''
         if error:
-            job.state, job.note = 'error', '抽取失败，可重试 · '+error
+            attempt=s.get(ExtractionAttempt,version.id) or ExtractionAttempt(version_id=version.id)
+            attempt.attempts+=1;attempt.method=method;s.add(attempt)
+            job.state='model_wait' if model else 'rule_wait'
+            job.until=time.time()+min(60*2**(attempt.attempts-1),3600)
+            if attempt.attempts>=4 or error not in ('TimeoutError','URLError','HTTPError','ConnectionError','ReadTimeout','ConnectTimeout'):
+                job.state='error'
+            job.note='抽取失败，'+('等待后台重试' if job.state!='error' else '可手动重试')+' · '+error
         else:
+            attempt=s.get(ExtractionAttempt,version.id)
+            if attempt:s.delete(attempt)
             if model and not items and s.exec(select(TextMention.id).where(
                     TextMention.version_id==version.id).limit(1)).first():
                 job.state,job.note='ready','模型未返回陈述，保留已有抽取'
+                job.model=model_name
                 s.add(job)
                 s.commit()
                 return True

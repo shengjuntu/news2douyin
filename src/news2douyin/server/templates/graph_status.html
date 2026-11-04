@@ -1,0 +1,6 @@
+{% if knowledge is defined %}<div class="graph-status {{ 'warn' if knowledge.state!='ready' }}" role="status">
+{% if knowledge.state=='ready' %}知识图已更新 · {{ knowledge.count }} 个事件 · {{ knowledge.analyzed_at }}
+{% elif knowledge.state=='unconfigured' %}知识图尚未连接。请配置 FalkorDB；当前列表是本地材料，图排序与关联尚未就绪。
+{% elif knowledge.state=='error' %}知识图暂时不可用，后台正在重试。{% if knowledge.analyzed_at %}保留上次分析结果（{{ knowledge.analyzed_at }}）。{% endif %}
+{% else %}知识图正在更新 · {{ knowledge.pending }} 项待同步。排序与关联将在本轮完成后更新。{% endif %}
+{% if knowledge.truncated %} · 当前分析范围为最近 5000 个事件{% endif %} · <a href="/knowledge">查看处理状态</a></div>{% endif %}

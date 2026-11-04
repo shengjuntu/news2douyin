@@ -1,0 +1,13 @@
+(()=>{'use strict';const NS='http://www.w3.org/2000/svg';
+for(const host of document.querySelectorAll('[data-knowledge-graph]')){
+const params=new URLSearchParams();if(host.dataset.event)params.set('event',host.dataset.event);if(host.dataset.watch)params.set('watch',host.dataset.watch);
+fetch('/api/knowledge/graph?'+params).then(r=>r.json()).then(data=>{
+host.replaceChildren();const caption=document.createElement('p');caption.className='graph-caption';caption.textContent='有出处的行动参与关系与相似行动线索 · 关联不代表因果或同一事件 · 最多显示 60 个事件';host.append(caption);
+if(!data.nodes.length){const p=document.createElement('p');p.textContent='图分析尚未产生可展示的事件。可查看知识处理状态。';host.append(p);return;}
+const svg=document.createElementNS(NS,'svg');svg.setAttribute('viewBox','0 0 1000 420');svg.setAttribute('class','graph-box');svg.setAttribute('aria-label','事件关系图');svg.setAttribute('role','img');host.append(svg);
+const points=new Map(),groups=[...new Set(data.nodes.map(n=>n.community))];data.nodes.forEach((n,i)=>{const g=groups.indexOf(n.community),a=2*Math.PI*i/data.nodes.length;const point={x:500+Math.cos(a)*(data.nodes.length===1?0:340),y:210+Math.sin(a)*150};points.set(n.id,point);});
+for(const e of data.edges){const a=points.get(e.source),b=points.get(e.target);if(!a||!b)continue;const l=document.createElementNS(NS,'line');for(const [k,v] of Object.entries({x1:a.x,y1:a.y,x2:b.x,y2:b.y,stroke:'#46637a','stroke-width':Math.min(e.weight+1,5)}))l.setAttribute(k,v);svg.append(l);}
+for(const n of data.nodes){const p=points.get(n.id),a=document.createElementNS(NS,'a');a.setAttribute('href','/events/'+encodeURIComponent(n.id));a.setAttribute('tabindex','0');const title=document.createElementNS(NS,'title');title.textContent=n.title+'\n'+n.reason;a.append(title);const c=document.createElementNS(NS,'circle');c.setAttribute('cx',p.x);c.setAttribute('cy',p.y);c.setAttribute('r',8+Math.min(n.score/12,10));c.setAttribute('fill',`hsl(${groups.indexOf(n.community)*73%360} 35% 35%)`);a.append(c);const t=document.createElementNS(NS,'text');t.setAttribute('x',p.x+16);t.setAttribute('y',p.y+4);t.textContent=n.title.length>14?n.title.slice(0,14)+'…':n.title;a.append(t);svg.append(a);}
+const list=document.createElement('details'),sum=document.createElement('summary');sum.textContent='查看完整事件名称与分析依据';list.append(sum);for(const n of data.nodes){const p=document.createElement('p'),a=document.createElement('a');a.href='/events/'+encodeURIComponent(n.id);a.textContent=n.title;p.append(a,document.createTextNode(' · '+n.reason));list.append(p);}host.append(list);
+}).catch(()=>{host.textContent='图视图暂时无法读取，请查看知识处理状态。';});}
+})();

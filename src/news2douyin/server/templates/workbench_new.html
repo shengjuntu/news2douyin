@@ -1,0 +1,11 @@
+{% extends 'base.html' %}{% block title %}形成选题 · news2douyin{% endblock %}{% block content %}
+<a href="/workbench">← 内容工作台</a><h1>这次想讲清楚什么？</h1>
+<form id="work-new" class="card desk-form"><label>选题标题<input name="title" maxlength="250" value="{{ title }}" required></label>
+<label>讲述角度或核心问题<textarea name="angle" rows="3" maxlength="1500" placeholder="例如：梳理政策变化的历史原因，哪些影响已有证据，哪些仍不确定？"></textarea></label>
+{% if watch %}<p>来自长期专题：{{ watch_name }}。本次任务完成后，专题继续积累。</p><div class="row"><label>材料起始日期<input type="date" name="date_from"></label><label>材料结束日期<input type="date" name="date_to"></label></div>{% endif %}
+{% if event or watch %}<p class="muted">先带入范围内最近 6 份原文快照，进入选题后可以增减、检索和讨论。</p>{% endif %}
+<button>创建并进入选题</button><p id="new-message" role="status" class="desk-error"></p></form>
+<script>
+(()=>{const form=document.querySelector('#work-new');let id=sessionStorage.getItem('n2d-new-content-request')||crypto.randomUUID();sessionStorage.setItem('n2d-new-content-request',id);
+form.onsubmit=async e=>{e.preventDefault();const button=form.querySelector('button');button.disabled=true;try{const body={...Object.fromEntries(new FormData(form)),request_id:id,event:{{ event|tojson }},watch:{{ watch|tojson }},articles:{{ ([article] if article else [])|tojson }}};const r=await fetch('/api/workbench',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const d=await r.json();if(!r.ok)throw Error(typeof d.detail==='string'?d.detail:JSON.stringify(d.detail));sessionStorage.removeItem('n2d-new-content-request');location.href='/workbench/'+d.key+'/selection';}catch(e){document.querySelector('#new-message').textContent=e.message;button.disabled=false;}};})();
+</script>{% endblock %}

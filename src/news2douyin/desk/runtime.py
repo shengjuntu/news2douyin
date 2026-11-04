@@ -21,7 +21,7 @@ class DeskWorker:
 
     def start(self):
         self.stop_event.clear()
-        for target in [self.index_loop,self.read_loop,self.model_loop]+([self.graph_loop] if self.graph.url else []):
+        for target in [self.index_loop,self.read_loop,self.model_loop,self.graph_loop]:
             thread=Thread(target=target,daemon=True)
             thread.start()
             self.threads.append(thread)
@@ -35,6 +35,8 @@ class DeskWorker:
         while not self.stop_event.is_set():
             try:
                 count=desk.drain(self.engine)
+                from ..knowledge.service import update_outline
+                update_outline(self.engine)
                 self.review_step()
             except Exception:
                 log.exception('desk worker tick failed')
@@ -58,9 +60,18 @@ class DeskWorker:
             self.stop_event.wait(.02 if changed else 3)
 
     def graph_loop(self):
+        from ..knowledge.service import refresh
         while not self.stop_event.is_set():
             try:
+                if not self.graph.url:
+                    self.graph.last_error='未配置 NEWS2DOUYIN_FALKOR_URL'
+                    self.stop_event.wait(5)
+                    continue
                 changed=self.graph.step(self.engine)
+                if not changed:
+                    self.graph.bootstrap(self.engine)
+                    changed=refresh(self.engine,self.graph)
+                self.graph.last_error=''
                 self.stop_event.wait(.02 if changed else 3)
             except Exception as exc:
                 # Do not expose URL/password through error messages.
@@ -79,7 +90,20 @@ class DeskWorker:
                         .where(WatchEvent.watch==due,WatchEvent.choice!='exclude',~WatchEvent.reason.startswith('背景'))
                         .order_by(RadarEntry.seen.desc(),RadarEntry.key).limit(1)).first()
                     if w.last_auto_day!=now[:10]:
-                        desk.make_review(s,w,evt or '','due-'+w.next_review[:10]);w.last_auto_day=now[:10]
+                        from ..extraction.models import FocusPoint,PointReview
+                        from ..knowledge.models import PointMaterial
+                        points=s.exec(select(FocusPoint).where(FocusPoint.watch==w.key)).all()
+                        history=s.exec(select(PointReview,WatchReview).join(WatchReview,WatchReview.key==PointReview.ticket)
+                            .where(WatchReview.watch==w.key)).all()
+                        last={}
+                        for link,ticket in history:last[link.point]=max(last.get(link.point,''),ticket.created)
+                        covered=set(s.exec(select(PointMaterial.point).where(PointMaterial.point.in_([p.key for p in points]))))
+                        point=min(points,key=lambda p:(p.key in covered,last.get(p.key,''),p.created,p.key)) if points else None
+                        ticket=desk.make_review(s,w,'' if point else evt or '','due-'+w.next_review[:10])
+                        if point:
+                            ticket.question=point.text;s.add(ticket)
+                            s.merge(PointReview(ticket=ticket.key,point=point.key))
+                        w.last_auto_day=now[:10]
                     w.next_review=desk.iso_after(w.review_days);s.add(w);s.commit()
             pending=s.exec(select(WatchReview).where(WatchReview.status=='pending').order_by(WatchReview.created).limit(1)).first()
         if pending:self.dispatch(pending.key)

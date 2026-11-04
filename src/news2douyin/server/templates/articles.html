@@ -1,10 +1,13 @@
 {% extends "base.html" %}
-{% block title %}新闻库 · news2douyin v7{% endblock %}
+{% block title %}新闻库 · news2douyin{% endblock %}
 {% block content %}
 <h1>新闻库 <span class="muted small">（共 {{ paging.total }} 条）</span></h1>
-<p class="muted">这里保存历次采集的原始报道；每天选新闻、生成脚本请到<a href="/daily">每日选题</a>。同一件事的多篇报道可在<a href="/events">事件专题</a>中查看。</p>
+<p class="muted">这里保存历次采集的原始报道。可查看原文和版本，或带着材料<a href="/workbench/new">形成选题</a>；相关报道与时间线请到<a href="/radar">事件雷达</a>。</p>
+{% if task_id %}<p class="muted">只看本次采集入库的报道 · <a href="/tasks/{{ task_id }}">查看采集进度</a> · <a href="/articles">查看全部</a></p>{% endif %}
 <div class="card">
 <form method="get" action="/articles" class="row">
+  {% if task_id %}<input type="hidden" name="task_id" value="{{ task_id }}">{% endif %}
+  {% if profile_name %}<input type="hidden" name="profile_name" value="{{ profile_name }}">{% endif %}
   <input name="q" value="{{ q }}" placeholder="关键词（标题/正文）" style="width:260px">
   <select name="country">
     <option value="">全部国家</option>
@@ -32,7 +35,8 @@ period.addEventListener('change',()=>{if(period.value!=='custom')dates.forEach(i
 <tr><th>标题</th><th>来源</th><th>国家</th><th>分类</th><th>情感</th><th>相关度</th><th>时间</th></tr>
 {% for a in articles %}
 <tr>
-  <td><a href="/articles/{{ a.key }}">{{ a.title }}</a> <a class="small" href="/research?article_key={{ a.key|urlencode }}">深入研究</a>
+  <td><a href="/articles/{{ a.key }}">{{ a.title }}</a> <a class="small" href="/research?article_key={{ a.key|urlencode }}">形成选题</a>
+    {% if a.provider=='mock' %}<span class="badge">演示数据</span>{% endif %}
     {% if a.provider=='gdelt' %}<span class="badge">GDELT · 报道线索</span>{% endif %}
     {% if a.is_duplicate %}<span class="badge">转载/副本</span>{% endif %}
     <div class="snippet">{% if a.snippet %}{{ a.snippet }}…{% endif %}</div></td>

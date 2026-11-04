@@ -1,5 +1,5 @@
 """Both named graphs carry revision-grounded mentions. Role nodes are local evidence."""
-from .schema import stable_id, referent, cluster_key
+from .schema import stable_id, referent, cluster_key, entity_key
 
 
 def project(query, article, rows, stamp):
@@ -20,10 +20,14 @@ def project(query, article, rows, stamp):
             query('MATCH (m:EventMention {id:$m}) MERGE (a:Argument {id:$id}) '
                   'SET a.role=$role,a.text=$text,a.entity_type=$entity_type,a.field=$field,a.start=$start,a.end=$end,a.quote=$evidence '
                   'MERGE (m)-[:HAS_ARGUMENT]->(a)',m=m['id'],id=key,**argument)
-            ref = referent(argument['role'],argument['text'])
+            curated = referent(argument['role'],argument['text'])
+            name = entity_key(argument['text'])
+            ref = curated or ('name:'+argument.get('entity_type','unknown')+':'+name)
             if ref:
                 query('MATCH (a:Argument {id:$a}) MERGE (e:Referent {id:$ref}) '
-                      'MERGE (a)-[:REFERS_TO]->(e)', a=key,ref=ref)
+                      'SET e.name=$name,e.entity_type=$type,e.identity_status=$state '
+                      'MERGE (a)-[:REFERS_TO]->(e)', a=key,ref=ref,name=name,
+                      type=argument.get('entity_type','unknown'),state='curated' if curated else 'name_candidate')
     query('MATCH (:Article {id:$a})-[r:DESCRIBES]->() WHERE r.stamp<>$stamp DELETE r',a=article,stamp=stamp)
 
 
