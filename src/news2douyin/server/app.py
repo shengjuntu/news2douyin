@@ -80,9 +80,14 @@ def create_app(*, db_url: str = 'sqlite:///runs_v7/news2douyin_v7.db', storage_r
         scheduler.start()
         app.state.research.start()
         app.state.desk.start()
+        app.state.intake.start()
+        if not app.state.intake.status_error:
+            app.state.intake_projection.start()
         try:
             yield
         finally:
+            app.state.intake.stop()
+            app.state.intake_projection.stop()
             app.state.desk.stop()
             app.state.research.stop()
             scheduler.stop()
@@ -94,6 +99,10 @@ def create_app(*, db_url: str = 'sqlite:///runs_v7/news2douyin_v7.db', storage_r
     app.state.scheduler = scheduler
     app.state.tasks = tasks
     app.state.worker = worker
+    from ..intake.runtime import IntakeWorker
+    from ..intake.projection import ProjectionWorker
+    app.state.intake=IntakeWorker(engine,storage_root)
+    app.state.intake_projection=ProjectionWorker(engine,storage_root)
     from .research import register_research_routes
     register_research_routes(app, engine, storage_root)
     from ..desk.runtime import DeskWorker

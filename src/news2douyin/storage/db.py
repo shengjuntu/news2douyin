@@ -28,6 +28,8 @@ def init_db(engine) -> None:
     from ..extraction import models as extraction_models
     from ..knowledge import models as knowledge_models
     from ..workbench import models as workbench_models
+    from ..intake import models as intake_models
+    from ..intake import projection as intake_projection
     SQLModel.metadata.create_all(engine)
     backfill_versions(engine)
     init_search(engine)
@@ -43,6 +45,8 @@ def init_db(engine) -> None:
     init_knowledge(engine)
     from ..workbench.service import initialize as init_workbench
     init_workbench(engine)
+    from ..intake.service import initialize as init_intake
+    init_intake(engine)
 
 
 def session_scope(engine) -> Session:

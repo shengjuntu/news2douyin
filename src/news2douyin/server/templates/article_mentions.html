@@ -1,6 +1,6 @@
 <section class="card" id="article-mentions" data-endpoint="/api/desk/articles/{{ article.article_key|urlencode }}/{{ selected.revision }}">
 <h2>报道中的事件陈述</h2>
-<p>版本 r{{ selected.revision }} · {{ {'baseline':'等待规则抽取','rule_running':'正在抽取','model_queued':'等待模型','model_running':'模型运行中','error':'抽取失败','ready':'已完成'}.get(actions.state,actions.state) }}
+<p>版本 r{{ selected.revision }} · {{ {'baseline':'等待规则抽取','rule_running':'正在抽取','model_queued':'等待模型','model_running':'模型运行中','error':'抽取失败','ready':'已完成','metadata_only':'仅元数据，等待可读原文'}.get(actions.state,actions.state) }}
 {% if actions.method %} · {{ '模型' if actions.method=='model' else '规则' }} {{ actions.model }}{% endif %} · {{ actions.note }}</p>
 <p class="muted">原句描述的是报道者或受访者的说法。核对角色与状态时可打开该固定版本的正文。</p>
 {% for m in actions['items'] %}<article class="desk-pane" id="m-{{ m.id }}">

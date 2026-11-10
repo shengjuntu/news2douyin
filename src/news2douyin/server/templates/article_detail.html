@@ -3,7 +3,7 @@
 {% block content %}
 <p><a class="action-link" href="/workbench/new?article={{ article.article_key|urlencode }}">据此形成选题</a></p>
 <p><a href="/articles">← 新闻库</a></p>
-<h1>{{ document.title }}</h1>
+<h1>{{ document.title or "GKG报道线索 · 标题待补充" }}</h1>
 <p class="small muted">形成选题时将带入当前最新原文快照；已有引用始终保留其原版本。</p>
 <div class="row muted small">
   <span>当前查看 r{{ selected.revision }} / 最新 r{{ current.revision }}</span>
@@ -15,7 +15,7 @@
 {% if selected.origin == 'legacy_baseline' %}<p class="muted">这是升级时保留的旧库快照，不能据此还原更早的原文修改历史。</p>{% endif %}
 <p class="small muted">原文随后更新不会改写已保存的版本或历史审核稿。版本按本系统观察到的顺序编号。</p>
 {% if discovery %}<p class="small">此网址的 GDELT 收录记录{% if discovery.seen_at %} · 最早查到的收录时间 {{ fmt_ts(discovery.seen_at) }} UTC{% endif %}{% if discovery.source_country %} · 来源国 {{ discovery.source_country }}{% endif %}{% if discovery.source_language %} · 语言 {{ discovery.source_language }}{% endif %}</p>{% endif %}
-{% if document.provider == 'gdelt' and not document.content %}<div class="card">报道线索 · 此版本收录了标题和原文链接。请打开原文核实报道内容。</div>{% else %}<div class="card" style="white-space:pre-wrap;overflow-wrap:anywhere">{{ document.content }}</div>{% endif %}
+{% if document.provider in ['gdelt','gkg'] and not document.content %}<div class="card">报道线索 · 此版本仅有可用标题／元数据和原文链接，尚未取得新闻全文。请打开原文核实内容；发生事件需以带出处的抽取陈述为准。</div>{% else %}<div class="card" style="white-space:pre-wrap;overflow-wrap:anywhere">{{ document.content }}</div>{% endif %}
 {% if diff %}<h2>与上一个版本的正文差异</h2><pre style="white-space:pre-wrap;overflow-wrap:anywhere">{{ diff }}</pre>{% endif %}
 <h2>版本记录（{{ history.total }}）</h2>
 <table><tr><th>版本</th><th>观察时间</th><th>类型</th><th>内容校验值</th></tr>

@@ -1,6 +1,6 @@
 {% extends 'base.html' %}{% block title %}事件雷达 · news2douyin{% endblock %}{% block content %}
 <div data-radar>
-<div class="radar-heading"><div><p class="radar-kicker">GLOBAL EVENT RADAR</p><h1>事件雷达</h1><p class="desk-meta radar-intro">从不同频道观察正在发生的变化。看事件、看关联，也看国家之间有原文依据的行动。</p></div><div class="desk-row"><a href="/focus">我的专题 →</a><a href="/profiles">配置采集</a></div></div>
+<div class="radar-heading"><div><p class="radar-kicker">GLOBAL EVENT RADAR</p><h1>事件雷达</h1><p class="desk-meta radar-intro">从不同频道观察正在发生的变化。看事件、看关联，也看国家之间有原文依据的行动。</p></div><div class="desk-row"><a href="/focus">我的专题 →</a><a href="/intake">全量采集接收</a></div></div>
 <div class="radar-channels" aria-label="雷达频道">{% for c in channels %}<a class="radar-channel {{ 'on' if params.channel==c.id }}" href="?{{ dict(params,channel=c.id)|urlencode }}" {% if params.channel==c.id %}aria-current="page"{% endif %}><strong>{{ c.label }}</strong><span class="count">{{ c.count }}</span><p>{{ {'all':'全部事件与未分类线索','diplomacy':'会谈 · 访问 · 签署','conflict':'有原文出处的袭击行动'}.get(c.id,'') }}</p></a>{% endfor %}</div>
 <form id="radar-filter" class="card radar-filter" method="get">
 <label class="radar-search">搜索事件<input name="q" value="{{ params.q }}" maxlength="200" aria-label="事件关键词" placeholder="事件、人物或关联报道关键词"></label>

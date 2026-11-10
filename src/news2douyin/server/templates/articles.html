@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}新闻库 · news2douyin{% endblock %}
 {% block content %}
+<p class="muted small">全量原始材料保存在<a href="/intake">采集接收库</a>，此处是已进入抽取与研究流程的新闻版本。</p>
 <h1>新闻库 <span class="muted small">（共 {{ paging.total }} 条）</span></h1>
 <p class="muted">这里保存历次采集的原始报道。可查看原文和版本，或带着材料<a href="/workbench/new">形成选题</a>；相关报道与时间线请到<a href="/radar">事件雷达</a>。</p>
 {% if task_id %}<p class="muted">只看本次采集入库的报道 · <a href="/tasks/{{ task_id }}">查看采集进度</a> · <a href="/articles">查看全部</a></p>{% endif %}

@@ -6,7 +6,7 @@ import re
 from zipfile import ZipFile, BadZipFile
 from zoneinfo import ZoneInfo
 import requests
-from .gdelt import _article, COUNTRIES
+from .gdelt import _article, COUNTRIES, request_timeouts
 
 FIPS={info[0].upper():iso for iso,info in COUNTRIES.items()}
 from ...search.dates import calendar_day, timezone_name
@@ -89,7 +89,7 @@ def fetch_news(config):
     stamp=config.get('gkg_batch') or batch(config)
     if not re.fullmatch(r'[0-9]{14}',stamp):raise ValueError('无效 GKG 批次编号')
     try:
-        with requests.get(BASE+stamp+'.gkg.csv.zip',stream=True,timeout=(6,35),allow_redirects=False) as response:
+        with requests.get(BASE+stamp+'.gkg.csv.zip',stream=True,timeout=request_timeouts(),allow_redirects=False) as response:
             if response.status_code!=200:raise RuntimeError(f'GKG 批次 {stamp} HTTP {response.status_code}')
             data=bytearray()
             for chunk in response.iter_content(131072):

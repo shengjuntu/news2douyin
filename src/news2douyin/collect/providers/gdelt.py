@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 import json
+import os
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -19,6 +20,18 @@ LANGUAGES = CODES['languages']  # ISO -> GDELT language name
 COUNTRY_NAMES = {name.casefold(): iso for iso, (_, gdelt, english, _) in COUNTRIES.items()
                  for name in (gdelt, english)}
 LANGUAGE_NAMES = {name.casefold(): iso for iso, name in LANGUAGES.items()}
+
+
+
+def request_timeouts():
+    """Shared DOC/GKG network deadlines, configurable without patching source."""
+    values=[]
+    for name,default in [('NEWS2DOUYIN_GDELT_CONNECT_TIMEOUT','30'),('NEWS2DOUYIN_GDELT_READ_TIMEOUT','90')]:
+        try:value=float(os.getenv(name,default))
+        except (TypeError,ValueError):raise ValueError(name+' 必须是 1–600 秒')
+        if not 1<=value<=600:raise ValueError(name+' 必须是 1–600 秒')
+        values.append(value)
+    return tuple(values)
 
 
 def query_for(config):
@@ -82,7 +95,7 @@ def fetch_news(config):
               'maxrecords': int(config.get('max_items', 100)),
               'startdatetime': start.strftime('%Y%m%d%H%M%S'), 'enddatetime': end.strftime('%Y%m%d%H%M%S')}
     try:
-        response = requests.get(ENDPOINT, params=params, timeout=(5, 30), allow_redirects=False)
+        response = requests.get(ENDPOINT, params=params, timeout=request_timeouts(), allow_redirects=False)
     except requests.RequestException as exc:
         raise RuntimeError('GDELT 连接失败或超时，请稍后重试') from exc
     if response.status_code == 429:
