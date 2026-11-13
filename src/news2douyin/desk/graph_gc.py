@@ -98,11 +98,7 @@ def _pick(engine, mirror, graph, now):
 
 
 def _select_query(label):
-    # Label-constrained match: the previous MATCH (n) with a labels() predicate
-    # scanned the whole graph on every batch and saturated FalkorDB.
-    if label not in LABELS:
-        raise ValueError('Unsupported maintenance label')
-    return ('MATCH (n:'+label+') WHERE id(n)>=$lo AND id(n)<$hi '
+    return ('MATCH (n) WHERE id(n)>=$lo AND id(n)<$hi AND $label IN labels(n) '
             'RETURN id(n),n.id ORDER BY id(n) LIMIT $limit')
 
 
