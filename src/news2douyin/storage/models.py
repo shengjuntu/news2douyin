@@ -5,7 +5,7 @@ import time
 from typing import Optional
 
 from sqlmodel import SQLModel, Field
-from sqlalchemy import UniqueConstraint
+from sqlalchemy import UniqueConstraint, Index
 
 
 def utc_now_iso() -> str:
@@ -95,6 +95,7 @@ class ScheduleOccurrence(SQLModel, table=True):
 
 
 class Article(SQLModel, table=True):
+    __table_args__ = (Index('ix_article_read_provider', 'article_key', 'provider'),)
     id: Optional[int] = Field(default=None, primary_key=True)
     article_key: str = Field(index=True, unique=True)
     provider: str = Field(default='worldnewsapi', index=True)
@@ -146,6 +147,7 @@ class Event(SQLModel, table=True):
 
 
 class ArticleEventLink(SQLModel, table=True):
+    __table_args__ = (Index('ix_articleeventlink_read_sources', 'event_key', 'article_key'),)
     id: Optional[int] = Field(default=None, primary_key=True)
     article_key: str = Field(index=True)
     event_key: str = Field(index=True)
@@ -164,7 +166,8 @@ class ArticleIdentity(SQLModel, table=True):
 
 
 class ArticleVersion(SQLModel, table=True):
-    __table_args__ = (UniqueConstraint('article_key', 'revision'),)
+    __table_args__ = (UniqueConstraint('article_key', 'revision'),
+                      Index('ix_articleversion_article_latest_id', 'article_key', 'id'))
     id: Optional[int] = Field(default=None, primary_key=True)
     article_key: str = Field(index=True)
     revision: int

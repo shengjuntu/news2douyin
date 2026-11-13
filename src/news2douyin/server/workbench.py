@@ -41,7 +41,6 @@ def register(app,engine,storage,render):
 
     @app.get('/workbench')
     def listing(view:str='',q:str='',offset:int=Query(0,ge=0),s=Depends(db)):
-        work.sync(s);s.commit()
         stmt=select(ContentTask,TopicWorkspace).join(TopicWorkspace,TopicWorkspace.workspace_id==ContentTask.key)
         if view in work.PHASES:stmt=stmt.where(ContentTask.phase==view)
         if q:stmt=stmt.where(TopicWorkspace.title.contains(q[:200]))

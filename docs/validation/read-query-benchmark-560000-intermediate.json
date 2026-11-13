@@ -1,0 +1,3509 @@
+{
+  "kind": "synthetic-read-query-benchmark",
+  "fixture": "/workspace/scratch/c21619997ed8/fix024/bench-560000.db",
+  "fixture_bytes": 9269354496,
+  "fixture_metadata": {
+    "kind": "synthetic-uncompressed-sqlite",
+    "rows": 560000,
+    "versions_per_article": 1,
+    "articles": 560000,
+    "events": 560000,
+    "minimum_version_payload_bytes": 4096,
+    "article_body_bytes": 4096,
+    "search_index": "not populated; only unfiltered dashboard routes are benchmarked",
+    "background_workers": false,
+    "external_network": false,
+    "limitations": "Not live data or the reported 27 GB production workload; OS cache is not reset.",
+    "fixture_id": "e1982aa2a5e68492186f",
+    "db": "/workspace/scratch/c21619997ed8/fix024/bench-560000.db",
+    "counts": {
+      "article": 560000,
+      "articleversion": 560000,
+      "event": 560000,
+      "articleeventlink": 560000,
+      "radarentry": 560000,
+      "versionreading": 560000,
+      "textmention": 112000,
+      "gkgsource": 186667,
+      "graphmetric": 56000
+    },
+    "bytes": 9269354496,
+    "generation_ms": 191618.3739850003,
+    "articleversion_indexes": [
+      {
+        "name": "ix_articleversion_article_latest_id",
+        "columns": [
+          "article_key",
+          "id"
+        ]
+      },
+      {
+        "name": "ix_articleversion_content_hash",
+        "columns": [
+          "content_hash"
+        ]
+      },
+      {
+        "name": "ix_articleversion_article_key",
+        "columns": [
+          "article_key"
+        ]
+      },
+      {
+        "name": "sqlite_autoindex_articleversion_1",
+        "columns": [
+          "article_key",
+          "revision"
+        ]
+      }
+    ],
+    "maintenance_note": "Added the same (article_key,id) index to the shared synthetic fixture before either implementation was benchmarked."
+  },
+  "assumptions": "Fresh process and independent SQLite backup per source/route. Warm OS cache, no workers/network.",
+  "results": [
+    {
+      "source": "/workspace/scratch/c21619997ed8/fix023/source",
+      "path": "/radar?period=all",
+      "runs": [
+        {
+          "repetition": 0,
+          "status_code": 200,
+          "wall_ms": 33602.09263099932,
+          "sql_count": 63,
+          "sql_execute_ms": 33420.65575900233,
+          "peak_rss_mb": 102.79296875,
+          "response_bytes": 51016,
+          "count_queries": 16,
+          "version_group_by_queries": 3,
+          "wide_column_queries": 2,
+          "unbounded_entity_loads": 0,
+          "repeated_sql": [
+            {
+              "sql": "SELECT 1 FROM sqlite_master WHERE name='article_fts'",
+              "occurrences": 11
+            },
+            {
+              "sql": "SELECT count(*) AS count_1 FROM (SELECT radarentry.\"key\" AS \"key\", radarentry.title AS title, radarentry.seen AS seen, radarentry.priority AS priority, radarentry.band AS band, radarentry.reason AS reason, radarentry.evidence AS evidence, radarentry.headings AS headings, radarentry.material AS material, radarentry.sources AS sources, radarentry.geography AS geography FROM radarentry LEFT OUTER JOIN graphmetric ON graphmetric.event = radarentry.\"key\" WHERE radarentry.\"key\" IN (SELECT event.event_key FROM event WHERE (event.event_key NOT IN (SELECT eventstate.event_key FROM eventstate WHERE eventstate.merged_into IS NOT NULL)))) AS anon_1",
+              "occurrences": 4
+            },
+            {
+              "sql": "SELECT count(*) AS count_1 FROM (SELECT radarentry.\"key\" AS \"key\", radarentry.title AS title, radarentry.seen AS seen, radarentry.priority AS priority, radarentry.band AS band, radarentry.reason AS reason, radarentry.evidence AS evidence, radarentry.headings AS headings, radarentry.material AS material, radarentry.sources AS sources, radarentry.geography AS geography FROM radarentry LEFT OUTER JOIN graphmetric ON graphmetric.event = radarentry.\"key\" WHERE radarentry.\"key\" IN (SELECT event.event_key FROM event WHERE (event.event_key NOT IN (SELECT eventstate.event_key FROM eventstate WHERE eventstate.merged_into IS NOT NULL))) AND radarentry.\"key\" IN (SELECT articleeventlink.event_key FROM articleeventlink WHERE articleeventlink.article_key IN (SELECT article.article_key FROM article WHERE article.provider = ? OR article.article_key IN (SELECT collectedobservation.article_key FROM collectedobservation LEFT OUTER JOIN taskrecord ON taskrecord.task_id = collectedobservation.scope_id LEFT OUTER JOIN runrecord ON runrecord.run_key = collectedobservation.scope_id WHERE (json_type(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) = 'text') = 1 AND (json_extract(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) NOT IN (?, ?)) AND json_extract(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) = ? OR (json_type(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) = 'text') = 1 AND (json_extract(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) NOT IN (?, ?)) AND json_extract(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) = ?)))) AS anon_1",
+              "occurrences": 2
+            },
+            {
+              "sql": "SELECT watch.\"key\", watch.name, watch.kind, watch.scope, watch.dimensions, watch.exclude, watch.question, watch.version, watch.enabled, watch.auto_research, watch.review_days, watch.next_review, watch.last_auto_day, watch.created, watchevent.watch, watchevent.event, watchevent.choice, watchevent.relevance, watchevent.branch, watchevent.reason, watchevent.first_seen FROM watch JOIN watchevent ON watchevent.watch = watch.\"key\" WHERE watchevent.event = ? AND watchevent.choice != ? ORDER BY watch.name",
+              "occurrences": 30
+            }
+          ],
+          "statements": [
+            {
+              "sql": "SELECT 1 FROM sqlite_master WHERE name='article_fts'",
+              "parameters": [],
+              "execute_ms": 0.09947700164048001,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT radarentry.\"key\", radarentry.title, radarentry.seen, radarentry.priority, radarentry.band, radarentry.reason, radarentry.evidence, radarentry.headings, radarentry.material, radarentry.sources, radarentry.geography \nFROM radarentry LEFT OUTER JOIN graphmetric ON graphmetric.event = radarentry.\"key\" \nWHERE radarentry.\"key\" IN (SELECT event.event_key \nFROM event \nWHERE (event.event_key NOT IN (SELECT eventstate.event_key \nFROM eventstate \nWHERE eventstate.merged_into IS NOT NULL))) ORDER BY coalesce(graphmetric.score, ?) DESC, radarentry.priority DESC, radarentry.seen DESC, radarentry.\"key\"\n LIMIT ? OFFSET ?",
+              "parameters": [
+                -1,
+                30,
+                0
+              ],
+              "execute_ms": 2816.9118799996795,
+              "wide_columns": [
+                "radarentry.material",
+                "radarentry.sources"
+              ],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT graphmetric.event, graphmetric.generation, graphmetric.score, graphmetric.community, graphmetric.data \nFROM graphmetric \nWHERE graphmetric.event IN (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+              "parameters": [
+                "bench_e_000000090",
+                "bench_e_000000190",
+                "bench_e_000000290",
+                "bench_e_000000390",
+                "bench_e_000000490",
+                "bench_e_000000590",
+                "bench_e_000000690",
+                "bench_e_000000790",
+                "bench_e_000000890",
+                "bench_e_000000990",
+                "bench_e_000001090",
+                "bench_e_000001190",
+                "bench_e_000001290",
+                "bench_e_000001390",
+                "bench_e_000001490",
+                "bench_e_000001590",
+                "bench_e_000001690",
+                "bench_e_000001790",
+                "bench_e_000001890",
+                "bench_e_000001990",
+                "bench_e_000002090",
+                "bench_e_000002190",
+                "bench_e_000002290",
+                "bench_e_000002390",
+                "bench_e_000002490",
+                "bench_e_000002590",
+                "bench_e_000002690",
+                "bench_e_000002790",
+                "bench_e_000002890",
+                "bench_e_000002990"
+              ],
+              "execute_ms": 0.3695840005093487,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT 1 FROM sqlite_master WHERE name='article_fts'",
+              "parameters": [],
+              "execute_ms": 0.10276200009684544,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT count(*) AS count_1 \nFROM (SELECT radarentry.\"key\" AS \"key\", radarentry.title AS title, radarentry.seen AS seen, radarentry.priority AS priority, radarentry.band AS band, radarentry.reason AS reason, radarentry.evidence AS evidence, radarentry.headings AS headings, radarentry.material AS material, radarentry.sources AS sources, radarentry.geography AS geography \nFROM radarentry LEFT OUTER JOIN graphmetric ON graphmetric.event = radarentry.\"key\" \nWHERE radarentry.\"key\" IN (SELECT event.event_key \nFROM event \nWHERE (event.event_key NOT IN (SELECT eventstate.event_key \nFROM eventstate \nWHERE eventstate.merged_into IS NOT NULL)))) AS anon_1",
+              "parameters": [],
+              "execute_ms": 443.11967000066943,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": true
+            },
+            {
+              "sql": "SELECT 1 FROM sqlite_master WHERE name='article_fts'",
+              "parameters": [],
+              "execute_ms": 0.056191998737631366,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT count(*) AS count_1 \nFROM (SELECT radarentry.\"key\" AS \"key\", radarentry.title AS title, radarentry.seen AS seen, radarentry.priority AS priority, radarentry.band AS band, radarentry.reason AS reason, radarentry.evidence AS evidence, radarentry.headings AS headings, radarentry.material AS material, radarentry.sources AS sources, radarentry.geography AS geography \nFROM radarentry LEFT OUTER JOIN graphmetric ON graphmetric.event = radarentry.\"key\" \nWHERE radarentry.\"key\" IN (SELECT event.event_key \nFROM event \nWHERE (event.event_key NOT IN (SELECT eventstate.event_key \nFROM eventstate \nWHERE eventstate.merged_into IS NOT NULL))) AND radarentry.\"key\" IN (SELECT articleeventlink.event_key \nFROM articleeventlink \nWHERE articleeventlink.article_key IN (SELECT textmention.article \nFROM textmention LEFT OUTER JOIN mentionreview ON mentionreview.id = textmention.id \nWHERE textmention.version_id IN (SELECT max(articleversion.id) AS max_1 \nFROM articleversion GROUP BY articleversion.article_key) AND (mentionreview.id IS NULL OR mentionreview.decision != ?) AND json_extract(CASE WHEN json_valid(textmention.data) THEN textmention.data ELSE '{}' END, '$.' || ?) IN (?, ?, ?)))) AS anon_1",
+              "parameters": [
+                "rejected",
+                "kind",
+                "meeting",
+                "visit",
+                "signing"
+              ],
+              "execute_ms": 2262.234942001669,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": true,
+              "count_query": true
+            },
+            {
+              "sql": "SELECT 1 FROM sqlite_master WHERE name='article_fts'",
+              "parameters": [],
+              "execute_ms": 0.20670399862865452,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT count(*) AS count_1 \nFROM (SELECT radarentry.\"key\" AS \"key\", radarentry.title AS title, radarentry.seen AS seen, radarentry.priority AS priority, radarentry.band AS band, radarentry.reason AS reason, radarentry.evidence AS evidence, radarentry.headings AS headings, radarentry.material AS material, radarentry.sources AS sources, radarentry.geography AS geography \nFROM radarentry LEFT OUTER JOIN graphmetric ON graphmetric.event = radarentry.\"key\" \nWHERE radarentry.\"key\" IN (SELECT event.event_key \nFROM event \nWHERE (event.event_key NOT IN (SELECT eventstate.event_key \nFROM eventstate \nWHERE eventstate.merged_into IS NOT NULL))) AND radarentry.\"key\" IN (SELECT articleeventlink.event_key \nFROM articleeventlink \nWHERE articleeventlink.article_key IN (SELECT textmention.article \nFROM textmention LEFT OUTER JOIN mentionreview ON mentionreview.id = textmention.id \nWHERE textmention.version_id IN (SELECT max(articleversion.id) AS max_1 \nFROM articleversion GROUP BY articleversion.article_key) AND (mentionreview.id IS NULL OR mentionreview.decision != ?) AND json_extract(CASE WHEN json_valid(textmention.data) THEN textmention.data ELSE '{}' END, '$.' || ?) IN (?)))) AS anon_1",
+              "parameters": [
+                "rejected",
+                "kind",
+                "attack"
+              ],
+              "execute_ms": 818.3106960004807,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": true,
+              "count_query": true
+            },
+            {
+              "sql": "SELECT 1 FROM sqlite_master WHERE name='article_fts'",
+              "parameters": [],
+              "execute_ms": 0.06565699914062861,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT count(*) AS count_1 \nFROM (SELECT radarentry.\"key\" AS \"key\", radarentry.title AS title, radarentry.seen AS seen, radarentry.priority AS priority, radarentry.band AS band, radarentry.reason AS reason, radarentry.evidence AS evidence, radarentry.headings AS headings, radarentry.material AS material, radarentry.sources AS sources, radarentry.geography AS geography \nFROM radarentry LEFT OUTER JOIN graphmetric ON graphmetric.event = radarentry.\"key\" \nWHERE radarentry.\"key\" IN (SELECT event.event_key \nFROM event \nWHERE (event.event_key NOT IN (SELECT eventstate.event_key \nFROM eventstate \nWHERE eventstate.merged_into IS NOT NULL)))) AS anon_1",
+              "parameters": [],
+              "execute_ms": 366.3030960015021,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": true
+            },
+            {
+              "sql": "SELECT 1 FROM sqlite_master WHERE name='article_fts'",
+              "parameters": [],
+              "execute_ms": 0.05381899973144755,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT count(*) AS count_1 \nFROM (SELECT radarentry.\"key\" AS \"key\", radarentry.title AS title, radarentry.seen AS seen, radarentry.priority AS priority, radarentry.band AS band, radarentry.reason AS reason, radarentry.evidence AS evidence, radarentry.headings AS headings, radarentry.material AS material, radarentry.sources AS sources, radarentry.geography AS geography \nFROM radarentry LEFT OUTER JOIN graphmetric ON graphmetric.event = radarentry.\"key\" \nWHERE radarentry.\"key\" IN (SELECT event.event_key \nFROM event \nWHERE (event.event_key NOT IN (SELECT eventstate.event_key \nFROM eventstate \nWHERE eventstate.merged_into IS NOT NULL))) AND radarentry.\"key\" IN (SELECT articleeventlink.event_key \nFROM articleeventlink \nWHERE articleeventlink.article_key IN (SELECT article.article_key \nFROM article \nWHERE article.provider = ? OR article.article_key IN (SELECT gkgsource.article_key \nFROM gkgsource) OR article.article_key IN (SELECT collectedobservation.article_key \nFROM collectedobservation LEFT OUTER JOIN taskrecord ON taskrecord.task_id = collectedobservation.scope_id LEFT OUTER JOIN runrecord ON runrecord.run_key = collectedobservation.scope_id \nWHERE (json_type(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) = 'text') = 1 AND (json_extract(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) NOT IN (?, ?)) AND json_extract(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) = ? OR (json_type(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) = 'text') = 1 AND (json_extract(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) NOT IN (?, ?)) AND json_extract(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) = ?)))) AS anon_1",
+              "parameters": [
+                "gkg",
+                "provider",
+                "provider",
+                "",
+                "unknown",
+                "provider",
+                "gkg",
+                "provider",
+                "provider",
+                "",
+                "unknown",
+                "provider",
+                "gkg"
+              ],
+              "execute_ms": 12858.809904999362,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": true
+            },
+            {
+              "sql": "SELECT 1 FROM sqlite_master WHERE name='article_fts'",
+              "parameters": [],
+              "execute_ms": 0.05971799873805139,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT count(*) AS count_1 \nFROM (SELECT radarentry.\"key\" AS \"key\", radarentry.title AS title, radarentry.seen AS seen, radarentry.priority AS priority, radarentry.band AS band, radarentry.reason AS reason, radarentry.evidence AS evidence, radarentry.headings AS headings, radarentry.material AS material, radarentry.sources AS sources, radarentry.geography AS geography \nFROM radarentry LEFT OUTER JOIN graphmetric ON graphmetric.event = radarentry.\"key\" \nWHERE radarentry.\"key\" IN (SELECT event.event_key \nFROM event \nWHERE (event.event_key NOT IN (SELECT eventstate.event_key \nFROM eventstate \nWHERE eventstate.merged_into IS NOT NULL))) AND radarentry.\"key\" IN (SELECT articleeventlink.event_key \nFROM articleeventlink \nWHERE articleeventlink.article_key IN (SELECT article.article_key \nFROM article \nWHERE article.provider = ? OR article.article_key IN (SELECT gdeltdiscovery.article_key \nFROM gdeltdiscovery \nWHERE (gdeltdiscovery.article_key NOT IN (SELECT gkgsource.article_key \nFROM gkgsource))) OR article.article_key IN (SELECT collectedobservation.article_key \nFROM collectedobservation LEFT OUTER JOIN taskrecord ON taskrecord.task_id = collectedobservation.scope_id LEFT OUTER JOIN runrecord ON runrecord.run_key = collectedobservation.scope_id \nWHERE (json_type(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) = 'text') = 1 AND (json_extract(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) NOT IN (?, ?)) AND json_extract(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) = ? OR (json_type(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) = 'text') = 1 AND (json_extract(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) NOT IN (?, ?)) AND json_extract(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) = ?)))) AS anon_1",
+              "parameters": [
+                "gdelt",
+                "provider",
+                "provider",
+                "",
+                "unknown",
+                "provider",
+                "gdelt",
+                "provider",
+                "provider",
+                "",
+                "unknown",
+                "provider",
+                "gdelt"
+              ],
+              "execute_ms": 1015.8660130000499,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": true
+            },
+            {
+              "sql": "SELECT 1 FROM sqlite_master WHERE name='article_fts'",
+              "parameters": [],
+              "execute_ms": 0.17605900029593613,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT count(*) AS count_1 \nFROM (SELECT radarentry.\"key\" AS \"key\", radarentry.title AS title, radarentry.seen AS seen, radarentry.priority AS priority, radarentry.band AS band, radarentry.reason AS reason, radarentry.evidence AS evidence, radarentry.headings AS headings, radarentry.material AS material, radarentry.sources AS sources, radarentry.geography AS geography \nFROM radarentry LEFT OUTER JOIN graphmetric ON graphmetric.event = radarentry.\"key\" \nWHERE radarentry.\"key\" IN (SELECT event.event_key \nFROM event \nWHERE (event.event_key NOT IN (SELECT eventstate.event_key \nFROM eventstate \nWHERE eventstate.merged_into IS NOT NULL))) AND radarentry.\"key\" IN (SELECT articleeventlink.event_key \nFROM articleeventlink \nWHERE articleeventlink.article_key IN (SELECT article.article_key \nFROM article \nWHERE article.provider = ? OR article.article_key IN (SELECT collectedobservation.article_key \nFROM collectedobservation LEFT OUTER JOIN taskrecord ON taskrecord.task_id = collectedobservation.scope_id LEFT OUTER JOIN runrecord ON runrecord.run_key = collectedobservation.scope_id \nWHERE (json_type(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) = 'text') = 1 AND (json_extract(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) NOT IN (?, ?)) AND json_extract(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) = ? OR (json_type(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) = 'text') = 1 AND (json_extract(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) NOT IN (?, ?)) AND json_extract(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) = ?)))) AS anon_1",
+              "parameters": [
+                "worldnewsapi",
+                "provider",
+                "provider",
+                "",
+                "unknown",
+                "provider",
+                "worldnewsapi",
+                "provider",
+                "provider",
+                "",
+                "unknown",
+                "provider",
+                "worldnewsapi"
+              ],
+              "execute_ms": 6542.015963999802,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": true
+            },
+            {
+              "sql": "SELECT 1 FROM sqlite_master WHERE name='article_fts'",
+              "parameters": [],
+              "execute_ms": 0.059006999435951,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT count(*) AS count_1 \nFROM (SELECT radarentry.\"key\" AS \"key\", radarentry.title AS title, radarentry.seen AS seen, radarentry.priority AS priority, radarentry.band AS band, radarentry.reason AS reason, radarentry.evidence AS evidence, radarentry.headings AS headings, radarentry.material AS material, radarentry.sources AS sources, radarentry.geography AS geography \nFROM radarentry LEFT OUTER JOIN graphmetric ON graphmetric.event = radarentry.\"key\" \nWHERE radarentry.\"key\" IN (SELECT event.event_key \nFROM event \nWHERE (event.event_key NOT IN (SELECT eventstate.event_key \nFROM eventstate \nWHERE eventstate.merged_into IS NOT NULL))) AND radarentry.\"key\" IN (SELECT articleeventlink.event_key \nFROM articleeventlink \nWHERE articleeventlink.article_key IN (SELECT article.article_key \nFROM article \nWHERE article.provider = ? OR article.article_key IN (SELECT collectedobservation.article_key \nFROM collectedobservation LEFT OUTER JOIN taskrecord ON taskrecord.task_id = collectedobservation.scope_id LEFT OUTER JOIN runrecord ON runrecord.run_key = collectedobservation.scope_id \nWHERE (json_type(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) = 'text') = 1 AND (json_extract(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) NOT IN (?, ?)) AND json_extract(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) = ? OR (json_type(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) = 'text') = 1 AND (json_extract(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) NOT IN (?, ?)) AND json_extract(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) = ?)))) AS anon_1",
+              "parameters": [
+                "mock",
+                "provider",
+                "provider",
+                "",
+                "unknown",
+                "provider",
+                "mock",
+                "provider",
+                "provider",
+                "",
+                "unknown",
+                "provider",
+                "mock"
+              ],
+              "execute_ms": 730.3423949997523,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": true
+            },
+            {
+              "sql": "SELECT 1 FROM sqlite_master WHERE name='article_fts'",
+              "parameters": [],
+              "execute_ms": 0.05967800098005682,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT count(*) AS count_1 \nFROM (SELECT radarentry.\"key\" AS \"key\", radarentry.title AS title, radarentry.seen AS seen, radarentry.priority AS priority, radarentry.band AS band, radarentry.reason AS reason, radarentry.evidence AS evidence, radarentry.headings AS headings, radarentry.material AS material, radarentry.sources AS sources, radarentry.geography AS geography \nFROM radarentry LEFT OUTER JOIN graphmetric ON graphmetric.event = radarentry.\"key\" \nWHERE radarentry.\"key\" IN (SELECT event.event_key \nFROM event \nWHERE (event.event_key NOT IN (SELECT eventstate.event_key \nFROM eventstate \nWHERE eventstate.merged_into IS NOT NULL))) AND radarentry.\"key\" IN (SELECT articleeventlink.event_key \nFROM articleeventlink \nWHERE articleeventlink.article_key IN (SELECT article.article_key \nFROM article \nWHERE (article.provider NOT IN (?, ?, ?, ?, ?, ?)) OR article.article_key IN (SELECT collectedobservation.article_key \nFROM collectedobservation LEFT OUTER JOIN taskrecord ON taskrecord.task_id = collectedobservation.scope_id LEFT OUTER JOIN runrecord ON runrecord.run_key = collectedobservation.scope_id \nWHERE (json_type(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) = 'text') = 1 AND (json_extract(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) NOT IN (?, ?)) AND (json_extract(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) NOT IN (?, ?, ?, ?)) OR (json_type(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) = 'text') = 1 AND (json_extract(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) NOT IN (?, ?)) AND (json_extract(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) NOT IN (?, ?, ?, ?)))))) AS anon_1",
+              "parameters": [
+                "",
+                "unknown",
+                "gkg",
+                "gdelt",
+                "worldnewsapi",
+                "mock",
+                "provider",
+                "provider",
+                "",
+                "unknown",
+                "provider",
+                "gkg",
+                "gdelt",
+                "worldnewsapi",
+                "mock",
+                "provider",
+                "provider",
+                "",
+                "unknown",
+                "provider",
+                "gkg",
+                "gdelt",
+                "worldnewsapi",
+                "mock"
+              ],
+              "execute_ms": 712.1988239996426,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": true
+            },
+            {
+              "sql": "SELECT 1 FROM sqlite_master WHERE name='article_fts'",
+              "parameters": [],
+              "execute_ms": 0.05431999852589797,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT count(*) AS count_1 \nFROM (SELECT radarentry.\"key\" AS \"key\", radarentry.title AS title, radarentry.seen AS seen, radarentry.priority AS priority, radarentry.band AS band, radarentry.reason AS reason, radarentry.evidence AS evidence, radarentry.headings AS headings, radarentry.material AS material, radarentry.sources AS sources, radarentry.geography AS geography \nFROM radarentry LEFT OUTER JOIN graphmetric ON graphmetric.event = radarentry.\"key\" \nWHERE radarentry.\"key\" IN (SELECT event.event_key \nFROM event \nWHERE (event.event_key NOT IN (SELECT eventstate.event_key \nFROM eventstate \nWHERE eventstate.merged_into IS NOT NULL))) AND radarentry.\"key\" IN (SELECT articleeventlink.event_key \nFROM articleeventlink \nWHERE articleeventlink.article_key IN (SELECT article.article_key \nFROM article \nWHERE (article.provider = ? OR article.provider = ? OR article.provider IS NULL) AND (article.article_key NOT IN (SELECT gkgsource.article_key \nFROM gkgsource)) AND (article.article_key NOT IN (SELECT gdeltdiscovery.article_key \nFROM gdeltdiscovery)) AND (article.article_key NOT IN (SELECT collectedobservation.article_key \nFROM collectedobservation LEFT OUTER JOIN taskrecord ON taskrecord.task_id = collectedobservation.scope_id LEFT OUTER JOIN runrecord ON runrecord.run_key = collectedobservation.scope_id \nWHERE (json_type(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) = 'text') = 1 AND (json_extract(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) NOT IN (?, ?)) OR (json_type(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) = 'text') = 1 AND (json_extract(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) NOT IN (?, ?))))))) AS anon_1",
+              "parameters": [
+                "",
+                "unknown",
+                "provider",
+                "provider",
+                "",
+                "unknown",
+                "provider",
+                "provider",
+                "",
+                "unknown"
+              ],
+              "execute_ms": 976.785495000513,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": true
+            },
+            {
+              "sql": "SELECT count(*) AS count_1 \nFROM (SELECT radarentry.\"key\" AS \"key\", radarentry.title AS title, radarentry.seen AS seen, radarentry.priority AS priority, radarentry.band AS band, radarentry.reason AS reason, radarentry.evidence AS evidence, radarentry.headings AS headings, radarentry.material AS material, radarentry.sources AS sources, radarentry.geography AS geography \nFROM radarentry LEFT OUTER JOIN graphmetric ON graphmetric.event = radarentry.\"key\" \nWHERE radarentry.\"key\" IN (SELECT event.event_key \nFROM event \nWHERE (event.event_key NOT IN (SELECT eventstate.event_key \nFROM eventstate \nWHERE eventstate.merged_into IS NOT NULL)))) AS anon_1",
+              "parameters": [],
+              "execute_ms": 388.76695500039204,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": true
+            },
+            {
+              "sql": "SELECT articleeventlink.event_key, article.id, article.article_key, article.provider, article.url, article.canonical_url, article.title, article.content, article.source_domain, article.published_at, article.fetched_at, article.language, article.country, article.raw_json, article.normalized_title, article.normalized_content, article.title_hash, article.content_hash, article.title_signature, article.content_signature, article.category_tags_json, article.keyword_tags_json, article.market_relevance_score, article.sentiment, article.is_duplicate, article.duplicate_of_article_key, article.dedup_group_id, article.dedup_reason, article.dedup_score, article.created_at, gkgsource.article_key AS article_key_1, gkgsource.record_id, gkgsource.attributes, gdeltdiscovery.article_key AS article_key_2, gdeltdiscovery.seen_at, gdeltdiscovery.source_country, gdeltdiscovery.source_language, anon_1.revision \nFROM articleeventlink JOIN article ON article.article_key = articleeventlink.article_key LEFT OUTER JOIN gkgsource ON gkgsource.article_key = article.article_key LEFT OUTER JOIN gdeltdiscovery ON gdeltdiscovery.article_key = article.article_key LEFT OUTER JOIN (SELECT articleversion.article_key AS article_key, max(articleversion.revision) AS revision \nFROM articleversion GROUP BY articleversion.article_key) AS anon_1 ON anon_1.article_key = article.article_key \nWHERE articleeventlink.event_key IN (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ORDER BY articleeventlink.event_key, article.id",
+              "parameters": [
+                "bench_e_000000090",
+                "bench_e_000000190",
+                "bench_e_000000290",
+                "bench_e_000000390",
+                "bench_e_000000490",
+                "bench_e_000000590",
+                "bench_e_000000690",
+                "bench_e_000000790",
+                "bench_e_000000890",
+                "bench_e_000000990",
+                "bench_e_000001090",
+                "bench_e_000001190",
+                "bench_e_000001290",
+                "bench_e_000001390",
+                "bench_e_000001490",
+                "bench_e_000001590",
+                "bench_e_000001690",
+                "bench_e_000001790",
+                "bench_e_000001890",
+                "bench_e_000001990",
+                "bench_e_000002090",
+                "bench_e_000002190",
+                "bench_e_000002290",
+                "bench_e_000002390",
+                "bench_e_000002490",
+                "bench_e_000002590",
+                "bench_e_000002690",
+                "bench_e_000002790",
+                "bench_e_000002890",
+                "bench_e_000002990"
+              ],
+              "execute_ms": 589.709693000259,
+              "wide_columns": [
+                "article.content",
+                "article.raw_json",
+                "article.normalized_content"
+              ],
+              "unbounded_entity_load": false,
+              "version_group_by": true,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT collectedobservation.article_key, taskrecord.profile_json, runrecord.stats_json \nFROM collectedobservation LEFT OUTER JOIN taskrecord ON taskrecord.task_id = collectedobservation.scope_id LEFT OUTER JOIN runrecord ON runrecord.run_key = collectedobservation.scope_id \nWHERE collectedobservation.article_key IN (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+              "parameters": [
+                "bench_a_000001890",
+                "bench_a_000001790",
+                "bench_a_000000890",
+                "bench_a_000000190",
+                "bench_a_000000090",
+                "bench_a_000000290",
+                "bench_a_000002390",
+                "bench_a_000002190",
+                "bench_a_000001690",
+                "bench_a_000001390",
+                "bench_a_000001990",
+                "bench_a_000002690",
+                "bench_a_000000690",
+                "bench_a_000000490",
+                "bench_a_000001290",
+                "bench_a_000002090",
+                "bench_a_000000590",
+                "bench_a_000001590",
+                "bench_a_000002790",
+                "bench_a_000001190",
+                "bench_a_000002490",
+                "bench_a_000000390",
+                "bench_a_000002290",
+                "bench_a_000000990",
+                "bench_a_000001490",
+                "bench_a_000001090",
+                "bench_a_000002990",
+                "bench_a_000002590",
+                "bench_a_000000790",
+                "bench_a_000002890"
+              ],
+              "execute_ms": 0.5598129991994938,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT count(*) AS count_1 \nFROM (SELECT radarentry.\"key\" AS \"key\", radarentry.title AS title, radarentry.seen AS seen, radarentry.priority AS priority, radarentry.band AS band, radarentry.reason AS reason, radarentry.evidence AS evidence, radarentry.headings AS headings, radarentry.material AS material, radarentry.sources AS sources, radarentry.geography AS geography \nFROM radarentry LEFT OUTER JOIN graphmetric ON graphmetric.event = radarentry.\"key\" \nWHERE radarentry.\"key\" IN (SELECT event.event_key \nFROM event \nWHERE (event.event_key NOT IN (SELECT eventstate.event_key \nFROM eventstate \nWHERE eventstate.merged_into IS NOT NULL)))) AS anon_1",
+              "parameters": [],
+              "execute_ms": 416.44595400066464,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": true
+            },
+            {
+              "sql": "SELECT count(*) AS count_1 \nFROM graphmetric \nWHERE graphmetric.event IN (SELECT radarentry.\"key\" \nFROM radarentry LEFT OUTER JOIN graphmetric ON graphmetric.event = radarentry.\"key\" \nWHERE radarentry.\"key\" IN (SELECT event.event_key \nFROM event \nWHERE (event.event_key NOT IN (SELECT eventstate.event_key \nFROM eventstate \nWHERE eventstate.merged_into IS NOT NULL))))",
+              "parameters": [],
+              "execute_ms": 619.2412700002023,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": true
+            },
+            {
+              "sql": "SELECT count(distinct(articleeventlink.article_key)) AS count_1 \nFROM articleeventlink \nWHERE articleeventlink.event_key IN (SELECT radarentry.\"key\" \nFROM radarentry LEFT OUTER JOIN graphmetric ON graphmetric.event = radarentry.\"key\" \nWHERE radarentry.\"key\" IN (SELECT event.event_key \nFROM event \nWHERE (event.event_key NOT IN (SELECT eventstate.event_key \nFROM eventstate \nWHERE eventstate.merged_into IS NOT NULL))))",
+              "parameters": [],
+              "execute_ms": 1860.585902000821,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": true
+            },
+            {
+              "sql": "SELECT eventplace.\"key\", eventplace.event, eventplace.role, eventplace.iso, eventplace.article, eventplace.revision, eventplace.quote \nFROM eventplace \nWHERE eventplace.event IN (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+              "parameters": [
+                "bench_e_000000090",
+                "bench_e_000000190",
+                "bench_e_000000290",
+                "bench_e_000000390",
+                "bench_e_000000490",
+                "bench_e_000000590",
+                "bench_e_000000690",
+                "bench_e_000000790",
+                "bench_e_000000890",
+                "bench_e_000000990",
+                "bench_e_000001090",
+                "bench_e_000001190",
+                "bench_e_000001290",
+                "bench_e_000001390",
+                "bench_e_000001490",
+                "bench_e_000001590",
+                "bench_e_000001690",
+                "bench_e_000001790",
+                "bench_e_000001890",
+                "bench_e_000001990",
+                "bench_e_000002090",
+                "bench_e_000002190",
+                "bench_e_000002290",
+                "bench_e_000002390",
+                "bench_e_000002490",
+                "bench_e_000002590",
+                "bench_e_000002690",
+                "bench_e_000002790",
+                "bench_e_000002890",
+                "bench_e_000002990"
+              ],
+              "execute_ms": 0.25987199842347763,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT watch.\"key\", watch.name, watch.kind, watch.scope, watch.dimensions, watch.exclude, watch.question, watch.version, watch.enabled, watch.auto_research, watch.review_days, watch.next_review, watch.last_auto_day, watch.created, watchevent.watch, watchevent.event, watchevent.choice, watchevent.relevance, watchevent.branch, watchevent.reason, watchevent.first_seen \nFROM watch JOIN watchevent ON watchevent.watch = watch.\"key\" \nWHERE watchevent.event = ? AND watchevent.choice != ? ORDER BY watch.name",
+              "parameters": [
+                "bench_e_000000090",
+                "exclude"
+              ],
+              "execute_ms": 0.21347400070226286,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT watch.\"key\", watch.name, watch.kind, watch.scope, watch.dimensions, watch.exclude, watch.question, watch.version, watch.enabled, watch.auto_research, watch.review_days, watch.next_review, watch.last_auto_day, watch.created, watchevent.watch, watchevent.event, watchevent.choice, watchevent.relevance, watchevent.branch, watchevent.reason, watchevent.first_seen \nFROM watch JOIN watchevent ON watchevent.watch = watch.\"key\" \nWHERE watchevent.event = ? AND watchevent.choice != ? ORDER BY watch.name",
+              "parameters": [
+                "bench_e_000000190",
+                "exclude"
+              ],
+              "execute_ms": 0.013249000403448008,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT watch.\"key\", watch.name, watch.kind, watch.scope, watch.dimensions, watch.exclude, watch.question, watch.version, watch.enabled, watch.auto_research, watch.review_days, watch.next_review, watch.last_auto_day, watch.created, watchevent.watch, watchevent.event, watchevent.choice, watchevent.relevance, watchevent.branch, watchevent.reason, watchevent.first_seen \nFROM watch JOIN watchevent ON watchevent.watch = watch.\"key\" \nWHERE watchevent.event = ? AND watchevent.choice != ? ORDER BY watch.name",
+              "parameters": [
+                "bench_e_000000290",
+                "exclude"
+              ],
+              "execute_ms": 0.015252999219228514,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT watch.\"key\", watch.name, watch.kind, watch.scope, watch.dimensions, watch.exclude, watch.question, watch.version, watch.enabled, watch.auto_research, watch.review_days, watch.next_review, watch.last_auto_day, watch.created, watchevent.watch, watchevent.event, watchevent.choice, watchevent.relevance, watchevent.branch, watchevent.reason, watchevent.first_seen \nFROM watch JOIN watchevent ON watchevent.watch = watch.\"key\" \nWHERE watchevent.event = ? AND watchevent.choice != ? ORDER BY watch.name",
+              "parameters": [
+                "bench_e_000000390",
+                "exclude"
+              ],
+              "execute_ms": 0.009714000043459237,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT watch.\"key\", watch.name, watch.kind, watch.scope, watch.dimensions, watch.exclude, watch.question, watch.version, watch.enabled, watch.auto_research, watch.review_days, watch.next_review, watch.last_auto_day, watch.created, watchevent.watch, watchevent.event, watchevent.choice, watchevent.relevance, watchevent.branch, watchevent.reason, watchevent.first_seen \nFROM watch JOIN watchevent ON watchevent.watch = watch.\"key\" \nWHERE watchevent.event = ? AND watchevent.choice != ? ORDER BY watch.name",
+              "parameters": [
+                "bench_e_000000490",
+                "exclude"
+              ],
+              "execute_ms": 0.008241999239544384,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT watch.\"key\", watch.name, watch.kind, watch.scope, watch.dimensions, watch.exclude, watch.question, watch.version, watch.enabled, watch.auto_research, watch.review_days, watch.next_review, watch.last_auto_day, watch.created, watchevent.watch, watchevent.event, watchevent.choice, watchevent.relevance, watchevent.branch, watchevent.reason, watchevent.first_seen \nFROM watch JOIN watchevent ON watchevent.watch = watch.\"key\" \nWHERE watchevent.event = ? AND watchevent.choice != ? ORDER BY watch.name",
+              "parameters": [
+                "bench_e_000000590",
+                "exclude"
+              ],
+              "execute_ms": 0.007590999302919954,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT watch.\"key\", watch.name, watch.kind, watch.scope, watch.dimensions, watch.exclude, watch.question, watch.version, watch.enabled, watch.auto_research, watch.review_days, watch.next_review, watch.last_auto_day, watch.created, watchevent.watch, watchevent.event, watchevent.choice, watchevent.relevance, watchevent.branch, watchevent.reason, watchevent.first_seen \nFROM watch JOIN watchevent ON watchevent.watch = watch.\"key\" \nWHERE watchevent.event = ? AND watchevent.choice != ? ORDER BY watch.name",
+              "parameters": [
+                "bench_e_000000690",
+                "exclude"
+              ],
+              "execute_ms": 0.007380000170087442,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT watch.\"key\", watch.name, watch.kind, watch.scope, watch.dimensions, watch.exclude, watch.question, watch.version, watch.enabled, watch.auto_research, watch.review_days, watch.next_review, watch.last_auto_day, watch.created, watchevent.watch, watchevent.event, watchevent.choice, watchevent.relevance, watchevent.branch, watchevent.reason, watchevent.first_seen \nFROM watch JOIN watchevent ON watchevent.watch = watch.\"key\" \nWHERE watchevent.event = ? AND watchevent.choice != ? ORDER BY watch.name",
+              "parameters": [
+                "bench_e_000000790",
+                "exclude"
+              ],
+              "execute_ms": 0.010035000741481781,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT watch.\"key\", watch.name, watch.kind, watch.scope, watch.dimensions, watch.exclude, watch.question, watch.version, watch.enabled, watch.auto_research, watch.review_days, watch.next_review, watch.last_auto_day, watch.created, watchevent.watch, watchevent.event, watchevent.choice, watchevent.relevance, watchevent.branch, watchevent.reason, watchevent.first_seen \nFROM watch JOIN watchevent ON watchevent.watch = watch.\"key\" \nWHERE watchevent.event = ? AND watchevent.choice != ? ORDER BY watch.name",
+              "parameters": [
+                "bench_e_000000890",
+                "exclude"
+              ],
+              "execute_ms": 0.007610999091411941,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT watch.\"key\", watch.name, watch.kind, watch.scope, watch.dimensions, watch.exclude, watch.question, watch.version, watch.enabled, watch.auto_research, watch.review_days, watch.next_review, watch.last_auto_day, watch.created, watchevent.watch, watchevent.event, watchevent.choice, watchevent.relevance, watchevent.branch, watchevent.reason, watchevent.first_seen \nFROM watch JOIN watchevent ON watchevent.watch = watch.\"key\" \nWHERE watchevent.event = ? AND watchevent.choice != ? ORDER BY watch.name",
+              "parameters": [
+                "bench_e_000000990",
+                "exclude"
+              ],
+              "execute_ms": 0.007440999979735352,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT watch.\"key\", watch.name, watch.kind, watch.scope, watch.dimensions, watch.exclude, watch.question, watch.version, watch.enabled, watch.auto_research, watch.review_days, watch.next_review, watch.last_auto_day, watch.created, watchevent.watch, watchevent.event, watchevent.choice, watchevent.relevance, watchevent.branch, watchevent.reason, watchevent.first_seen \nFROM watch JOIN watchevent ON watchevent.watch = watch.\"key\" \nWHERE watchevent.event = ? AND watchevent.choice != ? ORDER BY watch.name",
+              "parameters": [
+                "bench_e_000001090",
+                "exclude"
+              ],
+              "execute_ms": 0.007201000698842108,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT watch.\"key\", watch.name, watch.kind, watch.scope, watch.dimensions, watch.exclude, watch.question, watch.version, watch.enabled, watch.auto_research, watch.review_days, watch.next_review, watch.last_auto_day, watch.created, watchevent.watch, watchevent.event, watchevent.choice, watchevent.relevance, watchevent.branch, watchevent.reason, watchevent.first_seen \nFROM watch JOIN watchevent ON watchevent.watch = watch.\"key\" \nWHERE watchevent.event = ? AND watchevent.choice != ? ORDER BY watch.name",
+              "parameters": [
+                "bench_e_000001190",
+                "exclude"
+              ],
+              "execute_ms": 0.007329999789362773,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT watch.\"key\", watch.name, watch.kind, watch.scope, watch.dimensions, watch.exclude, watch.question, watch.version, watch.enabled, watch.auto_research, watch.review_days, watch.next_review, watch.last_auto_day, watch.created, watchevent.watch, watchevent.event, watchevent.choice, watchevent.relevance, watchevent.branch, watchevent.reason, watchevent.first_seen \nFROM watch JOIN watchevent ON watchevent.watch = watch.\"key\" \nWHERE watchevent.event = ? AND watchevent.choice != ? ORDER BY watch.name",
+              "parameters": [
+                "bench_e_000001290",
+                "exclude"
+              ],
+              "execute_ms": 0.010416000804980285,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT watch.\"key\", watch.name, watch.kind, watch.scope, watch.dimensions, watch.exclude, watch.question, watch.version, watch.enabled, watch.auto_research, watch.review_days, watch.next_review, watch.last_auto_day, watch.created, watchevent.watch, watchevent.event, watchevent.choice, watchevent.relevance, watchevent.branch, watchevent.reason, watchevent.first_seen \nFROM watch JOIN watchevent ON watchevent.watch = watch.\"key\" \nWHERE watchevent.event = ? AND watchevent.choice != ? ORDER BY watch.name",
+              "parameters": [
+                "bench_e_000001390",
+                "exclude"
+              ],
+              "execute_ms": 0.007672000720049255,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT watch.\"key\", watch.name, watch.kind, watch.scope, watch.dimensions, watch.exclude, watch.question, watch.version, watch.enabled, watch.auto_research, watch.review_days, watch.next_review, watch.last_auto_day, watch.created, watchevent.watch, watchevent.event, watchevent.choice, watchevent.relevance, watchevent.branch, watchevent.reason, watchevent.first_seen \nFROM watch JOIN watchevent ON watchevent.watch = watch.\"key\" \nWHERE watchevent.event = ? AND watchevent.choice != ? ORDER BY watch.name",
+              "parameters": [
+                "bench_e_000001490",
+                "exclude"
+              ],
+              "execute_ms": 0.012677999620791525,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT watch.\"key\", watch.name, watch.kind, watch.scope, watch.dimensions, watch.exclude, watch.question, watch.version, watch.enabled, watch.auto_research, watch.review_days, watch.next_review, watch.last_auto_day, watch.created, watchevent.watch, watchevent.event, watchevent.choice, watchevent.relevance, watchevent.branch, watchevent.reason, watchevent.first_seen \nFROM watch JOIN watchevent ON watchevent.watch = watch.\"key\" \nWHERE watchevent.event = ? AND watchevent.choice != ? ORDER BY watch.name",
+              "parameters": [
+                "bench_e_000001590",
+                "exclude"
+              ],
+              "execute_ms": 0.008513001375831664,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT watch.\"key\", watch.name, watch.kind, watch.scope, watch.dimensions, watch.exclude, watch.question, watch.version, watch.enabled, watch.auto_research, watch.review_days, watch.next_review, watch.last_auto_day, watch.created, watchevent.watch, watchevent.event, watchevent.choice, watchevent.relevance, watchevent.branch, watchevent.reason, watchevent.first_seen \nFROM watch JOIN watchevent ON watchevent.watch = watch.\"key\" \nWHERE watchevent.event = ? AND watchevent.choice != ? ORDER BY watch.name",
+              "parameters": [
+                "bench_e_000001690",
+                "exclude"
+              ],
+              "execute_ms": 0.007721000656601973,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT watch.\"key\", watch.name, watch.kind, watch.scope, watch.dimensions, watch.exclude, watch.question, watch.version, watch.enabled, watch.auto_research, watch.review_days, watch.next_review, watch.last_auto_day, watch.created, watchevent.watch, watchevent.event, watchevent.choice, watchevent.relevance, watchevent.branch, watchevent.reason, watchevent.first_seen \nFROM watch JOIN watchevent ON watchevent.watch = watch.\"key\" \nWHERE watchevent.event = ? AND watchevent.choice != ? ORDER BY watch.name",
+              "parameters": [
+                "bench_e_000001790",
+                "exclude"
+              ],
+              "execute_ms": 0.012127999070798978,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT watch.\"key\", watch.name, watch.kind, watch.scope, watch.dimensions, watch.exclude, watch.question, watch.version, watch.enabled, watch.auto_research, watch.review_days, watch.next_review, watch.last_auto_day, watch.created, watchevent.watch, watchevent.event, watchevent.choice, watchevent.relevance, watchevent.branch, watchevent.reason, watchevent.first_seen \nFROM watch JOIN watchevent ON watchevent.watch = watch.\"key\" \nWHERE watchevent.event = ? AND watchevent.choice != ? ORDER BY watch.name",
+              "parameters": [
+                "bench_e_000001890",
+                "exclude"
+              ],
+              "execute_ms": 0.008521999916411005,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT watch.\"key\", watch.name, watch.kind, watch.scope, watch.dimensions, watch.exclude, watch.question, watch.version, watch.enabled, watch.auto_research, watch.review_days, watch.next_review, watch.last_auto_day, watch.created, watchevent.watch, watchevent.event, watchevent.choice, watchevent.relevance, watchevent.branch, watchevent.reason, watchevent.first_seen \nFROM watch JOIN watchevent ON watchevent.watch = watch.\"key\" \nWHERE watchevent.event = ? AND watchevent.choice != ? ORDER BY watch.name",
+              "parameters": [
+                "bench_e_000001990",
+                "exclude"
+              ],
+              "execute_ms": 0.007692000508541241,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT watch.\"key\", watch.name, watch.kind, watch.scope, watch.dimensions, watch.exclude, watch.question, watch.version, watch.enabled, watch.auto_research, watch.review_days, watch.next_review, watch.last_auto_day, watch.created, watchevent.watch, watchevent.event, watchevent.choice, watchevent.relevance, watchevent.branch, watchevent.reason, watchevent.first_seen \nFROM watch JOIN watchevent ON watchevent.watch = watch.\"key\" \nWHERE watchevent.event = ? AND watchevent.choice != ? ORDER BY watch.name",
+              "parameters": [
+                "bench_e_000002090",
+                "exclude"
+              ],
+              "execute_ms": 0.010125000699190423,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT watch.\"key\", watch.name, watch.kind, watch.scope, watch.dimensions, watch.exclude, watch.question, watch.version, watch.enabled, watch.auto_research, watch.review_days, watch.next_review, watch.last_auto_day, watch.created, watchevent.watch, watchevent.event, watchevent.choice, watchevent.relevance, watchevent.branch, watchevent.reason, watchevent.first_seen \nFROM watch JOIN watchevent ON watchevent.watch = watch.\"key\" \nWHERE watchevent.event = ? AND watchevent.choice != ? ORDER BY watch.name",
+              "parameters": [
+                "bench_e_000002190",
+                "exclude"
+              ],
+              "execute_ms": 0.010555000699241646,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT watch.\"key\", watch.name, watch.kind, watch.scope, watch.dimensions, watch.exclude, watch.question, watch.version, watch.enabled, watch.auto_research, watch.review_days, watch.next_review, watch.last_auto_day, watch.created, watchevent.watch, watchevent.event, watchevent.choice, watchevent.relevance, watchevent.branch, watchevent.reason, watchevent.first_seen \nFROM watch JOIN watchevent ON watchevent.watch = watch.\"key\" \nWHERE watchevent.event = ? AND watchevent.choice != ? ORDER BY watch.name",
+              "parameters": [
+                "bench_e_000002290",
+                "exclude"
+              ],
+              "execute_ms": 0.007791999451001175,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT watch.\"key\", watch.name, watch.kind, watch.scope, watch.dimensions, watch.exclude, watch.question, watch.version, watch.enabled, watch.auto_research, watch.review_days, watch.next_review, watch.last_auto_day, watch.created, watchevent.watch, watchevent.event, watchevent.choice, watchevent.relevance, watchevent.branch, watchevent.reason, watchevent.first_seen \nFROM watch JOIN watchevent ON watchevent.watch = watch.\"key\" \nWHERE watchevent.event = ? AND watchevent.choice != ? ORDER BY watch.name",
+              "parameters": [
+                "bench_e_000002390",
+                "exclude"
+              ],
+              "execute_ms": 0.007341001037275419,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT watch.\"key\", watch.name, watch.kind, watch.scope, watch.dimensions, watch.exclude, watch.question, watch.version, watch.enabled, watch.auto_research, watch.review_days, watch.next_review, watch.last_auto_day, watch.created, watchevent.watch, watchevent.event, watchevent.choice, watchevent.relevance, watchevent.branch, watchevent.reason, watchevent.first_seen \nFROM watch JOIN watchevent ON watchevent.watch = watch.\"key\" \nWHERE watchevent.event = ? AND watchevent.choice != ? ORDER BY watch.name",
+              "parameters": [
+                "bench_e_000002490",
+                "exclude"
+              ],
+              "execute_ms": 0.010746000043582171,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT watch.\"key\", watch.name, watch.kind, watch.scope, watch.dimensions, watch.exclude, watch.question, watch.version, watch.enabled, watch.auto_research, watch.review_days, watch.next_review, watch.last_auto_day, watch.created, watchevent.watch, watchevent.event, watchevent.choice, watchevent.relevance, watchevent.branch, watchevent.reason, watchevent.first_seen \nFROM watch JOIN watchevent ON watchevent.watch = watch.\"key\" \nWHERE watchevent.event = ? AND watchevent.choice != ? ORDER BY watch.name",
+              "parameters": [
+                "bench_e_000002590",
+                "exclude"
+              ],
+              "execute_ms": 0.007530999937443994,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT watch.\"key\", watch.name, watch.kind, watch.scope, watch.dimensions, watch.exclude, watch.question, watch.version, watch.enabled, watch.auto_research, watch.review_days, watch.next_review, watch.last_auto_day, watch.created, watchevent.watch, watchevent.event, watchevent.choice, watchevent.relevance, watchevent.branch, watchevent.reason, watchevent.first_seen \nFROM watch JOIN watchevent ON watchevent.watch = watch.\"key\" \nWHERE watchevent.event = ? AND watchevent.choice != ? ORDER BY watch.name",
+              "parameters": [
+                "bench_e_000002690",
+                "exclude"
+              ],
+              "execute_ms": 0.006939999366295524,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT watch.\"key\", watch.name, watch.kind, watch.scope, watch.dimensions, watch.exclude, watch.question, watch.version, watch.enabled, watch.auto_research, watch.review_days, watch.next_review, watch.last_auto_day, watch.created, watchevent.watch, watchevent.event, watchevent.choice, watchevent.relevance, watchevent.branch, watchevent.reason, watchevent.first_seen \nFROM watch JOIN watchevent ON watchevent.watch = watch.\"key\" \nWHERE watchevent.event = ? AND watchevent.choice != ? ORDER BY watch.name",
+              "parameters": [
+                "bench_e_000002790",
+                "exclude"
+              ],
+              "execute_ms": 0.010335001206840388,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT watch.\"key\", watch.name, watch.kind, watch.scope, watch.dimensions, watch.exclude, watch.question, watch.version, watch.enabled, watch.auto_research, watch.review_days, watch.next_review, watch.last_auto_day, watch.created, watchevent.watch, watchevent.event, watchevent.choice, watchevent.relevance, watchevent.branch, watchevent.reason, watchevent.first_seen \nFROM watch JOIN watchevent ON watchevent.watch = watch.\"key\" \nWHERE watchevent.event = ? AND watchevent.choice != ? ORDER BY watch.name",
+              "parameters": [
+                "bench_e_000002890",
+                "exclude"
+              ],
+              "execute_ms": 0.007560998710687272,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT watch.\"key\", watch.name, watch.kind, watch.scope, watch.dimensions, watch.exclude, watch.question, watch.version, watch.enabled, watch.auto_research, watch.review_days, watch.next_review, watch.last_auto_day, watch.created, watchevent.watch, watchevent.event, watchevent.choice, watchevent.relevance, watchevent.branch, watchevent.reason, watchevent.first_seen \nFROM watch JOIN watchevent ON watchevent.watch = watch.\"key\" \nWHERE watchevent.event = ? AND watchevent.choice != ? ORDER BY watch.name",
+              "parameters": [
+                "bench_e_000002990",
+                "exclude"
+              ],
+              "execute_ms": 0.006969999958528206,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT count(*) AS count_1 \nFROM deskdirty",
+              "parameters": [],
+              "execute_ms": 0.18043599993688986,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": true
+            },
+            {
+              "sql": "SELECT count(*) AS count_1 \nFROM graphpending \nWHERE graphpending.token != graphpending.written",
+              "parameters": [],
+              "execute_ms": 0.15233500016620383,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": true
+            },
+            {
+              "sql": "SELECT deskmeta.\"key\", deskmeta.value \nFROM deskmeta \nWHERE deskmeta.\"key\" = ?",
+              "parameters": [
+                "graph_analysis"
+              ],
+              "execute_ms": 0.01591299951542169,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            }
+          ]
+        }
+      ],
+      "worker_pid": 6,
+      "memory_limit_mb": 3000,
+      "source_fingerprint": "72a9e7884fddc851ce3e6502e1812fbf53d4f0bf9abb73fe117dbb39a251fa90",
+      "warnings": [
+        "Driver execution time excludes result fetching and ORM materialization.",
+        "Process RSS includes application startup; no OS cache flush is performed."
+      ],
+      "startup_ms": 1223.9051159995142,
+      "explain": [
+        {
+          "sql": "SELECT 1 FROM sqlite_master WHERE name='article_fts'",
+          "plan": [
+            [
+              2,
+              0,
+              216,
+              "SCAN sqlite_master"
+            ]
+          ]
+        },
+        {
+          "sql": "SELECT radarentry.\"key\", radarentry.title, radarentry.seen, radarentry.priority, radarentry.band, radarentry.reason, radarentry.evidence, radarentry.headings, radarentry.material, radarentry.sources, radarentry.geography \nFROM radarentry LEFT OUTER JOIN graphmetric ON graphmetric.event = radarentry.\"key\" \nWHERE radarentry.\"key\" IN (SELECT event.event_key \nFROM event \nWHERE (event.event_key NOT IN (SELECT eventstate.event_key \nFROM eventstate \nWHERE eventstate.merged_into IS NOT NULL))) ORDER BY coalesce(graphmetric.score, ?) DESC, radarentry.priority DESC, radarentry.seen DESC, radarentry.\"key\"\n LIMIT ? OFFSET ?",
+          "plan": [
+            [
+              10,
+              0,
+              91,
+              "SEARCH radarentry USING INDEX sqlite_autoindex_radarentry_1 (key=?)"
+            ],
+            [
+              14,
+              0,
+              0,
+              "LIST SUBQUERY 2"
+            ],
+            [
+              16,
+              14,
+              198,
+              "SCAN event USING COVERING INDEX ix_event_event_key"
+            ],
+            [
+              21,
+              14,
+              0,
+              "LIST SUBQUERY 1"
+            ],
+            [
+              24,
+              21,
+              216,
+              "SCAN eventstate"
+            ],
+            [
+              32,
+              21,
+              0,
+              "CREATE BLOOM FILTER"
+            ],
+            [
+              56,
+              0,
+              43,
+              "SEARCH graphmetric USING INDEX sqlite_autoindex_graphmetric_1 (event=?) LEFT-JOIN"
+            ],
+            [
+              90,
+              0,
+              0,
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          ]
+        },
+        {
+          "sql": "SELECT graphmetric.event, graphmetric.generation, graphmetric.score, graphmetric.community, graphmetric.data \nFROM graphmetric \nWHERE graphmetric.event IN (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          "plan": [
+            [
+              3,
+              0,
+              92,
+              "SEARCH graphmetric USING INDEX sqlite_autoindex_graphmetric_1 (event=?)"
+            ]
+          ]
+        },
+        {
+          "sql": "SELECT count(*) AS count_1 \nFROM (SELECT radarentry.\"key\" AS \"key\", radarentry.title AS title, radarentry.seen AS seen, radarentry.priority AS priority, radarentry.band AS band, radarentry.reason AS reason, radarentry.evidence AS evidence, radarentry.headings AS headings, radarentry.material AS material, radarentry.sources AS sources, radarentry.geography AS geography \nFROM radarentry LEFT OUTER JOIN graphmetric ON graphmetric.event = radarentry.\"key\" \nWHERE radarentry.\"key\" IN (SELECT event.event_key \nFROM event \nWHERE (event.event_key NOT IN (SELECT eventstate.event_key \nFROM eventstate \nWHERE eventstate.merged_into IS NOT NULL)))) AS anon_1",
+          "plan": [
+            [
+              4,
+              0,
+              89,
+              "SEARCH radarentry USING COVERING INDEX sqlite_autoindex_radarentry_1 (key=?)"
+            ],
+            [
+              8,
+              0,
+              0,
+              "LIST SUBQUERY 2"
+            ],
+            [
+              10,
+              8,
+              198,
+              "SCAN event USING COVERING INDEX ix_event_event_key"
+            ],
+            [
+              15,
+              8,
+              0,
+              "LIST SUBQUERY 1"
+            ],
+            [
+              18,
+              15,
+              216,
+              "SCAN eventstate"
+            ],
+            [
+              26,
+              15,
+              0,
+              "CREATE BLOOM FILTER"
+            ],
+            [
+              49,
+              0,
+              41,
+              "SEARCH graphmetric USING COVERING INDEX sqlite_autoindex_graphmetric_1 (event=?) LEFT-JOIN"
+            ]
+          ]
+        },
+        {
+          "sql": "SELECT count(*) AS count_1 \nFROM (SELECT radarentry.\"key\" AS \"key\", radarentry.title AS title, radarentry.seen AS seen, radarentry.priority AS priority, radarentry.band AS band, radarentry.reason AS reason, radarentry.evidence AS evidence, radarentry.headings AS headings, radarentry.material AS material, radarentry.sources AS sources, radarentry.geography AS geography \nFROM radarentry LEFT OUTER JOIN graphmetric ON graphmetric.event = radarentry.\"key\" \nWHERE radarentry.\"key\" IN (SELECT event.event_key \nFROM event \nWHERE (event.event_key NOT IN (SELECT eventstate.event_key \nFROM eventstate \nWHERE eventstate.merged_into IS NOT NULL))) AND radarentry.\"key\" IN (SELECT articleeventlink.event_key \nFROM articleeventlink \nWHERE articleeventlink.article_key IN (SELECT textmention.article \nFROM textmention LEFT OUTER JOIN mentionreview ON mentionreview.id = textmention.id \nWHERE textmention.version_id IN (SELECT max(articleversion.id) AS max_1 \nFROM articleversion GROUP BY articleversion.article_key) AND (mentionreview.id IS NULL OR mentionreview.decision != ?) AND json_extract(CASE WHEN json_valid(textmention.data) THEN textmention.data ELSE '{}' END, '$.' || ?) IN (?, ?, ?)))) AS anon_1",
+          "plan": [
+            [
+              4,
+              0,
+              89,
+              "SEARCH radarentry USING COVERING INDEX sqlite_autoindex_radarentry_1 (key=?)"
+            ],
+            [
+              8,
+              0,
+              0,
+              "LIST SUBQUERY 2"
+            ],
+            [
+              10,
+              8,
+              198,
+              "SCAN event USING COVERING INDEX ix_event_event_key"
+            ],
+            [
+              15,
+              8,
+              0,
+              "LIST SUBQUERY 1"
+            ],
+            [
+              18,
+              15,
+              216,
+              "SCAN eventstate"
+            ],
+            [
+              26,
+              15,
+              0,
+              "CREATE BLOOM FILTER"
+            ],
+            [
+              52,
+              0,
+              0,
+              "LIST SUBQUERY 5"
+            ],
+            [
+              56,
+              52,
+              92,
+              "SEARCH articleeventlink USING INDEX ix_articleeventlink_article_key (article_key=?)"
+            ],
+            [
+              60,
+              52,
+              0,
+              "LIST SUBQUERY 4"
+            ],
+            [
+              65,
+              60,
+              90,
+              "SEARCH textmention USING INDEX ix_textmention_version_id (version_id=?)"
+            ],
+            [
+              69,
+              60,
+              0,
+              "LIST SUBQUERY 3"
+            ],
+            [
+              75,
+              69,
+              200,
+              "SCAN articleversion USING COVERING INDEX ix_articleversion_article_key"
+            ],
+            [
+              138,
+              60,
+              47,
+              "SEARCH mentionreview USING INDEX sqlite_autoindex_mentionreview_1 (id=?) LEFT-JOIN"
+            ],
+            [
+              170,
+              52,
+              0,
+              "CREATE BLOOM FILTER"
+            ],
+            [
+              179,
+              0,
+              41,
+              "SEARCH graphmetric USING COVERING INDEX sqlite_autoindex_graphmetric_1 (event=?) LEFT-JOIN"
+            ]
+          ]
+        },
+        {
+          "sql": "SELECT count(*) AS count_1 \nFROM (SELECT radarentry.\"key\" AS \"key\", radarentry.title AS title, radarentry.seen AS seen, radarentry.priority AS priority, radarentry.band AS band, radarentry.reason AS reason, radarentry.evidence AS evidence, radarentry.headings AS headings, radarentry.material AS material, radarentry.sources AS sources, radarentry.geography AS geography \nFROM radarentry LEFT OUTER JOIN graphmetric ON graphmetric.event = radarentry.\"key\" \nWHERE radarentry.\"key\" IN (SELECT event.event_key \nFROM event \nWHERE (event.event_key NOT IN (SELECT eventstate.event_key \nFROM eventstate \nWHERE eventstate.merged_into IS NOT NULL))) AND radarentry.\"key\" IN (SELECT articleeventlink.event_key \nFROM articleeventlink \nWHERE articleeventlink.article_key IN (SELECT textmention.article \nFROM textmention LEFT OUTER JOIN mentionreview ON mentionreview.id = textmention.id \nWHERE textmention.version_id IN (SELECT max(articleversion.id) AS max_1 \nFROM articleversion GROUP BY articleversion.article_key) AND (mentionreview.id IS NULL OR mentionreview.decision != ?) AND json_extract(CASE WHEN json_valid(textmention.data) THEN textmention.data ELSE '{}' END, '$.' || ?) IN (?)))) AS anon_1",
+          "plan": [
+            [
+              4,
+              0,
+              89,
+              "SEARCH radarentry USING COVERING INDEX sqlite_autoindex_radarentry_1 (key=?)"
+            ],
+            [
+              8,
+              0,
+              0,
+              "LIST SUBQUERY 2"
+            ],
+            [
+              10,
+              8,
+              198,
+              "SCAN event USING COVERING INDEX ix_event_event_key"
+            ],
+            [
+              15,
+              8,
+              0,
+              "LIST SUBQUERY 1"
+            ],
+            [
+              18,
+              15,
+              216,
+              "SCAN eventstate"
+            ],
+            [
+              26,
+              15,
+              0,
+              "CREATE BLOOM FILTER"
+            ],
+            [
+              52,
+              0,
+              0,
+              "LIST SUBQUERY 5"
+            ],
+            [
+              56,
+              52,
+              92,
+              "SEARCH articleeventlink USING INDEX ix_articleeventlink_article_key (article_key=?)"
+            ],
+            [
+              60,
+              52,
+              0,
+              "LIST SUBQUERY 4"
+            ],
+            [
+              65,
+              60,
+              90,
+              "SEARCH textmention USING INDEX ix_textmention_version_id (version_id=?)"
+            ],
+            [
+              69,
+              60,
+              0,
+              "LIST SUBQUERY 3"
+            ],
+            [
+              75,
+              69,
+              200,
+              "SCAN articleversion USING COVERING INDEX ix_articleversion_article_key"
+            ],
+            [
+              119,
+              60,
+              47,
+              "SEARCH mentionreview USING INDEX sqlite_autoindex_mentionreview_1 (id=?) LEFT-JOIN"
+            ],
+            [
+              151,
+              52,
+              0,
+              "CREATE BLOOM FILTER"
+            ],
+            [
+              160,
+              0,
+              41,
+              "SEARCH graphmetric USING COVERING INDEX sqlite_autoindex_graphmetric_1 (event=?) LEFT-JOIN"
+            ]
+          ]
+        },
+        {
+          "sql": "SELECT count(*) AS count_1 \nFROM (SELECT radarentry.\"key\" AS \"key\", radarentry.title AS title, radarentry.seen AS seen, radarentry.priority AS priority, radarentry.band AS band, radarentry.reason AS reason, radarentry.evidence AS evidence, radarentry.headings AS headings, radarentry.material AS material, radarentry.sources AS sources, radarentry.geography AS geography \nFROM radarentry LEFT OUTER JOIN graphmetric ON graphmetric.event = radarentry.\"key\" \nWHERE radarentry.\"key\" IN (SELECT event.event_key \nFROM event \nWHERE (event.event_key NOT IN (SELECT eventstate.event_key \nFROM eventstate \nWHERE eventstate.merged_into IS NOT NULL))) AND radarentry.\"key\" IN (SELECT articleeventlink.event_key \nFROM articleeventlink \nWHERE articleeventlink.article_key IN (SELECT article.article_key \nFROM article \nWHERE article.provider = ? OR article.article_key IN (SELECT gkgsource.article_key \nFROM gkgsource) OR article.article_key IN (SELECT collectedobservation.article_key \nFROM collectedobservation LEFT OUTER JOIN taskrecord ON taskrecord.task_id = collectedobservation.scope_id LEFT OUTER JOIN runrecord ON runrecord.run_key = collectedobservation.scope_id \nWHERE (json_type(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) = 'text') = 1 AND (json_extract(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) NOT IN (?, ?)) AND json_extract(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) = ? OR (json_type(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) = 'text') = 1 AND (json_extract(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) NOT IN (?, ?)) AND json_extract(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) = ?)))) AS anon_1",
+          "plan": [
+            [
+              4,
+              0,
+              89,
+              "SEARCH radarentry USING COVERING INDEX sqlite_autoindex_radarentry_1 (key=?)"
+            ],
+            [
+              8,
+              0,
+              0,
+              "LIST SUBQUERY 2"
+            ],
+            [
+              10,
+              8,
+              198,
+              "SCAN event USING COVERING INDEX ix_event_event_key"
+            ],
+            [
+              15,
+              8,
+              0,
+              "LIST SUBQUERY 1"
+            ],
+            [
+              18,
+              15,
+              216,
+              "SCAN eventstate"
+            ],
+            [
+              26,
+              15,
+              0,
+              "CREATE BLOOM FILTER"
+            ],
+            [
+              52,
+              0,
+              0,
+              "LIST SUBQUERY 6"
+            ],
+            [
+              56,
+              52,
+              92,
+              "SEARCH articleeventlink USING INDEX ix_articleeventlink_article_key (article_key=?)"
+            ],
+            [
+              60,
+              52,
+              0,
+              "LIST SUBQUERY 5"
+            ],
+            [
+              64,
+              60,
+              0,
+              "MULTI-INDEX OR"
+            ],
+            [
+              65,
+              64,
+              0,
+              "INDEX 1"
+            ],
+            [
+              73,
+              65,
+              187,
+              "SEARCH article USING INDEX ix_article_provider (provider=?)"
+            ],
+            [
+              78,
+              64,
+              0,
+              "INDEX 2"
+            ],
+            [
+              81,
+              78,
+              0,
+              "USING INDEX sqlite_autoindex_gkgsource_1 FOR IN-OPERATOR"
+            ],
+            [
+              89,
+              78,
+              91,
+              "SEARCH article USING INDEX ix_article_article_key (article_key=?)"
+            ],
+            [
+              94,
+              64,
+              0,
+              "INDEX 3"
+            ],
+            [
+              99,
+              94,
+              0,
+              "LIST SUBQUERY 4"
+            ],
+            [
+              105,
+              99,
+              216,
+              "SCAN collectedobservation"
+            ],
+            [
+              107,
+              99,
+              46,
+              "SEARCH taskrecord USING INDEX sqlite_autoindex_taskrecord_1 (task_id=?) LEFT-JOIN"
+            ],
+            [
+              114,
+              99,
+              46,
+              "SEARCH runrecord USING INDEX ix_runrecord_run_key (run_key=?) LEFT-JOIN"
+            ],
+            [
+              215,
+              94,
+              91,
+              "SEARCH article USING INDEX ix_article_article_key (article_key=?)"
+            ],
+            [
+              237,
+              52,
+              0,
+              "CREATE BLOOM FILTER"
+            ],
+            [
+              246,
+              0,
+              41,
+              "SEARCH graphmetric USING COVERING INDEX sqlite_autoindex_graphmetric_1 (event=?) LEFT-JOIN"
+            ]
+          ]
+        },
+        {
+          "sql": "SELECT count(*) AS count_1 \nFROM (SELECT radarentry.\"key\" AS \"key\", radarentry.title AS title, radarentry.seen AS seen, radarentry.priority AS priority, radarentry.band AS band, radarentry.reason AS reason, radarentry.evidence AS evidence, radarentry.headings AS headings, radarentry.material AS material, radarentry.sources AS sources, radarentry.geography AS geography \nFROM radarentry LEFT OUTER JOIN graphmetric ON graphmetric.event = radarentry.\"key\" \nWHERE radarentry.\"key\" IN (SELECT event.event_key \nFROM event \nWHERE (event.event_key NOT IN (SELECT eventstate.event_key \nFROM eventstate \nWHERE eventstate.merged_into IS NOT NULL))) AND radarentry.\"key\" IN (SELECT articleeventlink.event_key \nFROM articleeventlink \nWHERE articleeventlink.article_key IN (SELECT article.article_key \nFROM article \nWHERE article.provider = ? OR article.article_key IN (SELECT gdeltdiscovery.article_key \nFROM gdeltdiscovery \nWHERE (gdeltdiscovery.article_key NOT IN (SELECT gkgsource.article_key \nFROM gkgsource))) OR article.article_key IN (SELECT collectedobservation.article_key \nFROM collectedobservation LEFT OUTER JOIN taskrecord ON taskrecord.task_id = collectedobservation.scope_id LEFT OUTER JOIN runrecord ON runrecord.run_key = collectedobservation.scope_id \nWHERE (json_type(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) = 'text') = 1 AND (json_extract(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) NOT IN (?, ?)) AND json_extract(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) = ? OR (json_type(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) = 'text') = 1 AND (json_extract(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) NOT IN (?, ?)) AND json_extract(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) = ?)))) AS anon_1",
+          "plan": [
+            [
+              4,
+              0,
+              89,
+              "SEARCH radarentry USING COVERING INDEX sqlite_autoindex_radarentry_1 (key=?)"
+            ],
+            [
+              8,
+              0,
+              0,
+              "LIST SUBQUERY 2"
+            ],
+            [
+              10,
+              8,
+              198,
+              "SCAN event USING COVERING INDEX ix_event_event_key"
+            ],
+            [
+              15,
+              8,
+              0,
+              "LIST SUBQUERY 1"
+            ],
+            [
+              18,
+              15,
+              216,
+              "SCAN eventstate"
+            ],
+            [
+              26,
+              15,
+              0,
+              "CREATE BLOOM FILTER"
+            ],
+            [
+              52,
+              0,
+              0,
+              "LIST SUBQUERY 7"
+            ],
+            [
+              56,
+              52,
+              92,
+              "SEARCH articleeventlink USING INDEX ix_articleeventlink_article_key (article_key=?)"
+            ],
+            [
+              60,
+              52,
+              0,
+              "LIST SUBQUERY 6"
+            ],
+            [
+              64,
+              60,
+              0,
+              "MULTI-INDEX OR"
+            ],
+            [
+              65,
+              64,
+              0,
+              "INDEX 1"
+            ],
+            [
+              73,
+              65,
+              187,
+              "SEARCH article USING INDEX ix_article_provider (provider=?)"
+            ],
+            [
+              78,
+              64,
+              0,
+              "INDEX 2"
+            ],
+            [
+              83,
+              78,
+              0,
+              "LIST SUBQUERY 4"
+            ],
+            [
+              85,
+              83,
+              211,
+              "SCAN gdeltdiscovery USING COVERING INDEX sqlite_autoindex_gdeltdiscovery_1"
+            ],
+            [
+              88,
+              83,
+              0,
+              "USING INDEX sqlite_autoindex_gkgsource_1 FOR IN-OPERATOR"
+            ],
+            [
+              110,
+              78,
+              91,
+              "SEARCH article USING INDEX ix_article_article_key (article_key=?)"
+            ],
+            [
+              115,
+              64,
+              0,
+              "INDEX 3"
+            ],
+            [
+              120,
+              115,
+              0,
+              "LIST SUBQUERY 5"
+            ],
+            [
+              126,
+              120,
+              216,
+              "SCAN collectedobservation"
+            ],
+            [
+              128,
+              120,
+              46,
+              "SEARCH taskrecord USING INDEX sqlite_autoindex_taskrecord_1 (task_id=?) LEFT-JOIN"
+            ],
+            [
+              135,
+              120,
+              46,
+              "SEARCH runrecord USING INDEX ix_runrecord_run_key (run_key=?) LEFT-JOIN"
+            ],
+            [
+              236,
+              115,
+              91,
+              "SEARCH article USING INDEX ix_article_article_key (article_key=?)"
+            ],
+            [
+              258,
+              52,
+              0,
+              "CREATE BLOOM FILTER"
+            ],
+            [
+              267,
+              0,
+              41,
+              "SEARCH graphmetric USING COVERING INDEX sqlite_autoindex_graphmetric_1 (event=?) LEFT-JOIN"
+            ]
+          ]
+        },
+        {
+          "sql": "SELECT count(*) AS count_1 \nFROM (SELECT radarentry.\"key\" AS \"key\", radarentry.title AS title, radarentry.seen AS seen, radarentry.priority AS priority, radarentry.band AS band, radarentry.reason AS reason, radarentry.evidence AS evidence, radarentry.headings AS headings, radarentry.material AS material, radarentry.sources AS sources, radarentry.geography AS geography \nFROM radarentry LEFT OUTER JOIN graphmetric ON graphmetric.event = radarentry.\"key\" \nWHERE radarentry.\"key\" IN (SELECT event.event_key \nFROM event \nWHERE (event.event_key NOT IN (SELECT eventstate.event_key \nFROM eventstate \nWHERE eventstate.merged_into IS NOT NULL))) AND radarentry.\"key\" IN (SELECT articleeventlink.event_key \nFROM articleeventlink \nWHERE articleeventlink.article_key IN (SELECT article.article_key \nFROM article \nWHERE article.provider = ? OR article.article_key IN (SELECT collectedobservation.article_key \nFROM collectedobservation LEFT OUTER JOIN taskrecord ON taskrecord.task_id = collectedobservation.scope_id LEFT OUTER JOIN runrecord ON runrecord.run_key = collectedobservation.scope_id \nWHERE (json_type(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) = 'text') = 1 AND (json_extract(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) NOT IN (?, ?)) AND json_extract(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) = ? OR (json_type(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) = 'text') = 1 AND (json_extract(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) NOT IN (?, ?)) AND json_extract(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) = ?)))) AS anon_1",
+          "plan": [
+            [
+              4,
+              0,
+              89,
+              "SEARCH radarentry USING COVERING INDEX sqlite_autoindex_radarentry_1 (key=?)"
+            ],
+            [
+              8,
+              0,
+              0,
+              "LIST SUBQUERY 2"
+            ],
+            [
+              10,
+              8,
+              198,
+              "SCAN event USING COVERING INDEX ix_event_event_key"
+            ],
+            [
+              15,
+              8,
+              0,
+              "LIST SUBQUERY 1"
+            ],
+            [
+              18,
+              15,
+              216,
+              "SCAN eventstate"
+            ],
+            [
+              26,
+              15,
+              0,
+              "CREATE BLOOM FILTER"
+            ],
+            [
+              52,
+              0,
+              0,
+              "LIST SUBQUERY 5"
+            ],
+            [
+              56,
+              52,
+              92,
+              "SEARCH articleeventlink USING INDEX ix_articleeventlink_article_key (article_key=?)"
+            ],
+            [
+              60,
+              52,
+              0,
+              "LIST SUBQUERY 4"
+            ],
+            [
+              64,
+              60,
+              0,
+              "MULTI-INDEX OR"
+            ],
+            [
+              65,
+              64,
+              0,
+              "INDEX 1"
+            ],
+            [
+              73,
+              65,
+              187,
+              "SEARCH article USING INDEX ix_article_provider (provider=?)"
+            ],
+            [
+              78,
+              64,
+              0,
+              "INDEX 2"
+            ],
+            [
+              83,
+              78,
+              0,
+              "LIST SUBQUERY 3"
+            ],
+            [
+              89,
+              83,
+              216,
+              "SCAN collectedobservation"
+            ],
+            [
+              91,
+              83,
+              46,
+              "SEARCH taskrecord USING INDEX sqlite_autoindex_taskrecord_1 (task_id=?) LEFT-JOIN"
+            ],
+            [
+              98,
+              83,
+              46,
+              "SEARCH runrecord USING INDEX ix_runrecord_run_key (run_key=?) LEFT-JOIN"
+            ],
+            [
+              199,
+              78,
+              91,
+              "SEARCH article USING INDEX ix_article_article_key (article_key=?)"
+            ],
+            [
+              221,
+              52,
+              0,
+              "CREATE BLOOM FILTER"
+            ],
+            [
+              230,
+              0,
+              41,
+              "SEARCH graphmetric USING COVERING INDEX sqlite_autoindex_graphmetric_1 (event=?) LEFT-JOIN"
+            ]
+          ]
+        },
+        {
+          "sql": "SELECT count(*) AS count_1 \nFROM (SELECT radarentry.\"key\" AS \"key\", radarentry.title AS title, radarentry.seen AS seen, radarentry.priority AS priority, radarentry.band AS band, radarentry.reason AS reason, radarentry.evidence AS evidence, radarentry.headings AS headings, radarentry.material AS material, radarentry.sources AS sources, radarentry.geography AS geography \nFROM radarentry LEFT OUTER JOIN graphmetric ON graphmetric.event = radarentry.\"key\" \nWHERE radarentry.\"key\" IN (SELECT event.event_key \nFROM event \nWHERE (event.event_key NOT IN (SELECT eventstate.event_key \nFROM eventstate \nWHERE eventstate.merged_into IS NOT NULL))) AND radarentry.\"key\" IN (SELECT articleeventlink.event_key \nFROM articleeventlink \nWHERE articleeventlink.article_key IN (SELECT article.article_key \nFROM article \nWHERE (article.provider NOT IN (?, ?, ?, ?, ?, ?)) OR article.article_key IN (SELECT collectedobservation.article_key \nFROM collectedobservation LEFT OUTER JOIN taskrecord ON taskrecord.task_id = collectedobservation.scope_id LEFT OUTER JOIN runrecord ON runrecord.run_key = collectedobservation.scope_id \nWHERE (json_type(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) = 'text') = 1 AND (json_extract(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) NOT IN (?, ?)) AND (json_extract(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) NOT IN (?, ?, ?, ?)) OR (json_type(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) = 'text') = 1 AND (json_extract(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) NOT IN (?, ?)) AND (json_extract(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) NOT IN (?, ?, ?, ?)))))) AS anon_1",
+          "plan": [
+            [
+              4,
+              0,
+              89,
+              "SEARCH radarentry USING COVERING INDEX sqlite_autoindex_radarentry_1 (key=?)"
+            ],
+            [
+              8,
+              0,
+              0,
+              "LIST SUBQUERY 2"
+            ],
+            [
+              10,
+              8,
+              198,
+              "SCAN event USING COVERING INDEX ix_event_event_key"
+            ],
+            [
+              15,
+              8,
+              0,
+              "LIST SUBQUERY 1"
+            ],
+            [
+              18,
+              15,
+              216,
+              "SCAN eventstate"
+            ],
+            [
+              26,
+              15,
+              0,
+              "CREATE BLOOM FILTER"
+            ],
+            [
+              52,
+              0,
+              0,
+              "LIST SUBQUERY 5"
+            ],
+            [
+              56,
+              52,
+              92,
+              "SEARCH articleeventlink USING INDEX ix_articleeventlink_article_key (article_key=?)"
+            ],
+            [
+              60,
+              52,
+              0,
+              "LIST SUBQUERY 4"
+            ],
+            [
+              62,
+              60,
+              206,
+              "SCAN article"
+            ],
+            [
+              101,
+              60,
+              0,
+              "LIST SUBQUERY 3"
+            ],
+            [
+              108,
+              101,
+              216,
+              "SCAN collectedobservation"
+            ],
+            [
+              110,
+              101,
+              46,
+              "SEARCH taskrecord USING INDEX sqlite_autoindex_taskrecord_1 (task_id=?) LEFT-JOIN"
+            ],
+            [
+              117,
+              101,
+              46,
+              "SEARCH runrecord USING INDEX ix_runrecord_run_key (run_key=?) LEFT-JOIN"
+            ],
+            [
+              263,
+              101,
+              0,
+              "CREATE BLOOM FILTER"
+            ],
+            [
+              295,
+              52,
+              0,
+              "CREATE BLOOM FILTER"
+            ],
+            [
+              304,
+              0,
+              41,
+              "SEARCH graphmetric USING COVERING INDEX sqlite_autoindex_graphmetric_1 (event=?) LEFT-JOIN"
+            ]
+          ]
+        },
+        {
+          "sql": "SELECT count(*) AS count_1 \nFROM (SELECT radarentry.\"key\" AS \"key\", radarentry.title AS title, radarentry.seen AS seen, radarentry.priority AS priority, radarentry.band AS band, radarentry.reason AS reason, radarentry.evidence AS evidence, radarentry.headings AS headings, radarentry.material AS material, radarentry.sources AS sources, radarentry.geography AS geography \nFROM radarentry LEFT OUTER JOIN graphmetric ON graphmetric.event = radarentry.\"key\" \nWHERE radarentry.\"key\" IN (SELECT event.event_key \nFROM event \nWHERE (event.event_key NOT IN (SELECT eventstate.event_key \nFROM eventstate \nWHERE eventstate.merged_into IS NOT NULL))) AND radarentry.\"key\" IN (SELECT articleeventlink.event_key \nFROM articleeventlink \nWHERE articleeventlink.article_key IN (SELECT article.article_key \nFROM article \nWHERE (article.provider = ? OR article.provider = ? OR article.provider IS NULL) AND (article.article_key NOT IN (SELECT gkgsource.article_key \nFROM gkgsource)) AND (article.article_key NOT IN (SELECT gdeltdiscovery.article_key \nFROM gdeltdiscovery)) AND (article.article_key NOT IN (SELECT collectedobservation.article_key \nFROM collectedobservation LEFT OUTER JOIN taskrecord ON taskrecord.task_id = collectedobservation.scope_id LEFT OUTER JOIN runrecord ON runrecord.run_key = collectedobservation.scope_id \nWHERE (json_type(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) = 'text') = 1 AND (json_extract(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) NOT IN (?, ?)) OR (json_type(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) = 'text') = 1 AND (json_extract(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) NOT IN (?, ?))))))) AS anon_1",
+          "plan": [
+            [
+              4,
+              0,
+              89,
+              "SEARCH radarentry USING COVERING INDEX sqlite_autoindex_radarentry_1 (key=?)"
+            ],
+            [
+              8,
+              0,
+              0,
+              "LIST SUBQUERY 2"
+            ],
+            [
+              10,
+              8,
+              198,
+              "SCAN event USING COVERING INDEX ix_event_event_key"
+            ],
+            [
+              15,
+              8,
+              0,
+              "LIST SUBQUERY 1"
+            ],
+            [
+              18,
+              15,
+              216,
+              "SCAN eventstate"
+            ],
+            [
+              26,
+              15,
+              0,
+              "CREATE BLOOM FILTER"
+            ],
+            [
+              52,
+              0,
+              0,
+              "LIST SUBQUERY 7"
+            ],
+            [
+              56,
+              52,
+              92,
+              "SEARCH articleeventlink USING INDEX ix_articleeventlink_article_key (article_key=?)"
+            ],
+            [
+              60,
+              52,
+              0,
+              "LIST SUBQUERY 6"
+            ],
+            [
+              62,
+              60,
+              206,
+              "SCAN article"
+            ],
+            [
+              70,
+              60,
+              0,
+              "USING INDEX sqlite_autoindex_gkgsource_1 FOR IN-OPERATOR"
+            ],
+            [
+              81,
+              60,
+              0,
+              "USING INDEX sqlite_autoindex_gdeltdiscovery_1 FOR IN-OPERATOR"
+            ],
+            [
+              94,
+              60,
+              0,
+              "LIST SUBQUERY 5"
+            ],
+            [
+              101,
+              94,
+              216,
+              "SCAN collectedobservation"
+            ],
+            [
+              103,
+              94,
+              46,
+              "SEARCH taskrecord USING INDEX sqlite_autoindex_taskrecord_1 (task_id=?) LEFT-JOIN"
+            ],
+            [
+              110,
+              94,
+              46,
+              "SEARCH runrecord USING INDEX ix_runrecord_run_key (run_key=?) LEFT-JOIN"
+            ],
+            [
+              178,
+              94,
+              0,
+              "CREATE BLOOM FILTER"
+            ],
+            [
+              214,
+              52,
+              0,
+              "CREATE BLOOM FILTER"
+            ],
+            [
+              223,
+              0,
+              41,
+              "SEARCH graphmetric USING COVERING INDEX sqlite_autoindex_graphmetric_1 (event=?) LEFT-JOIN"
+            ]
+          ]
+        },
+        {
+          "sql": "SELECT articleeventlink.event_key, article.id, article.article_key, article.provider, article.url, article.canonical_url, article.title, article.content, article.source_domain, article.published_at, article.fetched_at, article.language, article.country, article.raw_json, article.normalized_title, article.normalized_content, article.title_hash, article.content_hash, article.title_signature, article.content_signature, article.category_tags_json, article.keyword_tags_json, article.market_relevance_score, article.sentiment, article.is_duplicate, article.duplicate_of_article_key, article.dedup_group_id, article.dedup_reason, article.dedup_score, article.created_at, gkgsource.article_key AS article_key_1, gkgsource.record_id, gkgsource.attributes, gdeltdiscovery.article_key AS article_key_2, gdeltdiscovery.seen_at, gdeltdiscovery.source_country, gdeltdiscovery.source_language, anon_1.revision \nFROM articleeventlink JOIN article ON article.article_key = articleeventlink.article_key LEFT OUTER JOIN gkgsource ON gkgsource.article_key = article.article_key LEFT OUTER JOIN gdeltdiscovery ON gdeltdiscovery.article_key = article.article_key LEFT OUTER JOIN (SELECT articleversion.article_key AS article_key, max(articleversion.revision) AS revision \nFROM articleversion GROUP BY articleversion.article_key) AS anon_1 ON anon_1.article_key = article.article_key \nWHERE articleeventlink.event_key IN (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ORDER BY articleeventlink.event_key, article.id",
+          "plan": [
+            [
+              3,
+              0,
+              0,
+              "MATERIALIZE anon_1"
+            ],
+            [
+              10,
+              3,
+              201,
+              "SCAN articleversion USING COVERING INDEX sqlite_autoindex_articleversion_1"
+            ],
+            [
+              52,
+              0,
+              95,
+              "SEARCH articleeventlink USING INDEX ix_articleeventlink_event_key (event_key=?)"
+            ],
+            [
+              155,
+              0,
+              45,
+              "SEARCH article USING INDEX ix_article_article_key (article_key=?)"
+            ],
+            [
+              160,
+              0,
+              44,
+              "SEARCH gkgsource USING INDEX sqlite_autoindex_gkgsource_1 (article_key=?) LEFT-JOIN"
+            ],
+            [
+              167,
+              0,
+              46,
+              "SEARCH gdeltdiscovery USING INDEX sqlite_autoindex_gdeltdiscovery_1 (article_key=?) LEFT-JOIN"
+            ],
+            [
+              185,
+              0,
+              47,
+              "SEARCH anon_1 USING AUTOMATIC COVERING INDEX (article_key=?) LEFT-JOIN"
+            ],
+            [
+              254,
+              0,
+              0,
+              "USE TEMP B-TREE FOR LAST TERM OF ORDER BY"
+            ]
+          ]
+        },
+        {
+          "sql": "SELECT collectedobservation.article_key, taskrecord.profile_json, runrecord.stats_json \nFROM collectedobservation LEFT OUTER JOIN taskrecord ON taskrecord.task_id = collectedobservation.scope_id LEFT OUTER JOIN runrecord ON runrecord.run_key = collectedobservation.scope_id \nWHERE collectedobservation.article_key IN (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          "plan": [
+            [
+              7,
+              0,
+              110,
+              "SEARCH collectedobservation USING INDEX ix_collectedobservation_article_key (article_key=?)"
+            ],
+            [
+              110,
+              0,
+              46,
+              "SEARCH taskrecord USING INDEX sqlite_autoindex_taskrecord_1 (task_id=?) LEFT-JOIN"
+            ],
+            [
+              117,
+              0,
+              46,
+              "SEARCH runrecord USING INDEX ix_runrecord_run_key (run_key=?) LEFT-JOIN"
+            ]
+          ]
+        },
+        {
+          "sql": "SELECT count(*) AS count_1 \nFROM graphmetric \nWHERE graphmetric.event IN (SELECT radarentry.\"key\" \nFROM radarentry LEFT OUTER JOIN graphmetric ON graphmetric.event = radarentry.\"key\" \nWHERE radarentry.\"key\" IN (SELECT event.event_key \nFROM event \nWHERE (event.event_key NOT IN (SELECT eventstate.event_key \nFROM eventstate \nWHERE eventstate.merged_into IS NOT NULL))))",
+          "plan": [
+            [
+              3,
+              0,
+              87,
+              "SEARCH graphmetric USING COVERING INDEX sqlite_autoindex_graphmetric_1 (event=?)"
+            ],
+            [
+              7,
+              0,
+              0,
+              "LIST SUBQUERY 3"
+            ],
+            [
+              9,
+              7,
+              89,
+              "SEARCH radarentry USING COVERING INDEX sqlite_autoindex_radarentry_1 (key=?)"
+            ],
+            [
+              13,
+              7,
+              0,
+              "LIST SUBQUERY 2"
+            ],
+            [
+              15,
+              13,
+              198,
+              "SCAN event USING COVERING INDEX ix_event_event_key"
+            ],
+            [
+              20,
+              13,
+              0,
+              "LIST SUBQUERY 1"
+            ],
+            [
+              23,
+              20,
+              216,
+              "SCAN eventstate"
+            ],
+            [
+              31,
+              20,
+              0,
+              "CREATE BLOOM FILTER"
+            ]
+          ]
+        },
+        {
+          "sql": "SELECT count(distinct(articleeventlink.article_key)) AS count_1 \nFROM articleeventlink \nWHERE articleeventlink.event_key IN (SELECT radarentry.\"key\" \nFROM radarentry LEFT OUTER JOIN graphmetric ON graphmetric.event = radarentry.\"key\" \nWHERE radarentry.\"key\" IN (SELECT event.event_key \nFROM event \nWHERE (event.event_key NOT IN (SELECT eventstate.event_key \nFROM eventstate \nWHERE eventstate.merged_into IS NOT NULL))))",
+          "plan": [
+            [
+              3,
+              0,
+              0,
+              "USE TEMP B-TREE FOR count(DISTINCT)"
+            ],
+            [
+              6,
+              0,
+              92,
+              "SEARCH articleeventlink USING INDEX ix_articleeventlink_event_key (event_key=?)"
+            ],
+            [
+              10,
+              0,
+              0,
+              "LIST SUBQUERY 3"
+            ],
+            [
+              12,
+              10,
+              89,
+              "SEARCH radarentry USING COVERING INDEX sqlite_autoindex_radarentry_1 (key=?)"
+            ],
+            [
+              16,
+              10,
+              0,
+              "LIST SUBQUERY 2"
+            ],
+            [
+              18,
+              16,
+              198,
+              "SCAN event USING COVERING INDEX ix_event_event_key"
+            ],
+            [
+              23,
+              16,
+              0,
+              "LIST SUBQUERY 1"
+            ],
+            [
+              26,
+              23,
+              216,
+              "SCAN eventstate"
+            ],
+            [
+              34,
+              23,
+              0,
+              "CREATE BLOOM FILTER"
+            ]
+          ]
+        },
+        {
+          "sql": "SELECT eventplace.\"key\", eventplace.event, eventplace.role, eventplace.iso, eventplace.article, eventplace.revision, eventplace.quote \nFROM eventplace \nWHERE eventplace.event IN (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          "plan": [
+            [
+              3,
+              0,
+              110,
+              "SEARCH eventplace USING INDEX ix_eventplace_event (event=?)"
+            ]
+          ]
+        },
+        {
+          "sql": "SELECT watch.\"key\", watch.name, watch.kind, watch.scope, watch.dimensions, watch.exclude, watch.question, watch.version, watch.enabled, watch.auto_research, watch.review_days, watch.next_review, watch.last_auto_day, watch.created, watchevent.watch, watchevent.event, watchevent.choice, watchevent.relevance, watchevent.branch, watchevent.reason, watchevent.first_seen \nFROM watch JOIN watchevent ON watchevent.watch = watch.\"key\" \nWHERE watchevent.event = ? AND watchevent.choice != ? ORDER BY watch.name",
+          "plan": [
+            [
+              6,
+              0,
+              61,
+              "SEARCH watchevent USING INDEX ix_watchevent_event (event=?)"
+            ],
+            [
+              15,
+              0,
+              46,
+              "SEARCH watch USING INDEX sqlite_autoindex_watch_1 (key=?)"
+            ],
+            [
+              44,
+              0,
+              0,
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          ]
+        },
+        {
+          "sql": "SELECT count(*) AS count_1 \nFROM deskdirty",
+          "plan": [
+            [
+              4,
+              0,
+              0,
+              "SCAN deskdirty"
+            ]
+          ]
+        },
+        {
+          "sql": "SELECT count(*) AS count_1 \nFROM graphpending \nWHERE graphpending.token != graphpending.written",
+          "plan": [
+            [
+              3,
+              0,
+              216,
+              "SCAN graphpending"
+            ]
+          ]
+        },
+        {
+          "sql": "SELECT deskmeta.\"key\", deskmeta.value \nFROM deskmeta \nWHERE deskmeta.\"key\" = ?",
+          "plan": [
+            [
+              3,
+              0,
+              39,
+              "SEARCH deskmeta USING INDEX sqlite_autoindex_deskmeta_1 (key=?)"
+            ]
+          ]
+        }
+      ],
+      "median": {
+        "wall_ms": 33602.09263099932,
+        "sql_count": 63,
+        "sql_execute_ms": 33420.65575900233,
+        "count_queries": 16,
+        "version_group_by_queries": 3,
+        "wide_column_queries": 2,
+        "unbounded_entity_loads": 0
+      },
+      "worker_returncode": 0,
+      "worker_stderr": "/workspace/scratch/c21619997ed8/fix023/venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n  from starlette.testclient import TestClient as TestClient  # noqa\n",
+      "label": "baseline",
+      "copied_ms": 24584.359158998268
+    },
+    {
+      "source": "/workspace/scratch/c21619997ed8/fix023/source",
+      "path": "/admin",
+      "runs": [],
+      "worker_pid": 9,
+      "memory_limit_mb": 3000,
+      "source_fingerprint": "72a9e7884fddc851ce3e6502e1812fbf53d4f0bf9abb73fe117dbb39a251fa90",
+      "warnings": [
+        "Driver execution time excludes result fetching and ORM materialization.",
+        "Process RSS includes application startup; no OS cache flush is performed."
+      ],
+      "startup_ms": 1428.2485660005477,
+      "error": "MemoryError: ",
+      "traceback": "Traceback (most recent call last):\n  File \"/workspace/scratch/c21619997ed8/fix024/source/tools/benchmark_read_queries.py\", line 256, in worker\n    response = client.get(job['path'])\n               ^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/workspace/scratch/c21619997ed8/fix023/venv/lib/python3.12/site-packages/httpx/_client.py\", line 1053, in get\n    return self.request(\n           ^^^^^^^^^^^^^\n  File \"/workspace/scratch/c21619997ed8/fix023/venv/lib/python3.12/site-packages/starlette/testclient.py\", line 518, in request\n    return super().request(\n           ^^^^^^^^^^^^^^^^\n  File \"/workspace/scratch/c21619997ed8/fix023/venv/lib/python3.12/site-packages/httpx/_client.py\", line 825, in request\n    return self.send(request, auth=auth, follow_redirects=follow_redirects)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/workspace/scratch/c21619997ed8/fix023/venv/lib/python3.12/site-packages/httpx/_client.py\", line 928, in send\n    raise exc\n  File \"/workspace/scratch/c21619997ed8/fix023/venv/lib/python3.12/site-packages/httpx/_client.py\", line 922, in send\n    response.read()\n  File \"/workspace/scratch/c21619997ed8/fix023/venv/lib/python3.12/site-packages/httpx/_models.py\", line 881, in read\n    self._content = b\"\".join(self.iter_bytes())\n                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/workspace/scratch/c21619997ed8/fix023/venv/lib/python3.12/site-packages/httpx/_models.py\", line 897, in iter_bytes\n    for raw_bytes in self.iter_raw():\n                     ^^^^^^^^^^^^^^^\n  File \"/workspace/scratch/c21619997ed8/fix023/venv/lib/python3.12/site-packages/httpx/_models.py\", line 951, in iter_raw\n    for raw_stream_bytes in self.stream:\n                            ^^^^^^^^^^^\n  File \"/workspace/scratch/c21619997ed8/fix023/venv/lib/python3.12/site-packages/httpx/_client.py\", line 153, in __iter__\n    for chunk in self._stream:\n                 ^^^^^^^^^^^^\nMemoryError\n",
+      "peak_rss_mb": 2888.70703125,
+      "worker_returncode": 1,
+      "worker_stderr": "/workspace/scratch/c21619997ed8/fix023/venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n  from starlette.testclient import TestClient as TestClient  # noqa\n",
+      "label": "baseline",
+      "copied_ms": 14971.622331000617
+    },
+    {
+      "source": "/workspace/scratch/c21619997ed8/fix023/source",
+      "path": "/api/system/status",
+      "runs": [
+        {
+          "repetition": 0,
+          "status_code": 200,
+          "wall_ms": 12944.874581999102,
+          "sql_count": 4,
+          "sql_execute_ms": 1.7376069990859833,
+          "peak_rss_mb": 1583.6875,
+          "response_bytes": 182,
+          "count_queries": 0,
+          "version_group_by_queries": 0,
+          "wide_column_queries": 1,
+          "unbounded_entity_loads": 1,
+          "repeated_sql": [],
+          "statements": [
+            {
+              "sql": "SELECT collectprofile.id, collectprofile.name, collectprofile.provider, collectprofile.country, collectprofile.language, collectprofile.categories_json, collectprofile.keywords_include_json, collectprofile.keywords_exclude_json, collectprofile.whitelist_domains_json, collectprofile.blacklist_domains_json, collectprofile.max_items, collectprofile.market_scope, collectprofile.market_tags_json, collectprofile.extra_json, collectprofile.created_at, collectprofile.updated_at \nFROM collectprofile",
+              "parameters": [],
+              "execute_ms": 0.6422349997592391,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT collectjob.id, collectjob.name, collectjob.enabled, collectjob.timezone, collectjob.schedule_type, collectjob.cron_expr, collectjob.profile_name, collectjob.auto_editorial, collectjob.auto_video, collectjob.auto_tts, collectjob.created_at, collectjob.updated_at, collectjob.last_run_at, collectjob.last_status \nFROM collectjob \nWHERE collectjob.schedule_type != ?",
+              "parameters": [
+                "archived"
+              ],
+              "execute_ms": 0.2630769995448645,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT runrecord.id, runrecord.run_key, runrecord.job_id, runrecord.trigger_type, runrecord.profile_name, runrecord.started_at, runrecord.finished_at, runrecord.status, runrecord.stats_json, runrecord.error_text, runrecord.storage_path, runrecord.created_at \nFROM runrecord",
+              "parameters": [],
+              "execute_ms": 0.27864000003319234,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT event.id, event.event_key, event.event_title, event.topic, event.summary, event.first_seen_at, event.last_seen_at, event.importance, event.sentiment, event.market_scope, event.sectors_json, event.symbols_json, event.countries_json, event.article_count, event.created_at \nFROM event",
+              "parameters": [],
+              "execute_ms": 0.5536549997486873,
+              "wide_columns": [
+                "event.summary"
+              ],
+              "unbounded_entity_load": true,
+              "version_group_by": false,
+              "count_query": false
+            }
+          ],
+          "response_json": {
+            "profiles": 0,
+            "jobs": 0,
+            "runs": 0,
+            "events": 560000,
+            "scheduler_running": false,
+            "storage_root": "/workspace/scratch/c21619997ed8/fix024/n2d-read-bench-5uvss7us/runs",
+            "worker_running": false
+          }
+        }
+      ],
+      "worker_pid": 12,
+      "memory_limit_mb": 3000,
+      "source_fingerprint": "72a9e7884fddc851ce3e6502e1812fbf53d4f0bf9abb73fe117dbb39a251fa90",
+      "warnings": [
+        "Driver execution time excludes result fetching and ORM materialization.",
+        "Process RSS includes application startup; no OS cache flush is performed."
+      ],
+      "startup_ms": 1597.5813910008583,
+      "explain": [
+        {
+          "sql": "SELECT collectprofile.id, collectprofile.name, collectprofile.provider, collectprofile.country, collectprofile.language, collectprofile.categories_json, collectprofile.keywords_include_json, collectprofile.keywords_exclude_json, collectprofile.whitelist_domains_json, collectprofile.blacklist_domains_json, collectprofile.max_items, collectprofile.market_scope, collectprofile.market_tags_json, collectprofile.extra_json, collectprofile.created_at, collectprofile.updated_at \nFROM collectprofile",
+          "plan": [
+            [
+              2,
+              0,
+              216,
+              "SCAN collectprofile"
+            ]
+          ]
+        },
+        {
+          "sql": "SELECT collectjob.id, collectjob.name, collectjob.enabled, collectjob.timezone, collectjob.schedule_type, collectjob.cron_expr, collectjob.profile_name, collectjob.auto_editorial, collectjob.auto_video, collectjob.auto_tts, collectjob.created_at, collectjob.updated_at, collectjob.last_run_at, collectjob.last_status \nFROM collectjob \nWHERE collectjob.schedule_type != ?",
+          "plan": [
+            [
+              2,
+              0,
+              216,
+              "SCAN collectjob"
+            ]
+          ]
+        },
+        {
+          "sql": "SELECT runrecord.id, runrecord.run_key, runrecord.job_id, runrecord.trigger_type, runrecord.profile_name, runrecord.started_at, runrecord.finished_at, runrecord.status, runrecord.stats_json, runrecord.error_text, runrecord.storage_path, runrecord.created_at \nFROM runrecord",
+          "plan": [
+            [
+              2,
+              0,
+              216,
+              "SCAN runrecord"
+            ]
+          ]
+        },
+        {
+          "sql": "SELECT event.id, event.event_key, event.event_title, event.topic, event.summary, event.first_seen_at, event.last_seen_at, event.importance, event.sentiment, event.market_scope, event.sectors_json, event.symbols_json, event.countries_json, event.article_count, event.created_at \nFROM event",
+          "plan": [
+            [
+              2,
+              0,
+              206,
+              "SCAN event"
+            ]
+          ]
+        }
+      ],
+      "median": {
+        "wall_ms": 12944.874581999102,
+        "sql_count": 4,
+        "sql_execute_ms": 1.7376069990859833,
+        "count_queries": 0,
+        "version_group_by_queries": 0,
+        "wide_column_queries": 1,
+        "unbounded_entity_loads": 1
+      },
+      "worker_returncode": 0,
+      "worker_stderr": "/workspace/scratch/c21619997ed8/fix023/venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n  from starlette.testclient import TestClient as TestClient  # noqa\n",
+      "label": "baseline",
+      "copied_ms": 14742.003692999788
+    },
+    {
+      "source": "/workspace/scratch/c21619997ed8/fix024/source",
+      "path": "/radar?period=all",
+      "runs": [
+        {
+          "repetition": 0,
+          "status_code": 200,
+          "wall_ms": 26096.455737000724,
+          "sql_count": 12,
+          "sql_execute_ms": 25990.55076699733,
+          "peak_rss_mb": 148.3828125,
+          "response_bytes": 51016,
+          "count_queries": 3,
+          "version_group_by_queries": 0,
+          "wide_column_queries": 1,
+          "unbounded_entity_loads": 0,
+          "repeated_sql": [
+            {
+              "sql": "SELECT 1 FROM sqlite_master WHERE name='article_fts'",
+              "occurrences": 2
+            }
+          ],
+          "statements": [
+            {
+              "sql": "SELECT 1 FROM sqlite_master WHERE name='article_fts'",
+              "parameters": [],
+              "execute_ms": 0.17094200120482128,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "WITH radar_base AS \n(SELECT radarentry.\"key\" AS \"key\", radarentry.seen AS seen, CASE WHEN (graphmetric.event IS NOT NULL) THEN ? ELSE ? END AS analyzed \nFROM radarentry LEFT OUTER JOIN graphmetric ON graphmetric.event = radarentry.\"key\" \nWHERE radarentry.\"key\" IN (SELECT event.event_key \nFROM event \nWHERE (event.event_key NOT IN (SELECT eventstate.event_key \nFROM eventstate \nWHERE eventstate.merged_into IS NOT NULL)))), \nradar_articles AS \n(SELECT DISTINCT articleeventlink.article_key AS article_key \nFROM articleeventlink \nWHERE articleeventlink.event_key IN (SELECT radar_base.\"key\" \nFROM radar_base)), \nradar_observed AS \n(SELECT DISTINCT collectedobservation.article_key AS article_key, collectedobservation.scope_id AS scope_id \nFROM collectedobservation \nWHERE collectedobservation.article_key IN (SELECT radar_articles.article_key \nFROM radar_articles)), \nradar_recorded_paths AS \n(SELECT taskrecord.task_id AS scope_id, CASE WHEN (json_extract(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) IN (?, ?, ?, ?)) THEN json_extract(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) ELSE ? END AS provider \nFROM taskrecord \nWHERE taskrecord.task_id IN (SELECT radar_observed.scope_id \nFROM radar_observed) AND (json_type(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) = 'text') = 1 AND (json_extract(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) NOT IN (?, ?)) UNION ALL SELECT runrecord.run_key AS scope_id, CASE WHEN (json_extract(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) IN (?, ?, ?, ?)) THEN json_extract(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) ELSE ? END AS provider \nFROM runrecord \nWHERE runrecord.run_key IN (SELECT radar_observed.scope_id \nFROM radar_observed) AND (json_type(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) = 'text') = 1 AND (json_extract(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) NOT IN (?, ?))), \nradar_article_paths AS \n(SELECT article.article_key AS article_key, CASE WHEN (article.provider IN (?, ?, ?, ?)) THEN article.provider WHEN (article.provider IS NULL OR article.provider IN (?, ?)) THEN ? ELSE ? END AS provider \nFROM article \nWHERE article.article_key IN (SELECT radar_articles.article_key \nFROM radar_articles) UNION ALL SELECT gkgsource.article_key AS article_key, ? AS provider \nFROM gkgsource JOIN article ON article.article_key = gkgsource.article_key \nWHERE gkgsource.article_key IN (SELECT radar_articles.article_key \nFROM radar_articles) UNION ALL SELECT gdeltdiscovery.article_key AS article_key, ? AS provider \nFROM gdeltdiscovery JOIN article ON article.article_key = gdeltdiscovery.article_key \nWHERE gdeltdiscovery.article_key IN (SELECT radar_articles.article_key \nFROM radar_articles) AND (gdeltdiscovery.article_key NOT IN (SELECT gkgsource.article_key \nFROM gkgsource)) UNION ALL SELECT radar_observed.article_key AS article_key, radar_recorded_paths.provider AS provider \nFROM radar_observed JOIN radar_recorded_paths ON radar_recorded_paths.scope_id = radar_observed.scope_id JOIN article ON article.article_key = radar_observed.article_key), \nradar_article_flags AS \n(SELECT radar_article_paths.article_key AS article_key, max(CASE WHEN (radar_article_paths.provider = ?) THEN ? ELSE ? END) AS gkg, max(CASE WHEN (radar_article_paths.provider = ?) THEN ? ELSE ? END) AS gdelt, max(CASE WHEN (radar_article_paths.provider = ?) THEN ? ELSE ? END) AS worldnewsapi, max(CASE WHEN (radar_article_paths.provider = ?) THEN ? ELSE ? END) AS mock, max(CASE WHEN (radar_article_paths.provider = ?) THEN ? ELSE ? END) AS other, max(CASE WHEN (radar_article_paths.provider = ?) THEN ? ELSE ? END) AS unknown \nFROM radar_article_paths GROUP BY radar_article_paths.article_key), \nradar_provider_flags AS \n(SELECT articleeventlink.event_key AS event_key, max(radar_article_flags.gkg) AS p_gkg, max(radar_article_flags.gdelt) AS p_gdelt, max(radar_article_flags.worldnewsapi) AS p_worldnewsapi, max(radar_article_flags.mock) AS p_mock, max(radar_article_flags.other) AS p_other, max(CASE WHEN (? + radar_article_flags.gkg + radar_article_flags.gdelt + radar_article_flags.worldnewsapi + radar_article_flags.mock + radar_article_flags.other = ?) THEN radar_article_flags.unknown ELSE ? END) AS p_unknown \nFROM articleeventlink JOIN radar_article_flags ON radar_article_flags.article_key = articleeventlink.article_key \nWHERE articleeventlink.event_key IN (SELECT radar_base.\"key\" \nFROM radar_base) GROUP BY articleeventlink.event_key), \nradar_latest AS \n(SELECT radar_articles.article_key AS article_key, (SELECT articleversion.id \nFROM articleversion \nWHERE articleversion.article_key = radar_articles.article_key ORDER BY articleversion.id DESC\n LIMIT ? OFFSET ?) AS version_id \nFROM radar_articles), \nradar_channel_flags AS \n(SELECT articleeventlink.event_key AS event_key, max(CASE WHEN (json_extract(CASE WHEN json_valid(textmention.data) THEN textmention.data ELSE '{}' END, '$.' || ?) IN (?, ?, ?)) THEN ? ELSE ? END) AS c_diplomacy, max(CASE WHEN (json_extract(CASE WHEN json_valid(textmention.data) THEN textmention.data ELSE '{}' END, '$.' || ?) IN (?)) THEN ? ELSE ? END) AS c_conflict \nFROM articleeventlink JOIN radar_latest ON radar_latest.article_key = articleeventlink.article_key JOIN textmention ON textmention.version_id = radar_latest.version_id AND textmention.article = radar_latest.article_key LEFT OUTER JOIN mentionreview ON mentionreview.id = textmention.id \nWHERE articleeventlink.event_key IN (SELECT radar_base.\"key\" \nFROM radar_base) AND (mentionreview.id IS NULL OR mentionreview.decision != ?) GROUP BY articleeventlink.event_key), \nradar_facts AS \n(SELECT radar_base.\"key\" AS \"key\", radar_base.seen AS seen, radar_base.analyzed AS analyzed, coalesce(radar_provider_flags.p_gkg, ?) AS p_gkg, coalesce(radar_provider_flags.p_gdelt, ?) AS p_gdelt, coalesce(radar_provider_flags.p_worldnewsapi, ?) AS p_worldnewsapi, coalesce(radar_provider_flags.p_mock, ?) AS p_mock, coalesce(radar_provider_flags.p_other, ?) AS p_other, coalesce(radar_provider_flags.p_unknown, ?) AS p_unknown, coalesce(radar_channel_flags.c_diplomacy, ?) AS c_diplomacy, coalesce(radar_channel_flags.c_conflict, ?) AS c_conflict \nFROM radar_base LEFT OUTER JOIN radar_provider_flags ON radar_provider_flags.event_key = radar_base.\"key\" LEFT OUTER JOIN radar_channel_flags ON radar_channel_flags.event_key = radar_base.\"key\"), \nradar_totals AS \n(SELECT coalesce(sum(CASE WHEN ? THEN ? ELSE ? END), ?) AS main_all, coalesce(sum(CASE WHEN (? = 1 AND ? = 1) THEN ? ELSE ? END), ?) AS main_recent, coalesce(sum(CASE WHEN ? THEN ? ELSE ? END), ?) AS c_all_all, coalesce(sum(CASE WHEN (? = 1 AND ? = 1) THEN ? ELSE ? END), ?) AS c_all_recent, coalesce(sum(CASE WHEN (radar_facts.c_diplomacy = ?) THEN ? ELSE ? END), ?) AS c_diplomacy_all, coalesce(sum(CASE WHEN (radar_facts.c_diplomacy = ? AND ? = 1) THEN ? ELSE ? END), ?) AS c_diplomacy_recent, coalesce(sum(CASE WHEN (radar_facts.c_conflict = ?) THEN ? ELSE ? END), ?) AS c_conflict_all, coalesce(sum(CASE WHEN (radar_facts.c_conflict = ? AND ? = 1) THEN ? ELSE ? END), ?) AS c_conflict_recent, coalesce(sum(CASE WHEN ? THEN ? ELSE ? END), ?) AS p_all_all, coalesce(sum(CASE WHEN (? = 1 AND ? = 1) THEN ? ELSE ? END), ?) AS p_all_recent, coalesce(sum(CASE WHEN (radar_facts.p_gkg = ?) THEN ? ELSE ? END), ?) AS p_gkg_all, coalesce(sum(CASE WHEN (radar_facts.p_gkg = ? AND ? = 1) THEN ? ELSE ? END), ?) AS p_gkg_recent, coalesce(sum(CASE WHEN (radar_facts.p_gdelt = ?) THEN ? ELSE ? END), ?) AS p_gdelt_all, coalesce(sum(CASE WHEN (radar_facts.p_gdelt = ? AND ? = 1) THEN ? ELSE ? END), ?) AS p_gdelt_recent, coalesce(sum(CASE WHEN (radar_facts.p_worldnewsapi = ?) THEN ? ELSE ? END), ?) AS p_worldnewsapi_all, coalesce(sum(CASE WHEN (radar_facts.p_worldnewsapi = ? AND ? = 1) THEN ? ELSE ? END), ?) AS p_worldnewsapi_recent, coalesce(sum(CASE WHEN (radar_facts.p_mock = ?) THEN ? ELSE ? END), ?) AS p_mock_all, coalesce(sum(CASE WHEN (radar_facts.p_mock = ? AND ? = 1) THEN ? ELSE ? END), ?) AS p_mock_recent, coalesce(sum(CASE WHEN (radar_facts.p_other = ?) THEN ? ELSE ? END), ?) AS p_other_all, coalesce(sum(CASE WHEN (radar_facts.p_other = ? AND ? = 1) THEN ? ELSE ? END), ?) AS p_other_recent, coalesce(sum(CASE WHEN (radar_facts.p_unknown = ?) THEN ? ELSE ? END), ?) AS p_unknown_all, coalesce(sum(CASE WHEN (radar_facts.p_unknown = ? AND ? = 1) THEN ? ELSE ? END), ?) AS p_unknown_recent, coalesce(sum(CASE WHEN ? THEN radar_facts.analyzed ELSE ? END), ?) AS analyzed_all, coalesce(sum(CASE WHEN (? = 1 AND ? = 1) THEN radar_facts.analyzed ELSE ? END), ?) AS analyzed_recent \nFROM radar_facts)\n SELECT radar_totals.main_all, radar_totals.main_recent, radar_totals.c_all_all, radar_totals.c_all_recent, radar_totals.c_diplomacy_all, radar_totals.c_diplomacy_recent, radar_totals.c_conflict_all, radar_totals.c_conflict_recent, radar_totals.p_all_all, radar_totals.p_all_recent, radar_totals.p_gkg_all, radar_totals.p_gkg_recent, radar_totals.p_gdelt_all, radar_totals.p_gdelt_recent, radar_totals.p_worldnewsapi_all, radar_totals.p_worldnewsapi_recent, radar_totals.p_mock_all, radar_totals.p_mock_recent, radar_totals.p_other_all, radar_totals.p_other_recent, radar_totals.p_unknown_all, radar_totals.p_unknown_recent, radar_totals.analyzed_all, radar_totals.analyzed_recent, (SELECT count(distinct(articleeventlink.article_key)) AS count_1 \nFROM articleeventlink \nWHERE articleeventlink.event_key IN (SELECT radar_facts.\"key\" \nFROM radar_facts JOIN radar_totals ON ? = 1 \nWHERE ? = 1 AND ? = 1)) AS source_count \nFROM radar_totals",
+              "parameters": [
+                1,
+                0,
+                "provider",
+                "gkg",
+                "gdelt",
+                "worldnewsapi",
+                "mock",
+                "provider",
+                "other",
+                "provider",
+                "provider",
+                "",
+                "unknown",
+                "provider",
+                "gkg",
+                "gdelt",
+                "worldnewsapi",
+                "mock",
+                "provider",
+                "other",
+                "provider",
+                "provider",
+                "",
+                "unknown",
+                "gkg",
+                "gdelt",
+                "worldnewsapi",
+                "mock",
+                "",
+                "unknown",
+                "unknown",
+                "other",
+                "gkg",
+                "gdelt",
+                "gkg",
+                1,
+                0,
+                "gdelt",
+                1,
+                0,
+                "worldnewsapi",
+                1,
+                0,
+                "mock",
+                1,
+                0,
+                "other",
+                1,
+                0,
+                "unknown",
+                1,
+                0,
+                0,
+                0,
+                0,
+                1,
+                0,
+                "kind",
+                "meeting",
+                "visit",
+                "signing",
+                1,
+                0,
+                "kind",
+                "attack",
+                1,
+                0,
+                "rejected",
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1,
+                1,
+                0,
+                0,
+                1,
+                0,
+                0,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1,
+                1
+              ],
+              "execute_ms": 24456.72587899935,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": true
+            },
+            {
+              "sql": "SELECT 1 FROM sqlite_master WHERE name='article_fts'",
+              "parameters": [],
+              "execute_ms": 0.1022910000756383,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT radarentry.\"key\", radarentry.title, radarentry.seen, radarentry.priority, radarentry.band, radarentry.reason, radarentry.evidence, radarentry.headings, radarentry.material, radarentry.sources, radarentry.geography \nFROM radarentry LEFT OUTER JOIN graphmetric ON graphmetric.event = radarentry.\"key\" \nWHERE radarentry.\"key\" IN (SELECT event.event_key \nFROM event \nWHERE (event.event_key NOT IN (SELECT eventstate.event_key \nFROM eventstate \nWHERE eventstate.merged_into IS NOT NULL))) ORDER BY coalesce(graphmetric.score, ?) DESC, radarentry.priority DESC, radarentry.seen DESC, radarentry.\"key\"\n LIMIT ? OFFSET ?",
+              "parameters": [
+                -1,
+                30,
+                0
+              ],
+              "execute_ms": 1527.7931839991652,
+              "wide_columns": [
+                "radarentry.material",
+                "radarentry.sources"
+              ],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT graphmetric.event, graphmetric.generation, graphmetric.score, graphmetric.community, graphmetric.data \nFROM graphmetric \nWHERE graphmetric.event IN (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+              "parameters": [
+                "bench_e_000000090",
+                "bench_e_000000190",
+                "bench_e_000000290",
+                "bench_e_000000390",
+                "bench_e_000000490",
+                "bench_e_000000590",
+                "bench_e_000000690",
+                "bench_e_000000790",
+                "bench_e_000000890",
+                "bench_e_000000990",
+                "bench_e_000001090",
+                "bench_e_000001190",
+                "bench_e_000001290",
+                "bench_e_000001390",
+                "bench_e_000001490",
+                "bench_e_000001590",
+                "bench_e_000001690",
+                "bench_e_000001790",
+                "bench_e_000001890",
+                "bench_e_000001990",
+                "bench_e_000002090",
+                "bench_e_000002190",
+                "bench_e_000002290",
+                "bench_e_000002390",
+                "bench_e_000002490",
+                "bench_e_000002590",
+                "bench_e_000002690",
+                "bench_e_000002790",
+                "bench_e_000002890",
+                "bench_e_000002990"
+              ],
+              "execute_ms": 0.11481900037324522,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT articleeventlink.event_key, article.article_key, article.title, article.source_domain, article.url, article.provider, gkgsource.article_key AS gkg, gdeltdiscovery.article_key AS doc, (SELECT articleversion.revision \nFROM articleversion \nWHERE articleversion.article_key = article.article_key ORDER BY articleversion.revision DESC\n LIMIT ? OFFSET ?) AS revision \nFROM articleeventlink JOIN article ON article.article_key = articleeventlink.article_key LEFT OUTER JOIN gkgsource ON gkgsource.article_key = article.article_key LEFT OUTER JOIN gdeltdiscovery ON gdeltdiscovery.article_key = article.article_key \nWHERE articleeventlink.event_key IN (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ORDER BY articleeventlink.event_key, article.id",
+              "parameters": [
+                1,
+                0,
+                "bench_e_000000090",
+                "bench_e_000000190",
+                "bench_e_000000290",
+                "bench_e_000000390",
+                "bench_e_000000490",
+                "bench_e_000000590",
+                "bench_e_000000690",
+                "bench_e_000000790",
+                "bench_e_000000890",
+                "bench_e_000000990",
+                "bench_e_000001090",
+                "bench_e_000001190",
+                "bench_e_000001290",
+                "bench_e_000001390",
+                "bench_e_000001490",
+                "bench_e_000001590",
+                "bench_e_000001690",
+                "bench_e_000001790",
+                "bench_e_000001890",
+                "bench_e_000001990",
+                "bench_e_000002090",
+                "bench_e_000002190",
+                "bench_e_000002290",
+                "bench_e_000002390",
+                "bench_e_000002490",
+                "bench_e_000002590",
+                "bench_e_000002690",
+                "bench_e_000002790",
+                "bench_e_000002890",
+                "bench_e_000002990"
+              ],
+              "execute_ms": 4.506740000579157,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT DISTINCT collectedobservation.article_key, json_extract(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) AS anon_1, (json_type(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) = 'text') AS anon_2, json_extract(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) AS anon_3, (json_type(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) = 'text') AS anon_4 \nFROM collectedobservation LEFT OUTER JOIN taskrecord ON taskrecord.task_id = collectedobservation.scope_id LEFT OUTER JOIN runrecord ON runrecord.run_key = collectedobservation.scope_id \nWHERE collectedobservation.article_key IN (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+              "parameters": [
+                "provider",
+                "provider",
+                "provider",
+                "provider",
+                "bench_a_000002290",
+                "bench_a_000000990",
+                "bench_a_000002390",
+                "bench_a_000002590",
+                "bench_a_000002190",
+                "bench_a_000000790",
+                "bench_a_000002690",
+                "bench_a_000000490",
+                "bench_a_000001590",
+                "bench_a_000001190",
+                "bench_a_000001290",
+                "bench_a_000001090",
+                "bench_a_000002490",
+                "bench_a_000002990",
+                "bench_a_000001690",
+                "bench_a_000001390",
+                "bench_a_000000690",
+                "bench_a_000001990",
+                "bench_a_000000290",
+                "bench_a_000000590",
+                "bench_a_000001790",
+                "bench_a_000000190",
+                "bench_a_000001890",
+                "bench_a_000000090",
+                "bench_a_000002090",
+                "bench_a_000002890",
+                "bench_a_000001490",
+                "bench_a_000002790",
+                "bench_a_000000390",
+                "bench_a_000000890"
+              ],
+              "execute_ms": 0.13334599861991592,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT eventplace.\"key\", eventplace.event, eventplace.role, eventplace.iso, eventplace.article, eventplace.revision, eventplace.quote \nFROM eventplace \nWHERE eventplace.event IN (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+              "parameters": [
+                "bench_e_000000090",
+                "bench_e_000000190",
+                "bench_e_000000290",
+                "bench_e_000000390",
+                "bench_e_000000490",
+                "bench_e_000000590",
+                "bench_e_000000690",
+                "bench_e_000000790",
+                "bench_e_000000890",
+                "bench_e_000000990",
+                "bench_e_000001090",
+                "bench_e_000001190",
+                "bench_e_000001290",
+                "bench_e_000001390",
+                "bench_e_000001490",
+                "bench_e_000001590",
+                "bench_e_000001690",
+                "bench_e_000001790",
+                "bench_e_000001890",
+                "bench_e_000001990",
+                "bench_e_000002090",
+                "bench_e_000002190",
+                "bench_e_000002290",
+                "bench_e_000002390",
+                "bench_e_000002490",
+                "bench_e_000002590",
+                "bench_e_000002690",
+                "bench_e_000002790",
+                "bench_e_000002890",
+                "bench_e_000002990"
+              ],
+              "execute_ms": 0.25984199965023436,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT watchevent.event, watch.\"key\", watch.name, watchevent.reason \nFROM watchevent JOIN watch ON watch.\"key\" = watchevent.watch \nWHERE watchevent.event IN (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) AND watchevent.choice != ? ORDER BY watchevent.event, watch.name, watch.\"key\"",
+              "parameters": [
+                "bench_e_000000090",
+                "bench_e_000000190",
+                "bench_e_000000290",
+                "bench_e_000000390",
+                "bench_e_000000490",
+                "bench_e_000000590",
+                "bench_e_000000690",
+                "bench_e_000000790",
+                "bench_e_000000890",
+                "bench_e_000000990",
+                "bench_e_000001090",
+                "bench_e_000001190",
+                "bench_e_000001290",
+                "bench_e_000001390",
+                "bench_e_000001490",
+                "bench_e_000001590",
+                "bench_e_000001690",
+                "bench_e_000001790",
+                "bench_e_000001890",
+                "bench_e_000001990",
+                "bench_e_000002090",
+                "bench_e_000002190",
+                "bench_e_000002290",
+                "bench_e_000002390",
+                "bench_e_000002490",
+                "bench_e_000002590",
+                "bench_e_000002690",
+                "bench_e_000002790",
+                "bench_e_000002890",
+                "bench_e_000002990",
+                "exclude"
+              ],
+              "execute_ms": 0.25356299920531455,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT count(*) AS count_1 \nFROM deskdirty",
+              "parameters": [],
+              "execute_ms": 0.21081999875605106,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": true
+            },
+            {
+              "sql": "SELECT count(*) AS count_1 \nFROM graphpending \nWHERE graphpending.token != graphpending.written",
+              "parameters": [],
+              "execute_ms": 0.22812499992141966,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": true
+            },
+            {
+              "sql": "SELECT deskmeta.\"key\", deskmeta.value \nFROM deskmeta \nWHERE deskmeta.\"key\" = ?",
+              "parameters": [
+                "graph_analysis"
+              ],
+              "execute_ms": 0.05121600042912178,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            }
+          ]
+        }
+      ],
+      "worker_pid": 15,
+      "memory_limit_mb": 3000,
+      "source_fingerprint": "775ffcd6722484d7cbccec1aca6fd17128fa7380c60af30363a92ff142dcd942",
+      "warnings": [
+        "Driver execution time excludes result fetching and ORM materialization.",
+        "Process RSS includes application startup; no OS cache flush is performed."
+      ],
+      "startup_ms": 1295.7840649996797,
+      "explain": [
+        {
+          "sql": "SELECT 1 FROM sqlite_master WHERE name='article_fts'",
+          "plan": [
+            [
+              2,
+              0,
+              216,
+              "SCAN sqlite_master"
+            ]
+          ]
+        },
+        {
+          "sql": "SELECT radarentry.\"key\", radarentry.title, radarentry.seen, radarentry.priority, radarentry.band, radarentry.reason, radarentry.evidence, radarentry.headings, radarentry.material, radarentry.sources, radarentry.geography \nFROM radarentry LEFT OUTER JOIN graphmetric ON graphmetric.event = radarentry.\"key\" \nWHERE radarentry.\"key\" IN (SELECT event.event_key \nFROM event \nWHERE (event.event_key NOT IN (SELECT eventstate.event_key \nFROM eventstate \nWHERE eventstate.merged_into IS NOT NULL))) ORDER BY coalesce(graphmetric.score, ?) DESC, radarentry.priority DESC, radarentry.seen DESC, radarentry.\"key\"\n LIMIT ? OFFSET ?",
+          "plan": [
+            [
+              10,
+              0,
+              91,
+              "SEARCH radarentry USING INDEX sqlite_autoindex_radarentry_1 (key=?)"
+            ],
+            [
+              14,
+              0,
+              0,
+              "LIST SUBQUERY 2"
+            ],
+            [
+              16,
+              14,
+              198,
+              "SCAN event USING COVERING INDEX ix_event_event_key"
+            ],
+            [
+              21,
+              14,
+              0,
+              "LIST SUBQUERY 1"
+            ],
+            [
+              24,
+              21,
+              216,
+              "SCAN eventstate"
+            ],
+            [
+              32,
+              21,
+              0,
+              "CREATE BLOOM FILTER"
+            ],
+            [
+              56,
+              0,
+              43,
+              "SEARCH graphmetric USING INDEX sqlite_autoindex_graphmetric_1 (event=?) LEFT-JOIN"
+            ],
+            [
+              90,
+              0,
+              0,
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          ]
+        },
+        {
+          "sql": "SELECT graphmetric.event, graphmetric.generation, graphmetric.score, graphmetric.community, graphmetric.data \nFROM graphmetric \nWHERE graphmetric.event IN (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          "plan": [
+            [
+              3,
+              0,
+              92,
+              "SEARCH graphmetric USING INDEX sqlite_autoindex_graphmetric_1 (event=?)"
+            ]
+          ]
+        },
+        {
+          "sql": "SELECT articleeventlink.event_key, article.article_key, article.title, article.source_domain, article.url, article.provider, gkgsource.article_key AS gkg, gdeltdiscovery.article_key AS doc, (SELECT articleversion.revision \nFROM articleversion \nWHERE articleversion.article_key = article.article_key ORDER BY articleversion.revision DESC\n LIMIT ? OFFSET ?) AS revision \nFROM articleeventlink JOIN article ON article.article_key = articleeventlink.article_key LEFT OUTER JOIN gkgsource ON gkgsource.article_key = article.article_key LEFT OUTER JOIN gdeltdiscovery ON gdeltdiscovery.article_key = article.article_key \nWHERE articleeventlink.event_key IN (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ORDER BY articleeventlink.event_key, article.id",
+          "plan": [
+            [
+              8,
+              0,
+              95,
+              "SEARCH articleeventlink USING INDEX ix_articleeventlink_event_key (event_key=?)"
+            ],
+            [
+              111,
+              0,
+              45,
+              "SEARCH article USING INDEX ix_article_article_key (article_key=?)"
+            ],
+            [
+              116,
+              0,
+              42,
+              "SEARCH gkgsource USING COVERING INDEX sqlite_autoindex_gkgsource_1 (article_key=?) LEFT-JOIN"
+            ],
+            [
+              122,
+              0,
+              44,
+              "SEARCH gdeltdiscovery USING COVERING INDEX sqlite_autoindex_gdeltdiscovery_1 (article_key=?) LEFT-JOIN"
+            ],
+            [
+              137,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              149,
+              137,
+              44,
+              "SEARCH articleversion USING COVERING INDEX sqlite_autoindex_articleversion_1 (article_key=?)"
+            ],
+            [
+              177,
+              0,
+              0,
+              "USE TEMP B-TREE FOR LAST TERM OF ORDER BY"
+            ]
+          ]
+        },
+        {
+          "sql": "SELECT DISTINCT collectedobservation.article_key, json_extract(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) AS anon_1, (json_type(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) = 'text') AS anon_2, json_extract(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) AS anon_3, (json_type(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) = 'text') AS anon_4 \nFROM collectedobservation LEFT OUTER JOIN taskrecord ON taskrecord.task_id = collectedobservation.scope_id LEFT OUTER JOIN runrecord ON runrecord.run_key = collectedobservation.scope_id \nWHERE collectedobservation.article_key IN (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          "plan": [
+            [
+              8,
+              0,
+              110,
+              "SEARCH collectedobservation USING INDEX ix_collectedobservation_article_key (article_key=?)"
+            ],
+            [
+              111,
+              0,
+              46,
+              "SEARCH taskrecord USING INDEX sqlite_autoindex_taskrecord_1 (task_id=?) LEFT-JOIN"
+            ],
+            [
+              118,
+              0,
+              46,
+              "SEARCH runrecord USING INDEX ix_runrecord_run_key (run_key=?) LEFT-JOIN"
+            ],
+            [
+              174,
+              0,
+              0,
+              "USE TEMP B-TREE FOR DISTINCT"
+            ]
+          ]
+        },
+        {
+          "sql": "SELECT eventplace.\"key\", eventplace.event, eventplace.role, eventplace.iso, eventplace.article, eventplace.revision, eventplace.quote \nFROM eventplace \nWHERE eventplace.event IN (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          "plan": [
+            [
+              3,
+              0,
+              110,
+              "SEARCH eventplace USING INDEX ix_eventplace_event (event=?)"
+            ]
+          ]
+        },
+        {
+          "sql": "SELECT watchevent.event, watch.\"key\", watch.name, watchevent.reason \nFROM watchevent JOIN watch ON watch.\"key\" = watchevent.watch \nWHERE watchevent.event IN (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) AND watchevent.choice != ? ORDER BY watchevent.event, watch.name, watch.\"key\"",
+          "plan": [
+            [
+              6,
+              0,
+              110,
+              "SEARCH watchevent USING INDEX ix_watchevent_event (event=?)"
+            ],
+            [
+              111,
+              0,
+              46,
+              "SEARCH watch USING INDEX sqlite_autoindex_watch_1 (key=?)"
+            ],
+            [
+              131,
+              0,
+              0,
+              "USE TEMP B-TREE FOR LAST 2 TERMS OF ORDER BY"
+            ]
+          ]
+        },
+        {
+          "sql": "SELECT count(*) AS count_1 \nFROM deskdirty",
+          "plan": [
+            [
+              4,
+              0,
+              0,
+              "SCAN deskdirty"
+            ]
+          ]
+        },
+        {
+          "sql": "SELECT count(*) AS count_1 \nFROM graphpending \nWHERE graphpending.token != graphpending.written",
+          "plan": [
+            [
+              3,
+              0,
+              216,
+              "SCAN graphpending"
+            ]
+          ]
+        },
+        {
+          "sql": "SELECT deskmeta.\"key\", deskmeta.value \nFROM deskmeta \nWHERE deskmeta.\"key\" = ?",
+          "plan": [
+            [
+              3,
+              0,
+              39,
+              "SEARCH deskmeta USING INDEX sqlite_autoindex_deskmeta_1 (key=?)"
+            ]
+          ]
+        }
+      ],
+      "median": {
+        "wall_ms": 26096.455737000724,
+        "sql_count": 12,
+        "sql_execute_ms": 25990.55076699733,
+        "count_queries": 3,
+        "version_group_by_queries": 0,
+        "wide_column_queries": 1,
+        "unbounded_entity_loads": 0
+      },
+      "worker_returncode": 0,
+      "worker_stderr": "/workspace/scratch/c21619997ed8/fix023/venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n  from starlette.testclient import TestClient as TestClient  # noqa\n",
+      "label": "current",
+      "copied_ms": 14658.914736999577
+    },
+    {
+      "source": "/workspace/scratch/c21619997ed8/fix024/source",
+      "path": "/admin",
+      "runs": [
+        {
+          "repetition": 0,
+          "status_code": 200,
+          "wall_ms": 1235.9320030009258,
+          "sql_count": 6,
+          "sql_execute_ms": 1196.147642998767,
+          "peak_rss_mb": 92.38671875,
+          "response_bytes": 10047,
+          "count_queries": 3,
+          "version_group_by_queries": 0,
+          "wide_column_queries": 0,
+          "unbounded_entity_loads": 0,
+          "repeated_sql": [],
+          "statements": [
+            {
+              "sql": "SELECT collectprofile.id, collectprofile.name, collectprofile.provider, collectprofile.country, collectprofile.language, collectprofile.categories_json, collectprofile.keywords_include_json, collectprofile.keywords_exclude_json, collectprofile.whitelist_domains_json, collectprofile.blacklist_domains_json, collectprofile.max_items, collectprofile.market_scope, collectprofile.market_tags_json, collectprofile.extra_json, collectprofile.created_at, collectprofile.updated_at \nFROM collectprofile ORDER BY collectprofile.name",
+              "parameters": [],
+              "execute_ms": 0.3941099985240726,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT collectjob.id, collectjob.name, collectjob.enabled, collectjob.timezone, collectjob.schedule_type, collectjob.cron_expr, collectjob.profile_name, collectjob.auto_editorial, collectjob.auto_video, collectjob.auto_tts, collectjob.created_at, collectjob.updated_at, collectjob.last_run_at, collectjob.last_status \nFROM collectjob \nWHERE collectjob.schedule_type != ? ORDER BY collectjob.id",
+              "parameters": [
+                "archived"
+              ],
+              "execute_ms": 0.30019200130482204,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT runrecord.id, runrecord.run_key, runrecord.job_id, runrecord.trigger_type, runrecord.profile_name, runrecord.started_at, runrecord.finished_at, runrecord.status, runrecord.stats_json, runrecord.error_text, runrecord.storage_path, runrecord.created_at \nFROM runrecord ORDER BY runrecord.id DESC\n LIMIT ? OFFSET ?",
+              "parameters": [
+                10,
+                0
+              ],
+              "execute_ms": 0.31846800084167626,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "SELECT count(*) AS count_1 \nFROM article",
+              "parameters": [],
+              "execute_ms": 138.58008500028518,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": true
+            },
+            {
+              "sql": "SELECT count(*) AS count_1 \nFROM event",
+              "parameters": [],
+              "execute_ms": 1056.2685869990673,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": true
+            },
+            {
+              "sql": "SELECT count(*) AS count_1 \nFROM runrecord",
+              "parameters": [],
+              "execute_ms": 0.2862009987438796,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": true
+            }
+          ]
+        }
+      ],
+      "worker_pid": 18,
+      "memory_limit_mb": 3000,
+      "source_fingerprint": "775ffcd6722484d7cbccec1aca6fd17128fa7380c60af30363a92ff142dcd942",
+      "warnings": [
+        "Driver execution time excludes result fetching and ORM materialization.",
+        "Process RSS includes application startup; no OS cache flush is performed."
+      ],
+      "startup_ms": 1319.8649660007504,
+      "explain": [
+        {
+          "sql": "SELECT collectprofile.id, collectprofile.name, collectprofile.provider, collectprofile.country, collectprofile.language, collectprofile.categories_json, collectprofile.keywords_include_json, collectprofile.keywords_exclude_json, collectprofile.whitelist_domains_json, collectprofile.blacklist_domains_json, collectprofile.max_items, collectprofile.market_scope, collectprofile.market_tags_json, collectprofile.extra_json, collectprofile.created_at, collectprofile.updated_at \nFROM collectprofile ORDER BY collectprofile.name",
+          "plan": [
+            [
+              4,
+              0,
+              223,
+              "SCAN collectprofile USING INDEX ix_collectprofile_name"
+            ]
+          ]
+        },
+        {
+          "sql": "SELECT collectjob.id, collectjob.name, collectjob.enabled, collectjob.timezone, collectjob.schedule_type, collectjob.cron_expr, collectjob.profile_name, collectjob.auto_editorial, collectjob.auto_video, collectjob.auto_tts, collectjob.created_at, collectjob.updated_at, collectjob.last_run_at, collectjob.last_status \nFROM collectjob \nWHERE collectjob.schedule_type != ? ORDER BY collectjob.id",
+          "plan": [
+            [
+              3,
+              0,
+              216,
+              "SCAN collectjob"
+            ]
+          ]
+        },
+        {
+          "sql": "SELECT runrecord.id, runrecord.run_key, runrecord.job_id, runrecord.trigger_type, runrecord.profile_name, runrecord.started_at, runrecord.finished_at, runrecord.status, runrecord.stats_json, runrecord.error_text, runrecord.storage_path, runrecord.created_at \nFROM runrecord ORDER BY runrecord.id DESC\n LIMIT ? OFFSET ?",
+          "plan": [
+            [
+              7,
+              0,
+              216,
+              "SCAN runrecord"
+            ]
+          ]
+        },
+        {
+          "sql": "SELECT count(*) AS count_1 \nFROM article",
+          "plan": [
+            [
+              4,
+              0,
+              0,
+              "SCAN article USING COVERING INDEX ix_article_dedup_group_id"
+            ]
+          ]
+        },
+        {
+          "sql": "SELECT count(*) AS count_1 \nFROM event",
+          "plan": [
+            [
+              4,
+              0,
+              0,
+              "SCAN event USING COVERING INDEX ix_event_event_title"
+            ]
+          ]
+        },
+        {
+          "sql": "SELECT count(*) AS count_1 \nFROM runrecord",
+          "plan": [
+            [
+              4,
+              0,
+              0,
+              "SCAN runrecord USING COVERING INDEX ix_runrecord_profile_name"
+            ]
+          ]
+        }
+      ],
+      "median": {
+        "wall_ms": 1235.9320030009258,
+        "sql_count": 6,
+        "sql_execute_ms": 1196.147642998767,
+        "count_queries": 3,
+        "version_group_by_queries": 0,
+        "wide_column_queries": 0,
+        "unbounded_entity_loads": 0
+      },
+      "worker_returncode": 0,
+      "worker_stderr": "/workspace/scratch/c21619997ed8/fix023/venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n  from starlette.testclient import TestClient as TestClient  # noqa\n",
+      "label": "current",
+      "copied_ms": 15096.899661000862
+    },
+    {
+      "source": "/workspace/scratch/c21619997ed8/fix024/source",
+      "path": "/api/system/status",
+      "runs": [
+        {
+          "repetition": 0,
+          "status_code": 200,
+          "wall_ms": 1212.323636000292,
+          "sql_count": 4,
+          "sql_execute_ms": 1178.2197450011154,
+          "peak_rss_mb": 91.05859375,
+          "response_bytes": 182,
+          "count_queries": 4,
+          "version_group_by_queries": 0,
+          "wide_column_queries": 0,
+          "unbounded_entity_loads": 0,
+          "repeated_sql": [],
+          "statements": [
+            {
+              "sql": "SELECT count(*) AS count_1 \nFROM collectprofile",
+              "parameters": [],
+              "execute_ms": 0.4702890000771731,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": true
+            },
+            {
+              "sql": "SELECT count(*) AS count_1 \nFROM collectjob \nWHERE collectjob.schedule_type != ?",
+              "parameters": [
+                "archived"
+              ],
+              "execute_ms": 0.2583410005172482,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": true
+            },
+            {
+              "sql": "SELECT count(*) AS count_1 \nFROM runrecord",
+              "parameters": [],
+              "execute_ms": 0.32157399982679635,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": true
+            },
+            {
+              "sql": "SELECT count(*) AS count_1 \nFROM event",
+              "parameters": [],
+              "execute_ms": 1177.1695410006942,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": true
+            }
+          ],
+          "response_json": {
+            "profiles": 0,
+            "jobs": 0,
+            "runs": 0,
+            "events": 560000,
+            "scheduler_running": false,
+            "storage_root": "/workspace/scratch/c21619997ed8/fix024/n2d-read-bench-5uvss7us/runs",
+            "worker_running": false
+          }
+        }
+      ],
+      "worker_pid": 21,
+      "memory_limit_mb": 3000,
+      "source_fingerprint": "775ffcd6722484d7cbccec1aca6fd17128fa7380c60af30363a92ff142dcd942",
+      "warnings": [
+        "Driver execution time excludes result fetching and ORM materialization.",
+        "Process RSS includes application startup; no OS cache flush is performed."
+      ],
+      "startup_ms": 1460.6086620005954,
+      "explain": [
+        {
+          "sql": "SELECT count(*) AS count_1 \nFROM collectprofile",
+          "plan": [
+            [
+              4,
+              0,
+              0,
+              "SCAN collectprofile USING COVERING INDEX ix_collectprofile_name"
+            ]
+          ]
+        },
+        {
+          "sql": "SELECT count(*) AS count_1 \nFROM collectjob \nWHERE collectjob.schedule_type != ?",
+          "plan": [
+            [
+              3,
+              0,
+              216,
+              "SCAN collectjob"
+            ]
+          ]
+        },
+        {
+          "sql": "SELECT count(*) AS count_1 \nFROM runrecord",
+          "plan": [
+            [
+              4,
+              0,
+              0,
+              "SCAN runrecord USING COVERING INDEX ix_runrecord_profile_name"
+            ]
+          ]
+        },
+        {
+          "sql": "SELECT count(*) AS count_1 \nFROM event",
+          "plan": [
+            [
+              4,
+              0,
+              0,
+              "SCAN event USING COVERING INDEX ix_event_event_title"
+            ]
+          ]
+        }
+      ],
+      "median": {
+        "wall_ms": 1212.323636000292,
+        "sql_count": 4,
+        "sql_execute_ms": 1178.2197450011154,
+        "count_queries": 4,
+        "version_group_by_queries": 0,
+        "wide_column_queries": 0,
+        "unbounded_entity_loads": 0
+      },
+      "worker_returncode": 0,
+      "worker_stderr": "/workspace/scratch/c21619997ed8/fix023/venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n  from starlette.testclient import TestClient as TestClient  # noqa\n",
+      "label": "current",
+      "copied_ms": 15215.674901999591
+    }
+  ],
+  "fixture_articleversion_indexes": [
+    {
+      "name": "ix_articleversion_article_latest_id",
+      "columns": [
+        "article_key",
+        "id"
+      ]
+    },
+    {
+      "name": "ix_articleversion_content_hash",
+      "columns": [
+        "content_hash"
+      ]
+    },
+    {
+      "name": "ix_articleversion_article_key",
+      "columns": [
+        "article_key"
+      ]
+    },
+    {
+      "name": "sqlite_autoindex_articleversion_1",
+      "columns": [
+        "article_key",
+        "revision"
+      ]
+    }
+  ],
+  "fixture_unchanged": true,
+  "comparisons": [
+    {
+      "path": "/radar?period=all",
+      "baseline": "baseline",
+      "current": "current",
+      "wall_speedup": 1.2876113511214005,
+      "sql_count_change": [
+        63,
+        12
+      ],
+      "version_group_by_change": [
+        3,
+        0
+      ],
+      "unbounded_entity_load_change": [
+        0,
+        0
+      ]
+    },
+    {
+      "path": "/admin",
+      "baseline": "baseline",
+      "current": "current"
+    },
+    {
+      "path": "/api/system/status",
+      "baseline": "baseline",
+      "current": "current",
+      "wall_speedup": 10.677738351045383,
+      "sql_count_change": [
+        4,
+        4
+      ],
+      "version_group_by_change": [
+        0,
+        0
+      ],
+      "unbounded_entity_load_change": [
+        1,
+        0
+      ]
+    }
+  ],
+  "validation_stage": "Intermediate blocking-radar implementation before direct-join provider flags, covering indexes and preview/exact API split. Admin/system status measurements retained; radar timings superseded by final staged reports."
+}

@@ -16,7 +16,7 @@ def countries():
 def add(session,event,role,iso,article,revision,quote):
     from hashlib import sha256
     import json
-    lock_news(session);require_event(session,event,active=True)
+    lock_news(session, 'event:' + event);require_event(session,event,active=True)
     iso=iso.strip().lower();quote=quote.strip()
     if role not in ('action','impact') or iso not in countries():raise ValueError('请指定有效地理角色和国家/地区')
     if not session.exec(select(ArticleEventLink.id).where(ArticleEventLink.event_key==event,

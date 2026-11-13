@@ -1,6 +1,8 @@
 """Read-only queue and task history. Queue ranks always use the full waiting set."""
 from __future__ import annotations
 
+from ..storage.sql import time_value
+
 from datetime import datetime, timezone as utc
 import math
 import time
@@ -24,6 +26,8 @@ def _read_session(engine):
         # Hold one short read snapshot for counts, ranks and displayed rows.
         if engine.dialect.name == 'sqlite':
             session.connection().exec_driver_sql('BEGIN')
+        elif engine.dialect.name == 'postgresql':
+            session.connection(execution_options={'isolation_level': 'REPEATABLE READ'})
     except Exception:
         session.close()
         raise
@@ -99,7 +103,7 @@ def _summary(session, now, local_worker_running):
     stale = session.exec(select(func.count()).select_from(TaskRecord).where(
         TaskRecord.status.in_(ACTIVE), TaskRecord.lease_until <= now)).one()
     executing = list(session.exec(select(TaskRecord).where(TaskRecord.status.in_(ACTIVE))
-                    .order_by(func.julianday(TaskRecord.started_at), TaskRecord.task_id).limit(5)).all())
+                    .order_by(time_value(TaskRecord.started_at), TaskRecord.task_id).limit(5)).all())
     return dict(counts=counts, local_worker_running=bool(local_worker_running),
                 executing_count=counts['running'] + counts['cancel_requested'], needs_recovery_count=stale,
                 executing=[_item(t, None, now) for t in executing], snapshot_at=datetime.fromtimestamp(now,utc.utc).isoformat())
@@ -123,11 +127,11 @@ def task_page(engine, *, query='', kind='all', status='all', date_from='', date_
     elif kind != 'all': conditions.append(TaskRecord.trigger_type == ('profile_test' if kind=='trial' else kind))
     if status == 'active': conditions.append(TaskRecord.status.in_(['queued', *ACTIVE]))
     elif status != 'all': conditions.append(TaskRecord.status == status)
-    if start: conditions.append(func.julianday(TaskRecord.created_at) >= func.julianday(start))
-    if end: conditions.append(func.julianday(TaskRecord.created_at) < func.julianday(end))
+    if start: conditions.append(time_value(TaskRecord.created_at) >= time_value(start))
+    if end: conditions.append(time_value(TaskRecord.created_at) < time_value(end))
     now = time.time(); queue = _queue()
     statement = select(TaskRecord, queue.c.position).outerjoin(queue, TaskRecord.task_id == queue.c.queued_id).where(*conditions)
-    order = [TaskRecord.queued_at, TaskRecord.task_id] if status == 'queued' else [func.julianday(TaskRecord.created_at).desc(), TaskRecord.task_id.desc()]
+    order = [TaskRecord.queued_at, TaskRecord.task_id] if status == 'queued' else [time_value(TaskRecord.created_at).desc(), TaskRecord.task_id.desc()]
     with _read_session(engine) as session:
         summary = _summary(session, now, local_worker_running)
         total = session.exec(select(func.count()).select_from(TaskRecord).where(*conditions)).one()

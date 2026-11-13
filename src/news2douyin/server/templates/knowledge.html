@@ -1,8 +1,30 @@
 {% extends 'base.html' %}{% block title %}知识处理状态 · news2douyin{% endblock %}{% block content %}
-<div class="row"><h1>知识处理状态</h1><a href="/intake">查看全量接收与处理积压 →</a><a href="/knowledge/browser">打开图数据库浏览器配置 →</a></div><p class="muted">采集材料 → 原文版本 → 事件抽取 → 图更新 → 事件分析与专题归集。关闭浏览器后仍在后台运行。</p>
+<div class="row"><h1>知识处理状态</h1><a href="/intake">查看采集与处理积压 →</a><a href="/knowledge/browser">图数据库浏览器 →</a></div>
+<p class="muted">材料在后台依次抽取、投影和分析。图节点已同步与分析结果已刷新分别显示，关闭页面也会继续处理。</p>
 {% set knowledge=state %}{% include 'graph_status.html' %}
-<div class="grid"><section class="card"><h2>事件抽取</h2>{% for k,n in state.extraction.items() %}<p>{{ {'baseline':'等待规则抽取','rule_running':'规则抽取中','model_queued':'等待模型抽取','model_running':'模型抽取中','model_wait':'模型重试等待','ready':'本轮完成','metadata_only':'仅元数据，等待原文','error':'抽取失败'}.get(k,k) }}：{{ n }}</p>{% else %}<p>尚无原文版本。</p>{% endfor %}<p>规则完成 {{ state.methods.get('rules',0) }} · 模型完成 {{ state.methods.get('model',0) }}</p><p class="muted">规则覆盖有限。接入模型后可完成上下文抽取；所有结果保留原文依据和待核状态。</p><button id="retry-extraction" class="ghost">重试失败抽取（最多 100 项）</button></section>
-<section class="card"><h2>图更新与分析</h2><p>待建立事件索引：{{ state.indexing }}</p><p>待同步图记录：{{ state.pending }}</p><p>最近分析：{{ state.analyzed_at or '尚未完成' }}</p><p>活跃全局图与每个专题图独立保存，事件和人物共享身份引用。</p><button id="rebuild-graph" class="ghost">从保存的证据重建图</button></section></div>
-<details class="card work-actions"><summary>连接和运行说明</summary><p>完整功能需要 FalkorDB。启动服务前设置 NEWS2DOUYIN_FALKOR_URL，例如 redis://127.0.0.1:6379。连接包含密码时请保存在服务环境配置中。</p><p>模型抽取使用 OPENAI_BASE_URL、OPENAI_API_KEY、MODEL。设置 NEWS2DOUYIN_EVENT_READER=model 后自动执行上下文抽取。未启用时使用有限规则，并在原文页面标明抽取方式。</p><p>修改连接配置后重启服务。深度研究与自动补查使用<a href="/research/settings">研究助手设置</a>中的 RunDesk。</p><a href="/api/desk/graph-schema">查看图结构契约</a></details>
-<p id="knowledge-message" role="status"></p>
-<script>for(const [id,path] of [['retry-extraction','retry-extraction'],['rebuild-graph','rebuild']])document.getElementById(id).onclick=async function(){this.disabled=true;try{const r=await fetch('/api/knowledge/'+path,{method:'POST'});const d=await r.json();if(!r.ok)throw Error(d.detail);location.reload();}catch(e){document.getElementById('knowledge-message').textContent=e.message;this.disabled=false;}};</script>{% endblock %}
+{% set index=state.indexes|default({}) %}{% set gc=state.gc|default({}) %}{% set projection=state.projection|default({}) %}
+<div class="grid">
+<section class="card"><h2>事件抽取</h2><div id="knowledge-extraction">{% for k,n in state.extraction.items() %}<p>{{ {'baseline':'等待规则抽取','rule_running':'规则抽取中','model_queued':'等待模型抽取','model_running':'模型抽取中','model_wait':'模型重试等待','ready':'本轮完成','metadata_only':'仅元数据，等待原文','error':'抽取失败'}.get(k,k) }}：{{ n }}</p>{% else %}<p>尚无原文版本。</p>{% endfor %}</div>
+<p id="knowledge-methods">规则完成 {{ state.methods.get('rules',0) }} · 模型完成 {{ state.methods.get('model',0) }}</p><p class="muted">规则覆盖有限。模型抽取保留原文依据，提取结果仍需按事实状态核查。</p><button id="retry-extraction" class="ghost" type="button">重试失败抽取（最多 100 项）</button></section>
+<section class="card"><h2>图更新与分析</h2>
+<p id="knowledge-indexes">{% if index.state|default('unknown')=='ready' %}图索引已就绪{% elif index.state|default('unknown')=='error' %}图索引检查需要重试{% elif index.state|default('unknown') in ['checking','building'] %}图索引准备中{% else %}图索引状态待检查{% endif %}{% if index.ready is defined and index.ready is not none and index.required is defined and index.required is not none %} · {{ index.ready }} / {{ index.required }}{% endif %}</p>
+<p id="knowledge-pending">待同步图记录：{{ state.pending if state.pending is defined and state.pending is not none else '暂不可用' }}</p>
+<p id="knowledge-indexing">待建立事件索引：{{ state.indexing if state.indexing is defined and state.indexing is not none else '暂不可用' }}</p>
+<p id="knowledge-analysis">图分析：{{ state.analyzed_at or '尚未完成' }}</p>
+<button id="retry-graph-maintenance" class="ghost" type="button" {% if index.state|default('unknown')!='error' and gc.state|default('unknown')!='error' %}hidden{% endif %}>重试图维护检查</button>
+<details class="work-actions"><summary>索引与维护详情</summary>
+<p id="knowledge-index-current">{% if index.current|default('') %}当前检查：{{ index.current }}{% else %}启动后由后台检查必需图索引，缺失项自动补建。{% endif %}</p>
+<p id="knowledge-index-checked" class="muted small">最近索引检查：{{ index.checked_at|default('') or '暂无记录' }}</p>
+<p id="knowledge-index-error" class="desk-error" {% if not index.error|default('') %}hidden{% endif %}>{{ index.error|default('') }}</p>
+<p id="knowledge-projection-completed">{% if projection.event_completed is defined and projection.event_completed is not none %}本次运行已确认事件投影 {{ projection.event_completed }} 项{% if projection.watch_completed is defined and projection.watch_completed is not none %} · 专题投影 {{ projection.watch_completed }} 项{% endif %}{% else %}本次运行投影完成量：暂无记录{% endif %}</p>
+<p id="knowledge-gc">图清理：{{ {'complete':'本轮完成','sweeping':'分批检查中','running':'分批检查中','idle':'等待下一轮','pending':'等待检查','error':'需要重试'}.get(gc.state|default('unknown'),'尚无维护记录') }}{% if gc.last_run|default('') %} · {{ gc.last_run }}{% endif %}</p>
+<p id="knowledge-gc-counts" class="muted small">{% if gc.scanned is defined and gc.scanned is not none %}本轮已检查 {{ gc.scanned }} 个节点{% if gc.deleted is defined and gc.deleted is not none %} · 清理 {{ gc.deleted }} 个无引用节点{% endif %}{% else %}清理进度尚未记录。{% endif %}</p>
+<p id="knowledge-gc-error" class="desk-error" {% if not gc.error|default('') %}hidden{% endif %}>{{ gc.error|default('') }}</p>
+<p class="muted small">清理按批次运行；索引准备或维护失败不代表原始新闻已丢失。处理速度和待办变化一起决定追平时间。</p>
+<details><summary>从保存的证据重新投影</summary><p class="muted">用于恢复图数据。此操作会重新排队已有图记录，通常不需要用它处理索引或维护错误。</p><button id="rebuild-graph" class="ghost" type="button">从保存的证据重建图</button></details>
+</details></section></div>
+<p id="knowledge-message" role="status" aria-live="polite"></p>
+<details class="card work-actions"><summary>连接和运行说明</summary><p>图处理使用 FalkorDB。启动服务前设置 NEWS2DOUYIN_FALKOR_URL，例如 redis://127.0.0.1:6379。连接包含密码时请保存在服务环境配置中。</p><p>模型抽取使用 OPENAI_BASE_URL、OPENAI_API_KEY、MODEL。设置 NEWS2DOUYIN_EVENT_READER=model 后自动执行上下文抽取。未启用时使用有限规则，并在原文页面标明抽取方式。</p><p>修改连接配置后重启服务。深度研究与自动补查使用<a href="/research/settings">研究助手设置</a>中的 RunDesk。</p><a href="/api/desk/graph-schema">查看图结构契约</a></details>
+<script id="knowledge-status-config" type="application/json">{{ state|tojson }}</script>
+<script src="/research-assets/graph-maintenance.js" defer></script>
+{% endblock %}

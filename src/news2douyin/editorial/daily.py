@@ -37,7 +37,7 @@ def list_picks(session, day='', timezone=''):
 
 def choose(session, article_key, *, day='', timezone='', active=True):
     day, zone = selection_scope(day, timezone)
-    lock_news(session)
+    lock_news(session, 'daily-pick:' + stable_hash(day, zone, article_key, length=32))
     if not session.exec(select(Article).where(Article.article_key == article_key)).first():
         raise KeyError('新闻不存在')
     key = stable_hash(day, zone, article_key, length=32)
@@ -137,7 +137,7 @@ def build_pick(session, selection_key, *, storage_root, mode='basic', output_lan
     document = draft_document(editorial, mode, output_language=output_language, duration_sec=duration_sec)
     # Serialize the final check and package/selection commit. Retrying after a
     # lost response (or two tabs generating together) reuses the committed draft.
-    lock_news(session)
+    lock_news(session, 'daily-selection:' + selection_key)
     pick = session.get(DailySelection, selection_key, populate_existing=True)
     if not pick or not pick.active:
         raise ScriptConflict('生成期间选题已取消，未保存草稿')

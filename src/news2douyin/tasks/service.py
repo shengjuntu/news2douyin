@@ -94,7 +94,8 @@ class TaskService:
         with Session(self.engine) as session:
             from ..storage.articles import lock_news
             from ..collect.management import require_profile, profile_enabled
-            lock_news(session)
+            lock_news(session, 'profile:' + profile_name,
+                      'task-request:' + (key or uuid4().hex))
             if key:
                 old = session.exec(select(TaskRecord).where(TaskRecord.idempotency_key == key)).first()
                 if old:

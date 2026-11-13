@@ -48,7 +48,7 @@ def ensure(s,w):
 
 def initialize(engine):
     with Session(engine) as s:
-        lock_news(s)
+        lock_news(s, 'maintenance:workbench')
         for w in s.exec(select(TopicWorkspace)):
             ensure(s,w)
         sync(s)
@@ -72,7 +72,7 @@ def sync(s, task=''):
 def require(s,key):
     w=topics.require(s,key)
     task=s.get(ContentTask,key)
-    if not task:task=ensure(s,w)
+    if not task:raise KeyError('内容任务尚未初始化，请完成数据库升级后重试')
     return task,w
 
 
@@ -83,7 +83,7 @@ def start(engine,payload):
     key='topic_'+research.digest(['create',value.request_id])[:24]
     fingerprint=research.digest(value.model_dump())
     with Session(engine,expire_on_commit=False) as s:
-        lock_news(s)
+        lock_news(s, 'content:' + key)
         old=s.get(ContentTask,key)
         if old:
             if old.origin_hash!=fingerprint:raise TaskConflict('创建编号已经用于不同内容')
@@ -123,7 +123,6 @@ def start(engine,payload):
 
 def detail(s,key):
     task,w=require(s,key)
-    sync(s,key);s.flush()
     bindings=s.exec(select(ContentBinding).where(ContentBinding.task==key).order_by(ContentBinding.created,ContentBinding.key)).all()
     cases=[];scripts=[]
     for b in bindings:
@@ -160,7 +159,7 @@ def detail(s,key):
 def move(engine,key,phase,version):
     if phase not in PHASES:raise ValueError('阶段无效')
     with Session(engine) as s:
-        lock_news(s)
+        lock_news(s, 'content:' + key)
         task,w=require(s,key)
         if task.version!=version:raise TaskConflict('任务已更新，请刷新')
         if phase=='works':
@@ -175,7 +174,7 @@ def from_report(engine,storage,key,report_id,request_id,version):
     ident=stable_id(key,request_id)
     fingerprint=stable_id(report_id,version)
     with Session(engine,expire_on_commit=False) as s:
-        lock_news(s)
+        lock_news(s, 'content:' + key)
         task,w=require(s,key)
         receipt=s.get(ContentRequest,ident)
         if receipt:
@@ -241,7 +240,7 @@ def adopt(engine,kind,ref):
             event=row.event_key
     data=start(engine,dict(request_id='adopt-'+stable_id(kind,ref),title=title,angle='由历史成果继续；原研究和稿件保留原证据版本。'))
     with Session(engine) as s:
-        lock_news(s)
+        lock_news(s, 'content:' + data['key'])
         task,w=require(s,data['key'])
         bind(s,task.key,kind,ref)
         task.event=event

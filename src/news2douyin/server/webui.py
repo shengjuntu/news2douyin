@@ -25,6 +25,7 @@ from .news import query_call
 from urllib.parse import urlencode
 from difflib import unified_diff
 from ..storage.db import session_scope
+from ..storage.queries import all_rows, count_rows
 from ..storage.models import GdeltDiscovery, Article, ArticleEventLink, CollectJob, CollectProfile, Event, RunRecord, ArticleVersion, EventAssignment
 from ..storage.utils import loads
 from ..search.dates import calendar_day, timezone_name
@@ -193,12 +194,12 @@ def register_webui_routes(app: FastAPI, engine, scheduler, storage_root: str) ->
                     'finished_at': r.finished_at, 'stats': loads(r.stats_json, {}),
                     'error_text': r.error_text,
                 }
-                for r in session.exec(select(RunRecord).order_by(RunRecord.id.desc()).limit(10)).all()
+                for r in all_rows(session,select(RunRecord).order_by(RunRecord.id.desc()).limit(10),name='admin.recent_runs')
             ]
             counts = {
-                'articles': len(session.exec(select(Article)).all()),
-                'events': len(session.exec(select(Event)).all()),
-                'runs': len(session.exec(select(RunRecord)).all()),
+                'articles': count_rows(session,Article,name='admin.count.articles'),
+                'events': count_rows(session,Event,name='admin.count.events'),
+                'runs': count_rows(session,RunRecord,name='admin.count.runs'),
             }
         return render(
             'dashboard.html', active='home', profiles=profiles, jobs=jobs, runs=runs, counts=counts,

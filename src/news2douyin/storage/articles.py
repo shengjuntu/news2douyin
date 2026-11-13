@@ -8,12 +8,13 @@ from __future__ import annotations
 import hashlib
 import json
 
-from sqlalchemy import func, update
+from sqlalchemy import func, update, text
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from ..dedup.normalize import canonicalize_url
 from .models import Article, ArticleIdentity, ArticleVersion, NewsWriteLock
+from .queries import count_rows, page_rows, exists
 
 SNAPSHOT_FIELDS = ('provider', 'url', 'canonical_url', 'title', 'content',
                    'source_domain', 'published_at', 'language', 'country')
@@ -29,12 +30,29 @@ def identity_key(item: dict) -> str:
     return hashlib.sha256(json.dumps(value, ensure_ascii=False).encode()).hexdigest()
 
 
-def lock_news(session: Session) -> None:
-    session.exec(update(NewsWriteLock).where(NewsWriteLock.name == 'collection')
-                 .values(generation=NewsWriteLock.generation + 1)
-                 .execution_options(synchronize_session=False))
-    # A previous read in the same ORM session may predate the lock.
-    session.expire_all()
+def lock_news(session: Session, *resources: str) -> None:
+    """Protect a logical write scope until commit/rollback, without a PG hot row.
+
+    Callers acquire scopes before reading the state they intend to update.
+    Multiple scopes are sorted; batch writers pre-acquire article identities.
+    SQLite retains its single-writer compatibility path.
+    """
+    if session.get_bind().dialect.name == 'postgresql':
+        keys = sorted({int.from_bytes(hashlib.sha256(('news2douyin:' + value).encode()).digest()[:8],
+                                       'big', signed=True) for value in resources or ('legacy',)})
+        with session.no_autoflush:
+            for key in keys:
+                session.execute(text('SELECT pg_advisory_xact_lock(:key)'), {'key': key})
+        # A caller can acquire a narrower lock after preparing another object;
+        # never erase those pending changes by expiring the whole session.
+        for obj in list(session.identity_map.values()):
+            if obj not in session.dirty and obj not in session.deleted:
+                session.expire(obj)
+    else:
+        session.exec(update(NewsWriteLock).where(NewsWriteLock.name == 'collection')
+                     .values(generation=NewsWriteLock.generation + 1)
+                     .execution_options(synchronize_session=False))
+        session.expire_all()
 
 
 def snapshot(row: Article) -> dict:
@@ -78,11 +96,14 @@ def find_article(session: Session, item: dict) -> Article | None:
 
 
 def version_page(session: Session, article_key: str, *, offset=0, limit=50) -> dict:
-    if not session.exec(select(Article.id).where(Article.article_key == article_key)).first():
+    if offset<0 or not 1<=limit<=500:
+        raise ValueError('offset must be nonnegative and limit must be 1–500')
+    if not exists(session,select(Article.id).where(Article.article_key==article_key),name='articles.versions.exists'):
         raise KeyError(article_key)
     stmt = select(ArticleVersion).where(ArticleVersion.article_key == article_key)
-    total = session.exec(select(func.count()).select_from(stmt.subquery())).one()
-    rows = session.exec(stmt.order_by(ArticleVersion.revision.desc()).offset(offset).limit(limit)).all()
+    total = count_rows(session,ArticleVersion,ArticleVersion.article_key==article_key,name='articles.versions.count')
+    rows = page_rows(session,stmt.order_by(ArticleVersion.revision.desc()),offset=offset,limit=limit,
+                     name='articles.versions.page')
     return {'items': [{'revision': v.revision, 'content_hash': v.content_hash,
                       'origin': v.origin, 'observed_at': v.observed_at,
                       'run_key': v.run_key, 'document': json.loads(v.payload_json)} for v in rows],
@@ -102,7 +123,7 @@ def backfill_versions(engine) -> None:
                 session.rollback()
                 if not session.get(NewsWriteLock, 'collection'):
                     raise
-        lock_news(session)
+        lock_news(session, 'maintenance:article-versions')
         if session.get(NewsWriteLock, 'article_versions_v1'):
             session.commit()
             return

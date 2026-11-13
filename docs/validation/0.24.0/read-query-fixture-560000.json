@@ -1,0 +1,254 @@
+{
+  "kind": "synthetic-uncompressed-sqlite",
+  "rows": 560000,
+  "versions_per_article": 1,
+  "articles": 560000,
+  "events": 560000,
+  "minimum_version_payload_bytes": 4096,
+  "article_body_bytes": 4096,
+  "search_index": "not populated; only unfiltered dashboard routes are benchmarked",
+  "background_workers": false,
+  "external_network": false,
+  "limitations": "Not live data or the reported 27 GB production workload; OS cache is not reset.",
+  "fixture_id": "e1982aa2a5e68492186f",
+  "db": "/workspace/scratch/c21619997ed8/fix024/bench-560000-cover-test.db",
+  "counts": {
+    "article": 560000,
+    "articleversion": 560000,
+    "event": 560000,
+    "articleeventlink": 560000,
+    "radarentry": 560000,
+    "versionreading": 560000,
+    "textmention": 112000,
+    "gkgsource": 186667,
+    "graphmetric": 56000
+  },
+  "bytes": 9347739648,
+  "generation_ms": 191618.3739850003,
+  "articleversion_indexes": [
+    {
+      "name": "ix_articleversion_article_latest_id",
+      "columns": [
+        "article_key",
+        "id"
+      ]
+    },
+    {
+      "name": "ix_articleversion_content_hash",
+      "columns": [
+        "content_hash"
+      ]
+    },
+    {
+      "name": "ix_articleversion_article_key",
+      "columns": [
+        "article_key"
+      ]
+    },
+    {
+      "name": "sqlite_autoindex_articleversion_1",
+      "columns": [
+        "article_key",
+        "revision"
+      ]
+    }
+  ],
+  "maintenance_note": "QA snapshot with candidate covering indexes; both implementations use identical indexes for final staged request measurements.",
+  "query_indexes": {
+    "article": [
+      {
+        "name": "qa_article_provider_cover",
+        "columns": [
+          "article_key",
+          "provider"
+        ]
+      },
+      {
+        "name": "ix_article_dedup_group_id",
+        "columns": [
+          "dedup_group_id"
+        ]
+      },
+      {
+        "name": "ix_article_source_domain",
+        "columns": [
+          "source_domain"
+        ]
+      },
+      {
+        "name": "ix_article_title_signature",
+        "columns": [
+          "title_signature"
+        ]
+      },
+      {
+        "name": "ix_article_provider",
+        "columns": [
+          "provider"
+        ]
+      },
+      {
+        "name": "ix_article_country",
+        "columns": [
+          "country"
+        ]
+      },
+      {
+        "name": "ix_article_market_relevance_score",
+        "columns": [
+          "market_relevance_score"
+        ]
+      },
+      {
+        "name": "ix_article_content_hash",
+        "columns": [
+          "content_hash"
+        ]
+      },
+      {
+        "name": "ix_article_language",
+        "columns": [
+          "language"
+        ]
+      },
+      {
+        "name": "ix_article_canonical_url",
+        "columns": [
+          "canonical_url"
+        ]
+      },
+      {
+        "name": "ix_article_duplicate_of_article_key",
+        "columns": [
+          "duplicate_of_article_key"
+        ]
+      },
+      {
+        "name": "ix_article_title_hash",
+        "columns": [
+          "title_hash"
+        ]
+      },
+      {
+        "name": "ix_article_article_key",
+        "columns": [
+          "article_key"
+        ]
+      },
+      {
+        "name": "ix_article_published_at",
+        "columns": [
+          "published_at"
+        ]
+      },
+      {
+        "name": "ix_article_is_duplicate",
+        "columns": [
+          "is_duplicate"
+        ]
+      },
+      {
+        "name": "ix_article_content_signature",
+        "columns": [
+          "content_signature"
+        ]
+      },
+      {
+        "name": "ix_article_sentiment",
+        "columns": [
+          "sentiment"
+        ]
+      }
+    ],
+    "articleeventlink": [
+      {
+        "name": "qa_ael_event_article_cover",
+        "columns": [
+          "event_key",
+          "article_key"
+        ]
+      },
+      {
+        "name": "ix_articleeventlink_article_key",
+        "columns": [
+          "article_key"
+        ]
+      },
+      {
+        "name": "ix_articleeventlink_event_key",
+        "columns": [
+          "event_key"
+        ]
+      },
+      {
+        "name": "ix_articleeventlink_relation_type",
+        "columns": [
+          "relation_type"
+        ]
+      }
+    ],
+    "radarentry": [
+      {
+        "name": "qa_radar_key_seen_cover",
+        "columns": [
+          "key",
+          "seen",
+          "priority",
+          "band"
+        ]
+      },
+      {
+        "name": "ix_radarentry_priority",
+        "columns": [
+          "priority"
+        ]
+      },
+      {
+        "name": "ix_radarentry_seen",
+        "columns": [
+          "seen"
+        ]
+      },
+      {
+        "name": "ix_radarentry_band",
+        "columns": [
+          "band"
+        ]
+      },
+      {
+        "name": "sqlite_autoindex_radarentry_1",
+        "columns": [
+          "key"
+        ]
+      }
+    ],
+    "articleversion": [
+      {
+        "name": "ix_articleversion_article_latest_id",
+        "columns": [
+          "article_key",
+          "id"
+        ]
+      },
+      {
+        "name": "ix_articleversion_content_hash",
+        "columns": [
+          "content_hash"
+        ]
+      },
+      {
+        "name": "ix_articleversion_article_key",
+        "columns": [
+          "article_key"
+        ]
+      },
+      {
+        "name": "sqlite_autoindex_articleversion_1",
+        "columns": [
+          "article_key",
+          "revision"
+        ]
+      }
+    ]
+  }
+}

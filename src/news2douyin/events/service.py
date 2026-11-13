@@ -119,6 +119,8 @@ def choose_event(session: Session, item: dict, decision) -> Assignment:
 
 
 def refresh_event(session: Session, event_key: str, *, touch_version=True) -> None:
+    from ..storage.articles import lock_news
+    lock_news(session, 'event:' + event_key)
     session.flush()
     event = session.exec(select(Event).where(Event.event_key == event_key)).one()
     rows = session.exec(select(Article).join(ArticleEventLink, Article.article_key == ArticleEventLink.article_key)

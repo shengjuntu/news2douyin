@@ -1,6 +1,8 @@
 """Searchable video labels, additive migration, and read-only recovery diagnostics."""
 from __future__ import annotations
 
+from ..storage.sql import time_value
+
 import json
 from pathlib import Path
 from typing import Literal
@@ -36,7 +38,7 @@ class WorkEdit(BaseModel):
 
 def backfill_works(engine):
     with Session(engine) as session:
-        lock_news(session)
+        lock_news(session, 'maintenance:works')
         rows = session.exec(select(VideoProduction).outerjoin(VideoWork, VideoWork.task_id == VideoProduction.task_id)
                             .where(VideoWork.task_id.is_(None))).all()
         for row in rows:
@@ -60,7 +62,7 @@ def metadata(session, row, spec=None):
 def edit(engine, task_id, data):
     data = WorkEdit.model_validate(data)
     with Session(engine) as session:
-        lock_news(session)
+        lock_news(session, 'video-work:' + task_id)
         row = session.get(VideoProduction, task_id)
         if not row: raise KeyError('作品不存在')
         current = metadata(session, row)
@@ -99,8 +101,8 @@ def work_page(engine, *, query='', status='succeeded', date_from='', date_to='',
     elif status != 'all': conditions.append(TaskRecord.status == status)
     if starred: conditions.append(VideoWork.starred == True)
     if template: conditions.append(VideoWork.template_id == template)
-    if start: conditions.append(func.julianday(TaskRecord.created_at) >= func.julianday(start))
-    if end: conditions.append(func.julianday(TaskRecord.created_at) < func.julianday(end))
+    if start: conditions.append(time_value(TaskRecord.created_at) >= time_value(start))
+    if end: conditions.append(time_value(TaskRecord.created_at) < time_value(end))
     query_rows = select(VideoProduction,TaskRecord,VideoWork).join(TaskRecord,TaskRecord.task_id == VideoProduction.task_id).join(VideoWork,VideoWork.task_id == VideoProduction.task_id).where(*conditions)
     limit, offset = max(1,min(limit,100)), max(0,offset)
     with Session(engine) as session:

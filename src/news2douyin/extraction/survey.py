@@ -45,8 +45,9 @@ def cutoff_date(day=''):
 
 
 def material(s,watch,cutoff):
+    from ..desk.service import current_membership
     member=select(ArticleEventLink.article_key).join(WatchEvent,WatchEvent.event==ArticleEventLink.event_key
-        ).where(WatchEvent.watch==watch,WatchEvent.choice!='exclude')
+        ).where(WatchEvent.watch==watch,WatchEvent.choice!='exclude',current_membership())
     at=select(ArticleVersion.article_key,func.max(ArticleVersion.revision).label('revision')
         ).where(ArticleVersion.article_key.in_(member),ArticleVersion.observed_at<=cutoff
         ).group_by(ArticleVersion.article_key).subquery()

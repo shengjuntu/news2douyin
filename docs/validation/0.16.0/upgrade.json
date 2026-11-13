@@ -1,0 +1,15 @@
+{
+  "baseline": "0.15.1",
+  "version": "0.16.0",
+  "oldTableRowCountsUnchanged": true,
+  "dailySelectionPreserved": true,
+  "historicalArticleSearchable": true,
+  "addedTables": [
+    "topiccandidate",
+    "topichandoff",
+    "topicmessage",
+    "topicsearch",
+    "topicsource",
+    "topicworkspace"
+  ]
+}

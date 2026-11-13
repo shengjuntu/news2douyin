@@ -16,7 +16,7 @@ from .algorithms import analyze, pagerank
 
 def initialize(engine):
     with Session(engine) as s:
-        lock_news(s)
+        lock_news(s,'knowledge-schema')
         if not s.get(DeskMeta,'knowledge_schema_2'):
             for key in s.exec(select(RadarEntry.key)):
                 desk.enqueue_graph(s,'event/'+key)
@@ -27,8 +27,12 @@ def initialize(engine):
 
 
 def signature(s):
-    rows = s.exec(select(GraphPending).order_by(GraphPending.key)).all()
-    return stable_id([(r.key,r.token) for r in rows]), any(r.token!=r.written for r in rows)
+    # Conditional projection acknowledgements update this watermark in the
+    # same SQL transaction. Never materialize a half-million-row outbox merely
+    # to decide whether the graph analysis is current.
+    epoch=s.get(DeskMeta,'graph_projection_epoch_1')
+    pending=s.exec(select(GraphPending.key).where(GraphPending.token!=GraphPending.written).limit(1)).first()
+    return epoch.value if epoch else 'projection-epoch-0', pending is not None
 
 
 def status(s, graph):
@@ -36,9 +40,18 @@ def status(s, graph):
     stamp = s.get(DeskMeta,'graph_analysis')
     analysis = json.loads(stamp.value) if stamp else {}
     state = 'unconfigured' if not graph.url else 'error' if graph.last_error else 'pending' if pending or not analysis or not graph.last_ok else 'ready'
+    from ..desk.graph_indexes import status_summary
+    from ..desk.graph_gc import summary as gc_summary
+    indexes=status_summary(graph)
+    gc=gc_summary(s,graph)
+    if getattr(graph,'_maintenance_error','') and not gc.get('error'):
+        gc=dict(gc,state='error',error='图维护等待重试（'+graph._maintenance_error+'）')
     return dict(required=True,state=state,pending=pending,error=graph.last_error,
                 analyzed_at=analysis.get('at',''),count=analysis.get('count',0),
-                truncated=analysis.get('truncated',False),generation=analysis.get('generation',''))
+                truncated=analysis.get('truncated',False),generation=analysis.get('generation',''),
+                indexes=indexes,gc=gc,projection=graph.metrics.snapshot(pending=pending),
+                queue_index=dict(graph._queue_index_state),
+                analysis_state='waiting_for_projection' if pending else 'ready' if analysis else 'not_analyzed')
 
 
 def note_change(s, watch, event, kind, text, version):
@@ -53,13 +66,30 @@ def reconcile(s, metrics, edges, generation):
     for a,b,weight in edges:
         adjacency[a].append((b,weight));adjacency[b].append((a,weight))
     for w in s.exec(select(Watch).where(Watch.enabled==True)):
-        links={r.event:r for r in s.exec(select(WatchEvent).where(WatchEvent.watch==w.key))}
+        from ..desk.focus_models import FocusDefinition
+        intent_definition=s.get(FocusDefinition,w.key)
+        links={r.event:r for r in s.exec(select(WatchEvent).where(WatchEvent.watch==w.key,desk.current_membership()))}
         seeds={k:3 if l.choice=='include' else 1 for k,l in links.items()
-               if k in cards and l.choice!='exclude' and not l.reason.startswith(('图关联','背景'))}
+               if k in cards and l.choice!='exclude' and not l.reason.startswith(('图关联','背景'))
+               and (not intent_definition or l.choice=='include' or l.relevance>=2)}
         related=pagerank(cards,edges,seeds=seeds) if seeds else {}
         # Limit expansion by personalized rank, instead of using rank as a mere nonzero flag.
         expansion=set(sorted((k for k in cards if k not in seeds and any(p in seeds for p,_ in adjacency[k])),
             key=lambda k:(-related.get(k,0),k))[:30])
+        if intent_definition:
+            # FalkorDB-derived paths only nominate candidates. They do not
+            # bypass the topic's evidence-based model judgement or override
+            # manual choices. The existing visualization window is not the
+            # historical backfill's coverage boundary.
+            from ..desk.focus_jobs import queue_event
+            for key in sorted(expansion):
+                if links.get(key) and links[key].choice in ('include','exclude'):continue
+                via=sorted((p,weight) for p,weight in adjacency[key] if p in seeds)
+                if via:
+                    queue_event(s,w,cards[key],recall_extra=dict(channels=['graph'],
+                        paths=[dict(seed=p,event=key,weight=weight) for p,weight in via[:3]],
+                        reason='与已收录核心事件存在有出处的图关联，仍需判断专题相关性'))
+            continue
         changed=False
         for key, card in cards.items():
             old=links.get(key)
@@ -108,6 +138,12 @@ def reconcile(s, metrics, edges, generation):
 
 
 def refresh(engine, graph):
+    with graph.exclusive(engine) as acquired:
+        if not acquired:return False
+        return _refresh(engine,graph)
+
+
+def _refresh(engine, graph):
     with Session(engine) as s:
         token,pending=signature(s)
         previous=s.get(DeskMeta,'graph_analysis')
@@ -140,7 +176,10 @@ def refresh(engine, graph):
         graph.query('active_global','UNWIND $rows AS row MATCH (e:Event {id:row[0]}) '
             'SET e.score=row[1],e.community=row[2],e.analysis_generation=$g',rows=metric_rows[start:start+200],g=generation)
     with Session(engine) as s:
-        lock_news(s)
+        lease=graph._projection_lease
+        watches=list(s.exec(select(Watch.key).order_by(Watch.key)))
+        lock_news(s,'graph-analysis','lease/'+lease.key,*('watch:'+key for key in watches))
+        lease.confirm(s)
         current,pending=signature(s)
         if current!=token or pending:
             return True
@@ -170,13 +209,21 @@ def update_outline(engine):
             key='point_'+stable_id(ticket.watch,ticket.watch,' '.join(q.text.split()).casefold())
             if not s.get(FocusPoint,key):missing.append((key,q,ticket))
         if not missing:return
-        lock_news(s)
-        for key,q,ticket in missing:
-            count=s.exec(select(func.count()).select_from(FocusPoint).where(FocusPoint.watch==ticket.watch)).one()
-            if count>=64 or s.get(FocusPoint,key):continue
-            s.add(FocusPoint(key=key,watch=ticket.watch,parent=ticket.watch,text=q.text[:400],created=q.updated_at))
-            desk.enqueue_graph(s,'watch/'+ticket.watch)
-        s.commit()
+        grouped=defaultdict(list)
+        for key,q,ticket in missing:grouped[ticket.watch].append((key,q.text,q.updated_at))
+    for watch,items in sorted(grouped.items()):
+        with Session(engine) as s:
+            lock_news(s,'watch:'+watch)
+            if not s.get(Watch,watch):continue
+            count=s.exec(select(func.count()).select_from(FocusPoint).where(FocusPoint.watch==watch)).one()
+            changed=False
+            for key,text,created in items:
+                if count>=64:break
+                if s.get(FocusPoint,key):continue
+                s.add(FocusPoint(key=key,watch=watch,parent=watch,text=text[:400],created=created))
+                count+=1;changed=True
+            if changed:desk.enqueue_graph(s,'watch/'+watch)
+            s.commit()
 
 
 def links_to_json(links):
@@ -190,7 +237,7 @@ def graph_view(s, event='', watch=''):
         keys={event}|{r.source for r in relations}|{r.target for r in relations}
         stmt=stmt.where(GraphMetric.event.in_(keys))
     elif watch:
-        keys=set(s.exec(select(WatchEvent.event).where(WatchEvent.watch==watch,WatchEvent.choice!='exclude')))
+        keys=set(s.exec(select(WatchEvent.event).where(WatchEvent.watch==watch,WatchEvent.choice!='exclude',desk.current_membership())))
         stmt=stmt.where(GraphMetric.event.in_(keys))
         relations=s.exec(select(GraphRelation).where(GraphRelation.source.in_(keys),GraphRelation.target.in_(keys))).all()
     else:

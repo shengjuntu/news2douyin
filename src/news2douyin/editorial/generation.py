@@ -114,7 +114,7 @@ def submit(engine, event_key, data):
     request_hash = wb.digest(wb.canonical([event_key, request.model_dump(exclude={'idempotency_key'})]).encode())
     with Session(engine) as session:
         # Serialize idempotency lookup and snapshot construction with event editing.
-        lock_news(session)
+        lock_news(session, 'event:' + event_key, 'script-request:' + request.idempotency_key)
         key = 'script:' + request.idempotency_key
         old = session.exec(select(TaskRecord).where(TaskRecord.idempotency_key == key)).first()
         if old:

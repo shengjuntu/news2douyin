@@ -50,11 +50,22 @@ def register(app,engine,render):
             period=period,channel=channel,provider=provider,view=view)
         return dict(**task_call(projection.view,s,filters),state=info(s))
 
+    @app.get('/api/radar/facets')
+    def radar_facets(q:str='',country:str='',topic:str='',mode:str='contains',band:str='',
+                     period:str='auto',channel:str='all',provider:str='all',view:str='list',s=Depends(db)):
+        from fastapi.responses import JSONResponse
+        from ..knowledge import radar as projection
+        from .tasks import task_call
+        filters=task_call(projection.checked,q=q,country=country,topic=topic,mode=mode,band=band,
+            period=period,channel=channel,provider=provider,view=view)
+        return JSONResponse(task_call(projection.facets,s,filters),headers={'Cache-Control':'no-store'})
+
     @app.post('/api/knowledge/rebuild',dependencies=[Depends(same_origin)])
     def rebuild(s=Depends(db)):
-        lock_news(s)
+        lock_news(s, 'knowledge:rebuild')
+        from ..desk.service import enqueue_graph
         for row in s.exec(select(GraphPending)):
-            row.written='';s.add(row)
+            enqueue_graph(s, row.key)
         previous=s.get(DeskMeta,'graph_analysis')
         if previous:s.delete(previous)
         app.state.desk.graph.bootstrapped=False
@@ -62,7 +73,7 @@ def register(app,engine,render):
 
     @app.post('/api/knowledge/retry-extraction',dependencies=[Depends(same_origin)])
     def retry(s=Depends(db)):
-        lock_news(s)
+        lock_news(s, 'knowledge:rebuild')
         from ..extraction.models import ExtractionAttempt
         rows=s.exec(select(VersionReading).where(VersionReading.state=='error').limit(100)).all()
         for row in rows:

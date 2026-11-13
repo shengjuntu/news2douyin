@@ -7,12 +7,14 @@ from fastapi import Depends, Header, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field
 from sqlmodel import Session, select
 from sqlalchemy import func
+from sqlalchemy.exc import SQLAlchemyError
 from ..intake import service
 from ..intake.lake import Lake
 from ..intake.projection import IntakeDocument, import_document, lookup_receipt, projection_status
 from ..extraction.models import VersionReading
 from .research import same_origin
 from .tasks import task_call
+from .readiness import database_configuration, intake_runtime
 
 FEEDS={'gkg_english':'GKG English','gkg_translation':'GKG Translingual'}
 
@@ -61,15 +63,19 @@ def register(app,engine,storage,render):
             raise HTTPException(503,'此接收目录由其他服务进程持有，请从正在接收的主实例查看记录')
 
     def info():
-        data=service.status(engine,storage)
-        data['projection']=projection_status(engine)
-        worker=getattr(app.state,'intake',None)
-        receiver=getattr(worker,'archive',worker)
-        data['receiver']=dict(running=bool(receiver and getattr(receiver,'running',False)),
-            last_error=str(getattr(receiver,'status_error','') or getattr(receiver,'last_error','')
-                or getattr(receiver,'startup_error','') or getattr(worker,'last_error','')) if receiver else '')
-        with Session(engine) as s:
-            data['extraction']=dict(s.exec(select(VersionReading.state,func.count()).group_by(VersionReading.state)).all())
+        runtime=intake_runtime(app)
+        data=dict(database=database_configuration(engine),database_ok=False,receiver=runtime['receiver'],
+                  projection=runtime['projection'],feeds=[],batches=[],counters={},extraction={})
+        try:
+            data.update(service.status(engine,storage))
+            data['projection'].update(projection_status(engine,getattr(app.state,'intake_projection',None)))
+            with Session(engine) as s:
+                data['extraction']=dict(s.exec(select(VersionReading.state,func.count()).group_by(VersionReading.state)).all())
+            data['database_ok']=True
+        except SQLAlchemyError:
+            # Keep worker errors readable even when the transaction database is unavailable.
+            data.update(database_error='事务数据库暂时不可读取；计数与游标状态未知，请检查连接后刷新。',
+                        counters={},extraction={},feeds=[],batches=[])
         data['feed_labels']=FEEDS
         return data
 

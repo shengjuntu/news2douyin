@@ -140,9 +140,9 @@ class StrategyInput(BaseModel):
     questions: list[str] = Field(min_length=1, max_length=20)
     preferred_domains: list[str] = Field(default_factory=list, max_length=30)
     language: str = Field(default='zh', max_length=12)
-    max_searches: int = Field(default=200, ge=1)
-    max_reads: int = Field(default=500, ge=1)
-    max_minutes: int = Field(default=240, ge=1)
+    max_searches: int = Field(default=10, ge=1, le=40)
+    max_reads: int = Field(default=20, ge=1, le=60)
+    max_minutes: int = Field(default=20, ge=1, le=120)
     enabled: bool = True
     revision: int = 0
 

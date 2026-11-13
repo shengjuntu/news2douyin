@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "news2douyin"
-version = "0.22.0"
+version = "0.25.1"
 description = "Event intelligence, persistent knowledge tracking and evidence-based content workflow"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -19,6 +19,7 @@ dependencies = [
   "requests>=2.31,<3",
   "redis>=5,<8",
   "duckdb>=1.4,<1.5",
+  "psycopg[binary]>=3.2,<4",
   "worldnewsapi>=1.0,<3",
   "loguru>=0.7,<1",
   "mistune>=3.0,<4",
@@ -44,6 +45,8 @@ news2douyin-simple-gui = "news2douyin.gui.simple_app:main"
 news2douyin-platform = "news2douyin.platform.__main__:main"
 news2douyin-v7-gui = "news2douyin.gui.v7_client_app:main"
 news2douyin-repair-events = "news2douyin.storage.repair:main"
+news2douyin-migrate-sqlite = "news2douyin.storage.migrate:main"
+news2douyin-db-query-index = "news2douyin.storage.query_indexes:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

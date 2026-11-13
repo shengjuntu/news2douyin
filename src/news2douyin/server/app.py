@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 from pathlib import Path
+import os
 from contextlib import asynccontextmanager
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import JSONResponse
+from sqlalchemy.exc import OperationalError, TimeoutError as PoolTimeoutError
 from sqlmodel import select
 
 from ..collect.service import create_or_update_profile, import_profile_file, row_to_profile
@@ -12,7 +15,7 @@ from ..collect.profiles import PROFILE_FIELDS
 from ..editorial.service import build_editorial_pack
 from ..events.service import evidence_counts
 from ..scheduler.service import SchedulerConfig, SchedulerService
-from ..storage.db import make_engine, init_db, session_scope
+from ..storage.db import make_engine, init_db, session_scope, is_lock_error
 from ..storage.models import CollectProfile, CollectJob, RunRecord, Event, ScriptPackage
 from ..storage.utils import loads
 from .schemas.common import ProfilePayload, JobPayload
@@ -66,7 +69,7 @@ def _run_to_dict(row: RunRecord) -> dict:
     }
 
 
-def create_app(*, db_url: str = 'sqlite:///runs_v7/news2douyin_v7.db', storage_root: str = 'runs_v7') -> FastAPI:
+def create_app(*, db_url: str | None = None, storage_root: str = 'runs_v7') -> FastAPI:
     load_environment()
     engine = make_engine(db_url)
     init_db(engine)
@@ -94,6 +97,28 @@ def create_app(*, db_url: str = 'sqlite:///runs_v7/news2douyin_v7.db', storage_r
             worker.stop()
 
     app = FastAPI(title='news2douyin v7 server', lifespan=lifespan)
+    from ..storage.access import request_queries, snapshot as query_snapshot
+
+    @app.middleware('http')
+    async def database_request_metrics(request, call_next):
+        with request_queries() as metrics:
+            response = await call_next(request)
+        if os.getenv('NEWS2DOUYIN_DB_QUERY_HEADERS', '0') == '1':
+            response.headers['X-DB-Query-Count'] = str(metrics['calls'])
+            response.headers['X-DB-Time-Ms'] = f"{metrics['total_ms']:.3f}"
+        return response
+
+    @app.get('/api/database/queries')
+    def database_queries():
+        return query_snapshot(engine)
+
+    @app.exception_handler(OperationalError)
+    @app.exception_handler(PoolTimeoutError)
+    async def database_unavailable(_request, exc):
+        # Never return SQL parameters, DSNs or raw driver messages to browsers.
+        busy = is_lock_error(exc) or isinstance(exc, PoolTimeoutError)
+        return JSONResponse(status_code=503, headers={'Retry-After': '2'}, content={
+            'detail': '数据库正忙，请稍后重试' if busy else '数据库暂不可用，请检查运行状态'})
     app.state.engine = engine
     app.state.storage_root = storage_root
     app.state.scheduler = scheduler
@@ -120,12 +145,13 @@ def create_app(*, db_url: str = 'sqlite:///runs_v7/news2douyin_v7.db', storage_r
 
     @app.get('/api/system/status')
     def system_status():
+        from ..storage.queries import count_rows
         with session_scope(engine) as session:
             return {
-                'profiles': len(list(session.exec(select(CollectProfile)))),
-                'jobs': len(list(session.exec(select(CollectJob).where(CollectJob.schedule_type != 'archived')))),
-                'runs': len(list(session.exec(select(RunRecord)))),
-                'events': len(list(session.exec(select(Event)))),
+                'profiles': count_rows(session,CollectProfile,name='status.count.profiles'),
+                'jobs': count_rows(session,CollectJob,CollectJob.schedule_type != 'archived',name='status.count.jobs'),
+                'runs': count_rows(session,RunRecord,name='status.count.runs'),
+                'events': count_rows(session,Event,name='status.count.events'),
                 'scheduler_running': scheduler._thread is not None and scheduler._thread.is_alive(),
                 'storage_root': storage_root,
                 'worker_running': worker.running,

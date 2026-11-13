@@ -1,0 +1,73 @@
+{
+  "additionalProperties": false,
+  "description": "Connector envelope. Publication time is not event occurrence time.",
+  "properties": {
+    "provider": {
+      "maxLength": 100,
+      "minLength": 1,
+      "title": "Provider",
+      "type": "string"
+    },
+    "record_id": {
+      "maxLength": 500,
+      "minLength": 1,
+      "title": "Record Id",
+      "type": "string"
+    },
+    "uri": {
+      "default": "",
+      "maxLength": 8000,
+      "title": "Uri",
+      "type": "string"
+    },
+    "title": {
+      "default": "",
+      "maxLength": 10000,
+      "title": "Title",
+      "type": "string"
+    },
+    "content": {
+      "default": "",
+      "maxLength": 2000000,
+      "title": "Content",
+      "type": "string"
+    },
+    "published_at": {
+      "default": "",
+      "title": "Published At",
+      "type": "string"
+    },
+    "observed_at": {
+      "title": "Observed At",
+      "type": "string"
+    },
+    "language": {
+      "default": "",
+      "maxLength": 40,
+      "title": "Language",
+      "type": "string"
+    },
+    "country": {
+      "default": "",
+      "maxLength": 20,
+      "title": "Country",
+      "type": "string"
+    },
+    "metadata": {
+      "additionalProperties": true,
+      "title": "Metadata",
+      "type": "object"
+    },
+    "content_sha256": {
+      "default": "",
+      "title": "Content Sha256",
+      "type": "string"
+    }
+  },
+  "required": [
+    "provider",
+    "record_id"
+  ],
+  "title": "IntakeDocument",
+  "type": "object"
+}

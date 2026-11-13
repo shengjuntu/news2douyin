@@ -1,0 +1,1939 @@
+{
+  "kind": "synthetic-read-query-benchmark",
+  "fixture": "/workspace/scratch/c21619997ed8/fix024/bench-560000-cover-test.db",
+  "fixture_bytes": 9347739648,
+  "fixture_metadata": {
+    "kind": "synthetic-uncompressed-sqlite",
+    "rows": 560000,
+    "versions_per_article": 1,
+    "articles": 560000,
+    "events": 560000,
+    "minimum_version_payload_bytes": 4096,
+    "article_body_bytes": 4096,
+    "search_index": "not populated; only unfiltered dashboard routes are benchmarked",
+    "background_workers": false,
+    "external_network": false,
+    "limitations": "Not live data or the reported 27 GB production workload; OS cache is not reset.",
+    "fixture_id": "e1982aa2a5e68492186f",
+    "db": "/workspace/scratch/c21619997ed8/fix024/bench-560000-cover-test.db",
+    "counts": {
+      "article": 560000,
+      "articleversion": 560000,
+      "event": 560000,
+      "articleeventlink": 560000,
+      "radarentry": 560000,
+      "versionreading": 560000,
+      "textmention": 112000,
+      "gkgsource": 186667,
+      "graphmetric": 56000
+    },
+    "bytes": 9347739648,
+    "generation_ms": 191618.3739850003,
+    "articleversion_indexes": [
+      {
+        "name": "ix_articleversion_article_latest_id",
+        "columns": [
+          "article_key",
+          "id"
+        ]
+      },
+      {
+        "name": "ix_articleversion_content_hash",
+        "columns": [
+          "content_hash"
+        ]
+      },
+      {
+        "name": "ix_articleversion_article_key",
+        "columns": [
+          "article_key"
+        ]
+      },
+      {
+        "name": "sqlite_autoindex_articleversion_1",
+        "columns": [
+          "article_key",
+          "revision"
+        ]
+      }
+    ],
+    "maintenance_note": "QA snapshot with candidate covering indexes; both implementations use identical indexes for final staged request measurements.",
+    "query_indexes": {
+      "article": [
+        {
+          "name": "qa_article_provider_cover",
+          "columns": [
+            "article_key",
+            "provider"
+          ]
+        },
+        {
+          "name": "ix_article_dedup_group_id",
+          "columns": [
+            "dedup_group_id"
+          ]
+        },
+        {
+          "name": "ix_article_source_domain",
+          "columns": [
+            "source_domain"
+          ]
+        },
+        {
+          "name": "ix_article_title_signature",
+          "columns": [
+            "title_signature"
+          ]
+        },
+        {
+          "name": "ix_article_provider",
+          "columns": [
+            "provider"
+          ]
+        },
+        {
+          "name": "ix_article_country",
+          "columns": [
+            "country"
+          ]
+        },
+        {
+          "name": "ix_article_market_relevance_score",
+          "columns": [
+            "market_relevance_score"
+          ]
+        },
+        {
+          "name": "ix_article_content_hash",
+          "columns": [
+            "content_hash"
+          ]
+        },
+        {
+          "name": "ix_article_language",
+          "columns": [
+            "language"
+          ]
+        },
+        {
+          "name": "ix_article_canonical_url",
+          "columns": [
+            "canonical_url"
+          ]
+        },
+        {
+          "name": "ix_article_duplicate_of_article_key",
+          "columns": [
+            "duplicate_of_article_key"
+          ]
+        },
+        {
+          "name": "ix_article_title_hash",
+          "columns": [
+            "title_hash"
+          ]
+        },
+        {
+          "name": "ix_article_article_key",
+          "columns": [
+            "article_key"
+          ]
+        },
+        {
+          "name": "ix_article_published_at",
+          "columns": [
+            "published_at"
+          ]
+        },
+        {
+          "name": "ix_article_is_duplicate",
+          "columns": [
+            "is_duplicate"
+          ]
+        },
+        {
+          "name": "ix_article_content_signature",
+          "columns": [
+            "content_signature"
+          ]
+        },
+        {
+          "name": "ix_article_sentiment",
+          "columns": [
+            "sentiment"
+          ]
+        }
+      ],
+      "articleeventlink": [
+        {
+          "name": "qa_ael_event_article_cover",
+          "columns": [
+            "event_key",
+            "article_key"
+          ]
+        },
+        {
+          "name": "ix_articleeventlink_article_key",
+          "columns": [
+            "article_key"
+          ]
+        },
+        {
+          "name": "ix_articleeventlink_event_key",
+          "columns": [
+            "event_key"
+          ]
+        },
+        {
+          "name": "ix_articleeventlink_relation_type",
+          "columns": [
+            "relation_type"
+          ]
+        }
+      ],
+      "radarentry": [
+        {
+          "name": "qa_radar_key_seen_cover",
+          "columns": [
+            "key",
+            "seen",
+            "priority",
+            "band"
+          ]
+        },
+        {
+          "name": "ix_radarentry_priority",
+          "columns": [
+            "priority"
+          ]
+        },
+        {
+          "name": "ix_radarentry_seen",
+          "columns": [
+            "seen"
+          ]
+        },
+        {
+          "name": "ix_radarentry_band",
+          "columns": [
+            "band"
+          ]
+        },
+        {
+          "name": "sqlite_autoindex_radarentry_1",
+          "columns": [
+            "key"
+          ]
+        }
+      ],
+      "articleversion": [
+        {
+          "name": "ix_articleversion_article_latest_id",
+          "columns": [
+            "article_key",
+            "id"
+          ]
+        },
+        {
+          "name": "ix_articleversion_content_hash",
+          "columns": [
+            "content_hash"
+          ]
+        },
+        {
+          "name": "ix_articleversion_article_key",
+          "columns": [
+            "article_key"
+          ]
+        },
+        {
+          "name": "sqlite_autoindex_articleversion_1",
+          "columns": [
+            "article_key",
+            "revision"
+          ]
+        }
+      ]
+    }
+  },
+  "assumptions": "Fresh process and independent SQLite backup per source/route. Warm OS cache, no workers/network.",
+  "results": [
+    {
+      "source": "/workspace/scratch/c21619997ed8/fix024/source",
+      "path": "/api/radar/facets?period=auto",
+      "runs": [
+        {
+          "repetition": 0,
+          "status_code": 200,
+          "response_headers": {
+            "content-type": "application/json",
+            "cache-control": "no-store"
+          },
+          "wall_ms": 7173.02179899707,
+          "sql_count": 2,
+          "sql_execute_ms": 7111.5531219984405,
+          "peak_rss_mb": 126.09375,
+          "response_bytes": 669,
+          "count_queries": 1,
+          "version_group_by_queries": 0,
+          "wide_column_queries": 0,
+          "unbounded_entity_loads": 0,
+          "repeated_sql": [],
+          "statements": [
+            {
+              "sql": "SELECT 1 FROM sqlite_master WHERE name='article_fts'",
+              "parameters": [],
+              "execute_ms": 0.23827000040910207,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "WITH radar_base AS MATERIALIZED \n(SELECT radarentry.\"key\" AS \"key\", radarentry.seen AS seen, CASE WHEN (graphmetric.event IS NOT NULL) THEN ? ELSE ? END AS analyzed \nFROM radarentry LEFT OUTER JOIN graphmetric ON graphmetric.event = radarentry.\"key\" \nWHERE radarentry.\"key\" IN (SELECT event.event_key \nFROM event \nWHERE (event.event_key NOT IN (SELECT eventstate.event_key \nFROM eventstate \nWHERE eventstate.merged_into IS NOT NULL)))), \nradar_articles AS \n(SELECT DISTINCT articleeventlink.article_key AS article_key \nFROM articleeventlink \nWHERE articleeventlink.event_key IN (SELECT radar_base.\"key\" \nFROM radar_base)), \nradar_observed AS \n(SELECT DISTINCT collectedobservation.article_key AS article_key, collectedobservation.scope_id AS scope_id \nFROM collectedobservation \nWHERE collectedobservation.article_key IN (SELECT radar_articles.article_key \nFROM radar_articles)), \nradar_recorded_paths AS \n(SELECT taskrecord.task_id AS scope_id, CASE WHEN (json_extract(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) IN (?, ?, ?, ?)) THEN json_extract(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) ELSE ? END AS provider \nFROM taskrecord \nWHERE taskrecord.task_id IN (SELECT radar_observed.scope_id \nFROM radar_observed) AND (json_type(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) = 'text') = 1 AND (json_extract(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) NOT IN (?, ?)) UNION ALL SELECT runrecord.run_key AS scope_id, CASE WHEN (json_extract(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) IN (?, ?, ?, ?)) THEN json_extract(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) ELSE ? END AS provider \nFROM runrecord \nWHERE runrecord.run_key IN (SELECT radar_observed.scope_id \nFROM radar_observed) AND (json_type(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) = 'text') = 1 AND (json_extract(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) NOT IN (?, ?))), \nradar_observation_flags AS \n(SELECT radar_observed.article_key AS article_key, count(*) AS valid, max(CASE WHEN (radar_recorded_paths.provider = ?) THEN ? ELSE ? END) AS gkg, max(CASE WHEN (radar_recorded_paths.provider = ?) THEN ? ELSE ? END) AS gdelt, max(CASE WHEN (radar_recorded_paths.provider = ?) THEN ? ELSE ? END) AS worldnewsapi, max(CASE WHEN (radar_recorded_paths.provider = ?) THEN ? ELSE ? END) AS mock, max(CASE WHEN (radar_recorded_paths.provider = ?) THEN ? ELSE ? END) AS other \nFROM radar_observed JOIN radar_recorded_paths ON radar_recorded_paths.scope_id = radar_observed.scope_id GROUP BY radar_observed.article_key), \nradar_provider_flags AS \n(SELECT articleeventlink.event_key AS event_key, max(CASE WHEN (article.provider = ? OR coalesce(radar_observation_flags.gkg, ?) = ? OR gkgsource.article_key IS NOT NULL) THEN ? ELSE ? END) AS p_gkg, max(CASE WHEN (article.provider = ? OR coalesce(radar_observation_flags.gdelt, ?) = ? OR gdeltdiscovery.article_key IS NOT NULL AND gkgsource.article_key IS NULL) THEN ? ELSE ? END) AS p_gdelt, max(CASE WHEN (article.provider = ? OR coalesce(radar_observation_flags.worldnewsapi, ?) = ?) THEN ? ELSE ? END) AS p_worldnewsapi, max(CASE WHEN (article.provider = ? OR coalesce(radar_observation_flags.mock, ?) = ?) THEN ? ELSE ? END) AS p_mock, max(CASE WHEN ((article.provider NOT IN (?, ?, ?, ?, ?, ?)) OR coalesce(radar_observation_flags.other, ?) = ?) THEN ? ELSE ? END) AS p_other, max(CASE WHEN ((article.provider IS NULL OR article.provider IN (?, ?)) AND gkgsource.article_key IS NULL AND gdeltdiscovery.article_key IS NULL AND coalesce(radar_observation_flags.valid, ?) = ?) THEN ? ELSE ? END) AS p_unknown \nFROM articleeventlink JOIN article ON article.article_key = articleeventlink.article_key LEFT OUTER JOIN gkgsource ON gkgsource.article_key = article.article_key LEFT OUTER JOIN gdeltdiscovery ON gdeltdiscovery.article_key = article.article_key LEFT OUTER JOIN radar_observation_flags ON radar_observation_flags.article_key = article.article_key \nWHERE articleeventlink.event_key IN (SELECT radar_base.\"key\" \nFROM radar_base) GROUP BY articleeventlink.event_key), \nradar_latest AS \n(SELECT radar_articles.article_key AS article_key, (SELECT articleversion.id \nFROM articleversion \nWHERE articleversion.article_key = radar_articles.article_key ORDER BY articleversion.id DESC\n LIMIT ? OFFSET ?) AS version_id \nFROM radar_articles), \nradar_channel_flags AS \n(SELECT articleeventlink.event_key AS event_key, max(CASE WHEN (json_extract(CASE WHEN json_valid(textmention.data) THEN textmention.data ELSE '{}' END, '$.' || ?) IN (?, ?, ?)) THEN ? ELSE ? END) AS c_diplomacy, max(CASE WHEN (json_extract(CASE WHEN json_valid(textmention.data) THEN textmention.data ELSE '{}' END, '$.' || ?) IN (?)) THEN ? ELSE ? END) AS c_conflict \nFROM articleeventlink JOIN radar_latest ON radar_latest.article_key = articleeventlink.article_key JOIN textmention ON textmention.version_id = radar_latest.version_id AND textmention.article = radar_latest.article_key LEFT OUTER JOIN mentionreview ON mentionreview.id = textmention.id \nWHERE articleeventlink.event_key IN (SELECT radar_base.\"key\" \nFROM radar_base) AND (mentionreview.id IS NULL OR mentionreview.decision != ?) GROUP BY articleeventlink.event_key), \nradar_facts AS MATERIALIZED \n(SELECT radar_base.\"key\" AS \"key\", radar_base.seen AS seen, radar_base.analyzed AS analyzed, coalesce(radar_provider_flags.p_gkg, ?) AS p_gkg, coalesce(radar_provider_flags.p_gdelt, ?) AS p_gdelt, coalesce(radar_provider_flags.p_worldnewsapi, ?) AS p_worldnewsapi, coalesce(radar_provider_flags.p_mock, ?) AS p_mock, coalesce(radar_provider_flags.p_other, ?) AS p_other, coalesce(radar_provider_flags.p_unknown, ?) AS p_unknown, coalesce(radar_channel_flags.c_diplomacy, ?) AS c_diplomacy, coalesce(radar_channel_flags.c_conflict, ?) AS c_conflict \nFROM radar_base LEFT OUTER JOIN radar_provider_flags ON radar_provider_flags.event_key = radar_base.\"key\" LEFT OUTER JOIN radar_channel_flags ON radar_channel_flags.event_key = radar_base.\"key\"), \nradar_totals AS \n(SELECT coalesce(sum(CASE WHEN ? THEN ? ELSE ? END), ?) AS main_all, coalesce(sum(CASE WHEN (? = 1 AND radar_facts.seen >= ?) THEN ? ELSE ? END), ?) AS main_recent, coalesce(sum(CASE WHEN ? THEN ? ELSE ? END), ?) AS c_all_all, coalesce(sum(CASE WHEN (? = 1 AND radar_facts.seen >= ?) THEN ? ELSE ? END), ?) AS c_all_recent, coalesce(sum(CASE WHEN (radar_facts.c_diplomacy = ?) THEN ? ELSE ? END), ?) AS c_diplomacy_all, coalesce(sum(CASE WHEN (radar_facts.c_diplomacy = ? AND radar_facts.seen >= ?) THEN ? ELSE ? END), ?) AS c_diplomacy_recent, coalesce(sum(CASE WHEN (radar_facts.c_conflict = ?) THEN ? ELSE ? END), ?) AS c_conflict_all, coalesce(sum(CASE WHEN (radar_facts.c_conflict = ? AND radar_facts.seen >= ?) THEN ? ELSE ? END), ?) AS c_conflict_recent, coalesce(sum(CASE WHEN ? THEN ? ELSE ? END), ?) AS p_all_all, coalesce(sum(CASE WHEN (? = 1 AND radar_facts.seen >= ?) THEN ? ELSE ? END), ?) AS p_all_recent, coalesce(sum(CASE WHEN (radar_facts.p_gkg = ?) THEN ? ELSE ? END), ?) AS p_gkg_all, coalesce(sum(CASE WHEN (radar_facts.p_gkg = ? AND radar_facts.seen >= ?) THEN ? ELSE ? END), ?) AS p_gkg_recent, coalesce(sum(CASE WHEN (radar_facts.p_gdelt = ?) THEN ? ELSE ? END), ?) AS p_gdelt_all, coalesce(sum(CASE WHEN (radar_facts.p_gdelt = ? AND radar_facts.seen >= ?) THEN ? ELSE ? END), ?) AS p_gdelt_recent, coalesce(sum(CASE WHEN (radar_facts.p_worldnewsapi = ?) THEN ? ELSE ? END), ?) AS p_worldnewsapi_all, coalesce(sum(CASE WHEN (radar_facts.p_worldnewsapi = ? AND radar_facts.seen >= ?) THEN ? ELSE ? END), ?) AS p_worldnewsapi_recent, coalesce(sum(CASE WHEN (radar_facts.p_mock = ?) THEN ? ELSE ? END), ?) AS p_mock_all, coalesce(sum(CASE WHEN (radar_facts.p_mock = ? AND radar_facts.seen >= ?) THEN ? ELSE ? END), ?) AS p_mock_recent, coalesce(sum(CASE WHEN (radar_facts.p_other = ?) THEN ? ELSE ? END), ?) AS p_other_all, coalesce(sum(CASE WHEN (radar_facts.p_other = ? AND radar_facts.seen >= ?) THEN ? ELSE ? END), ?) AS p_other_recent, coalesce(sum(CASE WHEN (radar_facts.p_unknown = ?) THEN ? ELSE ? END), ?) AS p_unknown_all, coalesce(sum(CASE WHEN (radar_facts.p_unknown = ? AND radar_facts.seen >= ?) THEN ? ELSE ? END), ?) AS p_unknown_recent, coalesce(sum(CASE WHEN ? THEN radar_facts.analyzed ELSE ? END), ?) AS analyzed_all, coalesce(sum(CASE WHEN (? = 1 AND radar_facts.seen >= ?) THEN radar_facts.analyzed ELSE ? END), ?) AS analyzed_recent \nFROM radar_facts)\n SELECT radar_totals.main_all, radar_totals.main_recent, radar_totals.c_all_all, radar_totals.c_all_recent, radar_totals.c_diplomacy_all, radar_totals.c_diplomacy_recent, radar_totals.c_conflict_all, radar_totals.c_conflict_recent, radar_totals.p_all_all, radar_totals.p_all_recent, radar_totals.p_gkg_all, radar_totals.p_gkg_recent, radar_totals.p_gdelt_all, radar_totals.p_gdelt_recent, radar_totals.p_worldnewsapi_all, radar_totals.p_worldnewsapi_recent, radar_totals.p_mock_all, radar_totals.p_mock_recent, radar_totals.p_other_all, radar_totals.p_other_recent, radar_totals.p_unknown_all, radar_totals.p_unknown_recent, radar_totals.analyzed_all, radar_totals.analyzed_recent, (SELECT count(distinct(articleeventlink.article_key)) AS count_1 \nFROM articleeventlink \nWHERE articleeventlink.event_key IN (SELECT radar_facts.\"key\" \nFROM radar_facts JOIN radar_totals ON ? = 1 \nWHERE ? = 1 AND (radar_totals.main_recent = ? OR radar_facts.seen >= ?))) AS source_count \nFROM radar_totals",
+              "parameters": [
+                1,
+                0,
+                "provider",
+                "gkg",
+                "gdelt",
+                "worldnewsapi",
+                "mock",
+                "provider",
+                "other",
+                "provider",
+                "provider",
+                "",
+                "unknown",
+                "provider",
+                "gkg",
+                "gdelt",
+                "worldnewsapi",
+                "mock",
+                "provider",
+                "other",
+                "provider",
+                "provider",
+                "",
+                "unknown",
+                "gkg",
+                1,
+                0,
+                "gdelt",
+                1,
+                0,
+                "worldnewsapi",
+                1,
+                0,
+                "mock",
+                1,
+                0,
+                "other",
+                1,
+                0,
+                "gkg",
+                0,
+                1,
+                1,
+                0,
+                "gdelt",
+                0,
+                1,
+                1,
+                0,
+                "worldnewsapi",
+                0,
+                1,
+                1,
+                0,
+                "mock",
+                0,
+                1,
+                1,
+                0,
+                "",
+                "unknown",
+                "gkg",
+                "gdelt",
+                "worldnewsapi",
+                "mock",
+                0,
+                1,
+                1,
+                0,
+                "",
+                "unknown",
+                0,
+                0,
+                1,
+                0,
+                1,
+                0,
+                "kind",
+                "meeting",
+                "visit",
+                "signing",
+                1,
+                0,
+                "kind",
+                "attack",
+                1,
+                0,
+                "rejected",
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                1,
+                1,
+                0,
+                0,
+                1,
+                "2026-11-05T12:53:30Z",
+                1,
+                0,
+                0,
+                1,
+                1,
+                0,
+                0,
+                1,
+                "2026-11-05T12:53:30Z",
+                1,
+                0,
+                0,
+                1,
+                1,
+                0,
+                0,
+                1,
+                "2026-11-05T12:53:30Z",
+                1,
+                0,
+                0,
+                1,
+                1,
+                0,
+                0,
+                1,
+                "2026-11-05T12:53:30Z",
+                1,
+                0,
+                0,
+                1,
+                1,
+                0,
+                0,
+                1,
+                "2026-11-05T12:53:30Z",
+                1,
+                0,
+                0,
+                1,
+                1,
+                0,
+                0,
+                1,
+                "2026-11-05T12:53:30Z",
+                1,
+                0,
+                0,
+                1,
+                1,
+                0,
+                0,
+                1,
+                "2026-11-05T12:53:30Z",
+                1,
+                0,
+                0,
+                1,
+                1,
+                0,
+                0,
+                1,
+                "2026-11-05T12:53:30Z",
+                1,
+                0,
+                0,
+                1,
+                1,
+                0,
+                0,
+                1,
+                "2026-11-05T12:53:30Z",
+                1,
+                0,
+                0,
+                1,
+                1,
+                0,
+                0,
+                1,
+                "2026-11-05T12:53:30Z",
+                1,
+                0,
+                0,
+                1,
+                1,
+                0,
+                0,
+                1,
+                "2026-11-05T12:53:30Z",
+                1,
+                0,
+                0,
+                1,
+                0,
+                0,
+                1,
+                "2026-11-05T12:53:30Z",
+                0,
+                0,
+                1,
+                1,
+                0,
+                "2026-11-05T12:53:30Z"
+              ],
+              "execute_ms": 7111.314851998031,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": true
+            }
+          ],
+          "response_json": {
+            "total": 560000,
+            "historical": true,
+            "radar_stats": {
+              "total": 560000,
+              "analyzed": 56000,
+              "source_count": 560000
+            },
+            "channels": [
+              {
+                "id": "all",
+                "label": "综合动态",
+                "count": 560000
+              },
+              {
+                "id": "diplomacy",
+                "label": "外交活动",
+                "count": 56000
+              },
+              {
+                "id": "conflict",
+                "label": "军事冲突线索",
+                "count": 56000
+              }
+            ],
+            "providers": [
+              {
+                "id": "all",
+                "label": "全部采集源",
+                "count": 560000
+              },
+              {
+                "id": "gkg",
+                "label": "GDELT GKG",
+                "count": 186667
+              },
+              {
+                "id": "gdelt",
+                "label": "GDELT DOC",
+                "count": 93334
+              },
+              {
+                "id": "worldnewsapi",
+                "label": "WorldNewsAPI",
+                "count": 93333
+              },
+              {
+                "id": "mock",
+                "label": "演示数据",
+                "count": 93333
+              },
+              {
+                "id": "other",
+                "label": "其他采集源",
+                "count": 93333
+              },
+              {
+                "id": "unknown",
+                "label": "来源待核",
+                "count": 93333
+              }
+            ]
+          }
+        }
+      ],
+      "worker_pid": 6,
+      "memory_limit_mb": 3000,
+      "source_fingerprint": "27b70a28bf9572691f7f0b5053d54a9a4973194b93080dd3189c9c0812425ecf",
+      "warnings": [
+        "Driver execution time excludes result fetching and ORM materialization.",
+        "Process RSS includes application startup; no OS cache flush is performed."
+      ],
+      "startup_ms": 1149.392405000981,
+      "explain": [
+        {
+          "sql": "SELECT 1 FROM sqlite_master WHERE name='article_fts'",
+          "plan": [
+            [
+              2,
+              0,
+              216,
+              "SCAN sqlite_master"
+            ]
+          ]
+        },
+        {
+          "sql": "WITH radar_base AS MATERIALIZED \n(SELECT radarentry.\"key\" AS \"key\", radarentry.seen AS seen, CASE WHEN (graphmetric.event IS NOT NULL) THEN ? ELSE ? END AS analyzed \nFROM radarentry LEFT OUTER JOIN graphmetric ON graphmetric.event = radarentry.\"key\" \nWHERE radarentry.\"key\" IN (SELECT event.event_key \nFROM event \nWHERE (event.event_key NOT IN (SELECT eventstate.event_key \nFROM eventstate \nWHERE eventstate.merged_into IS NOT NULL)))), \nradar_articles AS \n(SELECT DISTINCT articleeventlink.article_key AS article_key \nFROM articleeventlink \nWHERE articleeventlink.event_key IN (SELECT radar_base.\"key\" \nFROM radar_base)), \nradar_observed AS \n(SELECT DISTINCT collectedobservation.article_key AS article_key, collectedobservation.scope_id AS scope_id \nFROM collectedobservation \nWHERE collectedobservation.article_key IN (SELECT radar_articles.article_key \nFROM radar_articles)), \nradar_recorded_paths AS \n(SELECT taskrecord.task_id AS scope_id, CASE WHEN (json_extract(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) IN (?, ?, ?, ?)) THEN json_extract(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) ELSE ? END AS provider \nFROM taskrecord \nWHERE taskrecord.task_id IN (SELECT radar_observed.scope_id \nFROM radar_observed) AND (json_type(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) = 'text') = 1 AND (json_extract(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) NOT IN (?, ?)) UNION ALL SELECT runrecord.run_key AS scope_id, CASE WHEN (json_extract(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) IN (?, ?, ?, ?)) THEN json_extract(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) ELSE ? END AS provider \nFROM runrecord \nWHERE runrecord.run_key IN (SELECT radar_observed.scope_id \nFROM radar_observed) AND (json_type(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) = 'text') = 1 AND (json_extract(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) NOT IN (?, ?))), \nradar_observation_flags AS \n(SELECT radar_observed.article_key AS article_key, count(*) AS valid, max(CASE WHEN (radar_recorded_paths.provider = ?) THEN ? ELSE ? END) AS gkg, max(CASE WHEN (radar_recorded_paths.provider = ?) THEN ? ELSE ? END) AS gdelt, max(CASE WHEN (radar_recorded_paths.provider = ?) THEN ? ELSE ? END) AS worldnewsapi, max(CASE WHEN (radar_recorded_paths.provider = ?) THEN ? ELSE ? END) AS mock, max(CASE WHEN (radar_recorded_paths.provider = ?) THEN ? ELSE ? END) AS other \nFROM radar_observed JOIN radar_recorded_paths ON radar_recorded_paths.scope_id = radar_observed.scope_id GROUP BY radar_observed.article_key), \nradar_provider_flags AS \n(SELECT articleeventlink.event_key AS event_key, max(CASE WHEN (article.provider = ? OR coalesce(radar_observation_flags.gkg, ?) = ? OR gkgsource.article_key IS NOT NULL) THEN ? ELSE ? END) AS p_gkg, max(CASE WHEN (article.provider = ? OR coalesce(radar_observation_flags.gdelt, ?) = ? OR gdeltdiscovery.article_key IS NOT NULL AND gkgsource.article_key IS NULL) THEN ? ELSE ? END) AS p_gdelt, max(CASE WHEN (article.provider = ? OR coalesce(radar_observation_flags.worldnewsapi, ?) = ?) THEN ? ELSE ? END) AS p_worldnewsapi, max(CASE WHEN (article.provider = ? OR coalesce(radar_observation_flags.mock, ?) = ?) THEN ? ELSE ? END) AS p_mock, max(CASE WHEN ((article.provider NOT IN (?, ?, ?, ?, ?, ?)) OR coalesce(radar_observation_flags.other, ?) = ?) THEN ? ELSE ? END) AS p_other, max(CASE WHEN ((article.provider IS NULL OR article.provider IN (?, ?)) AND gkgsource.article_key IS NULL AND gdeltdiscovery.article_key IS NULL AND coalesce(radar_observation_flags.valid, ?) = ?) THEN ? ELSE ? END) AS p_unknown \nFROM articleeventlink JOIN article ON article.article_key = articleeventlink.article_key LEFT OUTER JOIN gkgsource ON gkgsource.article_key = article.article_key LEFT OUTER JOIN gdeltdiscovery ON gdeltdiscovery.article_key = article.article_key LEFT OUTER JOIN radar_observation_flags ON radar_observation_flags.article_key = article.article_key \nWHERE articleeventlink.event_key IN (SELECT radar_base.\"key\" \nFROM radar_base) GROUP BY articleeventlink.event_key), \nradar_latest AS \n(SELECT radar_articles.article_key AS article_key, (SELECT articleversion.id \nFROM articleversion \nWHERE articleversion.article_key = radar_articles.article_key ORDER BY articleversion.id DESC\n LIMIT ? OFFSET ?) AS version_id \nFROM radar_articles), \nradar_channel_flags AS \n(SELECT articleeventlink.event_key AS event_key, max(CASE WHEN (json_extract(CASE WHEN json_valid(textmention.data) THEN textmention.data ELSE '{}' END, '$.' || ?) IN (?, ?, ?)) THEN ? ELSE ? END) AS c_diplomacy, max(CASE WHEN (json_extract(CASE WHEN json_valid(textmention.data) THEN textmention.data ELSE '{}' END, '$.' || ?) IN (?)) THEN ? ELSE ? END) AS c_conflict \nFROM articleeventlink JOIN radar_latest ON radar_latest.article_key = articleeventlink.article_key JOIN textmention ON textmention.version_id = radar_latest.version_id AND textmention.article = radar_latest.article_key LEFT OUTER JOIN mentionreview ON mentionreview.id = textmention.id \nWHERE articleeventlink.event_key IN (SELECT radar_base.\"key\" \nFROM radar_base) AND (mentionreview.id IS NULL OR mentionreview.decision != ?) GROUP BY articleeventlink.event_key), \nradar_facts AS MATERIALIZED \n(SELECT radar_base.\"key\" AS \"key\", radar_base.seen AS seen, radar_base.analyzed AS analyzed, coalesce(radar_provider_flags.p_gkg, ?) AS p_gkg, coalesce(radar_provider_flags.p_gdelt, ?) AS p_gdelt, coalesce(radar_provider_flags.p_worldnewsapi, ?) AS p_worldnewsapi, coalesce(radar_provider_flags.p_mock, ?) AS p_mock, coalesce(radar_provider_flags.p_other, ?) AS p_other, coalesce(radar_provider_flags.p_unknown, ?) AS p_unknown, coalesce(radar_channel_flags.c_diplomacy, ?) AS c_diplomacy, coalesce(radar_channel_flags.c_conflict, ?) AS c_conflict \nFROM radar_base LEFT OUTER JOIN radar_provider_flags ON radar_provider_flags.event_key = radar_base.\"key\" LEFT OUTER JOIN radar_channel_flags ON radar_channel_flags.event_key = radar_base.\"key\"), \nradar_totals AS \n(SELECT coalesce(sum(CASE WHEN ? THEN ? ELSE ? END), ?) AS main_all, coalesce(sum(CASE WHEN (? = 1 AND radar_facts.seen >= ?) THEN ? ELSE ? END), ?) AS main_recent, coalesce(sum(CASE WHEN ? THEN ? ELSE ? END), ?) AS c_all_all, coalesce(sum(CASE WHEN (? = 1 AND radar_facts.seen >= ?) THEN ? ELSE ? END), ?) AS c_all_recent, coalesce(sum(CASE WHEN (radar_facts.c_diplomacy = ?) THEN ? ELSE ? END), ?) AS c_diplomacy_all, coalesce(sum(CASE WHEN (radar_facts.c_diplomacy = ? AND radar_facts.seen >= ?) THEN ? ELSE ? END), ?) AS c_diplomacy_recent, coalesce(sum(CASE WHEN (radar_facts.c_conflict = ?) THEN ? ELSE ? END), ?) AS c_conflict_all, coalesce(sum(CASE WHEN (radar_facts.c_conflict = ? AND radar_facts.seen >= ?) THEN ? ELSE ? END), ?) AS c_conflict_recent, coalesce(sum(CASE WHEN ? THEN ? ELSE ? END), ?) AS p_all_all, coalesce(sum(CASE WHEN (? = 1 AND radar_facts.seen >= ?) THEN ? ELSE ? END), ?) AS p_all_recent, coalesce(sum(CASE WHEN (radar_facts.p_gkg = ?) THEN ? ELSE ? END), ?) AS p_gkg_all, coalesce(sum(CASE WHEN (radar_facts.p_gkg = ? AND radar_facts.seen >= ?) THEN ? ELSE ? END), ?) AS p_gkg_recent, coalesce(sum(CASE WHEN (radar_facts.p_gdelt = ?) THEN ? ELSE ? END), ?) AS p_gdelt_all, coalesce(sum(CASE WHEN (radar_facts.p_gdelt = ? AND radar_facts.seen >= ?) THEN ? ELSE ? END), ?) AS p_gdelt_recent, coalesce(sum(CASE WHEN (radar_facts.p_worldnewsapi = ?) THEN ? ELSE ? END), ?) AS p_worldnewsapi_all, coalesce(sum(CASE WHEN (radar_facts.p_worldnewsapi = ? AND radar_facts.seen >= ?) THEN ? ELSE ? END), ?) AS p_worldnewsapi_recent, coalesce(sum(CASE WHEN (radar_facts.p_mock = ?) THEN ? ELSE ? END), ?) AS p_mock_all, coalesce(sum(CASE WHEN (radar_facts.p_mock = ? AND radar_facts.seen >= ?) THEN ? ELSE ? END), ?) AS p_mock_recent, coalesce(sum(CASE WHEN (radar_facts.p_other = ?) THEN ? ELSE ? END), ?) AS p_other_all, coalesce(sum(CASE WHEN (radar_facts.p_other = ? AND radar_facts.seen >= ?) THEN ? ELSE ? END), ?) AS p_other_recent, coalesce(sum(CASE WHEN (radar_facts.p_unknown = ?) THEN ? ELSE ? END), ?) AS p_unknown_all, coalesce(sum(CASE WHEN (radar_facts.p_unknown = ? AND radar_facts.seen >= ?) THEN ? ELSE ? END), ?) AS p_unknown_recent, coalesce(sum(CASE WHEN ? THEN radar_facts.analyzed ELSE ? END), ?) AS analyzed_all, coalesce(sum(CASE WHEN (? = 1 AND radar_facts.seen >= ?) THEN radar_facts.analyzed ELSE ? END), ?) AS analyzed_recent \nFROM radar_facts)\n SELECT radar_totals.main_all, radar_totals.main_recent, radar_totals.c_all_all, radar_totals.c_all_recent, radar_totals.c_diplomacy_all, radar_totals.c_diplomacy_recent, radar_totals.c_conflict_all, radar_totals.c_conflict_recent, radar_totals.p_all_all, radar_totals.p_all_recent, radar_totals.p_gkg_all, radar_totals.p_gkg_recent, radar_totals.p_gdelt_all, radar_totals.p_gdelt_recent, radar_totals.p_worldnewsapi_all, radar_totals.p_worldnewsapi_recent, radar_totals.p_mock_all, radar_totals.p_mock_recent, radar_totals.p_other_all, radar_totals.p_other_recent, radar_totals.p_unknown_all, radar_totals.p_unknown_recent, radar_totals.analyzed_all, radar_totals.analyzed_recent, (SELECT count(distinct(articleeventlink.article_key)) AS count_1 \nFROM articleeventlink \nWHERE articleeventlink.event_key IN (SELECT radar_facts.\"key\" \nFROM radar_facts JOIN radar_totals ON ? = 1 \nWHERE ? = 1 AND (radar_totals.main_recent = ? OR radar_facts.seen >= ?))) AS source_count \nFROM radar_totals",
+          "plan": [
+            [
+              3,
+              0,
+              0,
+              "MATERIALIZE radar_totals"
+            ],
+            [
+              6,
+              3,
+              0,
+              "MATERIALIZE radar_facts"
+            ],
+            [
+              9,
+              6,
+              0,
+              "MATERIALIZE radar_base"
+            ],
+            [
+              13,
+              9,
+              90,
+              "SEARCH radarentry USING COVERING INDEX qa_radar_key_seen_cover (key=?)"
+            ],
+            [
+              17,
+              9,
+              0,
+              "LIST SUBQUERY 2"
+            ],
+            [
+              19,
+              17,
+              198,
+              "SCAN event USING COVERING INDEX ix_event_event_key"
+            ],
+            [
+              24,
+              17,
+              0,
+              "LIST SUBQUERY 1"
+            ],
+            [
+              27,
+              24,
+              216,
+              "SCAN eventstate"
+            ],
+            [
+              35,
+              24,
+              0,
+              "CREATE BLOOM FILTER"
+            ],
+            [
+              58,
+              9,
+              41,
+              "SEARCH graphmetric USING COVERING INDEX sqlite_autoindex_graphmetric_1 (event=?) LEFT-JOIN"
+            ],
+            [
+              82,
+              6,
+              0,
+              "MATERIALIZE radar_provider_flags"
+            ],
+            [
+              85,
+              82,
+              0,
+              "MATERIALIZE radar_observation_flags"
+            ],
+            [
+              88,
+              85,
+              0,
+              "MATERIALIZE radar_observed"
+            ],
+            [
+              93,
+              88,
+              107,
+              "SEARCH collectedobservation USING INDEX ix_collectedobservation_article_key (article_key=?)"
+            ],
+            [
+              97,
+              88,
+              0,
+              "LIST SUBQUERY 6"
+            ],
+            [
+              100,
+              97,
+              0,
+              "MATERIALIZE radar_articles"
+            ],
+            [
+              104,
+              100,
+              90,
+              "SEARCH articleeventlink USING COVERING INDEX qa_ael_event_article_cover (event_key=?)"
+            ],
+            [
+              108,
+              100,
+              0,
+              "LIST SUBQUERY 4"
+            ],
+            [
+              111,
+              108,
+              216,
+              "SCAN radar_base"
+            ],
+            [
+              133,
+              100,
+              0,
+              "USE TEMP B-TREE FOR DISTINCT"
+            ],
+            [
+              137,
+              97,
+              32,
+              "SCAN radar_articles"
+            ],
+            [
+              161,
+              88,
+              0,
+              "USE TEMP B-TREE FOR DISTINCT"
+            ],
+            [
+              165,
+              85,
+              0,
+              "MATERIALIZE radar_recorded_paths"
+            ],
+            [
+              167,
+              165,
+              0,
+              "COMPOUND QUERY"
+            ],
+            [
+              168,
+              167,
+              0,
+              "LEFT-MOST SUBQUERY"
+            ],
+            [
+              171,
+              168,
+              92,
+              "SEARCH taskrecord USING INDEX sqlite_autoindex_taskrecord_1 (task_id=?)"
+            ],
+            [
+              175,
+              168,
+              0,
+              "LIST SUBQUERY 8"
+            ],
+            [
+              178,
+              175,
+              216,
+              "SCAN radar_observed"
+            ],
+            [
+              265,
+              167,
+              0,
+              "UNION ALL"
+            ],
+            [
+              268,
+              265,
+              92,
+              "SEARCH runrecord USING INDEX ix_runrecord_run_key (run_key=?)"
+            ],
+            [
+              272,
+              265,
+              0,
+              "LIST SUBQUERY 10"
+            ],
+            [
+              275,
+              272,
+              216,
+              "SCAN radar_observed"
+            ],
+            [
+              370,
+              85,
+              65,
+              "SCAN radar_observed"
+            ],
+            [
+              383,
+              85,
+              46,
+              "SEARCH radar_recorded_paths USING AUTOMATIC COVERING INDEX (scope_id=?)"
+            ],
+            [
+              388,
+              85,
+              0,
+              "USE TEMP B-TREE FOR GROUP BY"
+            ],
+            [
+              481,
+              82,
+              90,
+              "SEARCH articleeventlink USING COVERING INDEX qa_ael_event_article_cover (event_key=?)"
+            ],
+            [
+              485,
+              82,
+              0,
+              "LIST SUBQUERY 13"
+            ],
+            [
+              488,
+              485,
+              216,
+              "SCAN radar_base"
+            ],
+            [
+              501,
+              82,
+              43,
+              "SEARCH article USING COVERING INDEX qa_article_provider_cover (article_key=?)"
+            ],
+            [
+              505,
+              82,
+              42,
+              "SEARCH gkgsource USING COVERING INDEX sqlite_autoindex_gkgsource_1 (article_key=?) LEFT-JOIN"
+            ],
+            [
+              511,
+              82,
+              44,
+              "SEARCH gdeltdiscovery USING COVERING INDEX sqlite_autoindex_gdeltdiscovery_1 (article_key=?) LEFT-JOIN"
+            ],
+            [
+              533,
+              82,
+              47,
+              "SEARCH radar_observation_flags USING AUTOMATIC COVERING INDEX (article_key=?) LEFT-JOIN"
+            ],
+            [
+              703,
+              6,
+              0,
+              "MATERIALIZE radar_channel_flags"
+            ],
+            [
+              717,
+              703,
+              90,
+              "SEARCH articleeventlink USING COVERING INDEX qa_ael_event_article_cover (event_key=?)"
+            ],
+            [
+              721,
+              703,
+              0,
+              "LIST SUBQUERY 17"
+            ],
+            [
+              724,
+              721,
+              216,
+              "SCAN radar_base"
+            ],
+            [
+              745,
+              703,
+              53,
+              "SEARCH radar_articles USING AUTOMATIC COVERING INDEX (article_key=?)"
+            ],
+            [
+              749,
+              703,
+              44,
+              "SEARCH textmention USING INDEX ix_textmention_article (article=?)"
+            ],
+            [
+              760,
+              703,
+              0,
+              "CORRELATED SCALAR SUBQUERY 15"
+            ],
+            [
+              772,
+              760,
+              43,
+              "SEARCH articleversion USING COVERING INDEX ix_articleversion_article_key (article_key=?)"
+            ],
+            [
+              783,
+              703,
+              47,
+              "SEARCH mentionreview USING INDEX sqlite_autoindex_mentionreview_1 (id=?) LEFT-JOIN"
+            ],
+            [
+              879,
+              6,
+              62,
+              "SCAN radar_base"
+            ],
+            [
+              897,
+              6,
+              47,
+              "SEARCH radar_provider_flags USING AUTOMATIC COVERING INDEX (event_key=?) LEFT-JOIN"
+            ],
+            [
+              916,
+              6,
+              47,
+              "SEARCH radar_channel_flags USING AUTOMATIC COVERING INDEX (event_key=?) LEFT-JOIN"
+            ],
+            [
+              967,
+              3,
+              148,
+              "SCAN radar_facts"
+            ],
+            [
+              1232,
+              0,
+              16,
+              "SCAN radar_totals"
+            ],
+            [
+              1260,
+              0,
+              0,
+              "SCALAR SUBQUERY 22"
+            ],
+            [
+              1265,
+              1260,
+              0,
+              "USE TEMP B-TREE FOR count(DISTINCT)"
+            ],
+            [
+              1267,
+              1260,
+              90,
+              "SEARCH articleeventlink USING COVERING INDEX qa_ael_event_article_cover (event_key=?)"
+            ],
+            [
+              1271,
+              1260,
+              0,
+              "LIST SUBQUERY 21"
+            ],
+            [
+              1278,
+              1271,
+              216,
+              "SCAN radar_facts"
+            ],
+            [
+              1280,
+              1271,
+              216,
+              "SCAN radar_totals"
+            ]
+          ]
+        }
+      ],
+      "median": {
+        "wall_ms": 7173.02179899707,
+        "sql_count": 2,
+        "sql_execute_ms": 7111.5531219984405,
+        "count_queries": 1,
+        "version_group_by_queries": 0,
+        "wide_column_queries": 0,
+        "unbounded_entity_loads": 0
+      },
+      "worker_returncode": 0,
+      "worker_stderr": "/workspace/scratch/c21619997ed8/fix023/venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n  from starlette.testclient import TestClient as TestClient  # noqa\n",
+      "label": "current-exact-facets",
+      "copied_ms": 17769.173535001755
+    },
+    {
+      "source": "/workspace/scratch/c21619997ed8/fix024/source",
+      "path": "/api/radar/facets?period=all",
+      "runs": [
+        {
+          "repetition": 0,
+          "status_code": 200,
+          "response_headers": {
+            "content-type": "application/json",
+            "cache-control": "no-store"
+          },
+          "wall_ms": 6408.713290999003,
+          "sql_count": 2,
+          "sql_execute_ms": 6350.322680002137,
+          "peak_rss_mb": 125.87890625,
+          "response_bytes": 670,
+          "count_queries": 1,
+          "version_group_by_queries": 0,
+          "wide_column_queries": 0,
+          "unbounded_entity_loads": 0,
+          "repeated_sql": [],
+          "statements": [
+            {
+              "sql": "SELECT 1 FROM sqlite_master WHERE name='article_fts'",
+              "parameters": [],
+              "execute_ms": 0.1418290012225043,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": false
+            },
+            {
+              "sql": "WITH radar_base AS MATERIALIZED \n(SELECT radarentry.\"key\" AS \"key\", ? AS seen, CASE WHEN (graphmetric.event IS NOT NULL) THEN ? ELSE ? END AS analyzed \nFROM radarentry LEFT OUTER JOIN graphmetric ON graphmetric.event = radarentry.\"key\" \nWHERE radarentry.\"key\" IN (SELECT event.event_key \nFROM event \nWHERE (event.event_key NOT IN (SELECT eventstate.event_key \nFROM eventstate \nWHERE eventstate.merged_into IS NOT NULL)))), \nradar_articles AS \n(SELECT DISTINCT articleeventlink.article_key AS article_key \nFROM articleeventlink \nWHERE articleeventlink.event_key IN (SELECT radar_base.\"key\" \nFROM radar_base)), \nradar_observed AS \n(SELECT DISTINCT collectedobservation.article_key AS article_key, collectedobservation.scope_id AS scope_id \nFROM collectedobservation \nWHERE collectedobservation.article_key IN (SELECT radar_articles.article_key \nFROM radar_articles)), \nradar_recorded_paths AS \n(SELECT taskrecord.task_id AS scope_id, CASE WHEN (json_extract(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) IN (?, ?, ?, ?)) THEN json_extract(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) ELSE ? END AS provider \nFROM taskrecord \nWHERE taskrecord.task_id IN (SELECT radar_observed.scope_id \nFROM radar_observed) AND (json_type(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) = 'text') = 1 AND (json_extract(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) NOT IN (?, ?)) UNION ALL SELECT runrecord.run_key AS scope_id, CASE WHEN (json_extract(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) IN (?, ?, ?, ?)) THEN json_extract(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) ELSE ? END AS provider \nFROM runrecord \nWHERE runrecord.run_key IN (SELECT radar_observed.scope_id \nFROM radar_observed) AND (json_type(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) = 'text') = 1 AND (json_extract(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) NOT IN (?, ?))), \nradar_observation_flags AS \n(SELECT radar_observed.article_key AS article_key, count(*) AS valid, max(CASE WHEN (radar_recorded_paths.provider = ?) THEN ? ELSE ? END) AS gkg, max(CASE WHEN (radar_recorded_paths.provider = ?) THEN ? ELSE ? END) AS gdelt, max(CASE WHEN (radar_recorded_paths.provider = ?) THEN ? ELSE ? END) AS worldnewsapi, max(CASE WHEN (radar_recorded_paths.provider = ?) THEN ? ELSE ? END) AS mock, max(CASE WHEN (radar_recorded_paths.provider = ?) THEN ? ELSE ? END) AS other \nFROM radar_observed JOIN radar_recorded_paths ON radar_recorded_paths.scope_id = radar_observed.scope_id GROUP BY radar_observed.article_key), \nradar_provider_flags AS \n(SELECT articleeventlink.event_key AS event_key, max(CASE WHEN (article.provider = ? OR coalesce(radar_observation_flags.gkg, ?) = ? OR gkgsource.article_key IS NOT NULL) THEN ? ELSE ? END) AS p_gkg, max(CASE WHEN (article.provider = ? OR coalesce(radar_observation_flags.gdelt, ?) = ? OR gdeltdiscovery.article_key IS NOT NULL AND gkgsource.article_key IS NULL) THEN ? ELSE ? END) AS p_gdelt, max(CASE WHEN (article.provider = ? OR coalesce(radar_observation_flags.worldnewsapi, ?) = ?) THEN ? ELSE ? END) AS p_worldnewsapi, max(CASE WHEN (article.provider = ? OR coalesce(radar_observation_flags.mock, ?) = ?) THEN ? ELSE ? END) AS p_mock, max(CASE WHEN ((article.provider NOT IN (?, ?, ?, ?, ?, ?)) OR coalesce(radar_observation_flags.other, ?) = ?) THEN ? ELSE ? END) AS p_other, max(CASE WHEN ((article.provider IS NULL OR article.provider IN (?, ?)) AND gkgsource.article_key IS NULL AND gdeltdiscovery.article_key IS NULL AND coalesce(radar_observation_flags.valid, ?) = ?) THEN ? ELSE ? END) AS p_unknown \nFROM articleeventlink JOIN article ON article.article_key = articleeventlink.article_key LEFT OUTER JOIN gkgsource ON gkgsource.article_key = article.article_key LEFT OUTER JOIN gdeltdiscovery ON gdeltdiscovery.article_key = article.article_key LEFT OUTER JOIN radar_observation_flags ON radar_observation_flags.article_key = article.article_key \nWHERE articleeventlink.event_key IN (SELECT radar_base.\"key\" \nFROM radar_base) GROUP BY articleeventlink.event_key), \nradar_latest AS \n(SELECT radar_articles.article_key AS article_key, (SELECT articleversion.id \nFROM articleversion \nWHERE articleversion.article_key = radar_articles.article_key ORDER BY articleversion.id DESC\n LIMIT ? OFFSET ?) AS version_id \nFROM radar_articles), \nradar_channel_flags AS \n(SELECT articleeventlink.event_key AS event_key, max(CASE WHEN (json_extract(CASE WHEN json_valid(textmention.data) THEN textmention.data ELSE '{}' END, '$.' || ?) IN (?, ?, ?)) THEN ? ELSE ? END) AS c_diplomacy, max(CASE WHEN (json_extract(CASE WHEN json_valid(textmention.data) THEN textmention.data ELSE '{}' END, '$.' || ?) IN (?)) THEN ? ELSE ? END) AS c_conflict \nFROM articleeventlink JOIN radar_latest ON radar_latest.article_key = articleeventlink.article_key JOIN textmention ON textmention.version_id = radar_latest.version_id AND textmention.article = radar_latest.article_key LEFT OUTER JOIN mentionreview ON mentionreview.id = textmention.id \nWHERE articleeventlink.event_key IN (SELECT radar_base.\"key\" \nFROM radar_base) AND (mentionreview.id IS NULL OR mentionreview.decision != ?) GROUP BY articleeventlink.event_key), \nradar_facts AS MATERIALIZED \n(SELECT radar_base.\"key\" AS \"key\", radar_base.seen AS seen, radar_base.analyzed AS analyzed, coalesce(radar_provider_flags.p_gkg, ?) AS p_gkg, coalesce(radar_provider_flags.p_gdelt, ?) AS p_gdelt, coalesce(radar_provider_flags.p_worldnewsapi, ?) AS p_worldnewsapi, coalesce(radar_provider_flags.p_mock, ?) AS p_mock, coalesce(radar_provider_flags.p_other, ?) AS p_other, coalesce(radar_provider_flags.p_unknown, ?) AS p_unknown, coalesce(radar_channel_flags.c_diplomacy, ?) AS c_diplomacy, coalesce(radar_channel_flags.c_conflict, ?) AS c_conflict \nFROM radar_base LEFT OUTER JOIN radar_provider_flags ON radar_provider_flags.event_key = radar_base.\"key\" LEFT OUTER JOIN radar_channel_flags ON radar_channel_flags.event_key = radar_base.\"key\"), \nradar_totals AS \n(SELECT coalesce(sum(CASE WHEN ? THEN ? ELSE ? END), ?) AS main_all, coalesce(sum(CASE WHEN (? = 1 AND ? = 1) THEN ? ELSE ? END), ?) AS main_recent, coalesce(sum(CASE WHEN ? THEN ? ELSE ? END), ?) AS c_all_all, coalesce(sum(CASE WHEN (? = 1 AND ? = 1) THEN ? ELSE ? END), ?) AS c_all_recent, coalesce(sum(CASE WHEN (radar_facts.c_diplomacy = ?) THEN ? ELSE ? END), ?) AS c_diplomacy_all, coalesce(sum(CASE WHEN (radar_facts.c_diplomacy = ? AND ? = 1) THEN ? ELSE ? END), ?) AS c_diplomacy_recent, coalesce(sum(CASE WHEN (radar_facts.c_conflict = ?) THEN ? ELSE ? END), ?) AS c_conflict_all, coalesce(sum(CASE WHEN (radar_facts.c_conflict = ? AND ? = 1) THEN ? ELSE ? END), ?) AS c_conflict_recent, coalesce(sum(CASE WHEN ? THEN ? ELSE ? END), ?) AS p_all_all, coalesce(sum(CASE WHEN (? = 1 AND ? = 1) THEN ? ELSE ? END), ?) AS p_all_recent, coalesce(sum(CASE WHEN (radar_facts.p_gkg = ?) THEN ? ELSE ? END), ?) AS p_gkg_all, coalesce(sum(CASE WHEN (radar_facts.p_gkg = ? AND ? = 1) THEN ? ELSE ? END), ?) AS p_gkg_recent, coalesce(sum(CASE WHEN (radar_facts.p_gdelt = ?) THEN ? ELSE ? END), ?) AS p_gdelt_all, coalesce(sum(CASE WHEN (radar_facts.p_gdelt = ? AND ? = 1) THEN ? ELSE ? END), ?) AS p_gdelt_recent, coalesce(sum(CASE WHEN (radar_facts.p_worldnewsapi = ?) THEN ? ELSE ? END), ?) AS p_worldnewsapi_all, coalesce(sum(CASE WHEN (radar_facts.p_worldnewsapi = ? AND ? = 1) THEN ? ELSE ? END), ?) AS p_worldnewsapi_recent, coalesce(sum(CASE WHEN (radar_facts.p_mock = ?) THEN ? ELSE ? END), ?) AS p_mock_all, coalesce(sum(CASE WHEN (radar_facts.p_mock = ? AND ? = 1) THEN ? ELSE ? END), ?) AS p_mock_recent, coalesce(sum(CASE WHEN (radar_facts.p_other = ?) THEN ? ELSE ? END), ?) AS p_other_all, coalesce(sum(CASE WHEN (radar_facts.p_other = ? AND ? = 1) THEN ? ELSE ? END), ?) AS p_other_recent, coalesce(sum(CASE WHEN (radar_facts.p_unknown = ?) THEN ? ELSE ? END), ?) AS p_unknown_all, coalesce(sum(CASE WHEN (radar_facts.p_unknown = ? AND ? = 1) THEN ? ELSE ? END), ?) AS p_unknown_recent, coalesce(sum(CASE WHEN ? THEN radar_facts.analyzed ELSE ? END), ?) AS analyzed_all, coalesce(sum(CASE WHEN (? = 1 AND ? = 1) THEN radar_facts.analyzed ELSE ? END), ?) AS analyzed_recent \nFROM radar_facts)\n SELECT radar_totals.main_all, radar_totals.main_recent, radar_totals.c_all_all, radar_totals.c_all_recent, radar_totals.c_diplomacy_all, radar_totals.c_diplomacy_recent, radar_totals.c_conflict_all, radar_totals.c_conflict_recent, radar_totals.p_all_all, radar_totals.p_all_recent, radar_totals.p_gkg_all, radar_totals.p_gkg_recent, radar_totals.p_gdelt_all, radar_totals.p_gdelt_recent, radar_totals.p_worldnewsapi_all, radar_totals.p_worldnewsapi_recent, radar_totals.p_mock_all, radar_totals.p_mock_recent, radar_totals.p_other_all, radar_totals.p_other_recent, radar_totals.p_unknown_all, radar_totals.p_unknown_recent, radar_totals.analyzed_all, radar_totals.analyzed_recent, (SELECT count(distinct(articleeventlink.article_key)) AS count_1 \nFROM articleeventlink \nWHERE articleeventlink.event_key IN (SELECT radar_facts.\"key\" \nFROM radar_facts JOIN radar_totals ON ? = 1 \nWHERE ? = 1 AND ? = 1)) AS source_count \nFROM radar_totals",
+              "parameters": [
+                "",
+                1,
+                0,
+                "provider",
+                "gkg",
+                "gdelt",
+                "worldnewsapi",
+                "mock",
+                "provider",
+                "other",
+                "provider",
+                "provider",
+                "",
+                "unknown",
+                "provider",
+                "gkg",
+                "gdelt",
+                "worldnewsapi",
+                "mock",
+                "provider",
+                "other",
+                "provider",
+                "provider",
+                "",
+                "unknown",
+                "gkg",
+                1,
+                0,
+                "gdelt",
+                1,
+                0,
+                "worldnewsapi",
+                1,
+                0,
+                "mock",
+                1,
+                0,
+                "other",
+                1,
+                0,
+                "gkg",
+                0,
+                1,
+                1,
+                0,
+                "gdelt",
+                0,
+                1,
+                1,
+                0,
+                "worldnewsapi",
+                0,
+                1,
+                1,
+                0,
+                "mock",
+                0,
+                1,
+                1,
+                0,
+                "",
+                "unknown",
+                "gkg",
+                "gdelt",
+                "worldnewsapi",
+                "mock",
+                0,
+                1,
+                1,
+                0,
+                "",
+                "unknown",
+                0,
+                0,
+                1,
+                0,
+                1,
+                0,
+                "kind",
+                "meeting",
+                "visit",
+                "signing",
+                1,
+                0,
+                "kind",
+                "attack",
+                1,
+                0,
+                "rejected",
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1,
+                1,
+                0,
+                0,
+                1,
+                0,
+                0,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1,
+                1
+              ],
+              "execute_ms": 6350.180851000914,
+              "wide_columns": [],
+              "unbounded_entity_load": false,
+              "version_group_by": false,
+              "count_query": true
+            }
+          ],
+          "response_json": {
+            "total": 560000,
+            "historical": false,
+            "radar_stats": {
+              "total": 560000,
+              "analyzed": 56000,
+              "source_count": 560000
+            },
+            "channels": [
+              {
+                "id": "all",
+                "label": "综合动态",
+                "count": 560000
+              },
+              {
+                "id": "diplomacy",
+                "label": "外交活动",
+                "count": 56000
+              },
+              {
+                "id": "conflict",
+                "label": "军事冲突线索",
+                "count": 56000
+              }
+            ],
+            "providers": [
+              {
+                "id": "all",
+                "label": "全部采集源",
+                "count": 560000
+              },
+              {
+                "id": "gkg",
+                "label": "GDELT GKG",
+                "count": 186667
+              },
+              {
+                "id": "gdelt",
+                "label": "GDELT DOC",
+                "count": 93334
+              },
+              {
+                "id": "worldnewsapi",
+                "label": "WorldNewsAPI",
+                "count": 93333
+              },
+              {
+                "id": "mock",
+                "label": "演示数据",
+                "count": 93333
+              },
+              {
+                "id": "other",
+                "label": "其他采集源",
+                "count": 93333
+              },
+              {
+                "id": "unknown",
+                "label": "来源待核",
+                "count": 93333
+              }
+            ]
+          }
+        }
+      ],
+      "worker_pid": 9,
+      "memory_limit_mb": 3000,
+      "source_fingerprint": "27b70a28bf9572691f7f0b5053d54a9a4973194b93080dd3189c9c0812425ecf",
+      "warnings": [
+        "Driver execution time excludes result fetching and ORM materialization.",
+        "Process RSS includes application startup; no OS cache flush is performed."
+      ],
+      "startup_ms": 1503.4267980008735,
+      "explain": [
+        {
+          "sql": "SELECT 1 FROM sqlite_master WHERE name='article_fts'",
+          "plan": [
+            [
+              2,
+              0,
+              216,
+              "SCAN sqlite_master"
+            ]
+          ]
+        },
+        {
+          "sql": "WITH radar_base AS MATERIALIZED \n(SELECT radarentry.\"key\" AS \"key\", ? AS seen, CASE WHEN (graphmetric.event IS NOT NULL) THEN ? ELSE ? END AS analyzed \nFROM radarentry LEFT OUTER JOIN graphmetric ON graphmetric.event = radarentry.\"key\" \nWHERE radarentry.\"key\" IN (SELECT event.event_key \nFROM event \nWHERE (event.event_key NOT IN (SELECT eventstate.event_key \nFROM eventstate \nWHERE eventstate.merged_into IS NOT NULL)))), \nradar_articles AS \n(SELECT DISTINCT articleeventlink.article_key AS article_key \nFROM articleeventlink \nWHERE articleeventlink.event_key IN (SELECT radar_base.\"key\" \nFROM radar_base)), \nradar_observed AS \n(SELECT DISTINCT collectedobservation.article_key AS article_key, collectedobservation.scope_id AS scope_id \nFROM collectedobservation \nWHERE collectedobservation.article_key IN (SELECT radar_articles.article_key \nFROM radar_articles)), \nradar_recorded_paths AS \n(SELECT taskrecord.task_id AS scope_id, CASE WHEN (json_extract(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) IN (?, ?, ?, ?)) THEN json_extract(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) ELSE ? END AS provider \nFROM taskrecord \nWHERE taskrecord.task_id IN (SELECT radar_observed.scope_id \nFROM radar_observed) AND (json_type(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) = 'text') = 1 AND (json_extract(CASE WHEN json_valid(taskrecord.profile_json) THEN taskrecord.profile_json ELSE '{}' END, '$.' || ?) NOT IN (?, ?)) UNION ALL SELECT runrecord.run_key AS scope_id, CASE WHEN (json_extract(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) IN (?, ?, ?, ?)) THEN json_extract(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) ELSE ? END AS provider \nFROM runrecord \nWHERE runrecord.run_key IN (SELECT radar_observed.scope_id \nFROM radar_observed) AND (json_type(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) = 'text') = 1 AND (json_extract(CASE WHEN json_valid(runrecord.stats_json) THEN runrecord.stats_json ELSE '{}' END, '$.' || ?) NOT IN (?, ?))), \nradar_observation_flags AS \n(SELECT radar_observed.article_key AS article_key, count(*) AS valid, max(CASE WHEN (radar_recorded_paths.provider = ?) THEN ? ELSE ? END) AS gkg, max(CASE WHEN (radar_recorded_paths.provider = ?) THEN ? ELSE ? END) AS gdelt, max(CASE WHEN (radar_recorded_paths.provider = ?) THEN ? ELSE ? END) AS worldnewsapi, max(CASE WHEN (radar_recorded_paths.provider = ?) THEN ? ELSE ? END) AS mock, max(CASE WHEN (radar_recorded_paths.provider = ?) THEN ? ELSE ? END) AS other \nFROM radar_observed JOIN radar_recorded_paths ON radar_recorded_paths.scope_id = radar_observed.scope_id GROUP BY radar_observed.article_key), \nradar_provider_flags AS \n(SELECT articleeventlink.event_key AS event_key, max(CASE WHEN (article.provider = ? OR coalesce(radar_observation_flags.gkg, ?) = ? OR gkgsource.article_key IS NOT NULL) THEN ? ELSE ? END) AS p_gkg, max(CASE WHEN (article.provider = ? OR coalesce(radar_observation_flags.gdelt, ?) = ? OR gdeltdiscovery.article_key IS NOT NULL AND gkgsource.article_key IS NULL) THEN ? ELSE ? END) AS p_gdelt, max(CASE WHEN (article.provider = ? OR coalesce(radar_observation_flags.worldnewsapi, ?) = ?) THEN ? ELSE ? END) AS p_worldnewsapi, max(CASE WHEN (article.provider = ? OR coalesce(radar_observation_flags.mock, ?) = ?) THEN ? ELSE ? END) AS p_mock, max(CASE WHEN ((article.provider NOT IN (?, ?, ?, ?, ?, ?)) OR coalesce(radar_observation_flags.other, ?) = ?) THEN ? ELSE ? END) AS p_other, max(CASE WHEN ((article.provider IS NULL OR article.provider IN (?, ?)) AND gkgsource.article_key IS NULL AND gdeltdiscovery.article_key IS NULL AND coalesce(radar_observation_flags.valid, ?) = ?) THEN ? ELSE ? END) AS p_unknown \nFROM articleeventlink JOIN article ON article.article_key = articleeventlink.article_key LEFT OUTER JOIN gkgsource ON gkgsource.article_key = article.article_key LEFT OUTER JOIN gdeltdiscovery ON gdeltdiscovery.article_key = article.article_key LEFT OUTER JOIN radar_observation_flags ON radar_observation_flags.article_key = article.article_key \nWHERE articleeventlink.event_key IN (SELECT radar_base.\"key\" \nFROM radar_base) GROUP BY articleeventlink.event_key), \nradar_latest AS \n(SELECT radar_articles.article_key AS article_key, (SELECT articleversion.id \nFROM articleversion \nWHERE articleversion.article_key = radar_articles.article_key ORDER BY articleversion.id DESC\n LIMIT ? OFFSET ?) AS version_id \nFROM radar_articles), \nradar_channel_flags AS \n(SELECT articleeventlink.event_key AS event_key, max(CASE WHEN (json_extract(CASE WHEN json_valid(textmention.data) THEN textmention.data ELSE '{}' END, '$.' || ?) IN (?, ?, ?)) THEN ? ELSE ? END) AS c_diplomacy, max(CASE WHEN (json_extract(CASE WHEN json_valid(textmention.data) THEN textmention.data ELSE '{}' END, '$.' || ?) IN (?)) THEN ? ELSE ? END) AS c_conflict \nFROM articleeventlink JOIN radar_latest ON radar_latest.article_key = articleeventlink.article_key JOIN textmention ON textmention.version_id = radar_latest.version_id AND textmention.article = radar_latest.article_key LEFT OUTER JOIN mentionreview ON mentionreview.id = textmention.id \nWHERE articleeventlink.event_key IN (SELECT radar_base.\"key\" \nFROM radar_base) AND (mentionreview.id IS NULL OR mentionreview.decision != ?) GROUP BY articleeventlink.event_key), \nradar_facts AS MATERIALIZED \n(SELECT radar_base.\"key\" AS \"key\", radar_base.seen AS seen, radar_base.analyzed AS analyzed, coalesce(radar_provider_flags.p_gkg, ?) AS p_gkg, coalesce(radar_provider_flags.p_gdelt, ?) AS p_gdelt, coalesce(radar_provider_flags.p_worldnewsapi, ?) AS p_worldnewsapi, coalesce(radar_provider_flags.p_mock, ?) AS p_mock, coalesce(radar_provider_flags.p_other, ?) AS p_other, coalesce(radar_provider_flags.p_unknown, ?) AS p_unknown, coalesce(radar_channel_flags.c_diplomacy, ?) AS c_diplomacy, coalesce(radar_channel_flags.c_conflict, ?) AS c_conflict \nFROM radar_base LEFT OUTER JOIN radar_provider_flags ON radar_provider_flags.event_key = radar_base.\"key\" LEFT OUTER JOIN radar_channel_flags ON radar_channel_flags.event_key = radar_base.\"key\"), \nradar_totals AS \n(SELECT coalesce(sum(CASE WHEN ? THEN ? ELSE ? END), ?) AS main_all, coalesce(sum(CASE WHEN (? = 1 AND ? = 1) THEN ? ELSE ? END), ?) AS main_recent, coalesce(sum(CASE WHEN ? THEN ? ELSE ? END), ?) AS c_all_all, coalesce(sum(CASE WHEN (? = 1 AND ? = 1) THEN ? ELSE ? END), ?) AS c_all_recent, coalesce(sum(CASE WHEN (radar_facts.c_diplomacy = ?) THEN ? ELSE ? END), ?) AS c_diplomacy_all, coalesce(sum(CASE WHEN (radar_facts.c_diplomacy = ? AND ? = 1) THEN ? ELSE ? END), ?) AS c_diplomacy_recent, coalesce(sum(CASE WHEN (radar_facts.c_conflict = ?) THEN ? ELSE ? END), ?) AS c_conflict_all, coalesce(sum(CASE WHEN (radar_facts.c_conflict = ? AND ? = 1) THEN ? ELSE ? END), ?) AS c_conflict_recent, coalesce(sum(CASE WHEN ? THEN ? ELSE ? END), ?) AS p_all_all, coalesce(sum(CASE WHEN (? = 1 AND ? = 1) THEN ? ELSE ? END), ?) AS p_all_recent, coalesce(sum(CASE WHEN (radar_facts.p_gkg = ?) THEN ? ELSE ? END), ?) AS p_gkg_all, coalesce(sum(CASE WHEN (radar_facts.p_gkg = ? AND ? = 1) THEN ? ELSE ? END), ?) AS p_gkg_recent, coalesce(sum(CASE WHEN (radar_facts.p_gdelt = ?) THEN ? ELSE ? END), ?) AS p_gdelt_all, coalesce(sum(CASE WHEN (radar_facts.p_gdelt = ? AND ? = 1) THEN ? ELSE ? END), ?) AS p_gdelt_recent, coalesce(sum(CASE WHEN (radar_facts.p_worldnewsapi = ?) THEN ? ELSE ? END), ?) AS p_worldnewsapi_all, coalesce(sum(CASE WHEN (radar_facts.p_worldnewsapi = ? AND ? = 1) THEN ? ELSE ? END), ?) AS p_worldnewsapi_recent, coalesce(sum(CASE WHEN (radar_facts.p_mock = ?) THEN ? ELSE ? END), ?) AS p_mock_all, coalesce(sum(CASE WHEN (radar_facts.p_mock = ? AND ? = 1) THEN ? ELSE ? END), ?) AS p_mock_recent, coalesce(sum(CASE WHEN (radar_facts.p_other = ?) THEN ? ELSE ? END), ?) AS p_other_all, coalesce(sum(CASE WHEN (radar_facts.p_other = ? AND ? = 1) THEN ? ELSE ? END), ?) AS p_other_recent, coalesce(sum(CASE WHEN (radar_facts.p_unknown = ?) THEN ? ELSE ? END), ?) AS p_unknown_all, coalesce(sum(CASE WHEN (radar_facts.p_unknown = ? AND ? = 1) THEN ? ELSE ? END), ?) AS p_unknown_recent, coalesce(sum(CASE WHEN ? THEN radar_facts.analyzed ELSE ? END), ?) AS analyzed_all, coalesce(sum(CASE WHEN (? = 1 AND ? = 1) THEN radar_facts.analyzed ELSE ? END), ?) AS analyzed_recent \nFROM radar_facts)\n SELECT radar_totals.main_all, radar_totals.main_recent, radar_totals.c_all_all, radar_totals.c_all_recent, radar_totals.c_diplomacy_all, radar_totals.c_diplomacy_recent, radar_totals.c_conflict_all, radar_totals.c_conflict_recent, radar_totals.p_all_all, radar_totals.p_all_recent, radar_totals.p_gkg_all, radar_totals.p_gkg_recent, radar_totals.p_gdelt_all, radar_totals.p_gdelt_recent, radar_totals.p_worldnewsapi_all, radar_totals.p_worldnewsapi_recent, radar_totals.p_mock_all, radar_totals.p_mock_recent, radar_totals.p_other_all, radar_totals.p_other_recent, radar_totals.p_unknown_all, radar_totals.p_unknown_recent, radar_totals.analyzed_all, radar_totals.analyzed_recent, (SELECT count(distinct(articleeventlink.article_key)) AS count_1 \nFROM articleeventlink \nWHERE articleeventlink.event_key IN (SELECT radar_facts.\"key\" \nFROM radar_facts JOIN radar_totals ON ? = 1 \nWHERE ? = 1 AND ? = 1)) AS source_count \nFROM radar_totals",
+          "plan": [
+            [
+              3,
+              0,
+              0,
+              "MATERIALIZE radar_totals"
+            ],
+            [
+              6,
+              3,
+              0,
+              "MATERIALIZE radar_facts"
+            ],
+            [
+              9,
+              6,
+              0,
+              "MATERIALIZE radar_base"
+            ],
+            [
+              13,
+              9,
+              89,
+              "SEARCH radarentry USING COVERING INDEX sqlite_autoindex_radarentry_1 (key=?)"
+            ],
+            [
+              17,
+              9,
+              0,
+              "LIST SUBQUERY 2"
+            ],
+            [
+              19,
+              17,
+              198,
+              "SCAN event USING COVERING INDEX ix_event_event_key"
+            ],
+            [
+              24,
+              17,
+              0,
+              "LIST SUBQUERY 1"
+            ],
+            [
+              27,
+              24,
+              216,
+              "SCAN eventstate"
+            ],
+            [
+              35,
+              24,
+              0,
+              "CREATE BLOOM FILTER"
+            ],
+            [
+              58,
+              9,
+              41,
+              "SEARCH graphmetric USING COVERING INDEX sqlite_autoindex_graphmetric_1 (event=?) LEFT-JOIN"
+            ],
+            [
+              81,
+              6,
+              0,
+              "MATERIALIZE radar_provider_flags"
+            ],
+            [
+              84,
+              81,
+              0,
+              "MATERIALIZE radar_observation_flags"
+            ],
+            [
+              87,
+              84,
+              0,
+              "MATERIALIZE radar_observed"
+            ],
+            [
+              92,
+              87,
+              107,
+              "SEARCH collectedobservation USING INDEX ix_collectedobservation_article_key (article_key=?)"
+            ],
+            [
+              96,
+              87,
+              0,
+              "LIST SUBQUERY 6"
+            ],
+            [
+              99,
+              96,
+              0,
+              "MATERIALIZE radar_articles"
+            ],
+            [
+              103,
+              99,
+              90,
+              "SEARCH articleeventlink USING COVERING INDEX qa_ael_event_article_cover (event_key=?)"
+            ],
+            [
+              107,
+              99,
+              0,
+              "LIST SUBQUERY 4"
+            ],
+            [
+              110,
+              107,
+              216,
+              "SCAN radar_base"
+            ],
+            [
+              132,
+              99,
+              0,
+              "USE TEMP B-TREE FOR DISTINCT"
+            ],
+            [
+              136,
+              96,
+              32,
+              "SCAN radar_articles"
+            ],
+            [
+              160,
+              87,
+              0,
+              "USE TEMP B-TREE FOR DISTINCT"
+            ],
+            [
+              164,
+              84,
+              0,
+              "MATERIALIZE radar_recorded_paths"
+            ],
+            [
+              166,
+              164,
+              0,
+              "COMPOUND QUERY"
+            ],
+            [
+              167,
+              166,
+              0,
+              "LEFT-MOST SUBQUERY"
+            ],
+            [
+              170,
+              167,
+              92,
+              "SEARCH taskrecord USING INDEX sqlite_autoindex_taskrecord_1 (task_id=?)"
+            ],
+            [
+              174,
+              167,
+              0,
+              "LIST SUBQUERY 8"
+            ],
+            [
+              177,
+              174,
+              216,
+              "SCAN radar_observed"
+            ],
+            [
+              264,
+              166,
+              0,
+              "UNION ALL"
+            ],
+            [
+              267,
+              264,
+              92,
+              "SEARCH runrecord USING INDEX ix_runrecord_run_key (run_key=?)"
+            ],
+            [
+              271,
+              264,
+              0,
+              "LIST SUBQUERY 10"
+            ],
+            [
+              274,
+              271,
+              216,
+              "SCAN radar_observed"
+            ],
+            [
+              369,
+              84,
+              65,
+              "SCAN radar_observed"
+            ],
+            [
+              382,
+              84,
+              46,
+              "SEARCH radar_recorded_paths USING AUTOMATIC COVERING INDEX (scope_id=?)"
+            ],
+            [
+              387,
+              84,
+              0,
+              "USE TEMP B-TREE FOR GROUP BY"
+            ],
+            [
+              480,
+              81,
+              90,
+              "SEARCH articleeventlink USING COVERING INDEX qa_ael_event_article_cover (event_key=?)"
+            ],
+            [
+              484,
+              81,
+              0,
+              "LIST SUBQUERY 13"
+            ],
+            [
+              487,
+              484,
+              216,
+              "SCAN radar_base"
+            ],
+            [
+              500,
+              81,
+              43,
+              "SEARCH article USING COVERING INDEX qa_article_provider_cover (article_key=?)"
+            ],
+            [
+              504,
+              81,
+              42,
+              "SEARCH gkgsource USING COVERING INDEX sqlite_autoindex_gkgsource_1 (article_key=?) LEFT-JOIN"
+            ],
+            [
+              510,
+              81,
+              44,
+              "SEARCH gdeltdiscovery USING COVERING INDEX sqlite_autoindex_gdeltdiscovery_1 (article_key=?) LEFT-JOIN"
+            ],
+            [
+              532,
+              81,
+              47,
+              "SEARCH radar_observation_flags USING AUTOMATIC COVERING INDEX (article_key=?) LEFT-JOIN"
+            ],
+            [
+              702,
+              6,
+              0,
+              "MATERIALIZE radar_channel_flags"
+            ],
+            [
+              716,
+              702,
+              90,
+              "SEARCH articleeventlink USING COVERING INDEX qa_ael_event_article_cover (event_key=?)"
+            ],
+            [
+              720,
+              702,
+              0,
+              "LIST SUBQUERY 17"
+            ],
+            [
+              723,
+              720,
+              216,
+              "SCAN radar_base"
+            ],
+            [
+              744,
+              702,
+              53,
+              "SEARCH radar_articles USING AUTOMATIC COVERING INDEX (article_key=?)"
+            ],
+            [
+              748,
+              702,
+              44,
+              "SEARCH textmention USING INDEX ix_textmention_article (article=?)"
+            ],
+            [
+              759,
+              702,
+              0,
+              "CORRELATED SCALAR SUBQUERY 15"
+            ],
+            [
+              771,
+              759,
+              43,
+              "SEARCH articleversion USING COVERING INDEX ix_articleversion_article_key (article_key=?)"
+            ],
+            [
+              782,
+              702,
+              47,
+              "SEARCH mentionreview USING INDEX sqlite_autoindex_mentionreview_1 (id=?) LEFT-JOIN"
+            ],
+            [
+              878,
+              6,
+              62,
+              "SCAN radar_base"
+            ],
+            [
+              896,
+              6,
+              47,
+              "SEARCH radar_provider_flags USING AUTOMATIC COVERING INDEX (event_key=?) LEFT-JOIN"
+            ],
+            [
+              915,
+              6,
+              47,
+              "SEARCH radar_channel_flags USING AUTOMATIC COVERING INDEX (event_key=?) LEFT-JOIN"
+            ],
+            [
+              966,
+              3,
+              148,
+              "SCAN radar_facts"
+            ],
+            [
+              1219,
+              0,
+              16,
+              "SCAN radar_totals"
+            ],
+            [
+              1247,
+              0,
+              0,
+              "SCALAR SUBQUERY 22"
+            ],
+            [
+              1252,
+              1247,
+              0,
+              "USE TEMP B-TREE FOR count(DISTINCT)"
+            ],
+            [
+              1254,
+              1247,
+              90,
+              "SEARCH articleeventlink USING COVERING INDEX qa_ael_event_article_cover (event_key=?)"
+            ],
+            [
+              1258,
+              1247,
+              0,
+              "LIST SUBQUERY 21"
+            ],
+            [
+              1266,
+              1258,
+              216,
+              "SCAN radar_facts"
+            ],
+            [
+              1268,
+              1258,
+              216,
+              "SCAN radar_totals"
+            ]
+          ]
+        }
+      ],
+      "median": {
+        "wall_ms": 6408.713290999003,
+        "sql_count": 2,
+        "sql_execute_ms": 6350.322680002137,
+        "count_queries": 1,
+        "version_group_by_queries": 0,
+        "wide_column_queries": 0,
+        "unbounded_entity_loads": 0
+      },
+      "worker_returncode": 0,
+      "worker_stderr": "/workspace/scratch/c21619997ed8/fix023/venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n  from starlette.testclient import TestClient as TestClient  # noqa\n",
+      "label": "current-exact-facets",
+      "copied_ms": 14953.417769000225
+    }
+  ],
+  "workload_note": "Current-only exact-statistics stage requested after the usable SSR preview. These requests perform full live facet computation with no TTL; wall time is statistics request duration, not initial page availability or the combined browser critical path.",
+  "fixture_query_indexes": {
+    "article": [
+      {
+        "name": "qa_article_provider_cover",
+        "columns": [
+          "article_key",
+          "provider"
+        ]
+      },
+      {
+        "name": "ix_article_dedup_group_id",
+        "columns": [
+          "dedup_group_id"
+        ]
+      },
+      {
+        "name": "ix_article_source_domain",
+        "columns": [
+          "source_domain"
+        ]
+      },
+      {
+        "name": "ix_article_title_signature",
+        "columns": [
+          "title_signature"
+        ]
+      },
+      {
+        "name": "ix_article_provider",
+        "columns": [
+          "provider"
+        ]
+      },
+      {
+        "name": "ix_article_country",
+        "columns": [
+          "country"
+        ]
+      },
+      {
+        "name": "ix_article_market_relevance_score",
+        "columns": [
+          "market_relevance_score"
+        ]
+      },
+      {
+        "name": "ix_article_content_hash",
+        "columns": [
+          "content_hash"
+        ]
+      },
+      {
+        "name": "ix_article_language",
+        "columns": [
+          "language"
+        ]
+      },
+      {
+        "name": "ix_article_canonical_url",
+        "columns": [
+          "canonical_url"
+        ]
+      },
+      {
+        "name": "ix_article_duplicate_of_article_key",
+        "columns": [
+          "duplicate_of_article_key"
+        ]
+      },
+      {
+        "name": "ix_article_title_hash",
+        "columns": [
+          "title_hash"
+        ]
+      },
+      {
+        "name": "ix_article_article_key",
+        "columns": [
+          "article_key"
+        ]
+      },
+      {
+        "name": "ix_article_published_at",
+        "columns": [
+          "published_at"
+        ]
+      },
+      {
+        "name": "ix_article_is_duplicate",
+        "columns": [
+          "is_duplicate"
+        ]
+      },
+      {
+        "name": "ix_article_content_signature",
+        "columns": [
+          "content_signature"
+        ]
+      },
+      {
+        "name": "ix_article_sentiment",
+        "columns": [
+          "sentiment"
+        ]
+      }
+    ],
+    "articleeventlink": [
+      {
+        "name": "qa_ael_event_article_cover",
+        "columns": [
+          "event_key",
+          "article_key"
+        ]
+      },
+      {
+        "name": "ix_articleeventlink_article_key",
+        "columns": [
+          "article_key"
+        ]
+      },
+      {
+        "name": "ix_articleeventlink_event_key",
+        "columns": [
+          "event_key"
+        ]
+      },
+      {
+        "name": "ix_articleeventlink_relation_type",
+        "columns": [
+          "relation_type"
+        ]
+      }
+    ],
+    "radarentry": [
+      {
+        "name": "qa_radar_key_seen_cover",
+        "columns": [
+          "key",
+          "seen",
+          "priority",
+          "band"
+        ]
+      },
+      {
+        "name": "ix_radarentry_priority",
+        "columns": [
+          "priority"
+        ]
+      },
+      {
+        "name": "ix_radarentry_seen",
+        "columns": [
+          "seen"
+        ]
+      },
+      {
+        "name": "ix_radarentry_band",
+        "columns": [
+          "band"
+        ]
+      },
+      {
+        "name": "sqlite_autoindex_radarentry_1",
+        "columns": [
+          "key"
+        ]
+      }
+    ],
+    "articleversion": [
+      {
+        "name": "ix_articleversion_article_latest_id",
+        "columns": [
+          "article_key",
+          "id"
+        ]
+      },
+      {
+        "name": "ix_articleversion_content_hash",
+        "columns": [
+          "content_hash"
+        ]
+      },
+      {
+        "name": "ix_articleversion_article_key",
+        "columns": [
+          "article_key"
+        ]
+      },
+      {
+        "name": "sqlite_autoindex_articleversion_1",
+        "columns": [
+          "article_key",
+          "revision"
+        ]
+      }
+    ]
+  },
+  "fixture_articleversion_indexes": [
+    {
+      "name": "ix_articleversion_article_latest_id",
+      "columns": [
+        "article_key",
+        "id"
+      ]
+    },
+    {
+      "name": "ix_articleversion_content_hash",
+      "columns": [
+        "content_hash"
+      ]
+    },
+    {
+      "name": "ix_articleversion_article_key",
+      "columns": [
+        "article_key"
+      ]
+    },
+    {
+      "name": "sqlite_autoindex_articleversion_1",
+      "columns": [
+        "article_key",
+        "revision"
+      ]
+    }
+  ],
+  "fixture_unchanged": true
+}

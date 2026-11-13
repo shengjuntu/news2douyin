@@ -40,7 +40,7 @@ def state_for(session, key):
 
 
 def lock_event(session, key, expected):
-    lock_news(session)
+    lock_news(session, 'event:' + key)
     require_event(session, key, active=True)
     state = state_for(session, key)
     if state.version != expected:
@@ -67,7 +67,7 @@ def finish(session, key, state):
 
 
 def create_event(session, data):
-    lock_news(session)
+    lock_news(session, 'event:create')
     key = 'evt_' + uuid4().hex[:20]
     event = Event(event_key=key, event_title=data['title'], summary=data.get('summary',''), topic=data.get('topic',''))
     session.add(event)
@@ -355,7 +355,7 @@ def workspace(session,key):
 
 def export_evidence(session,key):
     # Keep the exported graph and pinned documents at one curation revision.
-    lock_news(session)
+    lock_news(session, 'event:' + key)
     view=workspace(session,key)
     references={(s['article_key'],s['revision']) for s in view['sources'] if s['revision']}
     references.update((s['article_key'],s['revision']) for m in view['moments'] for s in m['sources'])

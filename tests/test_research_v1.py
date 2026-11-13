@@ -120,7 +120,8 @@ def test_setup_rejects_old_server_before_mutation(research):
 
 def test_setup_keys_saved_without_secrets_in_public_settings(research):
     app,client,fake=research;setup_case(research,start=False)
-    saved=app.state.research_settings.get()['setup_requests'];assert all(v['key'] in fake.keys for v in saved.values())
+    assert app.state.research_settings.get()['managed_by_rundesk'] is True
+    assert not any(p in {'/instances','/workspaces'} for m,p,_,_ in fake.calls if m=='POST')
     assert 'setup_requests' not in client.get('/api/research/settings').json()
     checked=client.post('/api/research/check').json();assert checked['default_model']=='test-model' and checked['mcp_ready']
 
@@ -130,3 +131,26 @@ def test_unreadable_receipt_does_not_mean_submission_failed():
         def request(self,*args,**kwargs):raise RemoteError('auth expired',status=401,code='unauthorized')
     with pytest.raises(RemoteError) as error:submit_once(Client(),'request-one','/sessions',{})
     assert error.value.uncertain and error.value.code=='unauthorized'
+
+def test_managed_reconnect_preserves_admin_and_automatic_address(research):
+    app,client,fake=research
+    assert client.put('/api/research/settings',json={'rundesk_url':'http://localhost:3210'}).status_code==200
+    assert app.state.research_settings.get()['callback_url']=='http://testserver'
+    setup_case(research,start=False)
+    fake.servers['news2douyin-research']={'url':'https://admin.example/mcp','enabled':False}
+    assert client.post('/api/research/setup').status_code==200
+    assert fake.servers['news2douyin-research']['enabled'] is False
+    assert not any('/skills/' in p or ('/mcp/' in p and not p.endswith('/mcp/exa')) for m,p,_,_ in fake.calls if m in {'POST','PUT'})
+
+
+@pytest.mark.parametrize(('path', 'expected'), [('/meta', (10, 60)), ('/sessions', (10, 60)), ('/applications/news2douyin/runtime/prepare', (10, 180))])
+def test_merged_http_timeouts_keep_container_start_allowance(monkeypatch, path, expected):
+    class Response:
+        content = b'{}'
+        status_code = 200
+        def json(self): return {}
+    calls = []
+    monkeypatch.setattr('requests.request', lambda *args, **kw: (calls.append(kw) or Response()))
+    RunDeskClient({'rundesk_url': 'http://localhost:3210'}).request('POST', path, {})
+    assert calls[0]['timeout'] == expected
+    assert calls[0]['allow_redirects'] is False

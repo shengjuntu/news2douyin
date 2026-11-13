@@ -18,6 +18,27 @@ from ..search.dates import calendar_day, timezone_name
 from ..storage.models import CollectJob, CollectProfile, ProfileState, utc_now_iso
 
 
+def database_configuration(engine):
+    """Describe the actual engine without rendering its URL or credentials."""
+    dialect = engine.dialect.name
+    return dict(dialect=dialect, driver=engine.dialect.driver,
+                label={'postgresql': 'PostgreSQL', 'sqlite': 'SQLite'}.get(dialect, dialect),
+                mode='formal' if dialect == 'postgresql' else 'lightweight' if dialect == 'sqlite' else 'other')
+
+
+def intake_runtime(app):
+    worker = getattr(app.state, 'intake', None)
+    receiver = getattr(worker, 'archive', worker)
+    projection = getattr(app.state, 'intake_projection', None)
+    return dict(receiver=dict(running=bool(receiver and getattr(receiver, 'running', False)),
+                              last_error=str(getattr(receiver, 'status_error', '') or
+                                             getattr(receiver, 'last_error', '') or
+                                             getattr(receiver, 'startup_error', '') or
+                                             getattr(worker, 'last_error', '') or '')),
+                projection=dict(running=bool(projection and getattr(projection, 'running', False)),
+                                last_error=str(getattr(projection, 'last_error', '') or '')))
+
+
 def model_configuration():
     settings = get_settings()
     valid, origin = True, ''
@@ -71,6 +92,7 @@ def _profile(row, enabled):
 def configuration_report(app):
     """Only local reads; do not expose credentials, database URLs or raw errors."""
     result = dict(checked_at=utc_now_iso(), database_ok=False, profiles=[], schedules=[],
+                  database=database_configuration(app.state.engine), intake=intake_runtime(app),
                   model=model_configuration(), worker_running=bool(app.state.worker.running),
                   scheduler_running=bool(app.state.scheduler._thread and app.state.scheduler._thread.is_alive()))
     try:
@@ -191,7 +213,9 @@ def register_readiness_routes(app):
             report = configuration_report(app)
             return JSONResponse(report, headers={'Cache-Control': 'no-store'})
         except SQLAlchemyError:
-            return JSONResponse({'message': '无法读取数据库，请检查连接和访问权限。'}, status_code=503,
+            return JSONResponse({'message': '无法读取事务数据库，请检查连接和访问权限。',
+                                 'database_ok': False, 'database': database_configuration(app.state.engine),
+                                 'intake': intake_runtime(app)}, status_code=503,
                                 headers={'Cache-Control': 'no-store'})
 
     @app.post('/api/setup/model-probe')

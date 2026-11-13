@@ -5,7 +5,9 @@ from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 from sqlalchemy import text, func, or_
 from sqlmodel import Session, select
+from sqlalchemy.orm import load_only
 from ..storage.articles import lock_news
+from ..storage.queries import all_rows, count_keys, page_rows
 from ..storage.models import Article, ArticleEventLink, Event, EventState, EventMoment, GdeltDiscovery, utc_now_iso
 from ..storage.utils import dumps, loads
 from ..tasks.control import TaskConflict
@@ -13,34 +15,95 @@ from .models import Watch, WatchEvent, RadarEntry, DeskDirty, DeskMeta, GraphPen
 from .rules import Scope, match, focus_context, norm, CHANGE, TENTATIVE, IMPACT
 
 
-def initialize(engine):
-    """Triggers enqueue changes in the same transaction as the existing writer."""
+def initialize(engine,*,backfill=True):
+    """Install transactional invalidation; migration can opt out of row backfill."""
+    from sqlmodel import SQLModel
+    from ..storage.sql import install_sql_functions
+    direct={'event':'event_key','eventstate':'event_key','articleeventlink':'event_key','eventmoment':'event_key','eventplace':'event'}
+    indirect={'article':'article_key','gkgsource':'article_key','gdeltdiscovery':'article_key'}
     with engine.begin() as conn:
-        direct={'event':'event_key','eventstate':'event_key','articleeventlink':'event_key','eventmoment':'event_key','eventplace':'event'}
-        indirect={'article':'article_key','gkgsource':'article_key','gdeltdiscovery':'article_key'}
-        for table,column in {**direct,**indirect}.items():
-            for op in ('insert','update','delete'):
-                refs={'insert':['NEW'],'delete':['OLD'],'update':['OLD','NEW']}[op]
-                statements=[]
-                for ref in refs:
-                    key=f'{ref}.{column}'
-                    lookup=f'SELECT {key}' if table in direct else f'SELECT event_key FROM articleeventlink WHERE article_key={key}'
-                    statements.append(f'INSERT INTO deskdirty(key) {lookup} ON CONFLICT(key) DO NOTHING;')
-                # Disambiguate SQLite SELECT ... ON CONFLICT after FROM using the WHERE above.
-                conn.exec_driver_sql(f"CREATE TRIGGER IF NOT EXISTS desk_{table}_{op} AFTER {op} ON {table} BEGIN "+' '.join(statements)+' END')
-        for table in ('researchquestion','researchclaim','researchreport'):
-            for op in ('insert','update'):
-                conn.exec_driver_sql(f"""CREATE TRIGGER IF NOT EXISTS desk_{table}_{op} AFTER {op} ON {table} BEGIN
-                    INSERT INTO graphpending(key,token,written) SELECT 'watch/'||watch,hex(randomblob(16)),''
-                    FROM watchreview WHERE case_key=NEW.case_id
-                    ON CONFLICT(key) DO UPDATE SET token=excluded.token; END""")
-        if not conn.execute(text("SELECT 1 FROM deskmeta WHERE key='initial_index'")).first():
-            conn.exec_driver_sql('INSERT OR IGNORE INTO deskdirty SELECT event_key FROM event')
-            conn.exec_driver_sql("INSERT INTO deskmeta(key,value) VALUES('initial_index','1')")
+        install_sql_functions(conn)
+        if engine.dialect.name=='postgresql':
+            conn.exec_driver_sql("""CREATE OR REPLACE FUNCTION n2d_desk_dirty()
+                RETURNS trigger LANGUAGE plpgsql AS $n2d$
+                DECLARE old_key text; new_key text;
+                BEGIN
+                  IF TG_OP='UPDATE' AND NEW IS NOT DISTINCT FROM OLD THEN RETURN NULL; END IF;
+                  IF TG_OP<>'INSERT' THEN old_key=to_jsonb(OLD)->>TG_ARGV[0]; END IF;
+                  IF TG_OP<>'DELETE' THEN new_key=to_jsonb(NEW)->>TG_ARGV[0]; END IF;
+                  IF TG_ARGV[1]='direct' THEN
+                    INSERT INTO deskdirty("key")
+                      SELECT value FROM unnest(ARRAY[old_key,new_key]) AS keys(value)
+                      WHERE value IS NOT NULL GROUP BY value ORDER BY value
+                      ON CONFLICT("key") DO NOTHING;
+                  ELSE
+                    INSERT INTO deskdirty("key") SELECT DISTINCT event_key FROM articleeventlink
+                      WHERE article_key=ANY(ARRAY[old_key,new_key]) ORDER BY event_key
+                      ON CONFLICT("key") DO NOTHING;
+                  END IF;
+                  RETURN NULL;
+                END $n2d$""")
+            for table,column in {**direct,**indirect}.items():
+                # Replace old per-operation triggers only during schema installation.
+                for op in ('insert','update','delete'):
+                    conn.exec_driver_sql(f'DROP TRIGGER IF EXISTS desk_{table}_{op} ON "{table}"')
+                kind='direct' if table in direct else 'article'
+                conn.exec_driver_sql(f"CREATE OR REPLACE TRIGGER desk_{table}_change AFTER INSERT OR UPDATE OR DELETE ON \"{table}\" FOR EACH ROW EXECUTE FUNCTION n2d_desk_dirty('{column}','{kind}')")
+            conn.exec_driver_sql("""CREATE OR REPLACE FUNCTION n2d_watch_evidence_dirty()
+                RETURNS trigger LANGUAGE plpgsql AS $n2d$
+                DECLARE old_case text; new_case text;
+                BEGIN
+                  IF TG_OP='UPDATE' AND NEW IS NOT DISTINCT FROM OLD THEN RETURN NULL; END IF;
+                  IF TG_OP<>'INSERT' THEN old_case=OLD.case_id; END IF;
+                  IF TG_OP<>'DELETE' THEN new_case=NEW.case_id; END IF;
+                  INSERT INTO graphpending("key",token,written)
+                    SELECT 'watch/'||w.watch,md5(random()::text||clock_timestamp()::text),''
+                    FROM (SELECT DISTINCT watch FROM watchreview
+                          WHERE case_key=ANY(ARRAY[old_case,new_case]) ORDER BY watch) w
+                    ON CONFLICT("key") DO UPDATE SET token=excluded.token;
+                  RETURN NULL;
+                END $n2d$""")
+            for table in ('researchquestion','researchclaim','researchreport'):
+                for op in ('insert','update','delete'):
+                    conn.exec_driver_sql(f'DROP TRIGGER IF EXISTS desk_{table}_{op} ON "{table}"')
+                conn.exec_driver_sql(f'CREATE OR REPLACE TRIGGER desk_{table}_change AFTER INSERT OR UPDATE OR DELETE ON "{table}" FOR EACH ROW EXECUTE FUNCTION n2d_watch_evidence_dirty()')
+        else:
+            for table,column in {**direct,**indirect}.items():
+                changed=' OR '.join(f'NEW."{c.name}" IS NOT OLD."{c.name}"' for c in SQLModel.metadata.tables[table].columns)
+                for op in ('insert','update','delete'):
+                    refs={'insert':['NEW'],'delete':['OLD'],'update':['OLD','NEW']}[op]
+                    statements=[]
+                    for ref in refs:
+                        key=f'{ref}."{column}"'
+                        lookup=f'SELECT {key}' if table in direct else f'SELECT event_key FROM articleeventlink WHERE article_key={key}'
+                        statements.append(f'INSERT INTO deskdirty("key") {lookup} ON CONFLICT("key") DO NOTHING;')
+                    conn.exec_driver_sql(f'DROP TRIGGER IF EXISTS desk_{table}_{op}')
+                    guard=' WHEN '+changed if op=='update' else ''
+                    conn.exec_driver_sql(f'CREATE TRIGGER desk_{table}_{op} AFTER {op} ON "{table}"{guard} BEGIN '+' '.join(statements)+' END')
+            for table in ('researchquestion','researchclaim','researchreport'):
+                changed=' OR '.join(f'NEW."{c.name}" IS NOT OLD."{c.name}"' for c in SQLModel.metadata.tables[table].columns)
+                for op in ('insert','update','delete'):
+                    cases={'insert':'NEW.case_id','delete':'OLD.case_id','update':'OLD.case_id,NEW.case_id'}[op]
+                    guard=' WHEN '+changed if op=='update' else ''
+                    conn.exec_driver_sql(f'DROP TRIGGER IF EXISTS desk_{table}_{op}')
+                    conn.exec_driver_sql(f"""CREATE TRIGGER desk_{table}_{op} AFTER {op} ON "{table}"{guard} BEGIN
+                        INSERT INTO graphpending("key",token,written)
+                          SELECT 'watch/'||watch,hex(randomblob(16)),''
+                          FROM (SELECT DISTINCT watch FROM watchreview WHERE case_key IN ({cases}))
+                          WHERE 1=1 ON CONFLICT("key") DO UPDATE SET token=excluded.token; END""")
+        if backfill and not conn.execute(text("SELECT 1 FROM deskmeta WHERE key='initial_index'")).first():
+            conn.exec_driver_sql('INSERT INTO deskdirty("key") SELECT event_key FROM "event" WHERE 1=1 ON CONFLICT("key") DO NOTHING')
+            conn.exec_driver_sql("INSERT INTO deskmeta(key,value) VALUES('initial_index','1') ON CONFLICT(key) DO NOTHING")
 
 
 def enqueue_graph(s,key):
-    s.merge(GraphPending(key=key,token=uuid4().hex))
+    # Preserve an in-flight writer's old written token; a new token is always pending.
+    s.execute(text("""INSERT INTO graphpending(key,token,written) VALUES (:key,:token,'')
+        ON CONFLICT(key) DO UPDATE SET token=EXCLUDED.token"""),dict(key=key,token=uuid4().hex))
+
+
+def enqueue_dirty(s,key):
+    s.execute(text('INSERT INTO deskdirty(key) VALUES (:key) ON CONFLICT(key) DO NOTHING'),dict(key=key))
 
 
 def snapshot(s,event):
@@ -62,6 +125,8 @@ def snapshot(s,event):
         version = latest_version(s, art.article_key)
         actions = mentions(s, version.id) if version else []
         source.append(dict(actions=actions, key=art.article_key,title=art.title,domain=art.source_domain,provider=art.provider,
+            revision=version.revision if version else 0,version_id=version.id if version else 0,
+            content_hash=version.content_hash if version else '',
             collection_paths=sorted({art.provider or 'unknown'} | ({'gkg'} if gkg else set()) | ({'gdelt'} if discovery and not gkg and art.provider!='gkg' else set())),
             when=when,time_kind='发布' if art.published_at else ('GDELT 收录' if discovery and discovery.seen_at else '入库'),
             url=art.url,media_country=art.country,mention_iso=attrs.get('mention_iso',[]),author=attrs.get('author',''),duplicate=bool(art.is_duplicate),
@@ -87,6 +152,11 @@ def snapshot(s,event):
 def sync_auto(s,w,card):
     link=s.get(WatchEvent,(w.key,card.key))
     if link and link.choice!='auto':return
+    from .focus_models import FocusDefinition
+    if s.get(FocusDefinition,w.key):
+        from .focus_jobs import queue_event
+        queue_event(s,w,card)
+        return
     why=match(w,card)
     if why:
         if not link:link=WatchEvent(watch=w.key,event=card.key)
@@ -109,7 +179,7 @@ def update_event(s,key,watches):
                 other=s.get(WatchEvent,(link.watch,dest))
                 if not other or other.choice=='auto':
                     s.merge(WatchEvent(watch=link.watch,event=dest,choice=link.choice,reason=link.reason,relevance=link.relevance,branch=link.branch))
-                    s.merge(DeskDirty(key=dest))
+                    enqueue_dirty(s,dest)
             enqueue_graph(s,'watch/'+link.watch)
             s.delete(link)
     else:
@@ -119,11 +189,18 @@ def update_event(s,key,watches):
             before=s.get(WatchEvent,(w.key,key))
             if w.enabled:sync_auto(s,w,card)
             after=s.get(WatchEvent,(w.key,key))
+            from .focus_models import FocusDefinition
+            natural=s.get(FocusDefinition,w.key)
+            if before or after:enqueue_graph(s,'watch/'+w.key)
+            if natural and (not after or after.choice!='include'):
+                # Automatic natural-topic membership is published later by
+                # the judgement worker. Its notifications/research trigger
+                # must use that accepted version, never a stale cached row.
+                continue
             if after and after.choice!='exclude' and card.sources!=old_sources:
                 from ..knowledge.service import note_change
                 from ..extraction.schema import stable_id
                 note_change(s,w.key,key,'updated' if before else 'added',card.title,stable_id(card.sources))
-            if before or after:enqueue_graph(s,'watch/'+w.key)
             today=utc_now_iso()[:10]
             if (w.enabled and w.auto_research and w.last_auto_day!=today and after
                     and after.choice!='exclude' and not after.reason.startswith('背景')
@@ -134,16 +211,35 @@ def update_event(s,key,watches):
 
 
 def drain(engine,limit=60):
-    with Session(engine) as s:
-        if not s.exec(select(DeskDirty.key).limit(1)).first():return 0
-        lock_news(s)
-        keys=s.exec(select(DeskDirty).order_by(DeskDirty.key).limit(limit)).all()
-        watches=s.exec(select(Watch)).all()
-        for dirty in keys:
-            update_event(s,dirty.key,watches)
-            s.delete(dirty)
-        s.commit()
-        return len(keys)
+    """One bounded event per transaction; no model or graph I/O is performed here.
+
+    Deleting the claimed row first matters: concurrent INSERT ON CONFLICT producers
+    must wait for this transaction and can then re-enqueue their newer change.
+    Deleting only at the end can discard an update that arrived during the snapshot.
+    """
+    processed=0
+    postgres=engine.dialect.name=='postgresql'
+    for _ in range(limit):
+        with Session(engine) as s:
+            if not postgres:
+                # End the cheap idle read before acquiring SQLite's compatibility lock.
+                if not s.exec(select(DeskDirty.key).limit(1)).first():break
+                s.rollback()
+                lock_news(s,'desk-drain')
+            query=select(DeskDirty).order_by(DeskDirty.key).limit(1)
+            if postgres:query=query.with_for_update(skip_locked=True)
+            dirty=s.exec(query).first()
+            if dirty is None:break
+            key=dirty.key
+            s.delete(dirty);s.flush()
+            watch_keys=list(s.exec(select(Watch.key).order_by(Watch.key)))
+            if postgres:
+                lock_news(s,'desk-event:'+key,*('watch:'+k for k in watch_keys))
+            watches=s.exec(select(Watch).order_by(Watch.key)).all()
+            update_event(s,key,watches)
+            s.commit()
+            processed+=1
+    return processed
 
 
 def get_watch(s,key):
@@ -157,9 +253,15 @@ def iso_after(days):
 
 
 def save_watch(s,scope:Scope,key=None,expected=None,seed=''):
-    lock_news(s)
-    w=get_watch(s,key) if key else Watch(key='w_'+uuid4().hex,**scope.model_dump())
+    ident=key or 'w_'+uuid4().hex
+    lock_news(s,'watch:'+ident,'watch-name:'+scope.name)
+    w=get_watch(s,key) if key else Watch(key=ident,**scope.model_dump())
     if key and expected!=w.version:raise TaskConflict('专题已被修改，请刷新后重试')
+    from .focus_models import FocusDefinition
+    definition=s.get(FocusDefinition,w.key) if key else None
+    if definition and any(getattr(scope,field)!=getattr(w,field)
+                          for field in ('name','scope','dimensions','exclude','question','kind')):
+        raise TaskConflict('请通过文字描述调整此专题的关注范围')
     duplicate=s.exec(select(Watch.key).where(Watch.name==scope.name, Watch.key!=w.key)).first()
     if duplicate:raise ValueError('名称已存在')
     if seed and not s.exec(select(Event.id).where(Event.event_key==seed)).first():raise KeyError('事件不存在')
@@ -169,9 +271,18 @@ def save_watch(s,scope:Scope,key=None,expected=None,seed=''):
         w.next_review=iso_after(scope.review_days)
     for field,value in scope.model_dump().items():setattr(w,field,value)
     s.add(w);s.flush()
-    if rescope and w.enabled:
-        for card in s.exec(select(RadarEntry).execution_options(yield_per=100)):
-            sync_auto(s,w,card)
+    from .focus_models import FocusBackfill
+    backfill=s.get(FocusBackfill,w.key)
+    if rescope or definition or (backfill and backfill.status in ('pending','running','paused')):
+        from .focus_jobs import queue_backfill
+        queue_backfill(s,w)
+    elif backfill:
+        backfill.scope_version=w.version
+        s.add(backfill)
+    if definition:
+        definition.scope_version=w.version
+        definition.updated=utc_now_iso()
+        s.add(definition)
     if seed:link_event(s,w.key,seed,'include',commit=False)
     if not key:
         from ..extraction.models import FocusPoint
@@ -187,7 +298,7 @@ def save_watch(s,scope:Scope,key=None,expected=None,seed=''):
 
 
 def link_event(s,key,event_key,action,*,commit=True):
-    if commit:lock_news(s)
+    if commit:lock_news(s,'watch:'+key)
     w=get_watch(s,key)
     from ..events.workbench import canonical_event, require_event
     require_event(s,event_key)
@@ -196,30 +307,74 @@ def link_event(s,key,event_key,action,*,commit=True):
     if action=='auto':
         if link:s.delete(link);s.flush()
         card=s.get(RadarEntry,event_key)
-        if card and w.enabled:sync_auto(s,w,card)
+        if card and w.enabled:
+            from .focus_models import FocusDefinition
+            if s.get(FocusDefinition,w.key):
+                from .focus_jobs import queue_event
+                queue_event(s,w,card,force=True)
+            else:sync_auto(s,w,card)
     elif action in ('include','exclude'):
         s.merge(WatchEvent(watch=key,event=event_key,choice=action,relevance=3,branch='人工整理',reason='手动关联' if action=='include' else '手动排除'))
+        if action=='exclude':
+            from sqlalchemy import delete
+            from ..knowledge.models import PointMaterial
+            from ..extraction.models import FocusPoint
+            s.exec(delete(PointMaterial).where(PointMaterial.event==event_key,
+                PointMaterial.point.in_(select(FocusPoint.key).where(FocusPoint.watch==key))))
     else:raise ValueError('无效关联操作')
     enqueue_graph(s,'watch/'+key)
     if commit:s.commit()
 
 
 def memberships(s,event_key):
-    return [dict(key=w.key,name=w.name,reason=l.reason) for w,l in
-            s.exec(select(Watch,WatchEvent).join(WatchEvent,WatchEvent.watch==Watch.key)
-            .where(WatchEvent.event==event_key,WatchEvent.choice!='exclude').order_by(Watch.name))]
+    return memberships_many(s,[event_key])[event_key]
+
+
+def current_membership():
+    """Hide obsolete automatic decisions immediately without a bulk DELETE.
+
+    Legacy rules and manual choices remain visible. A description-based
+    automatic member must have a completed judgement for the current scope.
+    Indexed scalar EXISTS checks do not load source text or scan history.
+    """
+    from sqlalchemy import or_
+    from .focus_models import FocusDefinition,FocusCandidate
+    natural=select(FocusDefinition.watch).where(FocusDefinition.watch==WatchEvent.watch).correlate(WatchEvent).exists()
+    accepted=select(FocusCandidate.key).join(Watch,Watch.key==FocusCandidate.watch).where(
+        FocusCandidate.watch==WatchEvent.watch,FocusCandidate.event==WatchEvent.event,
+        FocusCandidate.scope_version==Watch.version,FocusCandidate.status=='done',
+        FocusCandidate.decision.in_(('core','background'))).correlate(WatchEvent).exists()
+    return or_(WatchEvent.choice!='auto',~natural,accepted)
+
+
+def memberships_many(s,event_keys):
+    """One scalar query for a visible event page, including empty memberships."""
+    result={key:[] for key in event_keys}
+    if not result:return result
+    rows=all_rows(s,select(WatchEvent.event,Watch.key,Watch.name,WatchEvent.reason)
+        .select_from(WatchEvent).join(Watch,Watch.key==WatchEvent.watch)
+        .where(WatchEvent.event.in_(result),WatchEvent.choice!='exclude',current_membership())
+        .order_by(WatchEvent.event,Watch.name,Watch.key),name='desk.event_memberships')
+    for event,key,name,reason in rows:
+        result[event].append(dict(key=key,name=name,reason=reason))
+    return result
 
 
 def focus_entries(s,key,offset=0,limit=30,*,order='recent',branch=''):
-    stmt=select(RadarEntry,WatchEvent).join(WatchEvent,WatchEvent.event==RadarEntry.key).where(
-        WatchEvent.watch==key,WatchEvent.choice!='exclude')
+    stmt=select(RadarEntry,WatchEvent.reason).join(WatchEvent,WatchEvent.event==RadarEntry.key).where(
+        WatchEvent.watch==key,WatchEvent.choice!='exclude',current_membership())
     if branch:
         stmt=stmt.where(WatchEvent.branch==branch)
-    total=s.exec(select(func.count()).select_from(stmt.subquery())).one()
+    total=count_keys(s,stmt,RadarEntry.key,name='desk.focus_entries.count')
     if order=='relevance':
         stmt=stmt.order_by(WatchEvent.relevance.desc())
-    rows=s.exec(stmt.order_by(RadarEntry.seen.desc(),RadarEntry.key).offset(offset).limit(limit)).all()
-    return total,[(c,l.reason) for c,l in rows]
+    # The page displays these fields only. Large source/material JSON stays on
+    # the event detail path; raiseload prevents accidental per-row lazy fetches.
+    stmt=stmt.options(load_only(RadarEntry.key,RadarEntry.title,RadarEntry.band,
+        RadarEntry.evidence,RadarEntry.seen,raiseload=True))
+    rows=page_rows(s,stmt.order_by(RadarEntry.seen.desc(),RadarEntry.key),
+        offset=offset,limit=limit,name='desk.focus_entries.page')
+    return total,[(card,reason) for card,reason in rows]
 
 
 def make_review(s,w,event_key,trigger,cutoff=''):

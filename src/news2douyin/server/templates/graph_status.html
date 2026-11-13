@@ -1,6 +1,10 @@
-{% if knowledge is defined %}<div class="graph-status {{ 'warn' if knowledge.state!='ready' }}" role="status">
-{% if knowledge.state=='ready' %}知识图已更新 · {{ knowledge.count }} 个事件 · {{ knowledge.analyzed_at }}
-{% elif knowledge.state=='unconfigured' %}知识图尚未连接。请配置 FalkorDB；当前列表是本地材料，图排序与关联尚未就绪。
-{% elif knowledge.state=='error' %}知识图暂时不可用，后台正在重试。{% if knowledge.analyzed_at %}保留上次分析结果（{{ knowledge.analyzed_at }}）。{% endif %}
-{% else %}知识图正在更新 · {{ knowledge.pending }} 项待同步。排序与关联将在本轮完成后更新。{% endif %}
-{% if knowledge.truncated %} · 当前分析范围为最近 5000 个事件{% endif %} · <a href="/knowledge">查看处理状态</a></div>{% endif %}
+{% if knowledge is defined %}
+{% set index=knowledge.indexes|default({}) %}
+{% set index_state=index.state|default('unknown') %}
+{% set has_analysis=knowledge.analyzed_at|default('') %}
+<div class="graph-status {{ 'warn' if knowledge.state|default('pending')!='ready' or index_state in ['checking','building','error'] }}" role="status" data-graph-status>
+<strong data-graph-primary>{% if knowledge.state=='unconfigured' %}知识图尚未连接{% elif index_state=='error' %}图索引检查需要重试{% elif index_state in ['checking','building'] %}图索引准备中{% elif knowledge.state=='error' %}知识图暂时不可用，后台正在重试{% elif knowledge.pending is defined and knowledge.pending is not none and knowledge.pending>0 %}图投影中 · {{ knowledge.pending }} 项待同步{% elif knowledge.state=='ready' %}图投影已同步{% else %}正在检查图处理状态{% endif %}</strong>
+<span data-graph-analysis>{% if knowledge.state=='unconfigured' %} · 当前列表是本地材料，图排序与关联尚未就绪。{% elif has_analysis %} · 图分析更新于 {{ has_analysis }}{% if knowledge.count is defined and knowledge.count is not none %} · {{ knowledge.count }} 个事件{% endif %}{% if knowledge.truncated|default(false) %} · 分析范围为最近最多 5000 个事件{% endif %}。{% else %} · 图分析尚未完成；已投影的节点不代表排名已刷新。{% endif %}</span>
+{% if active|default('')!='knowledge' %} · <a href="/knowledge">查看处理状态</a>{% endif %}
+</div>
+{% endif %}

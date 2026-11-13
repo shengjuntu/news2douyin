@@ -1,0 +1,52 @@
+{
+  "batch": "20250203194500",
+  "query": "*",
+  "limit": 250,
+  "annotation": "One project author judgement, headline only. Score a multiset of (kind,status) per record. The seven baseline action families concern real-world news; explicit phone calls/interviews count as meetings. Unknown actors are allowed. Exclude fiction, market movements and generic recommendations without an action decision. Disjoint record IDs from the same archive next 10 candidate-cued and 10 uncued items. Counts explicit armed fighting/shooting as attack, explicit trade request as speech; heart attack and brand name Talk are outside scope. Two headlines report the same UN story; sample is not independent across stories.",
+  "labels": {
+    "118": [
+      "statement/reported"
+    ],
+    "178": [
+      "statement/reported",
+      "decision/denied"
+    ],
+    "184": [
+      "visit/planned"
+    ],
+    "176": [],
+    "202": [
+      "statement/reported",
+      "attack/reported"
+    ],
+    "187": [
+      "statement/reported",
+      "attack/reported"
+    ],
+    "171": [
+      "signing/reported"
+    ],
+    "132": [
+      "statement/reported"
+    ],
+    "168": [
+      "meeting/reported",
+      "meeting/planned"
+    ],
+    "204": [],
+    "102": [],
+    "88": [],
+    "221": [],
+    "105": [],
+    "98": [],
+    "110": [],
+    "89": [],
+    "194": [],
+    "12": [
+      "attack/reported"
+    ],
+    "60": [
+      "statement/reported"
+    ]
+  }
+}

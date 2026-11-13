@@ -5,6 +5,33 @@ const labels={meeting:'会谈',visit:'访问',signing:'签署',attack:'袭击'};
 const palette=['#62d0d0','#b599ee','#e8b26c','#7caee9','#91c598','#e389a8','#cfcd7c','#88b8bc'];
 let payload=null,promise=null,network=null,country=null,demo=false;
 const networkHost=document.querySelector('[data-radar-network]'),countryHost=document.querySelector('[data-radar-countries]');
+// Counts run independently from first-paint records. A view switch shares the
+// same in-flight promise; refresh explicitly asks the server for current data.
+const facetRequests=new Map(),facetStatus=document.querySelector('[data-radar-facet-status]'),facetRetry=document.querySelector('[data-radar-facet-retry]');
+function facetKey(){const u=new URL(root.dataset.radarFacetUrl,location.href);for(const key of ['offset','limit','view'])u.searchParams.delete(key);u.searchParams.sort();return u.pathname+'?'+u.searchParams;}
+function applyFacets(d){
+ const valid=n=>typeof n==='number'&&Number.isSafeInteger(n)&&n>=0;
+ if(!valid(d.total)||!d.radar_stats||!['total','analyzed','source_count'].every(k=>valid(d.radar_stats[k]))||!Array.isArray(d.channels)||!Array.isArray(d.providers)||![...d.channels,...d.providers].every(row=>valid(row.count)))throw Error('精确统计响应不完整');
+ for(const n of root.querySelectorAll('[data-radar-stat]'))n.textContent=(n.dataset.radarStat==='total'?d.total:d.radar_stats[n.dataset.radarStat]).toLocaleString('zh-CN');
+ const channels=new Map(d.channels.map(row=>[row.id,row.count])),providers=new Map(d.providers.map(row=>[row.id,row.count]));
+ for(const n of root.querySelectorAll('[data-radar-channel-count]'))n.textContent=channels.has(n.dataset.radarChannelCount)?channels.get(n.dataset.radarChannelCount).toLocaleString('zh-CN'):'…';
+ for(const n of root.querySelectorAll('[data-radar-provider-label]'))n.textContent=n.dataset.radarProviderLabel+' · '+(providers.has(n.value)?providers.get(n.value).toLocaleString('zh-CN'):'…');
+ const history=root.querySelector('[data-radar-historical]');if(history)history.hidden=!(d.historical&&d.total>0);
+ const empty=root.querySelector('[data-radar-empty-label]');if(empty)empty.textContent=d.total===0?'当前范围没有事件。':'当前页没有可展示的事件，可返回上一页查看。';
+}
+async function loadFacets(refresh=false){
+ if(!root.dataset.radarFacetUrl||!facetStatus)return;
+ const key=facetKey();if(refresh)facetRequests.delete(key);
+ for(const n of root.querySelectorAll('[data-radar-stat],[data-radar-channel-count]'))n.textContent='…';
+ for(const n of root.querySelectorAll('[data-radar-provider-label]'))n.textContent=n.dataset.radarProviderLabel+' · …';
+ const empty=root.querySelector('[data-radar-empty-label]');if(empty)empty.textContent='当前页没有可展示的事件，完整范围统计中。';
+ root.dataset.facetState='loading';facetStatus.classList.remove('desk-error');facetStatus.textContent='精确统计中，事件列表可继续操作。';facetRetry.disabled=true;facetRetry.textContent='统计中…';
+ if(!facetRequests.has(key))facetRequests.set(key,fetch(key,{cache:'no-store'}).then(async response=>{if(!response.ok)throw Error('统计服务暂时不可用');const result=await response.json();return result;}));
+ try{const result=await facetRequests.get(key);if(key!==facetKey())return;applyFacets(result);root.dataset.facetState='ready';facetStatus.textContent='当前范围的精确统计已更新。';facetRetry.textContent='刷新统计';}
+ catch(error){facetRequests.delete(key);if(key!==facetKey())return;root.dataset.facetState='error';facetStatus.classList.add('desk-error');facetStatus.textContent='精确统计暂未完成，请重试。事件列表和翻页仍可使用。';facetRetry.textContent='重试统计';}
+ finally{if(key===facetKey())facetRetry.disabled=false;}
+}
+facetRetry?.addEventListener('click',()=>loadFacets(true));
 function demoData(){const conflict=new URL(location.href).searchParams.get('channel')==='conflict';return {nodes:[{id:'demo-a',label:'甲国'},{id:'demo-b',label:'乙国'},{id:'demo-c',label:'丙国'},{id:'demo-d',label:'丁国'}],links:(conflict?[[0,1,4],[1,2,2],[2,0,1],[3,1,3]]:[[0,1,4],[1,2,3],[2,3,2],[3,0,1],[0,2,2]]).map(([a,b,value])=>({source:'demo-'+String.fromCharCode(97+a),target:'demo-'+String.fromCharCode(97+b),value,directed:conflict||a%2===0,kind:conflict?'attack':'meeting',evidence:[],demo:true})),eligible_mentions:0,excluded_mentions:0,measure:'虚构关系权重',demo:true};}
 async function data(){if(payload)return payload;if(!promise){const params=new URLSearchParams(location.search);params.delete('offset');promise=fetch('/api/radar/view?'+params).then(async r=>{if(!r.ok)throw Error('视图数据暂时无法读取');payload=await r.json();const note=document.querySelector('[data-radar-scope]');if(payload.scope_note)note.textContent=payload.scope_note;return payload;}).catch(e=>{promise=null;throw e;});}return promise;}
 function countryMount(host,data){
@@ -66,4 +93,5 @@ for(const a of document.querySelectorAll('[data-radar-view]'))a.addEventListener
 const demoButton=document.querySelector('[data-radar-demo]'),banner=document.querySelector('[data-radar-demo-banner]');demoButton?.addEventListener('click',()=>{demo=!demo;banner.hidden=!demo;demoButton.textContent=demo?'切回真实数据':'查看虚构示意图';activate('countries',false);});
 window.addEventListener('popstate',()=>activate(new URL(location.href).searchParams.get('view')||'list',false));
 activate(new URL(location.href).searchParams.get('view')||'list',false);
+loadFacets();
 })();

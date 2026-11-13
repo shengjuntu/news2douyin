@@ -1,5 +1,5 @@
 version: '2.0'
-owner: "SQLite: immutable evidence and editorial state; FalkorDB: queryable graph and derived analysis"
+owner: "PostgreSQL (SQLite compatible): immutable evidence, topic definitions and editorial state; DuckDB: raw archive; FalkorDB: replayable graph projection and derived analysis"
 projection: "FalkorDB required for graph ranking and focus propagation; replayable transactional outbox"
 identity: "Referent.identity_status=curated uses curated aliases; name_candidate joins normalized typed names only and is not a verified real-world identity. No causal inference from co-occurrence."
 shared_nodes:
@@ -33,6 +33,9 @@ global_relationships:
   TRACKS: {from: Focus, to: Event, attributes: [reason, branch, relevance]}
 focus_nodes:
   Question: {id: string, text: string, scope: string}
+  InterestScope: {id: string, description: string, version: integer, method: string, time_start: string, time_end: string, includes: string, excludes: string}
+  InterestEntity: {id: string, name: string, entity_type: string, aliases: string, core: boolean, stamp: string}
+  InterestPattern: {id: string, subject: string, relation: string, object: string, keywords: string, stamp: string}
   OutlinePoint: {id: string, text: string}
   Investigation: {id: string, case_id: string, status: string}
   ResearchQuestion: {id: string, text: string, status: string}
@@ -42,6 +45,12 @@ focus_nodes:
 focus_extensions:
   Article: {url: string}
 focus_relationships:
+  DEFINED_BY: {from: Question, to: InterestScope, meaning: "user interest definition; not a claim about an event"}
+  HAS_ANCHOR: {from: InterestScope, to: InterestEntity}
+  HAS_PATTERN: {from: InterestScope, to: InterestPattern, meaning: "relation to search for; never evidence that it happened"}
+  PATTERN_SUBJECT: {from: InterestPattern, to: InterestEntity}
+  PATTERN_OBJECT: {from: InterestPattern, to: InterestEntity}
+  MAPS_TO: {from: InterestEntity, to: Referent, meaning: "curated or typed name candidate; inspect Referent.identity_status"}
   RELEVANT_MATERIAL: {from: OutlinePoint, to: Event, attributes: [reason], meaning: "relevance hint, not supporting evidence"}
   HAS_MATERIAL: {from: Question, to: Event, attributes: [reason]}
   CITES: {from: Event, to: Article}

@@ -13,6 +13,9 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - run: python -m pip install -e ".[dev,assets,llm,video,voice-offline]"
+      - name: Enable real FalkorDB integration on Linux Python 3.12
+        if: runner.os == 'Linux' && matrix.python == '3.12'
+        run: python -m pip install falkordblite==0.11.0
       - run: python -m pytest -q
       - run: python -m build
       - run: python -m pip uninstall -y news2douyin

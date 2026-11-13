@@ -66,7 +66,7 @@ def create_or_update_profile(session: Session, profile: dict[str, Any]) -> Colle
     if profile['provider'] == 'gdelt':
         gdelt_query(profile)
     if profile['provider']=='gkg':gkg.validate(profile)
-    lock_news(session)
+    lock_news(session, 'profile:' + profile['name'])
     row = session.exec(select(CollectProfile).where(CollectProfile.name == profile['name'])).first()
     now = utc_now_iso()
     if not row:
@@ -119,6 +119,7 @@ def _utc_timestamp(value: str, fallback: str) -> str:
 
 
 def _upsert_event(session: Session, item: dict[str, Any], event_key: str) -> Event:
+    lock_news(session, 'event:' + event_key)
     row = session.exec(select(Event).where(Event.event_key == event_key).execution_options(populate_existing=True)).first()
     now = utc_now_iso()
     published = _utc_timestamp(item.get('published_at') or (item.get('gdelt') or {}).get('seen_at'), now)
@@ -154,7 +155,7 @@ def _upsert_event(session: Session, item: dict[str, Any], event_key: str) -> Eve
 def run_collection(session: Session, profile_name: str, *, storage_root: str | Path = 'runs_v7', trigger_type: str = 'manual', job_id: Optional[int] = None, override: Optional[dict[str, Any]] = None, profile_snapshot: Optional[dict[str, Any]] = None, control=None) -> RunRecord:
     if profile_snapshot is None:
         from .management import require_profile
-        lock_news(session)
+        lock_news(session, 'profile:' + profile_name)
         require_profile(session, profile_name, enabled=True)
     profile = dict(profile_snapshot) if profile_snapshot is not None else get_profile(session, profile_name)
     if control:
@@ -243,7 +244,7 @@ def run_collection(session: Session, profile_name: str, *, storage_root: str | P
             item['language'] = item.get('language') or profile.get('language', 'en')
             item['published_at'] = _utc_timestamp(item.get('published_at'), '')
             # External fetch/filter work finished before this short write lock.
-            lock_news(session)
+            lock_news(session, 'article:' + identity_key(item))
             if control:
                 control.fence(session)
             existing = find_article(session, item)
@@ -301,8 +302,8 @@ def run_collection(session: Session, profile_name: str, *, storage_root: str | P
                     stored_articles.append(existing)
                     disposition = 'updated'
                 else:
-                    existing.fetched_at = row.fetched_at
-                    session.add(existing)
+                    # Source observations have their own receipts; a timestamp
+                    # refresh must not rewrite article text/search/graph rows.
                     skipped_existing += 1
                     dup_count += 1
                     disposition = 'existing'

@@ -1,0 +1,35 @@
+news2douyin 0.25.1 — validation 2026-11-13
+
+General regression: 597 passed, 58 skipped (271.69 s).
+Real PostgreSQL 16.2 mixed regression: 153 passed, 1 skipped (118.08 s).
+Final graph/lease/migration/status checks: 72 passed (44.22 s).
+Final readiness ordering + single-connection checks: 2 passed (7.68 s).
+Groups overlap; do not add counts as independent cases.
+The final checks cover the small status-pool/readiness fixes made after broad regression.
+
+Actual FalkorDB 4.22.1, matching the field report version.
+Real HTTP + background workers + FalkorDB + Chromium topic flow: PASS.
+Maintenance-state browser interactions: PASS (controlled status fixture).
+Desktop and 390px mobile layouts, zero page/console errors.
+Actual wheel installed to an isolated target: PASS for automatic index readiness,
+projection/token acknowledgement, indexed EXPLAIN, independent GC, HTTP pages,
+no-graph-I/O maintenance retry, static asset and migration/index CLI checks.
+Wheel 280 entries; sdist 611 entries; 275 shipped source files compared byte-for-byte.
+
+Controlled graph benchmark, 100000 Event/Article pairs, 7 balanced samples:
+No indexes median ms: old 1087.58; old without GC 208.46; new 182.48.
+Indexed median ms: old 857.59; old without GC 3.35; new 1.97.
+Fixture has ~480000 total nodes/~246 MiB; index build 1.508 s was excluded.
+These are graph commands only, excluding PG/leases/ack/GC/scheduling.
+They cannot be used as production throughput or a 443000-item catch-up forecast.
+
+No production server or 27GB database was opened, changed, migrated or cleaned.
+Real-model accuracy and production Compose/PostgreSQL 17 deployment not evaluated.
+Model/news in browser checks were explicitly controlled local fixtures.
+See docs/validation/0.25.1/README.md, GRAPH-INDEXES.md and GRAPH-MAINTENANCE.md.
+
+Upgrade: stop old app, back up DB/full storage/config/FalkorDB, install new wheel,
+keep DB URL/storage_root/graph URL/prefix. Healthy existing graphs are preserved.
+Startup background checks add missing indexes and wait for OPERATIONAL.
+New maintenance state is additive; graph index preparation does not imply reindexing
+all historical articles or replaying every already-complete outbox record.

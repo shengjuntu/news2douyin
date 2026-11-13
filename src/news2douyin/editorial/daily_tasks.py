@@ -94,7 +94,7 @@ def submit_many(engine, data):
     request = DailyBatchRequest.model_validate(data)
     results = []
     with Session(engine) as session:
-        lock_news(session)
+        lock_news(session, *['daily-selection:' + key for key in request.selection_keys])
         for selection_key in request.selection_keys:
             pick = session.get(DailySelection, selection_key)
             if not pick or not pick.active:

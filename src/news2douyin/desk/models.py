@@ -1,4 +1,5 @@
 from sqlmodel import SQLModel, Field
+from sqlalchemy import Index, text
 from ..storage.models import utc_now_iso
 
 
@@ -20,6 +21,7 @@ class Watch(SQLModel, table=True):
 
 
 class RadarEntry(SQLModel, table=True):
+    __table_args__ = (Index('ix_radarentry_read_scope', 'key', 'seen', 'priority', 'band'),)
     key: str = Field(primary_key=True)
     title: str
     seen: str = Field(index=True)
@@ -53,9 +55,18 @@ class DeskMeta(SQLModel, table=True):
 
 
 class GraphPending(SQLModel, table=True):
+    __table_args__ = (Index('ix_graphpending_pending_key','key',
+        sqlite_where=text('token <> written'),postgresql_where=text('token <> written')),)
     key: str = Field(primary_key=True)
     token: str
     written: str = ''
+
+
+class GraphLease(SQLModel, table=True):
+    """Short SQL transactions coordinate replayable work across external graph I/O."""
+    key: str = Field(primary_key=True)
+    owner: str = ''
+    until: float = 0.0
 
 
 class WatchReview(SQLModel, table=True):

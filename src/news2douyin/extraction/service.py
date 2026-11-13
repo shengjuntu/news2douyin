@@ -17,23 +17,39 @@ NEW = 'baseline'
 MODEL = 'model_queued'
 
 
-def initialize(engine):
+def initialize(engine,*,backfill=True):
+    from ..storage.sql import install_sql_functions
     with engine.begin() as db:
-        db.exec_driver_sql("""CREATE TRIGGER IF NOT EXISTS extraction_version AFTER INSERT ON articleversion BEGIN
-          INSERT OR IGNORE INTO versionreading(version_id,state,lease,until,method,model,note)
-          VALUES(NEW.id,'baseline','',0,'','',''); END""")
-        # Only the latest version of each historical article requires background backfill.
-        db.exec_driver_sql("""INSERT OR IGNORE INTO versionreading(version_id,state,lease,until,method,model,note)
-            SELECT max(id),'baseline','',0,'','','' FROM articleversion GROUP BY article_key""")
-        if os.getenv('NEWS2DOUYIN_EVENT_READER','rules')=='model':
+        install_sql_functions(db)
+        if engine.dialect.name=='postgresql':
+            db.exec_driver_sql("""CREATE OR REPLACE FUNCTION n2d_enqueue_extraction()
+                RETURNS trigger LANGUAGE plpgsql AS $n2d$
+                BEGIN
+                  INSERT INTO versionreading(version_id,state,lease,"until",method,model,note)
+                  VALUES(NEW.id,'baseline','',0,'','','') ON CONFLICT(version_id) DO NOTHING;
+                  RETURN NEW;
+                END $n2d$""")
+            db.exec_driver_sql('CREATE OR REPLACE TRIGGER extraction_version AFTER INSERT ON articleversion FOR EACH ROW EXECUTE FUNCTION n2d_enqueue_extraction()')
+            if backfill:
+                db.exec_driver_sql("""INSERT INTO versionreading(version_id,state,lease,"until",method,model,note)
+                    SELECT max(id),'baseline','',0,'','','' FROM articleversion GROUP BY article_key
+                    ON CONFLICT(version_id) DO NOTHING""")
+        else:
+            db.exec_driver_sql("""CREATE TRIGGER IF NOT EXISTS extraction_version AFTER INSERT ON articleversion BEGIN
+              INSERT OR IGNORE INTO versionreading(version_id,state,lease,"until",method,model,note)
+              VALUES(NEW.id,'baseline','',0,'','',''); END""")
+            if backfill:
+                db.exec_driver_sql("""INSERT OR IGNORE INTO versionreading(version_id,state,lease,"until",method,model,note)
+                    SELECT max(id),'baseline','',0,'','','' FROM articleversion GROUP BY article_key""")
+        if backfill and os.getenv('NEWS2DOUYIN_EVENT_READER','rules')=='model':
             db.exec_driver_sql("""UPDATE versionreading SET state='model_queued'
                 WHERE state='ready' AND method='rules' AND model=''
                 AND version_id IN (SELECT max(id) FROM articleversion GROUP BY article_key)""")
 
 
 def schedule_model(session, version):
-    lock_news(session)
-    job = session.get(VersionReading, version.id)
+    lock_news(session,'extract-version/'+str(version.id))
+    job = session.exec(select(VersionReading).where(VersionReading.version_id==version.id).with_for_update()).first()
     if not job:
         job = VersionReading(version_id=version.id,state=NEW)
     if job.state == NEW or (job.state=='rule_running'):
@@ -53,9 +69,15 @@ def pick(engine, model):
         (VersionReading.state==running) & (VersionReading.until < now),
         (VersionReading.state==('model_wait' if model else 'rule_wait')) & (VersionReading.until < now))).order_by(VersionReading.version_id).limit(1)
     with Session(engine, expire_on_commit=False) as s:
-        if not s.exec(query).first():
-            return None
-        lock_news(s)
+        if engine.dialect.name=='postgresql':
+            # Row claims are committed before any model call; other workers skip them.
+            query=query.with_for_update(skip_locked=True)
+        else:
+            candidate=s.exec(query).first()
+            if candidate is None:return None
+            ident=candidate.version_id
+            s.rollback()
+            lock_news(s,'extract-version/'+str(ident))
         job = s.exec(query).first()
         if not job:
             return None
@@ -71,8 +93,9 @@ def pick(engine, model):
 
 
 def touch_events(s, article):
+    from ..desk.service import enqueue_dirty
     for key in s.exec(select(ArticleEventLink.event_key).where(ArticleEventLink.article_key==article)):
-        s.merge(DeskDirty(key=key))
+        enqueue_dirty(s,key)
 
 
 def step(engine, model=False):
@@ -92,8 +115,8 @@ def step(engine, model=False):
         # Do not expose credentials, endpoint bodies or source text in task messages.
         error = type(exc).__name__
     with Session(engine) as s:
-        lock_news(s)
-        job = s.get(VersionReading, version.id)
+        lock_news(s,'extract-version/'+str(version.id))
+        job = s.exec(select(VersionReading).where(VersionReading.version_id==version.id).with_for_update()).first()
         if not job or job.lease != lease:
             return True
         wants_model = job.note=='model_after_baseline' or os.getenv('NEWS2DOUYIN_EVENT_READER','rules')=='model'
@@ -148,8 +171,10 @@ def article_view(s, version):
 
 
 def decide(s, mention, decision):
-    lock_news(s)
-    row = s.get(TextMention, mention)
+    candidate=s.get(TextMention,mention)
+    if not candidate:raise KeyError('陈述不存在或已更新')
+    lock_news(s,'extract-version/'+str(candidate.version_id))
+    row = s.exec(select(TextMention).where(TextMention.id==mention)).first()
     if not row:
         raise KeyError('陈述不存在或已更新')
     if decision not in ('accepted','rejected','pending'):
@@ -178,8 +203,9 @@ def neighbors(s,key):
 def focus_timeline(s, watch):
     from sqlalchemy import func
     from ..desk.models import WatchEvent
+    from ..desk.service import current_membership
     members=select(ArticleEventLink.article_key).join(WatchEvent,WatchEvent.event==ArticleEventLink.event_key
-        ).where(WatchEvent.watch==watch,WatchEvent.choice!='exclude')
+        ).where(WatchEvent.watch==watch,WatchEvent.choice!='exclude',current_membership())
     latest=select(func.max(ArticleVersion.id)).where(ArticleVersion.article_key.in_(members)).group_by(ArticleVersion.article_key)
     stmt=select(TextMention).outerjoin(MentionReview,MentionReview.id==TextMention.id).where(
         TextMention.version_id.in_(latest),TextMention.action_date!='',

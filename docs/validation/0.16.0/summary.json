@@ -1,0 +1,18 @@
+{
+  "version": "0.16.0",
+  "fullRegression": {
+    "passed": 334,
+    "skipped": 17
+  },
+  "topicTests": {
+    "passed": 13
+  },
+  "uiContract": {
+    "passed": 8,
+    "engine": "JSDOM with real local app HTTP; RunDesk/model fixture"
+  },
+  "upgrade": "old table counts unchanged; 6 additive tables",
+  "package": "wheel contents and isolated target installation passed",
+  "realBrowserLayout": false,
+  "liveCodexExaDockerTested": false
+}

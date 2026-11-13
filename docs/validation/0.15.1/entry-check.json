@@ -1,0 +1,11 @@
+{
+  "presetMode": "passed",
+  "visibleOptions": "passed",
+  "paginationMode": "passed",
+  "existingPicksPreserved": "passed",
+  "defaultAndInvalidModes": "passed",
+  "entryLinks": "passed",
+  "noResearchOnNavigation": "passed",
+  "renderedJavaScriptSyntax": "passed",
+  "browserLayoutTested": false
+}

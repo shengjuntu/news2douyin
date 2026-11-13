@@ -1,0 +1,21 @@
+services:
+  falkordb:
+    image: ${FALKORDB_IMAGE:-falkordb/falkordb:v4.22.1}
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${NEWS2DOUYIN_FALKOR_PORT:-16379}:6379"
+      - "${NEWS2DOUYIN_FALKOR_BROWSER_BIND:-127.0.0.1}:${NEWS2DOUYIN_FALKOR_BROWSER_PORT:-13000}:3000"
+    environment:
+      REDIS_ARGS: "--appendonly yes --appendfsync everysec"
+      PORT: "3000"
+      NEXTAUTH_URL: "${NEWS2DOUYIN_FALKOR_BROWSER_URL:-http://localhost:13000}"
+      AUTH_URL: "${NEWS2DOUYIN_FALKOR_BROWSER_URL:-http://localhost:13000}"
+    volumes:
+      - news2douyin_graph:/var/lib/falkordb/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+volumes:
+  news2douyin_graph:

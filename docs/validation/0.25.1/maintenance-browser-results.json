@@ -1,0 +1,11 @@
+{
+  "ok": true,
+  "indexRetrySeparated": true,
+  "indexPreparationVisible": true,
+  "pendingAlongAnalysisVisible": true,
+  "pollFailurePreservesState": true,
+  "recoveryClearsWarning": true,
+  "mobileNoOverflow": true,
+  "pageErrors": [],
+  "fixtureServer": true
+}

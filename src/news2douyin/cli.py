@@ -74,24 +74,24 @@ def main() -> None:
 
     # v7 server-first
     p_init = sub.add_parser('v7-init', help='Initialize v7 DB and optionally import profiles/jobs')
-    p_init.add_argument('--db-url', default='sqlite:///runs_v7/news2douyin_v7.db')
+    p_init.add_argument('--db-url', default=None)
     p_init.add_argument('--profile', action='append', default=[])
     p_init.add_argument('--jobs-yaml', default='')
 
     p_serve = sub.add_parser('v7-serve', help='Run v7 FastAPI server')
     p_serve.add_argument('--host', default='127.0.0.1')
     p_serve.add_argument('--port', type=int, default=18080)
-    p_serve.add_argument('--db-url', default='sqlite:///runs_v7/news2douyin_v7.db')
+    p_serve.add_argument('--db-url', default=None)
     p_serve.add_argument('--storage-root', default='runs_v7')
 
     p_collect = sub.add_parser('v7-run-now', help='Run one v7 collection now')
-    p_collect.add_argument('--db-url', default='sqlite:///runs_v7/news2douyin_v7.db')
+    p_collect.add_argument('--db-url', default=None)
     p_collect.add_argument('--storage-root', default='runs_v7')
     p_collect.add_argument('--profile-name', required=True)
     p_collect.add_argument('--override-json', default='{}')
 
     p_sa = sub.add_parser('v7-search-articles', help='Search stored articles')
-    p_sa.add_argument('--db-url', default='sqlite:///runs_v7/news2douyin_v7.db')
+    p_sa.add_argument('--db-url', default=None)
     p_sa.add_argument('--query', default='')
     p_sa.add_argument('--country', default='')
     p_sa.add_argument('--category', default='')
@@ -99,14 +99,14 @@ def main() -> None:
     p_sa.add_argument('--limit', type=int, default=20)
 
     p_se = sub.add_parser('v7-search-events', help='Search stored events')
-    p_se.add_argument('--db-url', default='sqlite:///runs_v7/news2douyin_v7.db')
+    p_se.add_argument('--db-url', default=None)
     p_se.add_argument('--query', default='')
     p_se.add_argument('--country', default='')
     p_se.add_argument('--topic', default='')
     p_se.add_argument('--limit', type=int, default=20)
 
     p_sb = sub.add_parser('v7-build-script', help='Build a script package from an event')
-    p_sb.add_argument('--db-url', default='sqlite:///runs_v7/news2douyin_v7.db')
+    p_sb.add_argument('--db-url', default=None)
     p_sb.add_argument('--storage-root', default='runs_v7')
     p_sb.add_argument('--event-key', required=True)
     p_sb.add_argument('--profile-name', default='douyin_market_60s')
@@ -193,7 +193,7 @@ def main() -> None:
                 imported += 1
             if args.jobs_yaml:
                 jobs = _upsert_jobs_from_yaml(session, args.jobs_yaml)
-        print(json.dumps({'db_url': args.db_url, 'profiles_imported': imported, 'jobs_imported': jobs}, ensure_ascii=False))
+        print(json.dumps({'database': engine.dialect.name, 'profiles_imported': imported, 'jobs_imported': jobs}, ensure_ascii=False))
         return
 
     if args.cmd == 'v7-serve':

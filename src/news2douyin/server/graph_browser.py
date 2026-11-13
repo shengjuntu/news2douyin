@@ -46,5 +46,5 @@ def register(app,engine,render):
     def save(payload:BrowserSetting,s=Depends(db)):
         try:url=browser_url(payload.url)
         except ValueError as exc:raise HTTPException(422,str(exc))
-        lock_news(s);s.merge(DeskMeta(key='graph_browser_url',value=url));s.commit()
+        lock_news(s, 'settings:graph-browser');s.merge(DeskMeta(key='graph_browser_url',value=url));s.commit()
         return dict(url=url)

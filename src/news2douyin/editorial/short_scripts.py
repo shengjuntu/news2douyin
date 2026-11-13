@@ -280,6 +280,11 @@ def save_draft(engine, settings, args):
             brief.package_key, brief.draft_hash, brief.report_id = key, fingerprint, report['report_id']
             s.add(brief)
             research.activity(s, case.case_id, 'short_script_saved', '短稿及逐段引用已保存，待人工审核', run.run_id)
+            # Publish workbench bindings in the writer transaction. GET pages
+            # consume these rows and never repair them synchronously.
+            s.flush()
+            from ..workbench.service import sync
+            sync(s)
             s.commit(); committed = True
             return _saved(brief, fingerprint)
     finally:

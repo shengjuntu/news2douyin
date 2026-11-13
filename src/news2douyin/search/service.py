@@ -4,12 +4,14 @@ from dataclasses import dataclass
 import json
 import re
 
-from sqlalchemy import func, text, and_
+from sqlalchemy import func, text, and_, inspect
 from sqlmodel import Session, or_, select
 
 from ..storage.models import Article, ArticleEventLink, Event, CollectedObservation, TaskRecord, RunRecord
 from .dates import date_range
 from .index import index_available
+from ..storage.sql import time_value
+from ..storage.queries import count_keys, page_rows
 
 
 @dataclass
@@ -19,12 +21,13 @@ class SearchPage:
     offset: int
     limit: int
     search_backend: str
+    search_warning: str = ''
 
     def envelope(self, items=None):
         return {'items': self.items if items is None else items, 'total': self.total,
                 'offset': self.offset, 'limit': self.limit,
                 'has_more': self.offset + len(self.items) < self.total,
-                'search_backend': self.search_backend}
+                'search_backend': self.search_backend, **({'search_warning':self.search_warning} if self.search_warning else {})}
 
 
 def _text_matches(columns, query):
@@ -51,7 +54,7 @@ def _match(model, columns, term, indexed, name):
     predicate = _text_matches(columns, term)
     # Trigram FTS cannot answer short terms; SQLite LIKE is also needed for
     # literal punctuation/wildcards and Unicode characters with different folding.
-    if indexed and len(term) >= 3 and re.fullmatch(r'[a-zA-Z0-9\u4e00-\u9fff ]+', term):
+    if indexed is True and len(term) >= 3 and re.fullmatch(r'[a-zA-Z0-9\u4e00-\u9fff ]+', term):
         table = model.__tablename__ + '_fts'
         subquery = select(text('rowid')).select_from(text(table)).where(text(f'{table} MATCH :{name}'))
         subquery = subquery.params(**{name: '"' + term.replace('"', '""') + '"'})
@@ -59,21 +62,36 @@ def _match(model, columns, term, indexed, name):
     return predicate
 
 
-def _page(session, stmt, order, *, offset, limit, indexed):
+def _page(session, stmt, order, *, offset, limit, indexed, key=None, name=None):
     if offset < 0 or limit < 1 or limit > 500:
         raise ValueError('offset must be nonnegative and limit must be 1–500')
-    total = session.exec(select(func.count()).select_from(stmt.subquery())).one()
-    items = list(session.exec(stmt.order_by(*order).offset(offset).limit(limit)))
-    return SearchPage(items, total, offset, limit, 'fts5_trigram+literal' if indexed else 'sql_literal')
+    entity=stmt.column_descriptions[0].get('entity')
+    if key is None:
+        if entity is None:
+            raise ValueError('A pagination count key is required for a non-entity query')
+        primary=inspect(entity).primary_key
+        if len(primary)!=1:
+            raise ValueError('An explicit pagination count key is required for a composite entity')
+        key=primary[0]
+    query_name=name or 'search.'+getattr(entity,'__tablename__','results')
+    # Project only identity into the unpaginated count. Joins/distinct/grouping
+    # remain the caller's business relation; a join is not silently deduplicated.
+    total = count_keys(session,stmt,key,name=query_name+'.count')
+    items = page_rows(session,stmt.order_by(*order),offset=offset,limit=limit,name=query_name+'.page')
+    if session.bind.dialect.name=='postgresql':
+        backend='pg_trgm+literal' if indexed=='pg_trgm' else 'pg_sql_literal_degraded'
+        warning='' if indexed=='pg_trgm' else getattr(session.bind,'_n2d_search_warning','') or 'PostgreSQL pg_trgm 索引不可用，当前使用字面文本扫描。'
+    else:backend,warning=('fts5_trigram+literal' if indexed else 'sql_literal'),''
+    return SearchPage(items,total,offset,limit,backend,warning)
 
 
 def _time_predicate(column, start, end):
-    # SQLite julianday also handles legacy ISO timestamps with non-UTC offsets.
+    # Both dialects compare instants, preserving legacy offsets and invalid-date NULLs.
     conditions = []
     if start:
-        conditions.append(func.julianday(column) >= func.julianday(start))
+        conditions.append(time_value(column) >= time_value(start))
     if end:
-        conditions.append(func.julianday(column) < func.julianday(end))
+        conditions.append(time_value(column) < time_value(end))
     return and_(*conditions)
 
 
@@ -117,7 +135,8 @@ def article_page(session: Session, *, query='', country='', category='', duplica
         if start or end:
             column = Article.published_at if time_field == 'published' else Article.created_at
             stmt = stmt.where(_time_predicate(column, start, end))
-    return _page(session, stmt, [Article.id.desc()], offset=offset, limit=limit, indexed=indexed)
+    return _page(session, stmt, [Article.id.desc()], offset=offset, limit=limit, indexed=indexed,
+                 key=Article.id,name='search.articles')
 
 
 def event_query(session: Session, *, query='', country='', topic='', mode='contains'):
@@ -137,7 +156,8 @@ def event_query(session: Session, *, query='', country='', topic='', mode='conta
 
 def event_page(session: Session, *, query='', country='', topic='', limit=50, offset=0, mode='contains'):
     stmt = event_query(session,query=query,country=country,topic=topic,mode=mode)
-    return _page(session,stmt,[Event.last_seen_at.desc(),Event.id.desc()],offset=offset,limit=limit,indexed=index_available(session))
+    return _page(session,stmt,[Event.last_seen_at.desc(),Event.id.desc()],offset=offset,limit=limit,indexed=index_available(session),
+                 key=Event.id,name='search.events')
 
 
 def search_articles(session: Session, *, limit=50, **kwargs):

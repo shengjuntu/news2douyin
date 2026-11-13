@@ -33,7 +33,7 @@ def profile_links(session, name):
 
 
 def set_profile_enabled(session, name, enabled):
-    lock_news(session)
+    lock_news(session, 'profile:' + name)
     require_profile(session, name)
     state = session.get(ProfileState, name) or ProfileState(name=name)
     state.enabled, state.updated_at = enabled, utc_now_iso()
@@ -50,7 +50,7 @@ def set_profile_enabled(session, name, enabled):
 
 
 def delete_profile(session, name):
-    lock_news(session)
+    lock_news(session, 'profile:' + name)
     row = require_profile(session, name)
     jobs, tasks, direct_runs = profile_links(session, name)
     if jobs:
@@ -80,7 +80,7 @@ def job_dict(row, *, preview=True):
 
 
 def save_job(session, data, job_id=None):
-    lock_news(session)
+    lock_news(session, 'jobs:configuration')
     data = dict(data)
     name = str(data.get('name', '')).strip()
     if not name or len(name) > 100:
@@ -114,7 +114,7 @@ def save_job(session, data, job_id=None):
 
 
 def set_job_enabled(session, job_id, enabled):
-    lock_news(session)
+    lock_news(session, 'jobs:configuration')
     row = session.get(CollectJob, job_id)
     if row is None or row.schedule_type == 'archived':
         raise KeyError('计划不存在')
@@ -129,7 +129,7 @@ def set_job_enabled(session, job_id, enabled):
 
 
 def delete_job(session, job_id):
-    lock_news(session)
+    lock_news(session, 'jobs:configuration')
     row = session.get(CollectJob, job_id)
     if row is None:
         raise KeyError('计划不存在')

@@ -1,46 +1,136 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
+import os
 
 from sqlmodel import SQLModel, Session, create_engine
+from sqlalchemy import event, inspect, text
+from sqlalchemy.engine import make_url
+
+
+def default_db_url() -> str:
+    return os.getenv('NEWS2DOUYIN_DATABASE_URL', '').strip() or 'sqlite:///runs_v7/news2douyin_v7.db'
+
+
+def _integer(name: str, default: int, low: int, high: int) -> int:
+    value = os.getenv(name, '').strip() or str(default)
+    try:
+        result = int(value)
+    except ValueError:
+        raise ValueError(f'{name} must be an integer') from None
+    if not low <= result <= high:
+        raise ValueError(f'{name} must be between {low} and {high}')
+    return result
 
 
 def normalize_db_url(db_url: str) -> str:
-    if db_url.startswith('sqlite:///'):
-        path = db_url[len('sqlite:///'):]
-        Path(path).parent.mkdir(parents=True, exist_ok=True)
+    if db_url.startswith('postgres://'):
+        db_url = 'postgresql+psycopg://' + db_url[len('postgres://'):]
+    elif db_url.startswith('postgresql://'):
+        db_url = 'postgresql+psycopg://' + db_url[len('postgresql://'):]
+    url = make_url(db_url)
+    if url.get_backend_name() == 'sqlite' and url.database not in (None, '', ':memory:'):
+        Path(url.database).parent.mkdir(parents=True, exist_ok=True)
     return db_url
 
 
-def make_engine(db_url: str):
-    db_url = normalize_db_url(db_url)
-    connect_args = {'check_same_thread': False} if db_url.startswith('sqlite') else {}
-    return create_engine(db_url, echo=False, connect_args=connect_args)
+def make_engine(db_url: str | None = None, *, maintenance: bool = False):
+    db_url = normalize_db_url(db_url or default_db_url())
+    url = make_url(db_url)
+    dialect = url.get_backend_name()
+    if dialect == 'sqlite':
+        timeout = _integer('NEWS2DOUYIN_SQLITE_BUSY_TIMEOUT_MS', 30000, 0, 60000)
+        memory = url.database in (None, '', ':memory:')
+        # Queue capacity is connection reuse/concurrent reading capacity;
+        # SQLite still has one writer. Keep its file-backed defaults modest.
+        # In-memory SQLite retains SQLAlchemy's original per-thread pool and
+        # must not receive QueuePool-only overflow/timeout arguments.
+        pool = {} if memory else dict(
+            pool_size=_integer('NEWS2DOUYIN_DB_POOL_SIZE', 5, 1, 64),
+            max_overflow=_integer('NEWS2DOUYIN_DB_MAX_OVERFLOW', 10, 0, 64),
+            pool_timeout=_integer('NEWS2DOUYIN_DB_POOL_TIMEOUT', 10, 0, 300))
+        engine = create_engine(db_url, echo=False, hide_parameters=True, **pool, connect_args={
+            'check_same_thread': False, 'timeout': timeout / 1000})
+        @event.listens_for(engine, 'connect')
+        def sqlite_options(connection, _record):
+            connection.execute(f'PRAGMA busy_timeout={timeout}')
+        # Configure WAL once, before workers start. Doing it on every pooled
+        # connection would itself compete for a schema/write lock.
+        with engine.connect() as connection:
+            mode = connection.exec_driver_sql('PRAGMA journal_mode=WAL').scalar()
+            if not memory and str(mode).lower() != 'wal':
+                engine.dispose()
+                raise RuntimeError('SQLite WAL could not be enabled; stop other database writers before startup')
+    else:
+        if dialect != 'postgresql':
+            raise ValueError('Online database must use PostgreSQL or SQLite')
+        lock_ms = _integer('NEWS2DOUYIN_DB_LOCK_TIMEOUT_MS', 2000, 0, 60000)
+        statement_ms = _integer('NEWS2DOUYIN_DB_STATEMENT_TIMEOUT_MS', 15000, 0, 3600000)
+        engine = create_engine(db_url, echo=False, hide_parameters=True, pool_pre_ping=True,
+            pool_size=_integer('NEWS2DOUYIN_DB_POOL_SIZE', 8, 1, 64),
+            max_overflow=_integer('NEWS2DOUYIN_DB_MAX_OVERFLOW', 8, 0, 64),
+            pool_timeout=_integer('NEWS2DOUYIN_DB_POOL_TIMEOUT', 10, 0, 300),
+            connect_args={'connect_timeout': 10, 'options':
+                f'-c lock_timeout={30000 if maintenance else lock_ms} '
+                f'-c statement_timeout={0 if maintenance else statement_ms} '
+                f'-c idle_in_transaction_session_timeout={0 if maintenance else 60000}'})
+    from .access import install_observer
+    install_observer(engine)
+    return engine
 
 
-def init_db(engine) -> None:
+def is_lock_error(exc: BaseException) -> bool:
+    original = getattr(exc, 'orig', exc)
+    code = getattr(original, 'sqlstate', None) or getattr(original, 'pgcode', None)
+    if code in {'55P03', '40P01', '40001'}:
+        return True
+    sqlite_code = getattr(original, 'sqlite_errorcode', None)
+    return isinstance(sqlite_code, int) and sqlite_code & 255 in (5, 6)
+
+
+def load_models() -> None:
+    from . import models as storage_models
     from ..research import models as research_models
     from ..topics import models as topic_models
-    from .articles import backfill_versions
-    from ..search.index import init_search
     from ..desk import models as desk_models
+    from ..desk import focus_models
+    from ..desk import graph_maintenance_models
     from ..extraction import models as extraction_models
     from ..knowledge import models as knowledge_models
     from ..workbench import models as workbench_models
     from ..intake import models as intake_models
     from ..intake import projection as intake_projection
+
+
+def create_schema(engine) -> None:
+    load_models()
     SQLModel.metadata.create_all(engine)
-    backfill_versions(engine)
+
+
+def install_runtime_schema(engine, *, backfill: bool = False) -> None:
+    from ..search.index import init_search
+    from ..desk.service import initialize as init_desk
+    from ..extraction.service import initialize as init_extraction
     init_search(engine)
+    init_desk(engine, backfill=backfill)
+    init_extraction(engine, backfill=backfill)
+
+
+def init_db(engine) -> None:
+    # A partially copied target is never a live application database.
+    if inspect(engine).has_table('_n2d_sqlite_migration'):
+        with engine.connect() as connection:
+            phases = connection.execute(text('SELECT phase FROM _n2d_sqlite_migration')).scalars().all()
+        if phases != ['ready']:
+            raise RuntimeError('SQLite migration is incomplete; resume and verify migration before starting the service')
+    create_schema(engine)
+    from .articles import backfill_versions
+    backfill_versions(engine)
+    install_runtime_schema(engine, backfill=True)
     from ..video.library import backfill_works
     backfill_works(engine)
     from ..research.service import initialize as init_research
     init_research(engine)
-    from ..desk.service import initialize as init_desk
-    init_desk(engine)
-    from ..extraction.service import initialize as init_extraction
-    init_extraction(engine)
     from ..knowledge.service import initialize as init_knowledge
     init_knowledge(engine)
     from ..workbench.service import initialize as init_workbench

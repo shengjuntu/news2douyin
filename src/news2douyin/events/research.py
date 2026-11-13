@@ -23,7 +23,7 @@ def result(session,key,research_key):
 def search(engine,key,query):
     research_key='res_'+uuid4().hex[:20]
     with Session(engine) as session:
-        lock_news(session)
+        lock_news(session, 'event:' + key)
         require_event(session,key,active=True)
         session.add(EventResearch(research_key=research_key,event_key=key,query_json=dumps(query)))
         session.commit()
@@ -37,7 +37,7 @@ def search(engine,key,query):
         # Provider errors can contain credentials; persist only a stable message.
         items,response,error=[],{},'检索未完成，请检查服务连接后重新检索'
     with Session(engine) as session:
-        lock_news(session)
+        lock_news(session, 'event-research:' + research_key)
         row=session.get(EventResearch,research_key)
         row.results_json=dumps(items)
         row.available=response.get('available',len(items))

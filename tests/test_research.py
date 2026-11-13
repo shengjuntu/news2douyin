@@ -10,7 +10,7 @@ from news2douyin.server.app import create_app
 from news2douyin.storage.models import Article
 from news2douyin.research.models import ResearchRun, ResearchReport, ResearchSource
 from news2douyin.research import service as svc
-from news2douyin.research.rundesk import RemoteError
+from news2douyin.research.rundesk import RemoteError, RESEARCH_TOOLS
 from news2douyin.research.tools import ResearchTools
 
 
@@ -46,7 +46,13 @@ class FakeRunDesk:
     def _request(self, method, path, payload=None, params=None):
         self.calls.append((method, path, payload, params))
         if path == '/meta':
-            return {'version':'0.6.1','demo':False,'apiVersions':['v1'],'capabilities':['instances','skills','mcp','sessions','api-v1','idempotency','configuration-summary']}
+            return {'version':'0.6.1','demo':False,'apiVersions':['v1'],'capabilities':['instances','skills','mcp','sessions','api-v1','idempotency','configuration-summary','application-connect']}
+        if path == '/applications/news2douyin/connect':
+            if not self.instances:
+                self.instances.append({'id':'instance-research'})
+                self.workspaces.append({'id':'workspace-research'})
+                self.servers.update(copy.deepcopy(payload['defaults']['mcp']))
+            return {'application':{'instanceId':'instance-research','workspaceId':'workspace-research'},'status':'connected','message':'已连接','managementPath':'/#application/news2douyin'}
         if path == '/instances':
             if method == 'POST':
                 row = {'id': 'instance-research', 'codexHome': '/remote/instance-research/codex', **payload}
@@ -65,7 +71,7 @@ class FakeRunDesk:
         if path.endswith('/skills'):
             return {'data': [{'skills': list(self.skills.values())}]}
         if path.endswith('/mcp'):
-            return {'version': 'config-v1', 'status': {'data': [{'name':'news2douyin-research','tools':{'research_get_case':{}}}]}}
+            return {'version': 'config-v1', 'effectiveServers': copy.deepcopy(self.servers), 'userServers': {}}
         if '/mcp/' in path and method == 'PUT':
             assert params['instanceId'] == 'instance-research'
             assert payload['version'] == 'config-v1'
@@ -74,7 +80,7 @@ class FakeRunDesk:
             return {'account': {'type':'apiKey'}, 'requiresOpenaiAuth':True}
         if path == '/sessions' and method == 'GET': return list(self.sessions.values())
         if path.endswith('/configuration'):
-            return {'instance':{'defaultModel':'test-model'},'skills':list(self.skills.values()),'mcp':{'status':{'data':[{'name':'news2douyin-research','tools':{'research_get_case':{}}}]}},'errors':{}}
+            return {'instance':{'defaultModel':'test-model'},'skills':list(self.skills.values()),'mcp':{'status':{'data':[{'name':name,'tools':{t:{} for t in (RESEARCH_TOOLS if name=='news2douyin-research' else ['web_search_exa'] if name=='exa' else [])}} for name,value in self.servers.items() if value.get('enabled') is not False]}},'errors':{}}
         if path == '/sessions' and method == 'POST':
             sid = 'session-' + str(len(self.sessions)+1)
             row = {'id':sid,'instanceId':payload['instanceId'],'workspaceId':payload['workspaceId'],'status':'idle','turnId':'','runId':'','source':payload.get('source',{})}
@@ -98,6 +104,7 @@ class FakeRunDesk:
 @pytest.fixture
 def research(tmp_path):
     app=create_app(db_url=f'sqlite:///{tmp_path}/research.db',storage_root=str(tmp_path/'runs'))
+    config=app.state.research_settings.get();config.update(runtime_mode='local',search_provider='rundesk');app.state.research_settings.write(config)
     fake=FakeRunDesk();app.state.research.client_factory=lambda config:fake
     with Session(app.state.engine) as s:
         s.add(Article(article_key='seed',title='Example policy changed',content='The old policy was introduced in 2023.\nThe new policy was announced in 2026.',published_at='2026-01-01T00:00:00Z',url='https://example.com/news'))
@@ -141,7 +148,7 @@ def make_claim(research,case,run):
 
 def test_bootstrap_is_instance_scoped_and_repeatable(research):
     app,client,fake=research
-    assert client.put('/api/research/settings',json={'rundesk_url':'http://localhost:3210','rundesk_token':'private-rundesk-token','callback_url':'http://localhost:18080','search_provider':'tavily','search_api_key':'private-search-key'}).status_code==200
+    assert client.put('/api/research/settings',json={'rundesk_url':'http://localhost:3210','rundesk_token':'private-rundesk-token','callback_url':'http://localhost:18080','search_provider':'rundesk'}).status_code==200
     for _ in range(2): assert client.post('/api/research/setup').status_code==200
     assert len(fake.instances)==len(fake.workspaces)==1
     assert fake.servers['unrelated']=={'command':'keep-me'}
@@ -204,7 +211,7 @@ def test_timeout_does_not_resubmit_turn_and_sync_recovers(research):
     app,client,fake=research;fake.timeout_turn=True
     case,run=setup_case(research)
     with Session(app.state.engine) as s: assert s.get(ResearchRun,run['run_id']).status=='uncertain'
-    assert client.post('/api/research/cases/'+case['case_id']+'/start',json={}).status_code==400
+    assert client.post('/api/research/cases/'+case['case_id']+'/start',json={}).json()['run_id']==run['run_id']
     assert app.state.research.sync(run['run_id'])['status']=='running'
     assert sum(p.endswith('/turns') for _,p,_,_ in fake.calls)==1
 
@@ -247,15 +254,17 @@ def test_strategy_snapshot_and_optimistic_revision(research):
     assert client.get('/api/research/cases/'+case['case_id']).json()['strategy']['max_searches']==10
 
 
-def test_search_budget_and_idempotent_network_call(research,monkeypatch):
+def test_search_budget_and_idempotent_ticket(research,monkeypatch):
     app,client,_=research;case,run=setup_case(research)
-    calls=[]
-    monkeypatch.setattr('news2douyin.research.sources.web_search',lambda *args:(calls.append(1) or []))
+    def forbidden(*args, **kwargs): raise AssertionError('research_search must not call external search')
+    monkeypatch.setattr('requests.get',forbidden);monkeypatch.setattr('requests.post',forbidden)
     args={'run_id':run['run_id'],'query':'historical background','scope':'web'}
-    assert value(rpc(research,'research_search',args))==value(rpc(research,'research_search',args));assert len(calls)==1
+    first=value(rpc(research,'research_search',args))
+    assert value(rpc(research,'research_search',args))==first and first['server']=='exa'
     with Session(app.state.engine) as s:
-        r=s.get(ResearchRun,run['run_id']);r.search_count=10;s.add(r);s.commit()
-    args['query']='another query';assert rpc(research,'research_search',args)['isError'];assert len(calls)==1
+        r=s.get(ResearchRun,run['run_id']);assert r.search_count==1
+        r.search_count=10;s.add(r);s.commit()
+    args['query']='another query';assert rpc(research,'research_search',args)['isError']
 
 
 def test_future_source_rejected_and_original_snapshot_preserved(research,monkeypatch):

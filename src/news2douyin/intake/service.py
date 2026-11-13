@@ -10,6 +10,7 @@ from zipfile import BadZipFile
 import requests
 from sqlmodel import Session,select
 from sqlalchemy import func
+from sqlalchemy.exc import SQLAlchemyError
 from ..storage.articles import lock_news
 from ..storage.models import utc_now_iso
 from .models import FeedState,IntakeBatch
@@ -116,17 +117,35 @@ def download(feed,stamp,destination,expected_md5='',expected_bytes=0,stop=None):
 
 def initialize(engine):
     with Session(engine) as s:
-        lock_news(s)
-        for key in FEEDS:
+        missing=[key for key in FEEDS if not s.get(FeedState,key)]
+    if not missing:return
+    with Session(engine) as s:
+        lock_news(s,*('intake:feed:'+key for key in missing))
+        for key in missing:
             if not s.get(FeedState,key):s.add(FeedState(key=key))
         s.commit()
+
+
+def recover_leases(engine):
+    """Resume interrupted work; caller must own the receiver's OS lock."""
+    with Session(engine) as s:
+        keys=list(s.exec(select(FeedState.key).where(FeedState.lease_until>0)))
+    if not keys:return False
+    with Session(engine) as s:
+        lock_news(s,*('intake:feed:'+key for key in sorted(keys)))
+        for key in keys:
+            row=s.get(FeedState,key)
+            if row and row.lease_until>0:
+                row.lease='';row.lease_until=0;s.add(row)
+        s.commit()
+    return True
 
 
 def configure(engine,feed,enabled,start_batch=''):
     if feed not in FEEDS:raise ValueError('未知接收流')
     if start_batch:stamp_checked(start_batch)
     with Session(engine) as s:
-        lock_news(s);row=s.get(FeedState,feed)
+        lock_news(s,'intake:feed:'+feed);row=s.get(FeedState,feed)
         if not row:raise KeyError(feed)
         has_batch=s.exec(select(IntakeBatch.key).where(IntakeBatch.feed==feed).limit(1)).first()
         if start_batch and start_batch!=row.next_batch and (row.next_batch or row.last_complete or has_batch or row.lease_until>time.time()):
@@ -140,7 +159,7 @@ def configure(engine,feed,enabled,start_batch=''):
 def retry(engine,feed):
     if feed not in FEEDS:raise ValueError('未知接收流')
     with Session(engine) as s:
-        lock_news(s);row=s.get(FeedState,feed)
+        lock_news(s,'intake:feed:'+feed);row=s.get(FeedState,feed)
         if not row:raise KeyError(feed)
         row.enabled=True;row.retry_after=0;row.last_error='';s.add(row);s.commit()
     return dict(queued=True)
@@ -163,12 +182,17 @@ def status(engine,storage_root):
 
 def step(engine,storage_root,feed=None,now=None,stop=None):
     now=time.time() if now is None else now
-    with Session(engine,expire_on_commit=False) as s:
-        lock_news(s)
-        query=select(FeedState).where(FeedState.enabled==True,FeedState.retry_after<=now,FeedState.lease_until<=now)
+    # A receiver with no due work is read-only. Recheck the selected feed after
+    # acquiring its scoped lock, so separate processes cannot claim it twice.
+    with Session(engine) as s:
+        query=select(FeedState.key).where(FeedState.enabled==True,FeedState.retry_after<=now,FeedState.lease_until<=now)
         if feed:query=query.where(FeedState.key==feed)
-        item=s.exec(query.order_by(FeedState.updated_at,FeedState.key).limit(1)).first()
-        if not item:s.commit();return False
+        selected=s.exec(query.order_by(FeedState.updated_at,FeedState.key).limit(1)).first()
+    if not selected:return False
+    with Session(engine,expire_on_commit=False) as s:
+        lock_news(s,'intake:feed:'+selected)
+        item=s.get(FeedState,selected)
+        if not item or not item.enabled or item.retry_after>now or item.lease_until>now:return False
         token=uuid4().hex;item.lease=token;item.lease_until=now+1800;item.updated_at=utc_now_iso();s.add(item);s.commit()
     target=item.next_batch
     try:
@@ -178,7 +202,7 @@ def step(engine,storage_root,feed=None,now=None,stop=None):
         if not target:target=item.latest_available
         if target>item.latest_available:
             with Session(engine) as s:
-                lock_news(s);current=s.get(FeedState,item.key)
+                lock_news(s,'intake:feed:'+item.key);current=s.get(FeedState,item.key)
                 if current.lease==token:
                     current.lease='';current.lease_until=0;current.retry_after=now+30
                     current.latest_available=item.latest_available;current.latest_md5=item.latest_md5;current.latest_bytes=item.latest_bytes;current.manifest_checked=item.manifest_checked;s.add(current);s.commit()
@@ -186,7 +210,7 @@ def step(engine,storage_root,feed=None,now=None,stop=None):
         stamp_checked(target)
         key=item.key+'_'+target
         with Session(engine,expire_on_commit=False) as s:
-            lock_news(s)
+            lock_news(s,'intake:batch:'+key)
             batch=s.get(IntakeBatch,key) or IntakeBatch(key=key,feed=item.key,stamp=target)
             if target==item.latest_available:
                 batch.expected_md5=item.latest_md5;batch.expected_bytes=item.latest_bytes
@@ -195,18 +219,18 @@ def step(engine,storage_root,feed=None,now=None,stop=None):
         if not path.exists():download(item.key,target,path,batch.expected_md5,batch.expected_bytes,stop)
         sha,md5,compressed_bytes=hashes(path)
         with Session(engine) as s:
-            lock_news(s);saved=s.get(IntakeBatch,key)
+            lock_news(s,'intake:batch:'+key);saved=s.get(IntakeBatch,key)
             saved.archive_path=str(path.resolve());saved.sha256=sha;saved.md5=md5;saved.compressed_bytes=compressed_bytes;s.add(saved);s.commit()
         try:result=lake.ingest_archive(item.key,target,path,batch.expected_md5,batch.expected_bytes)
         except (ValueError,BadZipFile):
             if path.exists():
                 sha,_,_=hashes(path);quarantine=path.with_name(path.name+'.rejected-'+sha[:16]);os.replace(path,quarantine)
                 with Session(engine) as s:
-                    lock_news(s);saved=s.get(IntakeBatch,key);saved.archive_path=str(quarantine.resolve());s.add(saved);s.commit()
+                    lock_news(s,'intake:batch:'+key);saved=s.get(IntakeBatch,key);saved.archive_path=str(quarantine.resolve());s.add(saved);s.commit()
             raise
-        # DuckDB commit is durable before SQLite advances; replay recovers an interrupted ack.
+        # DuckDB commit is durable before the transaction store advances.
         with Session(engine) as s:
-            lock_news(s);current=s.get(FeedState,item.key)
+            lock_news(s,'intake:feed:'+item.key,'intake:batch:'+key);current=s.get(FeedState,item.key)
             if current.lease!=token:return True
             stored=s.get(IntakeBatch,key)
             for name,value in result.items():setattr(stored,name,value)
@@ -215,12 +239,18 @@ def step(engine,storage_root,feed=None,now=None,stop=None):
             current.latest_md5=item.latest_md5;current.latest_bytes=item.latest_bytes;current.manifest_checked=item.manifest_checked
             current.last_error='';current.retry_after=0;current.attempts=0;current.lease='';current.lease_until=0;current.updated_at=utc_now_iso();s.add(current);s.commit()
         return True
+    except SQLAlchemyError:
+        # A database failure must reach the worker. Do not start another write
+        # transaction just to record a database/lock failure in that same store.
+        raise
     except Exception as exc:
         delay=max(min(30*2**min(item.attempts,7),3600),getattr(exc,'retry_after',0))
         message=('GDELT HTTP '+str(exc.status) if isinstance(exc,IntakeHTTPError) else type(exc).__name__)
         if isinstance(exc,ValueError):message+=' · '+str(exc)[:100]
         with Session(engine) as s:
-            lock_news(s);current=s.get(FeedState,item.key)
+            resources=['intake:feed:'+item.key]
+            if target:resources.append('intake:batch:'+item.key+'_'+target)
+            lock_news(s,*resources);current=s.get(FeedState,item.key)
             if current.lease!=token:return True
             current.next_batch=target or current.next_batch;current.last_error=message;current.retry_after=now+delay
             current.attempts+=1;current.lease='';current.lease_until=0;current.updated_at=utc_now_iso()

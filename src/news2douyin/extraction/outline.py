@@ -9,7 +9,7 @@ from .schema import stable_id
 
 
 def add(s, watch, parent, text):
-    lock_news(s)
+    lock_news(s, 'watch:' + watch)
     desk.get_watch(s,watch)
     parent = parent or watch
     if parent != watch:
@@ -35,7 +35,7 @@ def points(s, watch, cutoff=None):
 
 
 def request_review(s, watch, point):
-    lock_news(s)
+    lock_news(s, 'watch:' + watch)
     w = desk.get_watch(s,watch)
     node = s.get(FocusPoint,point)
     if not node or node.watch != watch:

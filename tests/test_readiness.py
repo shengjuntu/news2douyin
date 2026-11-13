@@ -31,9 +31,10 @@ def test_empty_install_does_not_call_network_or_create_files(app, monkeypatch):
     from news2douyin.video import media
     monkeypatch.setattr(media, 'capabilities', lambda: pytest.fail('GET must not run media probes'))
     client = TestClient(app)
-    page = client.get('/setup'); assert page.status_code == 200 and '跑通第一条新闻' in page.text
+    page = client.get('/setup'); assert page.status_code == 200 and '跑通核心流程' in page.text
     r = client.get('/api/setup/check'); assert r.headers['cache-control'] == 'no-store'
     data = r.json(); assert data['database_ok'] and not data['worker_running']
+    assert data['database']==dict(dialect='sqlite',driver='pysqlite',label='SQLite',mode='lightweight')
     assert data['profiles'] == [] and data['summary']['enabled_profiles'] == 0
     assert data['calendar']['timezone'] == 'Asia/Shanghai'
     assert data['model']['defaults'] == ['OPENAI_BASE_URL', 'OPENAI_API_KEY', 'MODEL']
@@ -160,7 +161,18 @@ def test_video_report_only_exposes_curated_checks_and_handles_failure(app, monke
 
 
 def test_database_error_is_redacted_and_retryable(app, monkeypatch):
+    app.state.intake_projection=SimpleNamespace(running=True,last_error='OperationalError')
     def fail(*a):raise OperationalError('secret-db-url',{},Exception('private-password'))
     monkeypatch.setattr(readiness,'configuration_report',fail)
     r=TestClient(app).get('/api/setup/check')
     assert r.status_code==503 and 'secret' not in r.text and 'private' not in r.text
+    assert not r.json()['database_ok'] and r.json()['database']['dialect']=='sqlite'
+    assert r.json()['intake']['projection']['last_error']=='OperationalError'
+
+
+def test_database_description_only_reads_actual_dialect():
+    class Engine:
+        dialect=SimpleNamespace(name='postgresql',driver='psycopg')
+        @property
+        def url(self):raise AssertionError('database credentials must not be read')
+    assert readiness.database_configuration(Engine())==dict(dialect='postgresql',driver='psycopg',label='PostgreSQL',mode='formal')

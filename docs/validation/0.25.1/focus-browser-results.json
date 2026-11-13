@@ -1,0 +1,27 @@
+{
+  "stalePreviewPrevented": true,
+  "failedRequestPreservesDescription": true,
+  "interpretMilliseconds": 2850,
+  "decisions": {
+    "pending": 1,
+    "core": 1,
+    "background": 0,
+    "excluded": 1
+  },
+  "fixedVersionEvidenceVisible": true,
+  "realFalkorInterestGraph": true,
+  "manualExclusionPreserved": true,
+  "definitionEditedInPlace": true,
+  "legacyManualCreation": true,
+  "offlinePending": {
+    "pending": 3,
+    "core": 0,
+    "background": 0,
+    "excluded": 0
+  },
+  "mobileNoOverflow": true,
+  "ok": true,
+  "pageErrors": [],
+  "consoleErrors": [],
+  "fixtureNewsAndModel": true
+}

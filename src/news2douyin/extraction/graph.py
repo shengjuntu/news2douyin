@@ -35,4 +35,4 @@ def clean(query):
     query('MATCH (m:EventMention) WHERE NOT (m)<-[:DESCRIBES]-() DETACH DELETE m')
     query('MATCH (a:Argument) WHERE NOT (a)<-[:HAS_ARGUMENT]-() DETACH DELETE a')
     query('MATCH (g:OccurrenceCandidate) WHERE NOT (g)<-[:HAS_MATCH_KEY]-() DELETE g')
-    query('MATCH (e:Referent) WHERE NOT (e)<-[:REFERS_TO]-() DELETE e')
+    query('MATCH (e:Referent) WHERE NOT (e)<-[:REFERS_TO]-() AND NOT (e)<-[:MAPS_TO]-() DELETE e')

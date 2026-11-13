@@ -1,0 +1,70 @@
+# Run from the source root:
+# docker compose --env-file .env -f deploy/production.compose.yaml up -d --build
+# Exactly one application process owns the local DuckDB/archive directory.
+services:
+  postgres:
+    image: postgres:17-bookworm
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: news2douyin
+      POSTGRES_USER: news2douyin
+      POSTGRES_PASSWORD: ${NEWS2DOUYIN_POSTGRES_PASSWORD:?Set a random hexadecimal PostgreSQL password in .env}
+    volumes:
+      - news2douyin_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U news2douyin -d news2douyin"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  falkordb:
+    image: ${FALKORDB_IMAGE:-falkordb/falkordb:v4.22.1}
+    restart: unless-stopped
+    environment:
+      REDIS_ARGS: "--appendonly yes --appendfsync everysec"
+    volumes:
+      - news2douyin_graph:/var/lib/falkordb/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  app:
+    image: news2douyin:0.25.1
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    restart: unless-stopped
+    command: ["news2douyin-server", "--host", "0.0.0.0", "--port", "18080", "--storage-root", "${NEWS2DOUYIN_STORAGE_ROOT:-/data}"]
+    env_file:
+      - ../.env
+    environment:
+      # Deliberately overrides an old SQLite URL from .env in formal deployment.
+      NEWS2DOUYIN_DATABASE_URL: postgresql+psycopg://news2douyin:${NEWS2DOUYIN_POSTGRES_PASSWORD:?Set a random hexadecimal PostgreSQL password in .env}@postgres:5432/news2douyin
+      # Upgrades must retain the old graph instance/volume and graph prefix.
+      NEWS2DOUYIN_FALKOR_URL: ${NEWS2DOUYIN_FALKOR_URL:-redis://falkordb:6379}
+    ports:
+      - "${NEWS2DOUYIN_HTTP_BIND:-127.0.0.1}:${NEWS2DOUYIN_HTTP_PORT:-18080}:18080"
+    volumes:
+      - ${NEWS2DOUYIN_DATA_DIR:-../runs_v7}:${NEWS2DOUYIN_STORAGE_ROOT:-/data}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      falkordb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:18080/api/health', timeout=5).read()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    stop_grace_period: 60s
+
+volumes:
+  news2douyin_postgres:
+  news2douyin_graph:

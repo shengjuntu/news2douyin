@@ -60,9 +60,9 @@ def test_concurrent_generation_only_commits_one_script(engine, tmp_path, monkeyp
         key = choose(s, 'chosen')[0]['selection_key']
     barrier = Barrier(2)
     original = daily.draft_document
-    def generate(*args):
+    def generate(*args, **kwargs):
         barrier.wait(timeout=5)
-        return original(*args)
+        return original(*args, **kwargs)
     monkeypatch.setattr(daily, 'draft_document', generate)
     def build(_):
         with Session(engine) as s:
@@ -104,10 +104,10 @@ def test_selection_cancelled_during_model_call_is_not_saved(engine, tmp_path, mo
         seed(s)
         key = choose(s, 'chosen')[0]['selection_key']
     original = daily.draft_document
-    def generate(*args):
+    def generate(*args, **kwargs):
         with Session(engine) as other:
             choose(other, 'chosen', active=False)
-        return original(*args)
+        return original(*args, **kwargs)
     monkeypatch.setattr(daily, 'draft_document', generate)
     with Session(engine) as s:
         with pytest.raises(ScriptConflict):

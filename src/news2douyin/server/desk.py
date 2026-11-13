@@ -14,6 +14,7 @@ from ..storage.articles import lock_news
 from ..research.models import ResearchRun, ResearchCase, ResearchQuestion, ResearchReport
 from .research import same_origin
 from .tasks import task_call
+from ..storage.queries import all_rows
 import re
 
 
@@ -56,6 +57,8 @@ def register_desk(app,engine,render):
     from ..extraction.schema import LABELS
     from ..extraction.models import FocusPoint
     register_extraction(app,db)
+    from .focus_init import register as register_focus_init
+    register_focus_init(app,engine)
     def remember(response,view):
         response.set_cookie('n2d_desk',view,max_age=31536000,httponly=True,samesite='lax')
         return response
@@ -77,10 +80,9 @@ def register_desk(app,engine,render):
               period:str='auto',channel:str='all',provider:str='all',view:str='list',
               limit:int=Query(30,ge=1,le=500),offset:int=Query(0,ge=0),s=Depends(db)):
         from ..knowledge import radar as projection
-        desk.drain(engine,24)
         params=task_call(projection.checked,q=q,country=country,topic=topic,mode=mode,band=band,
             period=period,channel=channel,provider=provider,view=view)
-        data=task_call(projection.page,s,params,offset,limit)
+        data=task_call(projection.preview,s,params,offset,limit)
         from ..desk.places import countries
         labels=countries();areas={}
         for mark in s.exec(select(EventPlace).where(EventPlace.event.in_([e.key for e in data['items']]))):
@@ -88,22 +90,23 @@ def register_desk(app,engine,render):
             areas.setdefault(mark.event,set()).add(label)
         params['limit']=limit
         return remember(render('desk_radar.html',active='radar',offset=offset,limit=limit,
-            params=params,areas=areas,querystr=urlencode(params),members={c.key:desk.memberships(s,c.key) for c in data['items']},
+            params=params,areas=areas,querystr=urlencode(params),
+            facet_url='/api/radar/facets?'+urlencode({k:v for k,v in params.items() if k not in {'view','limit'}}),
+            members=desk.memberships_many(s,[c.key for c in data['items']]),
             **data,**context(request,s)),'radar')
 
     @app.get('/focus')
     @app.get('/focus/{key}')
     def focus(request:Request,key:str='',seed:str='',order:str='recent',branch:str='',offset:int=Query(0,ge=0),s=Depends(db)):
-        desk.drain(engine,24)
         watches=s.exec(select(Watch).order_by(Watch.created,Watch.key)).all()
         w=task_call(desk.get_watch,s,key) if key else None
         total,items=desk.focus_entries(s,key,offset,order=order,branch=branch) if w else (0,[])
         reviews=s.exec(select(WatchReview,ResearchCase,ResearchRun).outerjoin(ResearchCase,ResearchCase.case_id==WatchReview.case_key)
               .outerjoin(ResearchRun,ResearchRun.run_id==ResearchCase.active_run_id).where(WatchReview.watch==key)
               .order_by(WatchReview.created.desc()).limit(30)).all() if w else []
-        counts=dict(s.exec(select(WatchEvent.watch,func.count()).where(WatchEvent.choice!='exclude').group_by(WatchEvent.watch)).all())
-        material = select(WatchEvent.event).where(WatchEvent.watch==key,WatchEvent.choice!='exclude')
-        branches = s.exec(select(WatchEvent.branch).where(WatchEvent.watch==key,WatchEvent.choice!='exclude')
+        counts=dict(s.exec(select(WatchEvent.watch,func.count()).where(WatchEvent.choice!='exclude',desk.current_membership()).group_by(WatchEvent.watch)).all())
+        material = select(WatchEvent.event).where(WatchEvent.watch==key,WatchEvent.choice!='exclude',desk.current_membership())
+        branches = s.exec(select(WatchEvent.branch).where(WatchEvent.watch==key,WatchEvent.choice!='exclude',desk.current_membership())
             .distinct().order_by(WatchEvent.branch)).all() if w else []
         tags = dict(s.exec(select(WatchEvent.event, WatchEvent.branch).where(WatchEvent.watch==key,
             WatchEvent.event.in_([card.key for card,_ in items]))).all()) if items else {}
@@ -126,11 +129,19 @@ def register_desk(app,engine,render):
             .order_by(FocusChange.created.desc()).limit(30)).all() if w else []
         point_material={}
         if w:
-            for pm in s.exec(select(PointMaterial).join(FocusPoint,FocusPoint.key==PointMaterial.point).where(FocusPoint.watch==key)):
-                entry=s.get(RadarEntry,pm.event)
-                if entry:point_material.setdefault(pm.point,[]).append(dict(key=entry.key,title=entry.title,reason=pm.reason))
+            material_rows=all_rows(s,select(PointMaterial.point,RadarEntry.key,RadarEntry.title,PointMaterial.reason)
+                .select_from(PointMaterial).join(FocusPoint,FocusPoint.key==PointMaterial.point)
+                .join(RadarEntry,RadarEntry.key==PointMaterial.event)
+                .join(WatchEvent,(WatchEvent.event==RadarEntry.key)&(WatchEvent.watch==key))
+                .where(FocusPoint.watch==key,WatchEvent.choice!='exclude',desk.current_membership())
+                .order_by(PointMaterial.point,RadarEntry.key),name='desk.focus_point_materials')
+            for point,event,title,reason in material_rows:
+                point_material.setdefault(point,[]).append(dict(key=event,title=title,reason=reason))
         if seed and not seed_event:raise HTTPException(404,'事件不存在')
+        from ..desk.focus_jobs import definition as focus_definition, status as focus_status
         return remember(render('desk_focus.html',active='focus',w=w,data=w.model_dump() if w else {},watches=watches,
+            intent_definition=focus_definition(s,key) if w else None,
+            tracking=focus_status(s,key) if w else {},
             counts=counts,total=total,items=items,offset=offset,reviews=reviews,presets=PRESETS,seed=seed,
             changes=changes,point_material=point_material,content_tasks=related(s,watch=key) if w else [],
             order=order,branch=branch,branches=branches,tags=tags,questions=questions,summaries=summaries,
@@ -165,7 +176,7 @@ def register_desk(app,engine,render):
         return {'ok':True}
     @app.post('/api/focus/{key}/reviews',dependencies=[Depends(same_origin)])
     def check(key:str,p:Check,s=Depends(db)):
-        lock_news(s)
+        lock_news(s,'watch:'+key)
         w=task_call(desk.get_watch,s,key)
         member=s.get(WatchEvent,(key,p.event))
         if p.event and (not member or member.choice=='exclude'):raise HTTPException(409,'请先将事件归入专题')
@@ -184,7 +195,7 @@ def register_desk(app,engine,render):
         return dict(key=row.key,status=row.status)
     @app.post('/api/focus/{key}/reviews/{ticket}/retry',dependencies=[Depends(same_origin)])
     def retry(key:str,ticket:str,s=Depends(db)):
-        lock_news(s)
+        lock_news(s,'watch:'+key,'watch-review:'+ticket)
         row=s.get(WatchReview,ticket)
         if not row or row.watch!=key:raise HTTPException(404,'补查不存在')
         if row.status=='blocked':
@@ -202,7 +213,7 @@ def register_desk(app,engine,render):
     @app.delete('/api/desk/events/{key}/places/{place_id}',dependencies=[Depends(same_origin)])
     def remove_place(key:str,place_id:str,s=Depends(db)):
         from ..desk.models import EventPlace
-        lock_news(s)
+        lock_news(s,'event:'+key)
         row=s.get(EventPlace,place_id)
         if not row or row.event!=key:raise HTTPException(404,'标注不存在')
         s.delete(row);s.commit();return {'ok':True}
@@ -224,8 +235,23 @@ def register_desk(app,engine,render):
     @app.post('/api/desk/rebuild-graphs',dependencies=[Depends(same_origin)])
     def rebuild(s=Depends(db)):
         if not app.state.desk.graph.url:raise HTTPException(409,'尚未配置 FalkorDB')
-        lock_news(s)
+        lock_news(s,'graph-queue-rebuild')
         for row in s.exec(select(GraphPending)):
-            row.written='';s.add(row)
+            desk.enqueue_graph(s,row.key)
         s.commit()
         return {'ok':True}
+
+    @app.post('/api/desk/graph-maintenance/retry',dependencies=[Depends(same_origin)])
+    def retry_graph_maintenance():
+        mirror=app.state.desk.graph
+        if not mirror.url:raise HTTPException(409,'尚未配置 FalkorDB')
+        from ..desk.graph_indexes import reset
+        from ..desk.graph_gc import retry
+        reset(mirror)
+        mirror._queue_index_checked=False
+        mirror.bootstrapped=False
+        mirror._maintenance_error=''
+        retry(engine,mirror)
+        # This only schedules work. No graph query, index build, node deletion
+        # or full projection rebuild occurs in the HTTP request.
+        return {'queued':True}
