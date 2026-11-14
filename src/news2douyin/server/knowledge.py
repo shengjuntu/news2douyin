@@ -64,6 +64,8 @@ def register(app,engine,render):
     def rebuild(s=Depends(db)):
         lock_news(s, 'knowledge:rebuild')
         from ..desk.service import enqueue_graph
+        from ..desk.graph_focus import force_rebuild
+        force_rebuild(s,app.state.desk.graph)
         for row in s.exec(select(GraphPending)):
             enqueue_graph(s, row.key)
         previous=s.get(DeskMeta,'graph_analysis')

@@ -17,7 +17,10 @@ import json
 import os
 import re
 import time
-from contextlib import nullcontext
+from collections import OrderedDict
+from contextlib import contextmanager, nullcontext
+from math import isfinite
+from threading import RLock
 
 from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, select
@@ -25,7 +28,7 @@ from sqlmodel import Session, select
 from ..extraction.schema import stable_id
 from ..storage.articles import lock_news
 from ..storage.models import utc_now_iso
-from .graph_maintenance_models import GraphGcState
+from .graph_maintenance_models import GraphGcControl, GraphGcState
 from .leases import LeaseLost
 
 
@@ -41,6 +44,110 @@ _REFERENCES = {
     'Entity': ('MENTIONS', 'WATCHES'),
     'Place': ('MENTIONS_PLACE', 'ACTION_AT', 'IMPACTS'),
 }
+
+
+def enabled(mirror=None):
+    """An environment off switch stops maintenance without altering progress."""
+    value = os.getenv('NEWS2DOUYIN_GRAPH_GC_ENABLED', '1').strip().lower()
+    if value not in ('0', '1', 'false', 'true', 'off', 'on', 'no', 'yes'):
+        raise ValueError('NEWS2DOUYIN_GRAPH_GC_ENABLED must be a boolean')
+    return value in ('1', 'true', 'on', 'yes')
+
+
+def _control_key(mirror):
+    return 'gcctl_'+stable_id(mirror.prefix)
+
+
+def control(engine, mirror):
+    """Cheap read-only effective settings; use an existing status Session."""
+    active = enabled(mirror)
+    context = nullcontext(engine) if isinstance(engine, Session) else Session(engine)
+    with context as session:
+        row = session.get(GraphGcControl, _control_key(mirror))
+        resume_at = row.resume_at if row and row.paused else 0.0
+        paused = bool(row and row.paused and (not resume_at or resume_at > time.time()))
+    return dict(enabled=active, paused=paused, resume_at=resume_at if paused else 0.0)
+
+
+def set_paused(engine, mirror, paused=True, *, resume_at=0):
+    """Pause/resume all graphs in this namespace without changing a cursor.
+
+    The current small batch may finish and publish its checkpoint. Subsequent
+    ticks stop before graph I/O. Resuming never resets a cycle, clears a prior
+    error or changes scheduling/backoff; use retry explicitly for an error.
+    """
+    if not isinstance(paused, bool):
+        raise ValueError('paused must be a boolean')
+    if isinstance(resume_at, bool):
+        raise ValueError('resume_at must be a nonnegative UTC epoch')
+    try:
+        resume_at = float(resume_at)
+    except (ValueError, TypeError):
+        raise ValueError('resume_at must be a nonnegative UTC epoch') from None
+    if not isfinite(resume_at) or resume_at < 0 or (not paused and resume_at):
+        raise ValueError('resume_at must be a nonnegative UTC epoch for a pause')
+    key = _control_key(mirror)
+    with Session(engine) as session:
+        lock_news(session, 'graph-gc-control/'+key)
+        row = session.get(GraphGcControl, key)
+        if row is None:
+            row = GraphGcControl(key=key, namespace=mirror.prefix)
+        row.paused, row.resume_at, row.updated = paused, resume_at, utc_now_iso()
+        session.add(row)
+        session.commit()
+    return dict(ok=True, **control(engine, mirror))
+
+
+_DIAGNOSTIC_LOCK = RLock()
+def _timeout(exc):
+    # Driver messages are inspected only to classify the error. Their contents
+    # (which may include query text or endpoints) are never retained or exposed.
+    return isinstance(exc, TimeoutError) or 'timeout' in type(exc).__name__.lower() or bool(
+        re.search(r'timed?\s*out|timeout', str(exc), re.IGNORECASE))
+
+
+@contextmanager
+def _timed(mirror, graph, label, phase):
+    """Bounded, process-local diagnostics distinguish lock/scan/error phases."""
+    started, failure = time.perf_counter(), None
+    try:
+        yield
+    except Exception as exc:
+        failure = dict(type=type(exc).__name__, timeout=_timeout(exc))
+        raise
+    finally:
+        elapsed = max(0., (time.perf_counter()-started)*1000)
+        with _DIAGNOSTIC_LOCK:
+            store = getattr(mirror, '_gc_diagnostics', None)
+            if store is None:
+                store = mirror._gc_diagnostics = OrderedDict()
+            if graph not in store:
+                store[graph] = dict(phases={}, last={})
+            item = store[graph]
+            value = item['phases'].setdefault(phase, dict(calls=0, errors=0, timeouts=0, total_ms=0., last_ms=0.))
+            value['calls'] += 1
+            value['total_ms'] += elapsed
+            value['last_ms'] = elapsed
+            if failure:
+                value['errors'] += 1
+                value['timeouts'] += int(failure['timeout'])
+            item['last'] = dict(phase=phase, label=label, elapsed_ms=elapsed,
+                                error=failure['type'] if failure else '',
+                                timeout=failure['timeout'] if failure else False)
+            if failure:
+                item['last_failure'] = dict(item['last'])
+            store.move_to_end(graph)
+            while len(store) > 128:
+                store.popitem(last=False)
+
+
+def diagnostics(mirror, graph='active_global'):
+    """No query parameters/driver messages; bounded to 128 graphs per worker."""
+    with _DIAGNOSTIC_LOCK:
+        item = getattr(mirror, '_gc_diagnostics', {}).get(graph, {})
+        return dict(phases={key:dict(value) for key, value in item.get('phases', {}).items()},
+                    last=dict(item.get('last', {})), last_failure=dict(item.get('last_failure', {})),
+                    scope='process')
 
 
 def _integer(name, default, low, high):
@@ -174,7 +281,10 @@ def _persist(engine, mirror, previous, values):
 def _error(engine, mirror, row, exc, phase):
     # Only safe exception class names enter user-visible state, never a Redis
     # URL, query parameters, source text or raw driver exception message.
-    message = '图清理暂未完成（'+type(exc).__name__+'）'
+    failed = diagnostics(mirror, row.graph)['last_failure']
+    exact_phase = failed.get('phase', phase)
+    names = dict(plan='执行计划检查', highwater='扫描上界读取', read='候选读取', delete='孤立节点删除')
+    message = '图清理'+names.get(exact_phase, '批次')+('超时' if _timeout(exc) else '暂未完成')+'（'+type(exc).__name__+'）'
     _persist(engine, mirror, row, dict(status='error', phase=phase,
         error=message, next_due=time.time()+30))
     mirror.gc_error = message
@@ -190,7 +300,9 @@ def step(engine, mirror, graph='active_global'):
     """
     if not _valid_graph(graph):
         raise ValueError('Unsupported application graph for maintenance')
-    if not mirror.url or not mirror.bootstrapped:
+    if not enabled(mirror) or not mirror.url or not mirror.bootstrapped:
+        return False
+    if control(engine, mirror)['paused']:
         return False
     from .graph_indexes import ready_for
     if not all(ready_for(mirror, graph, label, 'iso' if label == 'Place' else 'id') for label in LABELS):
@@ -199,19 +311,27 @@ def step(engine, mirror, graph='active_global'):
     with mirror.exclusive(engine) as acquired:
         if not acquired:
             return False
+        # A request may have paused maintenance while this tick waited for the
+        # shared lease. Recheck before creating state or touching FalkorDB.
+        if control(engine, mirror)['paused']:
+            return False
         _states(engine, mirror, graph)
         row = _pick(engine, mirror, graph, time.time())
         if row is None:
             return False
-        phase = 'plan'
+        # An explain failure must not discard an already established high-water
+        # checkpoint. Exact failure stages live separately in diagnostics.
+        phase = 'batch' if row.status == 'sweeping' or (row.status == 'error' and row.phase == 'batch') else 'plan'
         try:
-            _check_seek(mirror, graph, row.label, settings)
+            with _timed(mirror, graph, row.label, 'plan'):
+                _check_seek(mirror, graph, row.label, settings)
             starting = row.status in ('pending', 'complete') or (row.status == 'error' and row.phase != 'batch')
             cursor, through = row.cursor, row.through_key
             cycle = row.cycle
             if starting:
                 phase = 'highwater'
-                values = _read(mirror, graph, 'MATCH (n:'+row.label+') RETURN max(id(n))', settings['timeout'])
+                with _timed(mirror, graph, row.label, 'highwater'):
+                    values = _read(mirror, graph, 'MATCH (n:'+row.label+') RETURN max(id(n))', settings['timeout'])
                 value = values[0][0] if values and values[0] else None
                 through = int(value) if value is not None else -1
                 cursor = 0
@@ -231,16 +351,18 @@ def step(engine, mirror, graph='active_global'):
                 row.cycle_scanned = row.cycle_deleted = 0
             phase = 'batch'
             hi = min(through+1, cursor+settings['window'])
-            rows = _read(mirror, graph, _select_query(row.label), settings['timeout'],
-                         lo=cursor, hi=hi, limit=settings['batch'], label=row.label)
+            with _timed(mirror, graph, row.label, 'read'):
+                rows = _read(mirror, graph, _select_query(row.label), settings['timeout'],
+                             lo=cursor, hi=hi, limit=settings['batch'], label=row.label)
             identifiers = [int(item[0]) for item in rows]
             if len(identifiers) > settings['batch'] or any(ident < cursor or ident >= hi for ident in identifiers):
                 raise ValueError('graph_gc_window_protocol_mismatch')
             deleted = 0
             if identifiers:
-                result = mirror.query(graph, _delete_query(row.label),
-                    ids=identifiers, label=row.label, _query_timeout_ms=settings['timeout'])
-                deleted = _deleted_count(result)
+                with _timed(mirror, graph, row.label, 'delete'):
+                    result = mirror.query(graph, _delete_query(row.label),
+                        ids=identifiers, label=row.label, _query_timeout_ms=settings['timeout'])
+                    deleted = _deleted_count(result)
             # An undersubscribed window is fully inspected. A full page only
             # advances through its final native ID so no matching row is skipped.
             next_cursor = identifiers[-1]+1 if len(identifiers) == settings['batch'] else hi
@@ -262,8 +384,10 @@ def step(engine, mirror, graph='active_global'):
 
 def summary(engine, mirror, graph='active_global'):
     """Cheap read-only status: never contacts FalkorDB or creates maintenance."""
+    settings = control(engine, mirror)
+    extra = dict(**settings, diagnostics=diagnostics(mirror, graph))
     if not mirror.url:
-        return dict(state='unconfigured', last_run='', scanned=None, deleted=None, error='')
+        return dict(state='unconfigured', last_run='', scanned=None, deleted=None, error='', **extra)
     # Status handlers already hold a read Session. Reuse it rather than
     # recursively acquiring another pool connection (pool_size=1 is valid).
     context=nullcontext(engine) if isinstance(engine,Session) else Session(engine)
@@ -271,15 +395,22 @@ def summary(engine, mirror, graph='active_global'):
         rows = session.exec(select(GraphGcState).where(GraphGcState.namespace == mirror.prefix,
                                                      GraphGcState.graph == graph)).all()
     if not rows:
-        return dict(state='waiting', last_run='', scanned=None, deleted=None, error='')
+        state = 'disabled' if not settings['enabled'] else 'paused' if settings['paused'] else 'waiting'
+        return dict(state=state, last_run='', scanned=None, deleted=None, error='', complete_labels=0,
+                    labels=len(LABELS), cycle_scanned=0, cycle_deleted=0, **extra)
     errors = [row.error for row in rows if row.error]
     active = next((row for row in rows if row.status == 'sweeping'), None)
-    return dict(state='error' if errors else 'running' if active else 'idle',
+    state = 'disabled' if not settings['enabled'] else 'paused' if settings['paused'] else 'error' if errors else 'running' if active else 'idle'
+    return dict(state=state,
         phase=active.phase if active else '', label=active.label if active else '',
         last_run=max((row.last_run for row in rows), default=''),
         scanned=sum(row.scanned for row in rows), deleted=sum(row.deleted for row in rows),
+        cycle_scanned=sum(row.cycle_scanned for row in rows),
+        cycle_deleted=sum(row.cycle_deleted for row in rows),
+        cursor=active.cursor if active else None, through_key=active.through_key if active else None,
+        cycle=active.cycle if active else None,
         error=errors[0] if errors else '',
-        complete_labels=sum(row.status == 'complete' for row in rows), labels=len(LABELS))
+        complete_labels=sum(row.status == 'complete' for row in rows), labels=len(LABELS), **extra)
 
 
 def retry(engine, mirror, graph='active_global'):

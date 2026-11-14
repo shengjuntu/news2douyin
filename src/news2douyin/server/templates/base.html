@@ -63,7 +63,7 @@ button:disabled { opacity:.45; cursor:not-allowed; }
 </head>
 <body>
 <header>
-  <div class="logo">news2douyin<span class="dot">·</span>0.25.1</div>
+  <div class="logo">news2douyin<span class="dot">·</span>0.25.2</div>
   {% if standalone %}<span class="muted">资源 / 国家与地区</span>{% else %}<nav>
     <a href="/radar" class="{{ 'on' if active=='radar' }}">事件雷达</a>
     <a href="/focus" class="{{ 'on' if active=='focus' }}">我的专题</a>
@@ -76,6 +76,6 @@ button:disabled { opacity:.45; cursor:not-allowed; }
 {% if work is defined %}{% include 'work_header.html' %}{% endif %}
 {% block content %}{% endblock %}
 </main>
-<footer>news2douyin 0.25.1{% if not standalone %} · <a href="/knowledge">知识处理状态</a> · <a href="/tasks">执行任务</a> · <a href="/docs">API</a>{% endif %}</footer>
+<footer>news2douyin 0.25.2{% if not standalone %} · <a href="/knowledge">知识处理状态</a> · <a href="/tasks">执行任务</a> · <a href="/docs">API</a>{% endif %}</footer>
 </body>
 </html>

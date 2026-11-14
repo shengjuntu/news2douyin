@@ -24,3 +24,38 @@ jobs:
         run: |
           python -m pip install --no-deps dist/*.whl
           python -I tools/smoke_installed.py
+
+  postgres-locales:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        locale: [C, en_US.utf8]
+    services:
+      postgres:
+        image: postgres:17-bookworm
+        env:
+          POSTGRES_USER: n2dqa
+          POSTGRES_PASSWORD: qa-only
+          POSTGRES_DB: n2dqa
+          POSTGRES_INITDB_ARGS: --locale=${{ matrix.locale }}
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U n2dqa -d n2dqa"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      NEWS2DOUYIN_TEST_POSTGRES_URL: postgresql+psycopg://n2dqa:qa-only@127.0.0.1:5432/n2dqa
+      NEWS2DOUYIN_TEST_POSTGRES_LOCALE: ${{ matrix.locale }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -e ".[dev]" falkordblite==0.11.0
+      - name: Check actual locale, queues, topic batches and checkpoint migration
+        run: >-
+          python -m pytest -q
+          tests/test_graph_queue.py tests/test_graph_focus_postgres.py
+          tests/test_graph_focus_migration.py tests/test_graph_gc_pause_migration.py
+          tests/test_graph_migration_state.py tests/test_postgres_integration.py
+          tests/test_postgres_migration.py tests/test_postgres_pipeline.py
+          tests/test_postgres_search_triggers.py tests/test_startup.py

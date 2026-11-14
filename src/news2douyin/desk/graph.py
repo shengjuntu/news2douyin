@@ -74,6 +74,7 @@ class GraphMirror:
         if timeout is not None:
             args.extend(['TIMEOUT',max(1,int(timeout))])
         started=time.perf_counter()
+        self._lease_state.graph_calls=getattr(self._lease_state,'graph_calls',0)+1
         try:
             result=self.client.execute_command(*args)
         finally:
@@ -105,6 +106,10 @@ class GraphMirror:
             s.exec(delete(GraphGcState).where(GraphGcState.namespace==self.prefix,GraphGcState.graph==graph))
             s.commit()
         self._gc_seek_plans={item for item in getattr(self,'_gc_seek_plans',set()) if item[0]!=graph}
+        self._focus_adopt_plans={item for item in getattr(self,'_focus_adopt_plans',set()) if item!=graph}
+        if graph.startswith('focus_'):
+            from .graph_focus import reset
+            reset(engine,self,graph[len('focus_'):])
 
     def _bootstrap(self,engine):
         from .models import DeskMeta
@@ -125,6 +130,13 @@ class GraphMirror:
             raise ValueError('graph_namespace_belongs_to_another_database')
         if not actual:self._reset_gc_cursor(engine,'active_global')
         if not actual or not rows or rows[0][1]!='2.0':
+            # Global Focus/TRACKS are part of each topic receipt. Losing the
+            # global graph invalidates those receipts even if local graphs live.
+            from .graph_focus_models import GraphFocusState, GraphFocusReceipt
+            with Session(engine) as s:
+                for model in (GraphFocusReceipt, GraphFocusState):
+                    s.exec(delete(model).where(model.namespace==self.prefix))
+                s.commit()
             with Session(engine) as s:
                 lock_news(s,'graph-analysis')
                 s.exec(update(GraphPending).where(GraphPending.written!='').values(written='')
@@ -197,6 +209,7 @@ class GraphMirror:
         # event's success/ack path. Scoped stamp pruning above stays mandatory.
 
     def watch(self,w,events,reviews,questions,claims,reports,points=(),point_reviews=(),point_material=(),intent=None):
+        """Legacy fixed-input baseline; live workers use graph_focus.step."""
         graph='focus_'+w.key
         root=lambda query,**ps:self.query('active_global',query,**ps)
         local=lambda query,**ps:self.query(graph,query,**ps)
@@ -335,6 +348,7 @@ class GraphMirror:
         """One separately checkpointed orphan-maintenance block."""
         if not self.url or not self.bootstrapped:return False
         from . import graph_gc
+        if not graph_gc.enabled(self) or graph_gc.control(engine,self)['paused']:return False
         # Rotate known topic graphs without loading their articles/versions.
         if self._gc_global_turn:
             graph='active_global'
@@ -367,74 +381,75 @@ class GraphMirror:
         self.work_state='idle'
         started=time.perf_counter()
         self._lease_state.graph_ms=0.
+        self._lease_state.graph_calls=0
+        self._lease_state.load_ms=0.
+        self._lease_state.ack_ms=0.
         from .graph_queue import pick
+        load_started=time.perf_counter()
         with Session(engine,expire_on_commit=False) as s:
             row=pick(s,prefer_watch=self._event_streak>=8,
                 after_event=self._event_cursor,after_watch=self._watch_cursor)
             if not row:return False
             kind,key=row.key.split('/',1)
-            card=s.get(RadarEntry,key) if kind=='event' else None
-            places=s.exec(select(EventPlace).where(EventPlace.event==key)).all() if kind=='event' else []
-            if kind=='watch':
-                w=s.get(Watch,key)
-        if kind=='watch':
-            graph='focus_'+key
-            if not self.client.exists(self.prefix+'_'+graph):
-                self.query(graph,'RETURN 1')
-                from .graph_indexes import reset
-                reset(self,graph)
-            if not self.prepare_indexes(engine,graph):
-                # A single large/failed topic index may wait independently;
-                # it must not pin the preferred slot and halt global events.
-                self._watch_cursor=row.key
-                self._event_streak=0
-                return False
-            # A large topic's material is read only once its own indexes are
-            # ready. Index polling must never reload all of its source text.
-            with Session(engine,expire_on_commit=False) as s:
-                w=s.get(Watch,key)
-                from .service import current_membership
-                from .focus_jobs import definition
-                intent=definition(s,key)
-                events=s.exec(select(RadarEntry,WatchEvent).join(WatchEvent,WatchEvent.event==RadarEntry.key)
-                       .where(WatchEvent.watch==key,WatchEvent.choice!='exclude',current_membership())).all()
-                from ..extraction.outline import points as get_points, history
-                points=get_points(s,key)
-                from ..knowledge.models import PointMaterial
-                point_material=s.exec(select(PointMaterial).where(PointMaterial.point.in_([p.key for p in points]))).all()
-                point_reviews=[(link.point,link.ticket) for link,_ in history(s,key)]
-                from ..research.models import ResearchQuestion, ResearchClaim, ResearchReport
-                reviews=s.exec(select(WatchReview).where(WatchReview.watch==key)).all()
-                cases=select(WatchReview.case_key).where(WatchReview.watch==key)
-                questions,claims,reports=[s.exec(select(model).where(model.case_id.in_(cases))).all()
-                    for model in (ResearchQuestion,ResearchClaim,ResearchReport)]
-        self.work_state='projection'
+        acknowledged=partial=False
         try:
+            with Session(engine,expire_on_commit=False) as s:
+                card=s.get(RadarEntry,key) if kind=='event' else None
+                places=s.exec(select(EventPlace).where(EventPlace.event==key).execution_options(
+                    n2d_query_name='desk.graph_event.places')).all() if kind=='event' else []
+                w=s.get(Watch,key) if kind=='watch' else None
+            self._lease_state.load_ms=(time.perf_counter()-load_started)*1000
+            if kind=='watch':
+                graph='focus_'+key
+                if not self.client.exists(self.prefix+'_'+graph):
+                    self.query(graph,'RETURN 1')
+                    from .graph_indexes import reset
+                    reset(self,graph)
+                    self._reset_gc_cursor(engine,graph)
+                if not self.prepare_indexes(engine,graph):
+                    # Index polling never loads a topic's article material.
+                    return False
+            self.work_state='projection'
+            ack_token=row.token
             if kind=='event':self.event(card,key,places)
-            else:self.watch(w,events,reviews,questions,claims,reports,points,point_reviews,point_material,intent=intent)
-            with Session(engine) as s:
-                lease=self._projection_lease
-                lock_news(s,'graph-queue/'+row.key,'lease/'+lease.key)
-                lease.confirm(s)
-                # A newer event/source version or a reclaimed lease cannot be acknowledged.
-                result=s.exec(update(GraphPending).where(GraphPending.key==row.key,GraphPending.token==row.token)
-                    .values(written=row.token).execution_options(synchronize_session=False))
-                acknowledged=result.rowcount==1
-                if acknowledged:
-                    from .models import DeskMeta
-                    epoch=s.get(DeskMeta,'graph_projection_epoch_1')
-                    if epoch is None:epoch=DeskMeta(key='graph_projection_epoch_1')
-                    epoch.value=uuid4().hex
-                    s.add(epoch)
-                s.commit()
+            elif w:
+                from .graph_focus import step
+                result=step(engine,self,w,row.token)
+                partial=not result['complete']
+                ack_token=result['token']
+            else:
+                self.query('active_global','MATCH (f:Focus {id:$id}) DETACH DELETE f',id=key)
+            if not partial:
+                ack_started=time.perf_counter()
+                with Session(engine) as s:
+                    lease=self._projection_lease
+                    lock_news(s,'graph-queue/'+row.key,'lease/'+lease.key)
+                    lease.confirm(s)
+                    # A pass acknowledges only its captured token, never a
+                    # newer update that arrived behind its durable cursor.
+                    result=s.exec(update(GraphPending).where(GraphPending.key==row.key,GraphPending.token==ack_token)
+                        .values(written=ack_token).execution_options(synchronize_session=False,
+                            n2d_query_name='desk.graph_queue.ack.'+kind))
+                    acknowledged=result.rowcount==1
+                    if acknowledged:
+                        from .models import DeskMeta
+                        epoch=s.get(DeskMeta,'graph_projection_epoch_1')
+                        if epoch is None:epoch=DeskMeta(key='graph_projection_epoch_1')
+                        epoch.value=uuid4().hex
+                        s.add(epoch)
+                    s.commit()
+                self._lease_state.ack_ms+= (time.perf_counter()-ack_started)*1000
         except Exception:
             elapsed=(time.perf_counter()-started)*1000
-            graph_ms=getattr(self._lease_state,'graph_ms',0.)
-            self.metrics.record(kind,elapsed,failed=True,graph_ms=graph_ms,sql_ms=max(0.,elapsed-graph_ms))
+            self.metrics.record(kind,elapsed,failed=True,
+                graph_ms=getattr(self._lease_state,'graph_ms',0.),
+                graph_calls=getattr(self._lease_state,'graph_calls',0),
+                load_ms=getattr(self._lease_state,'load_ms',0.),
+                ack_ms=getattr(self._lease_state,'ack_ms',0.))
             raise
         finally:
-            # A perpetually changing first key must not starve other events or
-            # topics. Cursor fairness counts attempts; success metrics do not.
+            # Attempts (including partial chunks and stale tokens) participate
+            # in fairness. One large or hot topic cannot pin other task keys.
             if kind=='event':
                 self._event_cursor=row.key
                 self._event_streak+=1
@@ -442,8 +457,9 @@ class GraphMirror:
                 self._watch_cursor=row.key
                 self._event_streak=0
         elapsed=(time.perf_counter()-started)*1000
-        graph_ms=getattr(self._lease_state,'graph_ms',0.)
-        self.metrics.record(kind,elapsed,acknowledged=acknowledged,stale=not acknowledged,
-            graph_ms=graph_ms,sql_ms=max(0.,elapsed-graph_ms))
+        self.metrics.record(kind,elapsed,acknowledged=acknowledged,stale=not acknowledged and not partial,
+            partial=partial,graph_ms=getattr(self._lease_state,'graph_ms',0.),
+            graph_calls=getattr(self._lease_state,'graph_calls',0),
+            load_ms=getattr(self._lease_state,'load_ms',0.),ack_ms=getattr(self._lease_state,'ack_ms',0.))
         self.last_error=''
         return True

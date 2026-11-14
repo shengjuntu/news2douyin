@@ -1,0 +1,54 @@
+{
+  "ok": true,
+  "browser": "153.0.8010.0",
+  "viewports": {
+    "desktop": {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "collapsed_initially": true,
+      "separate_timing_labels": true,
+      "partial_not_acknowledged": true,
+      "bounded_topic_progress": true,
+      "pause_and_resume_clicked": true,
+      "pause_persisted_across_reload": true,
+      "cursor_and_projection_queue_preserved": true,
+      "no_horizontal_overflow": true,
+      "bounds": {
+        "width": 1440,
+        "scroll": 1440
+      }
+    },
+    "mobile": {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "collapsed_initially": true,
+      "separate_timing_labels": true,
+      "partial_not_acknowledged": true,
+      "bounded_topic_progress": true,
+      "pause_and_resume_clicked": true,
+      "pause_persisted_across_reload": true,
+      "cursor_and_projection_queue_preserved": true,
+      "no_horizontal_overflow": true,
+      "bounds": {
+        "width": 390,
+        "scroll": 390
+      }
+    }
+  },
+  "page_errors": [],
+  "console_errors": [],
+  "failed_requests": [],
+  "real_http": true,
+  "real_chromium": true,
+  "database": "disposable SQLite",
+  "background_workers": false,
+  "graph_server": false,
+  "graph_http_calls": 0,
+  "checkpoint_preserved": true,
+  "pending_projection_preserved": true,
+  "performance_fixture": "event 20ms; topic batches 100000ms; synthetic telemetry, not a benchmark"
+}

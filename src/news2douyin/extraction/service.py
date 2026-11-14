@@ -17,10 +17,26 @@ NEW = 'baseline'
 MODEL = 'model_queued'
 
 
-def initialize(engine,*,backfill=True):
+def initialize(engine,*,backfill=True,checkpoint=False):
+    """Always install enqueue triggers; optionally checkpoint startup backfill.
+
+    A normal restart must not aggregate all article versions again. The marker
+    shares the DDL/backfill transaction and includes the reader mode, so a
+    failed upgrade retries and a rules/model configuration change still queues
+    the relevant historical versions. Direct maintenance calls keep their
+    previous uncheckpointed behavior unless explicitly opted in.
+    """
     from ..storage.sql import install_sql_functions
+    from sqlalchemy import text
+    reader_mode = 'model' if os.getenv('NEWS2DOUYIN_EVENT_READER','rules')=='model' else 'rules'
+    marker = 'extraction_startup_backfill_1'
+    generation = VERSION + ':' + reader_mode
     with engine.begin() as db:
         install_sql_functions(db)
+        if checkpoint and backfill:
+            previous = db.execute(text('SELECT value FROM deskmeta WHERE key=:key').execution_options(
+                n2d_query_name='startup.extraction_checkpoint'), {'key': marker}).scalar()
+            backfill = previous != generation
         if engine.dialect.name=='postgresql':
             db.exec_driver_sql("""CREATE OR REPLACE FUNCTION n2d_enqueue_extraction()
                 RETURNS trigger LANGUAGE plpgsql AS $n2d$
@@ -41,10 +57,15 @@ def initialize(engine,*,backfill=True):
             if backfill:
                 db.exec_driver_sql("""INSERT OR IGNORE INTO versionreading(version_id,state,lease,"until",method,model,note)
                     SELECT max(id),'baseline','',0,'','','' FROM articleversion GROUP BY article_key""")
-        if backfill and os.getenv('NEWS2DOUYIN_EVENT_READER','rules')=='model':
+        if backfill and reader_mode=='model':
             db.exec_driver_sql("""UPDATE versionreading SET state='model_queued'
                 WHERE state='ready' AND method='rules' AND model=''
                 AND version_id IN (SELECT max(id) FROM articleversion GROUP BY article_key)""")
+        if checkpoint and backfill:
+            db.execute(text('''INSERT INTO deskmeta(key,value) VALUES (:key,:value)
+                ON CONFLICT(key) DO UPDATE SET value=excluded.value''').execution_options(
+                    n2d_query_name='startup.extraction_checkpoint_publish'),
+                {'key': marker, 'value': generation})
 
 
 def schedule_model(session, version):

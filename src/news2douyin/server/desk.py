@@ -236,6 +236,8 @@ def register_desk(app,engine,render):
     def rebuild(s=Depends(db)):
         if not app.state.desk.graph.url:raise HTTPException(409,'尚未配置 FalkorDB')
         lock_news(s,'graph-queue-rebuild')
+        from ..desk.graph_focus import force_rebuild
+        force_rebuild(s,app.state.desk.graph)
         for row in s.exec(select(GraphPending)):
             desk.enqueue_graph(s,row.key)
         s.commit()
@@ -255,3 +257,22 @@ def register_desk(app,engine,render):
         # This only schedules work. No graph query, index build, node deletion
         # or full projection rebuild occurs in the HTTP request.
         return {'queued':True}
+
+    @app.post('/api/desk/graph-maintenance/pause',dependencies=[Depends(same_origin)])
+    def pause_graph_maintenance():
+        mirror=app.state.desk.graph
+        if not mirror.url:raise HTTPException(409,'尚未配置 FalkorDB')
+        from ..desk.graph_gc import set_paused
+        # Only the maintenance control changes. The current bounded batch may
+        # finish its checkpoint; event/topic projection keeps running.
+        return set_paused(engine,mirror,True)
+
+    @app.post('/api/desk/graph-maintenance/resume',dependencies=[Depends(same_origin)])
+    def resume_graph_maintenance():
+        mirror=app.state.desk.graph
+        if not mirror.url:raise HTTPException(409,'尚未配置 FalkorDB')
+        from ..desk.graph_gc import enabled, set_paused
+        if not enabled(mirror):raise HTTPException(409,'自动清理已在服务配置中关闭，请先启用该配置')
+        # Resuming preserves the scan cursor and cycle, rather than pretending
+        # that a pending/partially completed scan has finished.
+        return set_paused(engine,mirror,False)

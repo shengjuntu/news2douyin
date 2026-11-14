@@ -1,6 +1,6 @@
-# news2douyin 0.25.1 · 持续理解与内容工作台
+# news2douyin 0.25.2 · 持续理解与内容工作台
 
-0.25.1将图索引纳入启动后的后台检查，只补缺失索引并等待实际就绪；事件投影移出全图清理，维护采用独立进度和有限批次。投影队列按事件与专题公平轮转，状态页分别显示索引、投影与图分析。既有图和文章版本继续沿用。见[发布说明](docs/release-0.25.1.md)、[索引检查](docs/GRAPH-INDEXES.md)和[验证记录](docs/validation/0.25.1/README.md)。
+0.25.2修复非C排序数据库中的投影队列漏取，专题图改为持久化分批核对与按材料指纹增量写入；分别显示事件和专题批次耗时，清理支持正式暂停、继续。启动日志分阶段计时，相同模式重启跳过已完成的历史抽取回填。既有文章和图继续使用。见[发布说明](docs/release-0.25.2.md)、[维护说明](docs/GRAPH-MAINTENANCE.md)和[验证记录](docs/validation/0.25.2/README.md)。
 
 用一段文字建立长期专题：系统生成可编辑的关注范围、关系模式和知识问题，再在后台回溯已有事件、持续判断新材料。候选按实体、动作关系和词项召回，并可由全局图关联补充；模型精筛区分核心进展、背景和待核，保存原文版本与判断依据。模型不可用时保留待核，不静默丢弃。旧关键词专题仍可使用，高级设置默认折叠。使用和升级见 [专题跟踪说明](docs/TOPIC-TRACKING.md) 与 [0.25 发布说明](docs/release-0.25.0.md)。
 
@@ -42,7 +42,7 @@
 Python 3.10+。先停止原服务，备份原数据库、运行目录与配置，然后在原环境安装：
 
 ```bash
-python -m pip install --upgrade "./release-0.25.1/news2douyin-0.25.1-py3-none-any.whl[research]"
+python -m pip install --upgrade "./release-0.25.2/news2douyin-0.25.2-py3-none-any.whl[research]"
 ```
 
 源码安装使用 `python -m pip install '.[research]'`。CLI与服务默认读取 `NEWS2DOUYIN_DATABASE_URL`，显式 `--db-url` 优先；两者都未设置时才使用SQLite兼容默认值。`postgresql://` 自动规范为 `postgresql+psycopg://`。原SQLite用户可沿用原启动参数；迁移到PostgreSQL需要先停服务，运行迁移工具，保持原 `storage_root` 和图实例。不要通过连到空库代替迁移。

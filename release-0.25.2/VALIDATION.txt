@@ -1,0 +1,18 @@
+news2douyin 0.25.2 release verification
+
+Core graph changes: collation-safe indexed outbox, per-kind metrics, durable bounded topic projection and batched SQL receipts, persistent GC controls, startup phases/checkpoint.
+
+Actual PostgreSQL16.2 C/en_US matrices: 66 passed +1 optional pg_trgm skip each.
+Final en_US topic+queue+updated migration matrix:28 passed; post-bulk topic+updated migration:8 passed.
+Final bulk topic and dependency checks with real FalkorDB4.22.1:16 passed.
+Full pytest:646 passed,67 skipped,1 short-lease heartbeat failure.
+The entire task module rerun:21 passed; same heartbeat test in5 independent processes:all passed. One-off failure cause not proven; no assertion/timeout modifications.
+Real Chromium153 desktop1440/mobile390:passed, no JS errors/overflow; pause/reload/resume preserves checkpoints and outbox.
+Installed actual wheel with python -I outside checkout:18 offline smoke checks passed;6 core HTTP routes and3 additive tables verified. QA dependencies reused, optional dev/assets/llm/research requirements available; no external service calls.
+
+Detailed evidence and limitations:docs/validation/0.25.2/README.md and JSON reports.
+First upgraded startup has one extraction sweep; required SQL setup remains synchronous. Topic graph writes are incremental but SQL still pages through topic members. Graph analysis still waits for an empty projection outbox and uses recent5000 events.
+No production host was modified. Small local performance comparison is not a field-throughput estimate.
+
+Wheel SHA256: fc08c132e707daf5874cdccfc68b6b1b1692049dea8c946218743543c0eb467b
+Sdist SHA256: 002104a2fbd47dda001145335037b75f19bf7aa2b954d9bcd62c81d9bb0b85c6

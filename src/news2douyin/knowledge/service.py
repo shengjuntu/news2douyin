@@ -36,20 +36,23 @@ def signature(s):
 
 
 def status(s, graph):
-    pending = s.exec(select(func.count()).select_from(GraphPending).where(GraphPending.token!=GraphPending.written)).one()
+    pending = s.exec(select(func.count()).select_from(GraphPending).where(GraphPending.token!=GraphPending.written)
+        .execution_options(n2d_query_name='knowledge.status.pending_count')).one()
     stamp = s.get(DeskMeta,'graph_analysis')
     analysis = json.loads(stamp.value) if stamp else {}
     state = 'unconfigured' if not graph.url else 'error' if graph.last_error else 'pending' if pending or not analysis or not graph.last_ok else 'ready'
     from ..desk.graph_indexes import status_summary
     from ..desk.graph_gc import summary as gc_summary
+    from ..desk.graph_focus import summary as focus_summary
     indexes=status_summary(graph)
     gc=gc_summary(s,graph)
-    if getattr(graph,'_maintenance_error','') and not gc.get('error'):
+    if getattr(graph,'_maintenance_error','') and not gc.get('error') and gc.get('state') not in ('paused','disabled','unconfigured'):
         gc=dict(gc,state='error',error='图维护等待重试（'+graph._maintenance_error+'）')
     return dict(required=True,state=state,pending=pending,error=graph.last_error,
                 analyzed_at=analysis.get('at',''),count=analysis.get('count',0),
                 truncated=analysis.get('truncated',False),generation=analysis.get('generation',''),
                 indexes=indexes,gc=gc,projection=graph.metrics.snapshot(pending=pending),
+                focus_projection=focus_summary(s,graph),
                 queue_index=dict(graph._queue_index_state),
                 analysis_state='waiting_for_projection' if pending else 'ready' if analysis else 'not_analyzed')
 

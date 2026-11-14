@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from contextlib import nullcontext
 import os
 
 from sqlmodel import SQLModel, Session, create_engine
@@ -95,6 +96,7 @@ def load_models() -> None:
     from ..desk import models as desk_models
     from ..desk import focus_models
     from ..desk import graph_maintenance_models
+    from ..desk import graph_focus_models
     from ..extraction import models as extraction_models
     from ..knowledge import models as knowledge_models
     from ..workbench import models as workbench_models
@@ -107,36 +109,56 @@ def create_schema(engine) -> None:
     SQLModel.metadata.create_all(engine)
 
 
-def install_runtime_schema(engine, *, backfill: bool = False) -> None:
+def install_runtime_schema(engine, *, backfill: bool = False, startup_checkpoint: bool = False,
+                           phase_callback=None) -> None:
     from ..search.index import init_search
     from ..desk.service import initialize as init_desk
     from ..extraction.service import initialize as init_extraction
-    init_search(engine)
-    init_desk(engine, backfill=backfill)
-    init_extraction(engine, backfill=backfill)
+    phase = phase_callback or (lambda _name: nullcontext())
+    with phase('database.search_indexes'):
+        init_search(engine)
+    with phase('database.desk_triggers'):
+        init_desk(engine, backfill=backfill)
+    with phase('database.extraction_triggers_backfill'):
+        init_extraction(engine, backfill=backfill, checkpoint=startup_checkpoint)
 
 
-def init_db(engine) -> None:
+def init_db(engine, *, phase_callback=None) -> None:
+    """Install required schema before workers; report code-owned phase timings.
+
+    ``phase_callback(name)`` may return a context manager for startup telemetry.
+    Historical extraction backfill is checkpointed only for normal startup;
+    explicit initialization/migration retains its existing backfill semantics.
+    """
+    phase = phase_callback or (lambda _name: nullcontext())
     # A partially copied target is never a live application database.
-    if inspect(engine).has_table('_n2d_sqlite_migration'):
-        with engine.connect() as connection:
-            phases = connection.execute(text('SELECT phase FROM _n2d_sqlite_migration')).scalars().all()
-        if phases != ['ready']:
-            raise RuntimeError('SQLite migration is incomplete; resume and verify migration before starting the service')
-    create_schema(engine)
+    with phase('database.migration_guard'):
+        if inspect(engine).has_table('_n2d_sqlite_migration'):
+            with engine.connect() as connection:
+                phases = connection.execute(text('SELECT phase FROM _n2d_sqlite_migration')).scalars().all()
+            if phases != ['ready']:
+                raise RuntimeError('SQLite migration is incomplete; resume and verify migration before starting the service')
+    with phase('database.schema'):
+        create_schema(engine)
     from .articles import backfill_versions
-    backfill_versions(engine)
-    install_runtime_schema(engine, backfill=True)
+    with phase('database.article_versions_backfill'):
+        backfill_versions(engine)
+    install_runtime_schema(engine, backfill=True, startup_checkpoint=True, phase_callback=phase_callback)
     from ..video.library import backfill_works
-    backfill_works(engine)
+    with phase('database.video_works_backfill'):
+        backfill_works(engine)
     from ..research.service import initialize as init_research
-    init_research(engine)
+    with phase('database.research'):
+        init_research(engine)
     from ..knowledge.service import initialize as init_knowledge
-    init_knowledge(engine)
+    with phase('database.knowledge'):
+        init_knowledge(engine)
     from ..workbench.service import initialize as init_workbench
-    init_workbench(engine)
+    with phase('database.workbench'):
+        init_workbench(engine)
     from ..intake.service import initialize as init_intake
-    init_intake(engine)
+    with phase('database.intake'):
+        init_intake(engine)
 
 
 def session_scope(engine) -> Session:

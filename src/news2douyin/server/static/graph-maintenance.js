@@ -9,6 +9,16 @@
   const safeText = value => typeof value === 'string' ? value : '';
   function text(id, value) { const node = byId(id); if (node) node.textContent = value; }
   function error(id, value) { const node = byId(id); if (node) { node.hidden = !value; node.textContent = value || ''; } }
+  const seconds = value => (value / 1000).toLocaleString('zh-CN', {maximumFractionDigits:2}) + ' 秒';
+  function projectionLine(label, metric) {
+    const totals = metric?.totals || {}, latency = metric?.latency_ms || {}, recent = metric?.recent || {};
+    if (!number(totals.acknowledged)) return label + '：等待处理记录';
+    let line = label + '：已确认 ' + totals.acknowledged + ' 项 · 已尝试 ' + (number(totals.attempts) ? totals.attempts : '未知') + ' 次';
+    if (number(totals.partial) && totals.partial > 0) line += ' · 已完成分批 ' + totals.partial + ' 次';
+    if (number(latency.mean)) line += ' · 单次平均 ' + seconds(latency.mean) + (number(latency.p95) ? ' / P95 ' + seconds(latency.p95) : '');
+    if (number(recent.rate_per_second) && number(recent.window_seconds)) line += ' · 近 ' + Math.round(recent.window_seconds) + ' 秒确认率 ' + recent.rate_per_second.toLocaleString('zh-CN', {maximumFractionDigits:3}) + ' 项/秒';
+    return line;
+  }
   const extractionLabels = {baseline:'等待规则抽取',rule_running:'规则抽取中',model_queued:'等待模型抽取',model_running:'模型抽取中',model_wait:'模型重试等待',ready:'本轮完成',metadata_only:'仅元数据，等待原文',error:'抽取失败'};
   function render(state) {
     if (disposed || !state || typeof state !== 'object') return;
@@ -39,10 +49,23 @@
     text('knowledge-index-current', safeText(index.current) ? '当前检查：' + index.current : '启动后由后台检查必需图索引，缺失项自动补建。');
     text('knowledge-index-checked', '最近索引检查：' + (safeText(index.checked_at) || '暂无记录'));
     error('knowledge-index-error', safeText(index.error));
-    text('knowledge-projection-completed', number(projection.event_completed) ? '本次运行已确认事件投影 ' + projection.event_completed + ' 项' + (number(projection.watch_completed) ? ' · 专题投影 ' + projection.watch_completed + ' 项' : '') : '本次运行投影完成量：暂无记录');
-    const gcLabel = {complete:'本轮完成',sweeping:'分批检查中',running:'分批检查中',idle:'等待下一轮',pending:'等待检查',error:'需要重试'};
+    const projectionTotals = projection.totals || {};
+    text('knowledge-projection-completed', number(projectionTotals.events) ? '本次运行已确认事件投影 ' + projectionTotals.events + ' 项' + (number(projectionTotals.watches) ? ' · 专题投影 ' + projectionTotals.watches + ' 项' : '') : '本次运行投影完成量：暂无记录');
+    text('knowledge-projection-event', projectionLine('事件投影', projection.by_kind?.event));
+    text('knowledge-projection-watch', projectionLine('专题投影', projection.by_kind?.watch));
+    const topicProgress = state.focus_projection || {}, topicBatch = Array.isArray(topicProgress.topics) ? topicProgress.topics[0] : null;
+    const topicPhaseLabel = {adopt:'接续已有图',header:'同步关注范围',points:'同步知识提纲',events:'同步事件材料',point_material:'关联提纲材料',reviews:'同步研究任务',point_reviews:'关联提纲研究',questions:'同步研究问题',claims:'同步研究结论',answers:'关联研究结论',reports:'同步研究报告',prune:'清理已移除材料',finish:'确认本轮同步',complete:'本轮完成'};
+    text('knowledge-topic-progress', topicBatch ? '专题分批进度：已记录' + (topicProgress.limited ? '至少 ' : ' ') + (number(topicProgress.active) ? topicProgress.active : '未知') + ' 个未完成专题。最近批次：' + (topicPhaseLabel[topicBatch.phase] || '等待下一批') + ' · 已检查 ' + (number(topicBatch.scanned) ? topicBatch.scanned : '未知') + ' 项 · 写入 ' + (number(topicBatch.changed) ? topicBatch.changed : '未知') + ' 项 · 移除 ' + (number(topicBatch.removed) ? topicBatch.removed : '未知') + ' 项 · 完成 ' + (number(topicBatch.batches) ? topicBatch.batches : '未知') + ' 批' : '专题分批进度：暂无未完成的分批记录');
+    const gcLabel = {complete:'本轮完成',sweeping:'分批检查中',running:'分批检查中',idle:'等待下一轮',pending:'等待检查',paused:'已暂停',disabled:'服务配置已关闭',error:'需要重试'};
     text('knowledge-gc', '图清理：' + (gcLabel[gc.state] || '尚无维护记录') + (safeText(gc.last_run) ? ' · ' + gc.last_run : ''));
-    text('knowledge-gc-counts', number(gc.scanned) ? '本轮已检查 ' + gc.scanned + ' 个节点' + (number(gc.deleted) ? ' · 清理 ' + gc.deleted + ' 个无引用节点' : '') : '清理进度尚未记录。');
+    text('knowledge-gc-counts', number(gc.scanned) ? '累计已检查 ' + gc.scanned + ' 个节点' + (number(gc.deleted) ? ' · 清理 ' + gc.deleted + ' 个无引用节点' : '') : '清理进度尚未记录。');
+    const pauseGc = byId('pause-graph-gc'), resumeGc = byId('resume-graph-gc');
+    if (pauseGc) pauseGc.hidden = ['unconfigured','disabled','paused'].includes(gc.state);
+    if (resumeGc) resumeGc.hidden = gc.state !== 'paused';
+    text('knowledge-gc-control-note', gc.state === 'disabled' ? '自动清理已在服务配置中关闭。' : gc.state === 'paused' ? '已保留扫描位置；继续后从原位置检查，事件和专题仍会同步。' : '暂停后正在执行的批次会先保存进度；事件和专题仍会同步。');
+    const diagnostic = gc.diagnostics || {}, failure = diagnostic.last_failure || {}, lastGc = safeText(failure.phase) ? failure : diagnostic.last || {};
+    const gcPhaseLabel = {plan:'执行计划检查',highwater:'扫描上界检查',read:'读取批次',delete:'清理批次'};
+    text('knowledge-gc-phase', safeText(lastGc.phase) ? '最近维护' + (safeText(failure.phase) ? '异常' : '阶段') + '：' + (gcPhaseLabel[lastGc.phase] || '维护批次') + (number(lastGc.elapsed_ms) ? ' · ' + seconds(lastGc.elapsed_ms) : '') + (lastGc.timeout ? ' · 超时' : safeText(lastGc.error) ? ' · 未完成' : '') : '');
     error('knowledge-gc-error', safeText(gc.error));
     const retry = byId('retry-graph-maintenance');
     if (retry) retry.hidden = index.state !== 'error' && gc.state !== 'error';
@@ -89,6 +112,8 @@
   for (const [id, path, message] of [
     ['retry-extraction','/api/knowledge/retry-extraction','已提交抽取重试，后台将继续处理。'],
     ['retry-graph-maintenance','/api/desk/graph-maintenance/retry','已提交图维护检查，不会重新投影全部新闻。'],
+    ['pause-graph-gc','/api/desk/graph-maintenance/pause','已暂停自动清理；正在执行的批次保存进度后停止，事件和专题继续同步。'],
+    ['resume-graph-gc','/api/desk/graph-maintenance/resume','已继续自动清理，后台将从保存的扫描位置处理。'],
     ['rebuild-graph','/api/knowledge/rebuild','已提交图重建，后台将重新投影保存的证据。']
   ]) {
     const button = byId(id);

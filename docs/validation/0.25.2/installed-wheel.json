@@ -1,0 +1,39 @@
+{
+  "version": "0.25.2",
+  "isolated_python": true,
+  "installed_outside_checkout": true,
+  "dependencies": "Separate install environment reusing QA dependency packages; optional dev/assets/llm/research requirements available",
+  "core_routes_checked": [
+    "/radar",
+    "/focus",
+    "/knowledge",
+    "/api/knowledge/status",
+    "/api/health",
+    "/api/system/startup"
+  ],
+  "additive_tables": 3,
+  "smoke": {
+    "status": "passed",
+    "checks": [
+      "wheel_webui",
+      "mock_collection",
+      "script_package",
+      "bundled_prompts",
+      "bundled_templates",
+      "legacy_llm_import",
+      "packaged_asset_worker",
+      "cli_entrypoint",
+      "task_pages",
+      "task_sse",
+      "async_collection",
+      "cancel_and_retry",
+      "script_workbench_pages",
+      "script_edit_review",
+      "approved_archive",
+      "script_revision_restore",
+      "video_pages",
+      "video_capabilities"
+    ]
+  },
+  "wheel_sha256": "fc08c132e707daf5874cdccfc68b6b1b1692049dea8c946218743543c0eb467b"
+}

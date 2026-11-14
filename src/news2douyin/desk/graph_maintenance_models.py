@@ -27,3 +27,16 @@ class GraphGcState(SQLModel, table=True):
     error: str = ''
     next_due: float = 0.0
     updated: str = Field(default_factory=utc_now_iso)
+
+
+class GraphGcControl(SQLModel, table=True):
+    """Namespace-wide operator pause, separate from genuine scan completion.
+
+    Existing checkpoints never need to be edited to stop maintenance. A zero
+    resume_at means an indefinite pause; a positive value is a UTC epoch.
+    """
+    key: str = Field(primary_key=True)
+    namespace: str = Field(index=True)
+    paused: bool = False
+    resume_at: float = 0.0
+    updated: str = Field(default_factory=utc_now_iso)

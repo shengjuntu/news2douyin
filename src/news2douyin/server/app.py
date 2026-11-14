@@ -70,22 +70,38 @@ def _run_to_dict(row: RunRecord) -> dict:
 
 
 def create_app(*, db_url: str | None = None, storage_root: str = 'runs_v7') -> FastAPI:
-    load_environment()
-    engine = make_engine(db_url)
-    init_db(engine)
-    scheduler = SchedulerService(engine, SchedulerConfig(storage_root=storage_root))
-    tasks = TaskService(engine)
-    worker = TaskWorker(engine, storage_root)
+    from .startup import StartupDiagnostics
+    startup = StartupDiagnostics()
+    with startup.phase('environment'):
+        load_environment()
+    with startup.phase('database.engine'):
+        engine = make_engine(db_url)
+    with startup.phase('database.initialize'):
+        init_db(engine, phase_callback=startup.phase)
+    with startup.phase('application.services'):
+        scheduler = SchedulerService(engine, SchedulerConfig(storage_root=storage_root))
+        tasks = TaskService(engine)
+        worker = TaskWorker(engine, storage_root)
     @asynccontextmanager
     async def lifespan(app):
-        Path(storage_root).mkdir(parents=True, exist_ok=True)
-        worker.start()
-        scheduler.start()
-        app.state.research.start()
-        app.state.desk.start()
-        app.state.intake.start()
+        with startup.phase('workers.storage_directory'):
+            Path(storage_root).mkdir(parents=True, exist_ok=True)
+        with startup.phase('workers.tasks'):
+            worker.start()
+        with startup.phase('workers.scheduler'):
+            scheduler.start()
+        with startup.phase('workers.research'):
+            app.state.research.start()
+        # start() launches graph/index work in a worker thread. No graph
+        # readiness poll or remote graph call is added to HTTP startup.
+        with startup.phase('workers.desk'):
+            app.state.desk.start()
+        with startup.phase('workers.intake_receiver'):
+            app.state.intake.start()
         if not app.state.intake.status_error:
-            app.state.intake_projection.start()
+            with startup.phase('workers.intake_projection'):
+                app.state.intake_projection.start()
+        startup.ready()
         try:
             yield
         finally:
@@ -97,6 +113,7 @@ def create_app(*, db_url: str | None = None, storage_root: str = 'runs_v7') -> F
             worker.stop()
 
     app = FastAPI(title='news2douyin v7 server', lifespan=lifespan)
+    app.state.startup = startup
     from ..storage.access import request_queries, snapshot as query_snapshot
 
     @app.middleware('http')
@@ -126,12 +143,15 @@ def create_app(*, db_url: str | None = None, storage_root: str = 'runs_v7') -> F
     app.state.worker = worker
     from ..intake.runtime import IntakeWorker
     from ..intake.projection import ProjectionWorker
-    app.state.intake=IntakeWorker(engine,storage_root)
-    app.state.intake_projection=ProjectionWorker(engine,storage_root)
+    with startup.phase('application.intake'):
+        app.state.intake=IntakeWorker(engine,storage_root)
+        app.state.intake_projection=ProjectionWorker(engine,storage_root)
     from .research import register_research_routes
-    register_research_routes(app, engine, storage_root)
+    with startup.phase('application.research_routes'):
+        register_research_routes(app, engine, storage_root)
     from ..desk.runtime import DeskWorker
-    app.state.desk=DeskWorker(engine,app.state.research)
+    with startup.phase('application.desk'):
+        app.state.desk=DeskWorker(engine,app.state.research)
     register_task_routes(app, tasks, worker, _run_to_dict)
     from .readiness import register_readiness_routes
     register_readiness_routes(app)
@@ -141,7 +161,13 @@ def create_app(*, db_url: str | None = None, storage_root: str = 'runs_v7') -> F
 
     @app.get('/api/health')
     def health():
-        return {'ok': True, 'service': 'news2douyin-v7'}
+        # This is HTTP liveness, independent of graph backlog or maintenance.
+        return {'ok': True, 'service': 'news2douyin-v7',
+                'startup': startup.snapshot(detail=False)}
+
+    @app.get('/api/system/startup')
+    def startup_status():
+        return JSONResponse(startup.snapshot(), headers={'Cache-Control': 'no-store'})
 
     @app.get('/api/system/status')
     def system_status():
@@ -275,6 +301,8 @@ def create_app(*, db_url: str | None = None, storage_root: str = 'runs_v7') -> F
 
     # HTML WebUI pages (dashboard / runs / articles / events / timeline / reports)
     from .webui import register_webui_routes
-    register_webui_routes(app, engine, scheduler, storage_root)
+    with startup.phase('application.webui_routes'):
+        register_webui_routes(app, engine, scheduler, storage_root)
 
+    startup.initialized()
     return app

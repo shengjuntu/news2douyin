@@ -1,0 +1,1231 @@
+{
+  "database": {
+    "dialect": "postgresql",
+    "version": "PostgreSQL 16.2 on x86_64-pc-linux-gnu, compiled by gcc (GCC) 10.2.1 20210130 (Red Hat 10.2.1-11), 64-bit",
+    "locale": "en_US.utf8",
+    "fresh_cluster": true
+  },
+  "events": 200,
+  "batch_size": 8,
+  "fixture": {
+    "articles_per_event": 1,
+    "extracted_actions_per_article": 1,
+    "arguments_per_action": 2,
+    "intent_definition": false,
+    "investigations": 0,
+    "shared_article": false,
+    "note": "Real rule extraction of synthetic Alice visit reports; source links intentionally use fixture.invalid"
+  },
+  "legacy_watch_sha256": "e16f8f246a90041846dccc8885e79cad1aedacfe4cbc34e120e28e4a1edcc77a",
+  "chunked_module_sha256": "cbb0753cc02c8336b367669e8eeea0540f4b82d3f0186455ca09963cfa814104",
+  "modes": {
+    "legacy": {
+      "setup": {
+        "elapsed_ms": 438.727,
+        "indexes": {
+          "graph": "active_global",
+          "state": "ready",
+          "ready": 10,
+          "required": 10,
+          "current": "",
+          "error": "",
+          "checked_at": "2026-11-13T10:53:03Z",
+          "updated": "2026-11-13T10:53:03Z",
+          "graphs": [
+            {
+              "graph": "active_global",
+              "state": "ready",
+              "ready": 10,
+              "required": 10,
+              "current": "",
+              "error": "",
+              "checked_at": "2026-11-13T10:53:03Z",
+              "updated": "2026-11-13T10:53:03Z"
+            },
+            {
+              "graph": "focus_benchmark",
+              "state": "ready",
+              "ready": 20,
+              "required": 20,
+              "current": "",
+              "error": "",
+              "checked_at": "2026-11-13T10:53:03Z",
+              "updated": "2026-11-13T10:53:03Z"
+            }
+          ]
+        },
+        "queue_index": {
+          "state": "ready",
+          "index": "ix_graphpending_pending_key_c_v2",
+          "created": true,
+          "valid": true
+        },
+        "search_index_warning": "PostgreSQL pg_trgm 索引未能建立，当前使用字面文本扫描 · NotSupportedError"
+      },
+      "initial": {
+        "elapsed_ms": 1629.874,
+        "graph_commands": {
+          "query": 2010,
+          "read": 0,
+          "explain": 0
+        },
+        "graph_command_ms": 1540.457,
+        "sql": {
+          "calls": 11,
+          "milliseconds": 9.979531998396851,
+          "benchmark_inspection_calls": 0,
+          "benchmark_inspection_ms": 0.0
+        },
+        "chunks": {
+          "samples": 1,
+          "mean_ms": 1629.874,
+          "p95_ms": 1629.874,
+          "max_ms": 1629.874
+        },
+        "scanned_event_rows": 200,
+        "changed_event_rows": 200,
+        "max_event_rows_loaded_together": 200,
+        "note": "Legacy full SQL load + one graph lease + retained watch() + conditional outbox acknowledgement; no worker sleeps"
+      },
+      "one_member_correction": {
+        "elapsed_ms": 1751.734,
+        "graph_commands": {
+          "query": 2010,
+          "read": 0,
+          "explain": 0
+        },
+        "graph_command_ms": 1672.496,
+        "sql": {
+          "calls": 11,
+          "milliseconds": 6.354412002110621,
+          "benchmark_inspection_calls": 0,
+          "benchmark_inspection_ms": 0.0
+        },
+        "chunks": {
+          "samples": 1,
+          "mean_ms": 1751.734,
+          "p95_ms": 1751.734,
+          "max_ms": 1751.734
+        },
+        "scanned_event_rows": 200,
+        "changed_event_rows": 200,
+        "max_event_rows_loaded_together": 200,
+        "note": "Legacy full SQL load + one graph lease + retained watch() + conditional outbox acknowledgement; no worker sleeps"
+      },
+      "unchanged": {
+        "elapsed_ms": 1950.911,
+        "graph_commands": {
+          "query": 2010,
+          "read": 0,
+          "explain": 0
+        },
+        "graph_command_ms": 1855.648,
+        "sql": {
+          "calls": 11,
+          "milliseconds": 6.350037001539022,
+          "benchmark_inspection_calls": 0,
+          "benchmark_inspection_ms": 0.0
+        },
+        "chunks": {
+          "samples": 1,
+          "mean_ms": 1950.911,
+          "p95_ms": 1950.911,
+          "max_ms": 1950.911
+        },
+        "scanned_event_rows": 200,
+        "changed_event_rows": 200,
+        "max_event_rows_loaded_together": 200,
+        "note": "Legacy full SQL load + one graph lease + retained watch() + conditional outbox acknowledgement; no worker sleeps"
+      },
+      "coverage_after_correction": {
+        "nodes": 1009,
+        "events": 200,
+        "cites": 200,
+        "current_mentions": 200,
+        "current_material_sha256": "0cdc1dbb5fe2de068bee917597f063284ab23406dfb6ec4c7fe8164ab0a0787f",
+        "corrected_mentions": 1,
+        "maximum_reachable_nodes_per_event": 8
+      }
+    },
+    "chunked": {
+      "setup": {
+        "elapsed_ms": 489.009,
+        "indexes": {
+          "graph": "active_global",
+          "state": "ready",
+          "ready": 10,
+          "required": 10,
+          "current": "",
+          "error": "",
+          "checked_at": "2026-11-13T10:53:09Z",
+          "updated": "2026-11-13T10:53:09Z",
+          "graphs": [
+            {
+              "graph": "active_global",
+              "state": "ready",
+              "ready": 10,
+              "required": 10,
+              "current": "",
+              "error": "",
+              "checked_at": "2026-11-13T10:53:09Z",
+              "updated": "2026-11-13T10:53:09Z"
+            },
+            {
+              "graph": "focus_benchmark",
+              "state": "ready",
+              "ready": 20,
+              "required": 20,
+              "current": "",
+              "error": "",
+              "checked_at": "2026-11-13T10:53:09Z",
+              "updated": "2026-11-13T10:53:09Z"
+            }
+          ]
+        },
+        "queue_index": {
+          "state": "ready",
+          "index": "ix_graphpending_pending_key_c_v2",
+          "created": true,
+          "valid": true
+        },
+        "search_index_warning": "PostgreSQL pg_trgm 索引未能建立，当前使用字面文本扫描 · NotSupportedError"
+      },
+      "initial": {
+        "elapsed_ms": 3806.81,
+        "graph_commands": {
+          "query": 2004,
+          "read": 1,
+          "explain": 0
+        },
+        "graph_command_ms": 2013.401,
+        "sql": {
+          "calls": 589,
+          "milliseconds": 539.4308799641294,
+          "benchmark_inspection_calls": 114,
+          "benchmark_inspection_ms": 77.5506759982818
+        },
+        "chunks": {
+          "samples": 38,
+          "mean_ms": 94.788,
+          "p95_ms": 159.218,
+          "max_ms": 273.992
+        },
+        "chunk_details": [
+          {
+            "phase_before": "new_pass",
+            "phase_after": "header",
+            "elapsed_ms": 42.481,
+            "graph_query_commands": 0,
+            "scanned_rows": 0,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "header",
+            "phase_after": "points",
+            "elapsed_ms": 40.058,
+            "graph_query_commands": 4,
+            "scanned_rows": 0,
+            "changed_items": 1
+          },
+          {
+            "phase_before": "points",
+            "phase_after": "events",
+            "elapsed_ms": 23.481,
+            "graph_query_commands": 0,
+            "scanned_rows": 0,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 273.992,
+            "graph_query_commands": 80,
+            "scanned_rows": 8,
+            "changed_items": 8
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 130.327,
+            "graph_query_commands": 80,
+            "scanned_rows": 8,
+            "changed_items": 8
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 107.008,
+            "graph_query_commands": 80,
+            "scanned_rows": 8,
+            "changed_items": 8
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 159.218,
+            "graph_query_commands": 80,
+            "scanned_rows": 8,
+            "changed_items": 8
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 128.411,
+            "graph_query_commands": 80,
+            "scanned_rows": 8,
+            "changed_items": 8
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 117.538,
+            "graph_query_commands": 80,
+            "scanned_rows": 8,
+            "changed_items": 8
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 147.728,
+            "graph_query_commands": 80,
+            "scanned_rows": 8,
+            "changed_items": 8
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 116.275,
+            "graph_query_commands": 80,
+            "scanned_rows": 8,
+            "changed_items": 8
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 107.553,
+            "graph_query_commands": 80,
+            "scanned_rows": 8,
+            "changed_items": 8
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 143.733,
+            "graph_query_commands": 80,
+            "scanned_rows": 8,
+            "changed_items": 8
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 140.498,
+            "graph_query_commands": 80,
+            "scanned_rows": 8,
+            "changed_items": 8
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 101.726,
+            "graph_query_commands": 80,
+            "scanned_rows": 8,
+            "changed_items": 8
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 134.329,
+            "graph_query_commands": 80,
+            "scanned_rows": 8,
+            "changed_items": 8
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 103.706,
+            "graph_query_commands": 80,
+            "scanned_rows": 8,
+            "changed_items": 8
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 98.328,
+            "graph_query_commands": 80,
+            "scanned_rows": 8,
+            "changed_items": 8
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 111.131,
+            "graph_query_commands": 80,
+            "scanned_rows": 8,
+            "changed_items": 8
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 111.154,
+            "graph_query_commands": 80,
+            "scanned_rows": 8,
+            "changed_items": 8
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 143.702,
+            "graph_query_commands": 80,
+            "scanned_rows": 8,
+            "changed_items": 8
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 114.667,
+            "graph_query_commands": 80,
+            "scanned_rows": 8,
+            "changed_items": 8
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 101.821,
+            "graph_query_commands": 80,
+            "scanned_rows": 8,
+            "changed_items": 8
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 103.83,
+            "graph_query_commands": 80,
+            "scanned_rows": 8,
+            "changed_items": 8
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 133.053,
+            "graph_query_commands": 80,
+            "scanned_rows": 8,
+            "changed_items": 8
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 125.526,
+            "graph_query_commands": 80,
+            "scanned_rows": 8,
+            "changed_items": 8
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 99.955,
+            "graph_query_commands": 80,
+            "scanned_rows": 8,
+            "changed_items": 8
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 105.229,
+            "graph_query_commands": 80,
+            "scanned_rows": 8,
+            "changed_items": 8
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "point_material",
+            "elapsed_ms": 18.706,
+            "graph_query_commands": 0,
+            "scanned_rows": 0,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "point_material",
+            "phase_after": "reviews",
+            "elapsed_ms": 50.102,
+            "graph_query_commands": 0,
+            "scanned_rows": 0,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "reviews",
+            "phase_after": "point_reviews",
+            "elapsed_ms": 23.924,
+            "graph_query_commands": 0,
+            "scanned_rows": 0,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "point_reviews",
+            "phase_after": "questions",
+            "elapsed_ms": 68.084,
+            "graph_query_commands": 0,
+            "scanned_rows": 0,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "questions",
+            "phase_after": "claims",
+            "elapsed_ms": 28.261,
+            "graph_query_commands": 0,
+            "scanned_rows": 0,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "claims",
+            "phase_after": "answers",
+            "elapsed_ms": 27.54,
+            "graph_query_commands": 0,
+            "scanned_rows": 0,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "answers",
+            "phase_after": "reports",
+            "elapsed_ms": 28.188,
+            "graph_query_commands": 0,
+            "scanned_rows": 0,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "reports",
+            "phase_after": "prune",
+            "elapsed_ms": 33.582,
+            "graph_query_commands": 0,
+            "scanned_rows": 0,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "prune",
+            "phase_after": "finish",
+            "elapsed_ms": 24.062,
+            "graph_query_commands": 0,
+            "scanned_rows": 0,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "finish",
+            "phase_after": "complete",
+            "elapsed_ms": 33.053,
+            "graph_query_commands": 0,
+            "scanned_rows": 0,
+            "changed_items": 0
+          }
+        ],
+        "worker_steps_total_ms": 3601.96,
+        "benchmark_inspection_and_loop_ms": 204.85,
+        "scanned_event_rows": 200,
+        "changed_event_rows": 200,
+        "max_event_rows_loaded_together": 8,
+        "note": "Public step() calls; each owns/releases its lease; no worker sleeps. Full-pass elapsed includes harness checkpoint inspection, split out from worker_steps_total_ms. SQL calls/milliseconds exclude separately named benchmark inspection counters."
+      },
+      "one_member_correction": {
+        "elapsed_ms": 1548.097,
+        "graph_commands": {
+          "query": 10,
+          "read": 0,
+          "explain": 0
+        },
+        "graph_command_ms": 15.899,
+        "sql": {
+          "calls": 577,
+          "milliseconds": 470.3152959991712,
+          "benchmark_inspection_calls": 111,
+          "benchmark_inspection_ms": 78.9942399951542
+        },
+        "chunks": {
+          "samples": 37,
+          "mean_ms": 35.92,
+          "p95_ms": 57.011,
+          "max_ms": 57.485
+        },
+        "chunk_details": [
+          {
+            "phase_before": "new_pass",
+            "phase_after": "points",
+            "elapsed_ms": 26.261,
+            "graph_query_commands": 0,
+            "scanned_rows": 0,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "points",
+            "phase_after": "events",
+            "elapsed_ms": 23.685,
+            "graph_query_commands": 0,
+            "scanned_rows": 0,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 57.011,
+            "graph_query_commands": 0,
+            "scanned_rows": 8,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 42.543,
+            "graph_query_commands": 0,
+            "scanned_rows": 8,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 57.485,
+            "graph_query_commands": 0,
+            "scanned_rows": 8,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 35.781,
+            "graph_query_commands": 0,
+            "scanned_rows": 8,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 39.875,
+            "graph_query_commands": 0,
+            "scanned_rows": 8,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 37.411,
+            "graph_query_commands": 0,
+            "scanned_rows": 8,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 40.873,
+            "graph_query_commands": 0,
+            "scanned_rows": 8,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 37.383,
+            "graph_query_commands": 0,
+            "scanned_rows": 8,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 40.385,
+            "graph_query_commands": 0,
+            "scanned_rows": 8,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 37.896,
+            "graph_query_commands": 0,
+            "scanned_rows": 8,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 29.474,
+            "graph_query_commands": 0,
+            "scanned_rows": 8,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 48.068,
+            "graph_query_commands": 0,
+            "scanned_rows": 8,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 49.632,
+            "graph_query_commands": 10,
+            "scanned_rows": 8,
+            "changed_items": 1
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 43.775,
+            "graph_query_commands": 0,
+            "scanned_rows": 8,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 31.197,
+            "graph_query_commands": 0,
+            "scanned_rows": 8,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 32.794,
+            "graph_query_commands": 0,
+            "scanned_rows": 8,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 36.819,
+            "graph_query_commands": 0,
+            "scanned_rows": 8,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 35.66,
+            "graph_query_commands": 0,
+            "scanned_rows": 8,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 33.974,
+            "graph_query_commands": 0,
+            "scanned_rows": 8,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 36.107,
+            "graph_query_commands": 0,
+            "scanned_rows": 8,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 45.227,
+            "graph_query_commands": 0,
+            "scanned_rows": 8,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 44.085,
+            "graph_query_commands": 0,
+            "scanned_rows": 8,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 46.006,
+            "graph_query_commands": 0,
+            "scanned_rows": 8,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 39.071,
+            "graph_query_commands": 0,
+            "scanned_rows": 8,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 29.057,
+            "graph_query_commands": 0,
+            "scanned_rows": 8,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "point_material",
+            "elapsed_ms": 33.0,
+            "graph_query_commands": 0,
+            "scanned_rows": 0,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "point_material",
+            "phase_after": "reviews",
+            "elapsed_ms": 29.006,
+            "graph_query_commands": 0,
+            "scanned_rows": 0,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "reviews",
+            "phase_after": "point_reviews",
+            "elapsed_ms": 20.836,
+            "graph_query_commands": 0,
+            "scanned_rows": 0,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "point_reviews",
+            "phase_after": "questions",
+            "elapsed_ms": 31.028,
+            "graph_query_commands": 0,
+            "scanned_rows": 0,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "questions",
+            "phase_after": "claims",
+            "elapsed_ms": 27.19,
+            "graph_query_commands": 0,
+            "scanned_rows": 0,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "claims",
+            "phase_after": "answers",
+            "elapsed_ms": 21.771,
+            "graph_query_commands": 0,
+            "scanned_rows": 0,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "answers",
+            "phase_after": "reports",
+            "elapsed_ms": 26.089,
+            "graph_query_commands": 0,
+            "scanned_rows": 0,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "reports",
+            "phase_after": "prune",
+            "elapsed_ms": 27.461,
+            "graph_query_commands": 0,
+            "scanned_rows": 0,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "prune",
+            "phase_after": "finish",
+            "elapsed_ms": 22.127,
+            "graph_query_commands": 0,
+            "scanned_rows": 0,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "finish",
+            "phase_after": "complete",
+            "elapsed_ms": 32.992,
+            "graph_query_commands": 0,
+            "scanned_rows": 0,
+            "changed_items": 0
+          }
+        ],
+        "worker_steps_total_ms": 1329.035,
+        "benchmark_inspection_and_loop_ms": 219.062,
+        "scanned_event_rows": 200,
+        "changed_event_rows": 1,
+        "max_event_rows_loaded_together": 8,
+        "note": "Public step() calls; each owns/releases its lease; no worker sleeps. Full-pass elapsed includes harness checkpoint inspection, split out from worker_steps_total_ms. SQL calls/milliseconds exclude separately named benchmark inspection counters."
+      },
+      "unchanged": {
+        "elapsed_ms": 1745.65,
+        "graph_commands": {
+          "query": 0,
+          "read": 0,
+          "explain": 0
+        },
+        "graph_command_ms": 0.0,
+        "sql": {
+          "calls": 577,
+          "milliseconds": 543.9854370033572,
+          "benchmark_inspection_calls": 111,
+          "benchmark_inspection_ms": 97.56400800142728
+        },
+        "chunks": {
+          "samples": 37,
+          "mean_ms": 40.396,
+          "p95_ms": 57.902,
+          "max_ms": 73.547
+        },
+        "chunk_details": [
+          {
+            "phase_before": "new_pass",
+            "phase_after": "points",
+            "elapsed_ms": 48.422,
+            "graph_query_commands": 0,
+            "scanned_rows": 0,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "points",
+            "phase_after": "events",
+            "elapsed_ms": 33.517,
+            "graph_query_commands": 0,
+            "scanned_rows": 0,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 57.902,
+            "graph_query_commands": 0,
+            "scanned_rows": 8,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 36.668,
+            "graph_query_commands": 0,
+            "scanned_rows": 8,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 56.434,
+            "graph_query_commands": 0,
+            "scanned_rows": 8,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 36.538,
+            "graph_query_commands": 0,
+            "scanned_rows": 8,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 48.389,
+            "graph_query_commands": 0,
+            "scanned_rows": 8,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 39.136,
+            "graph_query_commands": 0,
+            "scanned_rows": 8,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 51.413,
+            "graph_query_commands": 0,
+            "scanned_rows": 8,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 35.561,
+            "graph_query_commands": 0,
+            "scanned_rows": 8,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 49.877,
+            "graph_query_commands": 0,
+            "scanned_rows": 8,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 33.185,
+            "graph_query_commands": 0,
+            "scanned_rows": 8,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 43.035,
+            "graph_query_commands": 0,
+            "scanned_rows": 8,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 32.132,
+            "graph_query_commands": 0,
+            "scanned_rows": 8,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 43.463,
+            "graph_query_commands": 0,
+            "scanned_rows": 8,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 56.808,
+            "graph_query_commands": 0,
+            "scanned_rows": 8,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 55.956,
+            "graph_query_commands": 0,
+            "scanned_rows": 8,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 35.111,
+            "graph_query_commands": 0,
+            "scanned_rows": 8,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 48.667,
+            "graph_query_commands": 0,
+            "scanned_rows": 8,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 32.132,
+            "graph_query_commands": 0,
+            "scanned_rows": 8,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 36.798,
+            "graph_query_commands": 0,
+            "scanned_rows": 8,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 40.097,
+            "graph_query_commands": 0,
+            "scanned_rows": 8,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 36.421,
+            "graph_query_commands": 0,
+            "scanned_rows": 8,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 73.547,
+            "graph_query_commands": 0,
+            "scanned_rows": 8,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 45.764,
+            "graph_query_commands": 0,
+            "scanned_rows": 8,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 34.552,
+            "graph_query_commands": 0,
+            "scanned_rows": 8,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "events",
+            "elapsed_ms": 44.436,
+            "graph_query_commands": 0,
+            "scanned_rows": 8,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "events",
+            "phase_after": "point_material",
+            "elapsed_ms": 27.084,
+            "graph_query_commands": 0,
+            "scanned_rows": 0,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "point_material",
+            "phase_after": "reviews",
+            "elapsed_ms": 30.25,
+            "graph_query_commands": 0,
+            "scanned_rows": 0,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "reviews",
+            "phase_after": "point_reviews",
+            "elapsed_ms": 23.412,
+            "graph_query_commands": 0,
+            "scanned_rows": 0,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "point_reviews",
+            "phase_after": "questions",
+            "elapsed_ms": 30.392,
+            "graph_query_commands": 0,
+            "scanned_rows": 0,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "questions",
+            "phase_after": "claims",
+            "elapsed_ms": 18.921,
+            "graph_query_commands": 0,
+            "scanned_rows": 0,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "claims",
+            "phase_after": "answers",
+            "elapsed_ms": 43.318,
+            "graph_query_commands": 0,
+            "scanned_rows": 0,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "answers",
+            "phase_after": "reports",
+            "elapsed_ms": 28.035,
+            "graph_query_commands": 0,
+            "scanned_rows": 0,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "reports",
+            "phase_after": "prune",
+            "elapsed_ms": 35.832,
+            "graph_query_commands": 0,
+            "scanned_rows": 0,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "prune",
+            "phase_after": "finish",
+            "elapsed_ms": 36.035,
+            "graph_query_commands": 0,
+            "scanned_rows": 0,
+            "changed_items": 0
+          },
+          {
+            "phase_before": "finish",
+            "phase_after": "complete",
+            "elapsed_ms": 35.412,
+            "graph_query_commands": 0,
+            "scanned_rows": 0,
+            "changed_items": 0
+          }
+        ],
+        "worker_steps_total_ms": 1494.652,
+        "benchmark_inspection_and_loop_ms": 250.998,
+        "scanned_event_rows": 200,
+        "changed_event_rows": 0,
+        "max_event_rows_loaded_together": 8,
+        "note": "Public step() calls; each owns/releases its lease; no worker sleeps. Full-pass elapsed includes harness checkpoint inspection, split out from worker_steps_total_ms. SQL calls/milliseconds exclude separately named benchmark inspection counters."
+      },
+      "coverage_after_correction": {
+        "nodes": 1009,
+        "events": 200,
+        "cites": 200,
+        "current_mentions": 200,
+        "current_material_sha256": "0cdc1dbb5fe2de068bee917597f063284ab23406dfb6ec4c7fe8164ab0a0787f",
+        "corrected_mentions": 1,
+        "maximum_reachable_nodes_per_event": 8
+      }
+    }
+  },
+  "limitations": [
+    "Single local run with at most 256 synthetic member events; no production contention or upstream ingestion.",
+    "Legacy baseline is the retained GraphMirror.watch method, not a separately installed old product.",
+    "Both modes use identical indexed material; schema/index setup is excluded from pass timings.",
+    "Chunked passes still scan all current topic members and update SQL receipts; changed graph writes alone are incremental.",
+    "Configured millisecond budget is checked between material items and cannot preempt an individual SQL/Cypher operation.",
+    "SQL counts use SQLAlchemy cursor hooks; driver-level pool pre-ping is not included in those counts, but its time remains included.",
+    "No intent graph, investigations, background GC, worker idle delays or model calls are in this fixture.",
+    "These figures cannot establish field single-event latency, explain its 9-second mixed mean, or predict production throughput."
+  ],
+  "falkor_modules": [
+    [
+      "name",
+      "graph",
+      "ver",
+      42201,
+      "path",
+      "/workspace/scratch/c21619997ed8/fix0251/venv/lib/python3.12/site-packages/redislite/bin/falkordb.so",
+      "args",
+      []
+    ],
+    [
+      "name",
+      "vectorset",
+      "ver",
+      1,
+      "path",
+      "",
+      "args",
+      []
+    ]
+  ],
+  "falkor_timeout_config": {
+    "TIMEOUT_MAX": [
+      "TIMEOUT_MAX",
+      60000
+    ],
+    "TIMEOUT_DEFAULT": [
+      "TIMEOUT_DEFAULT",
+      30000
+    ]
+  },
+  "generated_at_utc": "2026-11-13T10:53:17Z",
+  "benchmark_tool_sha256": "af979e3e6c0108285b050995e270314cae17c252b8ba031d247b3e8f9eece37d"
+}

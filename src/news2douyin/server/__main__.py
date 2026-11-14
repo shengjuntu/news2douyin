@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import logging.config
 
 import uvicorn
 
@@ -16,6 +17,9 @@ def main() -> None:
     ap.add_argument('--db-url', default=None, help='PostgreSQL URL; defaults to NEWS2DOUYIN_DATABASE_URL (SQLite fallback)')
     ap.add_argument('--storage-root', default='runs_v7')
     args = ap.parse_args()
+    # create_app performs required SQL initialization before uvicorn.run.
+    # Configure the usual Uvicorn logger now so slow pre-HTTP phases are visible.
+    logging.config.dictConfig(uvicorn.config.LOGGING_CONFIG)
     app = create_app(db_url=args.db_url, storage_root=args.storage_root)
     uvicorn.run(app, host=args.host, port=args.port)
 

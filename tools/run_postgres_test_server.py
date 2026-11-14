@@ -3,6 +3,8 @@
 Install optional QA dependencies: pip install pgserver==0.1.4 'psycopg[binary]'
 Preferred usage: python tools/run_postgres_test_server.py -- python -m pytest
 tests/test_postgres_integration.py -q. The child command inherits its test URL.
+Run with --locale en_US.utf8 to exercise non-binary collation as deployed; the
+default is C. Both environments are required for graph queue release checks.
 Without a command the server waits until interrupted, and the printed URL can
 be used by another terminal sharing its network namespace. No existing database
 directory is opened. The temporary cluster and databases are removed on exit.
@@ -25,6 +27,7 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output-json',type=Path)
     parser.add_argument('--parent',type=Path,help='Parent for a fresh temporary cluster')
+    parser.add_argument('--locale',default='C',help='Fresh cluster libc locale (default: C; also test en_US.utf8)')
     parser.add_argument('command',nargs=argparse.REMAINDER,
                         help='Optional command after --; inherits the test URL and runs before shutdown')
     args=parser.parse_args()
@@ -40,7 +43,7 @@ def main():
         root=Path(folder);data=root/'cluster'
         with socket.socket() as probe:probe.bind(('127.0.0.1',0));port=probe.getsockname()[1]
         subprocess.run([str(binary/'initdb'),'-D',str(data),'-U','n2dqa','--auth-local=trust',
-                        '--auth-host=trust','--encoding=UTF8','--no-locale'],check=True,
+                        '--auth-host=trust','--encoding=UTF8','--locale-provider=libc','--locale='+args.locale],check=True,
                        stdout=subprocess.DEVNULL)
         log=(root/'postgres.log').open('w')
         child=subprocess.Popen([str(binary/'postgres'),'-D',str(data),'-h','127.0.0.1',
@@ -57,6 +60,7 @@ def main():
                 try:
                     with psycopg.connect(native,autocommit=True,connect_timeout=1) as connection:
                         version=connection.execute('SELECT version()').fetchone()[0]
+                        collation=connection.execute('SELECT datcollate FROM pg_database WHERE datname=current_database()').fetchone()[0]
                         connection.execute(sql.SQL('CREATE DATABASE {}').format(sql.Identifier('n2dqa')))
                     break
                 except psycopg.OperationalError:
@@ -66,7 +70,7 @@ def main():
             value=dict(url=f'postgresql+psycopg://n2dqa@127.0.0.1:{port}/n2dqa',
                        native_url=f'postgresql://n2dqa@127.0.0.1:{port}/n2dqa',
                        host='127.0.0.1',port=port,user='n2dqa',database='n2dqa',
-                       version=version,root=str(root),postgres_pid=child.pid,
+                       version=version,locale=args.locale,collation=collation,root=str(root),postgres_pid=child.pid,
                        qa_only=True)
             if args.output_json:
                 args.output_json.parent.mkdir(parents=True,exist_ok=True)
@@ -75,7 +79,8 @@ def main():
             if args.command:
                 command=args.command[1:] if args.command[0]=='--' else args.command
                 if not command:raise SystemExit('A command is required after --')
-                env=dict(os.environ,NEWS2DOUYIN_TEST_POSTGRES_URL=value['url'])
+                env=dict(os.environ,NEWS2DOUYIN_TEST_POSTGRES_URL=value['url'],
+                         NEWS2DOUYIN_TEST_POSTGRES_LOCALE=collation)
                 raise SystemExit(subprocess.run(command,env=env).returncode)
             print('Set NEWS2DOUYIN_TEST_POSTGRES_URL to url; Ctrl-C stops and removes this temporary server.',flush=True)
             while not stop.wait(1):
