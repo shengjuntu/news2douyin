@@ -13,6 +13,7 @@ function applyFacets(d){
  const valid=n=>typeof n==='number'&&Number.isSafeInteger(n)&&n>=0;
  if(!valid(d.total)||!d.radar_stats||!['total','analyzed','source_count'].every(k=>valid(d.radar_stats[k]))||!Array.isArray(d.channels)||!Array.isArray(d.providers)||![...d.channels,...d.providers].every(row=>valid(row.count)))throw Error('精确统计响应不完整');
  for(const n of root.querySelectorAll('[data-radar-stat]'))n.textContent=(n.dataset.radarStat==='total'?d.total:d.radar_stats[n.dataset.radarStat]).toLocaleString('zh-CN');
+ const pages=root.querySelector('[data-radar-pages]');if(pages){const totalPages=Math.ceil(d.total/Number(pages.dataset.limit));pages.textContent=d.total?'第 '+pages.dataset.page+' / '+totalPages.toLocaleString('zh-CN')+' 页 · 共 '+d.total.toLocaleString('zh-CN')+' 条':'当前范围共 0 条';}
  const channels=new Map(d.channels.map(row=>[row.id,row.count])),providers=new Map(d.providers.map(row=>[row.id,row.count]));
  for(const n of root.querySelectorAll('[data-radar-channel-count]'))n.textContent=channels.has(n.dataset.radarChannelCount)?channels.get(n.dataset.radarChannelCount).toLocaleString('zh-CN'):'…';
  for(const n of root.querySelectorAll('[data-radar-provider-label]'))n.textContent=n.dataset.radarProviderLabel+' · '+(providers.has(n.value)?providers.get(n.value).toLocaleString('zh-CN'):'…');
@@ -24,11 +25,12 @@ async function loadFacets(refresh=false){
  const key=facetKey();if(refresh)facetRequests.delete(key);
  for(const n of root.querySelectorAll('[data-radar-stat],[data-radar-channel-count]'))n.textContent='…';
  for(const n of root.querySelectorAll('[data-radar-provider-label]'))n.textContent=n.dataset.radarProviderLabel+' · …';
+ const pages=root.querySelector('[data-radar-pages]');if(pages)pages.textContent='第 '+pages.dataset.page+' 页 · 总页数统计中';
  const empty=root.querySelector('[data-radar-empty-label]');if(empty)empty.textContent='当前页没有可展示的事件，完整范围统计中。';
  root.dataset.facetState='loading';facetStatus.classList.remove('desk-error');facetStatus.textContent='精确统计中，事件列表可继续操作。';facetRetry.disabled=true;facetRetry.textContent='统计中…';
  if(!facetRequests.has(key))facetRequests.set(key,fetch(key,{cache:'no-store'}).then(async response=>{if(!response.ok)throw Error('统计服务暂时不可用');const result=await response.json();return result;}));
  try{const result=await facetRequests.get(key);if(key!==facetKey())return;applyFacets(result);root.dataset.facetState='ready';facetStatus.textContent='当前范围的精确统计已更新。';facetRetry.textContent='刷新统计';}
- catch(error){facetRequests.delete(key);if(key!==facetKey())return;root.dataset.facetState='error';facetStatus.classList.add('desk-error');facetStatus.textContent='精确统计暂未完成，请重试。事件列表和翻页仍可使用。';facetRetry.textContent='重试统计';}
+ catch(error){facetRequests.delete(key);if(key!==facetKey())return;root.dataset.facetState='error';facetStatus.classList.add('desk-error');facetStatus.textContent='精确统计暂未完成，请重试。事件列表和翻页仍可使用。';facetRetry.textContent='重试统计';const pages=root.querySelector('[data-radar-pages]');if(pages)pages.textContent='第 '+pages.dataset.page+' 页 · 总页数暂不可用';}
  finally{if(key===facetKey())facetRetry.disabled=false;}
 }
 facetRetry?.addEventListener('click',()=>loadFacets(true));

@@ -5,6 +5,7 @@ from sqlalchemy import delete, func
 from sqlmodel import Session, select
 from ..desk.models import DeskMeta, GraphPending, RadarEntry, Watch, WatchEvent
 from ..desk import service as desk
+from ..desk.focus_lifecycle import visible_watch, is_deleted, require_active
 from ..desk.rules import match, hits, terms, norm, focus_context
 from ..extraction.schema import stable_id
 from ..extraction.models import FocusPoint
@@ -20,7 +21,7 @@ def initialize(engine):
         if not s.get(DeskMeta,'knowledge_schema_2'):
             for key in s.exec(select(RadarEntry.key)):
                 desk.enqueue_graph(s,'event/'+key)
-            for key in s.exec(select(Watch.key)):
+            for key in s.exec(select(Watch.key).where(visible_watch())):
                 desk.enqueue_graph(s,'watch/'+key)
             s.add(DeskMeta(key='knowledge_schema_2',value='2.0'))
         s.commit()
@@ -68,7 +69,7 @@ def reconcile(s, metrics, edges, generation):
     adjacency=defaultdict(list)
     for a,b,weight in edges:
         adjacency[a].append((b,weight));adjacency[b].append((a,weight))
-    for w in s.exec(select(Watch).where(Watch.enabled==True)):
+    for w in s.exec(select(Watch).where(Watch.enabled==True,visible_watch())):
         from ..desk.focus_models import FocusDefinition
         intent_definition=s.get(FocusDefinition,w.key)
         links={r.event:r for r in s.exec(select(WatchEvent).where(WatchEvent.watch==w.key,desk.current_membership()))}
@@ -180,7 +181,7 @@ def _refresh(engine, graph):
             'SET e.score=row[1],e.community=row[2],e.analysis_generation=$g',rows=metric_rows[start:start+200],g=generation)
     with Session(engine) as s:
         lease=graph._projection_lease
-        watches=list(s.exec(select(Watch.key).order_by(Watch.key)))
+        watches=list(s.exec(select(Watch.key).where(visible_watch()).order_by(Watch.key)))
         lock_news(s,'graph-analysis','lease/'+lease.key,*('watch:'+key for key in watches))
         lease.confirm(s)
         current,pending=signature(s)
@@ -217,7 +218,7 @@ def update_outline(engine):
     for watch,items in sorted(grouped.items()):
         with Session(engine) as s:
             lock_news(s,'watch:'+watch)
-            if not s.get(Watch,watch):continue
+            if not s.get(Watch,watch) or is_deleted(s,watch):continue
             count=s.exec(select(func.count()).select_from(FocusPoint).where(FocusPoint.watch==watch)).one()
             changed=False
             for key,text,created in items:
@@ -234,6 +235,7 @@ def links_to_json(links):
 
 
 def graph_view(s, event='', watch=''):
+    if watch:require_active(s,watch)
     stmt=select(GraphMetric)
     if event:
         relations=s.exec(select(GraphRelation).where((GraphRelation.source==event)|(GraphRelation.target==event))).all()

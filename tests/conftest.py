@@ -11,6 +11,7 @@ from news2douyin.storage.db import init_db, make_engine
 def offline(monkeypatch):
     monkeypatch.setenv('NEWS2DOUYIN_GKG_STREAM_ENABLED', '0')
     monkeypatch.setenv('NEWS2DOUYIN_GKG_PROJECTION_ENABLED', '0')
+    monkeypatch.setenv('NEWS2DOUYIN_SOURCE_CONTENT_ENABLED', '0')
     monkeypatch.setattr(llm_filter, 'endpoint_alive', lambda: False)
     monkeypatch.setattr(dedup, 'DEDUP_LLM_ENABLED', False)
     monkeypatch.setenv('DEDUP_LLM_ENABLED', '0')

@@ -1,0 +1,84 @@
+{
+  "ok": true,
+  "browser": "153.0.8010.0",
+  "results": {
+    "no_javascript": {
+      "real_headline": true,
+      "excerpt": true,
+      "missing_not_coded_title": true
+    },
+    "desktop": {
+      "list_bounds": {
+        "width": 1440,
+        "scroll": 1440
+      },
+      "missing_title_requires_input": true,
+      "long_selection_title_bounded": true,
+      "retry_state_visible": true,
+      "detail_bounds": {
+        "width": 1440,
+        "scroll": 1440
+      },
+      "real_report_translation": true,
+      "background_content_filled": true,
+      "selection": {
+        "lead_count": 2,
+        "title": "Informe sintético: el puerto anuncia un plan de carga temporal",
+        "original_text_required": true,
+        "bounds": {
+          "width": 1440,
+          "scroll": 1440
+        }
+      }
+    },
+    "mobile": {
+      "list_bounds": {
+        "width": 390,
+        "scroll": 390
+      },
+      "missing_title_requires_input": true,
+      "long_selection_title_bounded": true,
+      "retry_state_visible": true,
+      "detail_bounds": {
+        "width": 390,
+        "scroll": 390
+      },
+      "real_report_translation": true,
+      "background_content_filled": true,
+      "selection": {
+        "lead_count": 2,
+        "title": "Informe sintético: el puerto anuncia un plan de carga temporal",
+        "original_text_required": true,
+        "bounds": {
+          "width": 390,
+          "scroll": 390
+        }
+      }
+    }
+  },
+  "page_errors": [],
+  "failed_requests": [],
+  "remote_requests": [],
+  "enrichment_requests": 2,
+  "translation_requests": 2,
+  "version": "0.30.0",
+  "recorded_at": "2026-11-14T13:09:13Z",
+  "database": "sqlite",
+  "postgres_locale": "",
+  "calls": {
+    "fetch": 2,
+    "translation": 1,
+    "translation_originals": [
+      "Informe sintético: el puerto anuncia un plan de carga temporal\n\nEl informe describe reuniones laborales y cambios en los horarios de carga."
+    ],
+    "enrich_posts": 2
+  },
+  "get_sql_audit": {
+    "executions": 59,
+    "writes": 0
+  },
+  "production_accessed": false,
+  "source_fetch": "deterministic HTML response supplied to real preview parser/worker; no public site contacted",
+  "translation": "deterministic model stub on the real durable task worker",
+  "screenshots": "scratch only"
+}

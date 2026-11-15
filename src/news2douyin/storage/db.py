@@ -10,7 +10,26 @@ from sqlalchemy.engine import make_url
 
 
 def default_db_url() -> str:
-    return os.getenv('NEWS2DOUYIN_DATABASE_URL', '').strip() or 'sqlite:///runs_v7/news2douyin_v7.db'
+    """Resolve the default without silently reopening a legacy production file.
+
+    SQLite remains available for local development and explicitly addressed
+    offline migration sources. Formal Compose enables this guard; it checks
+    default runtime configuration before any SQLite directory/file is opened.
+    """
+    value = os.getenv('NEWS2DOUYIN_DATABASE_URL', '').strip()
+    flag = os.getenv('NEWS2DOUYIN_DATABASE_REQUIRE_POSTGRES', '0').strip().lower() or '0'
+    if flag not in ('0', '1', 'false', 'true', 'off', 'on', 'no', 'yes'):
+        raise ValueError('NEWS2DOUYIN_DATABASE_REQUIRE_POSTGRES must be a boolean')
+    if flag in ('1', 'true', 'on', 'yes'):
+        try:
+            valid = bool(value) and make_url(value).get_backend_name() in ('postgresql', 'postgres')
+        except Exception:
+            valid = False
+        if not valid:
+            # Never include a configured URL/credential in the error message.
+            raise ValueError('NEWS2DOUYIN_DATABASE_URL must be a PostgreSQL URL when '
+                             'NEWS2DOUYIN_DATABASE_REQUIRE_POSTGRES=1')
+    return value or 'sqlite:///runs_v7/news2douyin_v7.db'
 
 
 def _integer(name: str, default: int, low: int, high: int) -> int:
@@ -101,7 +120,13 @@ def load_models() -> None:
     from ..knowledge import models as knowledge_models
     from ..workbench import models as workbench_models
     from ..intake import models as intake_models
+    from ..intake import official_models
+    from ..selection import models as selection_models
+    from ..selection import source_models as source_preview_models
+    from ..translations import models as translation_models
     from ..intake import projection as intake_projection
+    from ..intake import fetch_diagnostics
+    from ..attention import models as attention_models
 
 
 def create_schema(engine) -> None:
@@ -140,6 +165,9 @@ def init_db(engine, *, phase_callback=None) -> None:
                 raise RuntimeError('SQLite migration is incomplete; resume and verify migration before starting the service')
     with phase('database.schema'):
         create_schema(engine)
+    from .index_safety import ensure_safe_text_indexes
+    with phase('database.text_index_safety'):
+        ensure_safe_text_indexes(engine)
     from .articles import backfill_versions
     with phase('database.article_versions_backfill'):
         backfill_versions(engine)

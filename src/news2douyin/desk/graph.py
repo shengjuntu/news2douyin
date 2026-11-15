@@ -31,6 +31,8 @@ class GraphMirror:
         self._event_streak=0
         self._event_cursor=''
         self._watch_cursor=''
+        self._attention_cursor=''
+        self._attention_due=False
         self._queue_index_state={'state':'checking'}
         self._queue_index_checked=False
         self._last_bootstrap=0.0
@@ -150,7 +152,8 @@ class GraphMirror:
             reset(self)
         # Each focus is a separate graph key and can be lost independently.
         with Session(engine) as s:
-            watches=list(s.exec(select(Watch.key)))
+            from .focus_lifecycle import visible_watch
+            watches=list(s.exec(select(Watch.key).where(visible_watch())))
         if watches:
             with self.client.pipeline(transaction=False) as pipe:
                 for key in watches:pipe.exists(self.prefix+'_focus_'+key)
@@ -354,9 +357,10 @@ class GraphMirror:
             graph='active_global'
         else:
             with Session(engine) as s:
-                watch=s.exec(select(Watch.key).where(Watch.key>self._gc_graph_cursor).order_by(Watch.key).limit(1)).first()
+                from .focus_lifecycle import visible_watch
+                watch=s.exec(select(Watch.key).where(visible_watch(),Watch.key>self._gc_graph_cursor).order_by(Watch.key).limit(1)).first()
                 if not watch:
-                    watch=s.exec(select(Watch.key).order_by(Watch.key).limit(1)).first()
+                    watch=s.exec(select(Watch.key).where(visible_watch()).order_by(Watch.key).limit(1)).first()
             if watch:
                 graph='focus_'+watch
                 self._gc_graph_cursor=watch
@@ -387,8 +391,16 @@ class GraphMirror:
         from .graph_queue import pick
         load_started=time.perf_counter()
         with Session(engine,expire_on_commit=False) as s:
-            row=pick(s,prefer_watch=self._event_streak>=8,
-                after_event=self._event_cursor,after_watch=self._watch_cursor)
+            # Preserve the eight-event watch opportunity. Each such attempt
+            # also grants attention an opportunity, even if no watch exists or
+            # a watch's indexes are still building. Empty auxiliary ranges
+            # fall back to global events, so an index build cannot pin them.
+            attention_due=self._attention_due
+            watch_due=self._event_streak>=8 and not attention_due
+            row=pick(s,prefer_watch=watch_due,
+                prefer_attention=attention_due,include_attention=True,
+                after_event=self._event_cursor,after_watch=self._watch_cursor,
+                after_attention=self._attention_cursor)
             if not row:return False
             kind,key=row.key.split('/',1)
         acknowledged=partial=False
@@ -398,8 +410,10 @@ class GraphMirror:
                 places=s.exec(select(EventPlace).where(EventPlace.event==key).execution_options(
                     n2d_query_name='desk.graph_event.places')).all() if kind=='event' else []
                 w=s.get(Watch,key) if kind=='watch' else None
+                from .focus_lifecycle import is_deleted
+                archived=bool(w and is_deleted(s,key))
             self._lease_state.load_ms=(time.perf_counter()-load_started)*1000
-            if kind=='watch':
+            if kind=='watch' and not archived:
                 graph='focus_'+key
                 if not self.client.exists(self.prefix+'_'+graph):
                     self.query(graph,'RETURN 1')
@@ -412,12 +426,26 @@ class GraphMirror:
             self.work_state='projection'
             ack_token=row.token
             if kind=='event':self.event(card,key,places)
+            elif kind=='attention':
+                from ..attention.graph import project
+                project(engine,self,key)
+            elif archived:
+                # Archive only this topic's roots. Preserve every shared
+                # event/article and the topic's receipts for a later restore.
+                self.query('active_global','MATCH (f:Focus {id:$id}) SET f.archived=true,f.enabled=false',id=key)
+                from ..attention.graph import invalidate_focus
+                invalidate_focus(self,key,w.version,deleted=True)
+                graph='focus_'+key
+                if self.client.exists(self.prefix+'_'+graph):
+                    self.query(graph,'MATCH (q:Question {id:$id}) SET q.archived=true',id=key)
             elif w:
+                from ..attention.graph import invalidate_focus
+                invalidate_focus(self,key,w.version)
                 from .graph_focus import step
                 result=step(engine,self,w,row.token)
                 partial=not result['complete']
                 ack_token=result['token']
-            else:
+            elif kind=='watch':
                 self.query('active_global','MATCH (f:Focus {id:$id}) DETACH DELETE f',id=key)
             if not partial:
                 ack_started=time.perf_counter()
@@ -450,11 +478,17 @@ class GraphMirror:
         finally:
             # Attempts (including partial chunks and stale tokens) participate
             # in fairness. One large or hot topic cannot pin other task keys.
+            self._attention_due=False
             if kind=='event':
                 self._event_cursor=row.key
                 self._event_streak+=1
-            else:
+                if watch_due:self._attention_due=True
+            elif kind=='watch':
                 self._watch_cursor=row.key
+                self._event_streak=0
+                self._attention_due=True
+            elif kind=='attention':
+                self._attention_cursor=row.key
                 self._event_streak=0
         elapsed=(time.perf_counter()-started)*1000
         self.metrics.record(kind,elapsed,acknowledged=acknowledged,stale=not acknowledged and not partial,

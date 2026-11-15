@@ -17,6 +17,9 @@ from news2douyin.intake.projection import (IntakeProjectionReceipt,IntakeDocumen
 @pytest.fixture
 def setup(tmp_path,monkeypatch):
     monkeypatch.setenv('NEWS2DOUYIN_GKG_STREAM_ENABLED','0')
+    # This suite verifies the retained legacy per-document event pipeline.
+    # Default discovery-only behavior has a separate explicit regression.
+    monkeypatch.setenv('NEWS2DOUYIN_GKG_AUTO_EVENTS','1')
     engine=make_engine('sqlite:///'+str(tmp_path/'news.db'));init_db(engine)
     yield engine,tmp_path/'runs'
     engine.dispose()
@@ -49,7 +52,10 @@ def test_full_projection_keeps_more_than_250_records_and_untitled_metadata(setup
     count=0
     while project_step(engine,storage,limit=80,time_budget_ms=60000):count+=1
     assert count==4
-    assert projection_status(engine)==dict(projected=300,skipped=1,waiting=0,unresolved_batches=0,last_error='',external_imported=0)
+    status=projection_status(engine)
+    expected=dict(projected=300,skipped=1,waiting=0,unresolved_batches=0,last_error='',external_imported=0)
+    assert {name:status[name] for name in expected}==expected
+    assert status['counts_known'] and status['processed_rows']==301
     with Session(engine) as s:
         assert s.exec(select(func.count()).select_from(Article)).one()==300
         assert s.exec(select(func.count()).select_from(Event)).one()==299
@@ -194,6 +200,9 @@ def test_projection_failure_rolls_back_receipts_cursor_and_articles_together(set
         assert s.get(IntakeBatch,key).projected_offset==0
         assert s.exec(select(func.count()).select_from(IntakeProjectionReceipt)).one()==0
         assert s.exec(select(func.count()).select_from(Article)).one()==0
+    # A failed chunk is held for review/backoff; retry releases only that hold.
+    assert not project_step(engine,storage,limit=3,time_budget_ms=60000)
+    projection.retry_projection(engine,key)
     assert project_step(engine,storage,limit=3,time_budget_ms=60000)
     assert projection_status(engine)['projected']==3
 
@@ -213,14 +222,53 @@ def test_projection_loop_keeps_errors_in_memory_and_backs_off_without_status_wri
     assert worker.last_error=='OperationalError' and worker.failures==3
 
 
-def test_projection_work_interval_has_one_second_floor(monkeypatch):
+def test_projection_work_interval_accepts_configured_short_delay(monkeypatch):
     from news2douyin.intake.projection import ProjectionWorker
     class Stop:
         def __init__(self):self.delays=[]
         def is_set(self):return bool(self.delays)
         def wait(self,delay):self.delays.append(delay)
     worker=ProjectionWorker(None,None);worker.stop_event=Stop()
+    monkeypatch.delenv('NEWS2DOUYIN_GDELT_PROJECTION_INTERVAL',raising=False)
     monkeypatch.setenv('NEWS2DOUYIN_GKG_PROJECTION_INTERVAL','0.01')
     monkeypatch.setattr(worker,'step',lambda:True)
     worker.loop()
-    assert worker.stop_event.delays==[1]
+    assert worker.stop_event.delays==[.01]
+
+
+def test_projection_interval_defaults_aliases_and_invalid_values(monkeypatch):
+    from types import SimpleNamespace
+    from news2douyin.intake.projection import projection_interval
+    pg=SimpleNamespace(dialect=SimpleNamespace(name='postgresql'))
+    sqlite=SimpleNamespace(dialect=SimpleNamespace(name='sqlite'))
+    monkeypatch.delenv('NEWS2DOUYIN_GDELT_PROJECTION_INTERVAL',raising=False)
+    monkeypatch.delenv('NEWS2DOUYIN_GKG_PROJECTION_INTERVAL',raising=False)
+    assert projection_interval(pg)==.05
+    assert projection_interval(sqlite)==1
+    monkeypatch.setenv('NEWS2DOUYIN_GKG_PROJECTION_INTERVAL','1')
+    assert projection_interval(pg)==1  # Existing explicit production settings remain.
+    monkeypatch.setenv('NEWS2DOUYIN_GDELT_PROJECTION_INTERVAL','0.05')
+    assert projection_interval(pg)==projection_interval(sqlite)==.05
+    monkeypatch.setenv('NEWS2DOUYIN_GDELT_PROJECTION_INTERVAL',' ')
+    assert projection_interval(pg)==1
+    monkeypatch.setenv('NEWS2DOUYIN_GDELT_PROJECTION_INTERVAL','0.001')
+    assert projection_interval(pg)==.01
+    for value in ('NaN','inf','invalid'):
+        monkeypatch.setenv('NEWS2DOUYIN_GDELT_PROJECTION_INTERVAL',value)
+        assert projection_interval(pg)==.05
+        assert projection_interval(sqlite)==1
+
+
+def test_short_busy_delay_does_not_change_idle_or_failure_backoff(monkeypatch):
+    from news2douyin.intake.projection import ProjectionWorker
+    class Stop:
+        def __init__(self):self.delays=[]
+        def is_set(self):return len(self.delays)>=2
+        def wait(self,delay):self.delays.append(delay)
+    worker=ProjectionWorker(None,None);worker.stop_event=Stop()
+    outcomes=iter([True,False])
+    monkeypatch.setenv('NEWS2DOUYIN_GDELT_PROJECTION_INTERVAL','0.05')
+    monkeypatch.delenv('NEWS2DOUYIN_GKG_PROJECTION_IDLE_INTERVAL',raising=False)
+    monkeypatch.setattr(worker,'step',lambda:next(outcomes))
+    worker.loop()
+    assert worker.stop_event.delays==[.05,3]

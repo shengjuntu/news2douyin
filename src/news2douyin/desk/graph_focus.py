@@ -197,12 +197,12 @@ def _header(mirror, w, intent):
     stamp = uuid4().hex
     root = lambda cypher, **params: mirror.query('active_global', cypher, **params)
     local = lambda cypher, **params: mirror.query('focus_'+w.key, cypher, **params)
-    root('MERGE (f:Focus {id:$id}) SET f.name=$name,f.enabled=$enabled', id=w.key, name=w.name, enabled=w.enabled)
+    root('MERGE (f:Focus {id:$id}) SET f.name=$name,f.enabled=$enabled,f.archived=false', id=w.key, name=w.name, enabled=w.enabled)
     aliases = list(dict.fromkeys(a for word in terms(w.scope) for a in (word, *ALIASES.get(word, ()))))
     root('MATCH (f:Focus {id:$id}) UNWIND $aliases AS a MERGE (n:Entity {id:a}) '
          'MERGE (f)-[r:WATCHES]->(n) SET r.stamp=$stamp', id=w.key, aliases=aliases, stamp=stamp)
     root('MATCH (:Focus {id:$id})-[r:WATCHES]->() WHERE r.stamp<>$stamp DELETE r', id=w.key, stamp=stamp)
-    local('MERGE (q:Question {id:$id}) SET q.text=$text,q.scope=$scope', id=w.key, text=w.question or w.name, scope=w.scope)
+    local('MERGE (q:Question {id:$id}) SET q.text=$text,q.scope=$scope,q.archived=false', id=w.key, text=w.question or w.name, scope=w.scope)
     if intent: mirror.intent(local, w, intent, stamp)
 
 

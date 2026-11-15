@@ -38,7 +38,7 @@ def register(app, db):
 
     @app.post('/api/desk/articles/{article}/{revision}/model',dependencies=[Depends(same_origin)])
     def model(article:str,revision:int,s=Depends(db)):
-        return {'state':service.schedule_model(s,version(s,article,revision))}
+        return {'state':task_call(service.schedule_model,s,version(s,article,revision))}
 
     @app.post('/api/desk/mentions/{key}/review',dependencies=[Depends(same_origin)])
     def review(key:str,p:Decision,s=Depends(db)):

@@ -24,6 +24,10 @@ jobs:
         run: |
           python -m pip install --no-deps dist/*.whl
           python -I tools/smoke_installed.py
+          python -I tools/smoke_intelligence_installed.py
+          python -I tools/smoke_newsnow_installed.py
+          python -I tools/smoke_stability_installed.py
+          python -I tools/smoke_event_content_installed.py
 
   postgres-locales:
     runs-on: ubuntu-latest
@@ -59,3 +63,22 @@ jobs:
           tests/test_graph_migration_state.py tests/test_postgres_integration.py
           tests/test_postgres_migration.py tests/test_postgres_pipeline.py
           tests/test_postgres_search_triggers.py tests/test_startup.py
+          tests/test_official_events.py tests/test_selection_backend.py
+          tests/test_gdelt_pipeline_integration.py tests/test_event_metadata_handoff.py
+          tests/test_intake_storage_v2.py
+          tests/test_selection_counts_overview.py tests/test_reading_translations.py
+          tests/test_focus_lifecycle.py tests/test_ui0270_journey.py
+          tests/test_newsnow_integration.py tests/test_newsnow_handoff.py
+          tests/test_attention_journey.py tests/test_attention_matching.py
+          tests/test_attention_graph.py
+          tests/test_attention_grouping.py tests/test_attention_runtime_review.py
+          tests/test_attention_graph_postgres.py
+          tests/test_attention_freshness.py
+          tests/test_attention_freshness_postgres.py
+          tests/test_text_index_safety.py tests/test_projection_isolation.py
+          tests/test_intake_fetch_diagnostics.py tests/test_intake_status_ui.py
+          tests/test_stability0291_journey.py tests/test_intake_sample_window.py
+          tests/test_source_content_runtime.py tests/test_source_preview_translation.py
+          tests/test_event_report_cards.py tests/test_event_content_journey.py
+          tests/test_event_report_ui.py tests/test_event_source_query_budget.py
+          tests/test_event_report_candidate_plan.py

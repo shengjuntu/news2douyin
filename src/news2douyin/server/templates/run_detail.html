@@ -14,6 +14,7 @@
 
 <h2>统计</h2>
 <div class="card"><strong>{{ diagnostic_summary }}</strong>{% if run.stats.diagnostics %}<p class="small muted">{% for reason,count in run.stats.diagnostics.counts.items() %}{{ reasons.get(reason,reason) }}：{{ count }} · {% endfor %}</p>{% endif %}</div><br>
+{% set newsnow_report=run.stats.get('newsnow') or run.stats.get('diagnostics',{}).get('newsnow') %}{% include 'newsnow_diagnostics.html' %}
 <div class="grid">
   <div class="card"><div class="muted">抓取</div><div class="num">{{ run.stats.get('fetched', '—') }}</div></div>
   <div class="card"><div class="muted">过滤后</div><div class="num">{{ run.stats.get('after_filter', '—') }}</div>

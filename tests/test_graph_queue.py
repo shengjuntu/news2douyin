@@ -122,6 +122,28 @@ def test_empty_queue_cursor_wrap_remains_bounded_and_read_only(queue_engine):
     assert all(sql.lstrip().upper().startswith('SELECT') and 'LIMIT' in sql.upper() for sql in statements)
 
 
+def test_attention_range_is_opt_in_indexed_and_has_its_own_attempt_cursor(queue_engine):
+    with Session(queue_engine) as s:
+        s.add_all([GraphPending(key=key,token='new') for key in (
+            'event/hot','watch/topic','attention/a-topic','attention/b-topic','attention/中文')])
+        s.commit()
+    assert ensure_queue_index(queue_engine)['state']=='ready'
+    with Session(queue_engine) as s:
+        assert pick(s).key=='event/hot'
+        assert pick(s,include_attention=True,prefer_attention=True).key=='attention/a-topic'
+        assert pick(s,include_attention=True,prefer_attention=True,
+            after_attention='attention/a-topic').key=='attention/b-topic'
+        assert pick(s,include_attention=True,prefer_attention=True,
+            after_attention='attention/中文').key=='attention/a-topic'
+    if queue_engine.dialect.name=='postgresql':
+        with queue_engine.connect() as c:
+            c.execute(text('SET enable_seqscan=off'))
+            plan=c.execute(text('''EXPLAIN SELECT key,token,written FROM graphpending
+                WHERE token<>written AND key COLLATE "C">='attention/' AND key COLLATE "C"<'attention0'
+                ORDER BY key COLLATE "C" LIMIT 1''')).all()
+        assert POSTGRES_INDEX_NAME in str(plan) and 'Index Cond' in str(plan)
+
+
 def test_index_build_keeps_rows_and_refuses_different_existing_definition(queue_engine):
     engine=queue_engine
     name=ensure_queue_index(engine)['index']

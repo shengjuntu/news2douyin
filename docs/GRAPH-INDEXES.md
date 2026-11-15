@@ -11,6 +11,7 @@
 - `GraphMeta.id`、`Event.id`、`Article.id`、`Entity.id`。
 - `EventMention.id`、`Argument.id`、`Referent.id`、`OccurrenceCandidate.id`。
 - `Focus.id`、`Place.iso`。
+- 0.29.0增加`AttentionTopic.key`、`AttentionSourceItem.key`、`SourceEvent.key`；这些索引只属于现有全局图，不增加另一张图，也不复制到专题图。
 
 专题图还检查`Question`、`OutlinePoint`、`Investigation`、`ResearchQuestion`、`Claim`、`EvidenceRef`、`Report`、`InterestScope`、`InterestEntity`、`InterestPattern`的`id`属性。只接受节点范围索引；同名关系索引、全文或向量索引不能代替这些精确定位索引。
 

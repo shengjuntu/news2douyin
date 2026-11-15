@@ -1,17 +1,17 @@
 <section class="card" id="article-mentions" data-endpoint="/api/desk/articles/{{ article.article_key|urlencode }}/{{ selected.revision }}">
-<h2>报道中的事件陈述</h2>
+<h2>{{ '榜单／摘要线索' if actions.lead_only else '报道中的事件陈述' }}</h2>
 <p>版本 r{{ selected.revision }} · {{ {'baseline':'等待规则抽取','rule_running':'正在抽取','model_queued':'等待模型','model_running':'模型运行中','error':'抽取失败','ready':'已完成','metadata_only':'仅元数据，等待可读原文'}.get(actions.state,actions.state) }}
 {% if actions.method %} · {{ '模型' if actions.method=='model' else '规则' }} {{ actions.model }}{% endif %} · {{ actions.note }}</p>
-<p class="muted">原句描述的是报道者或受访者的说法。核对角色与状态时可打开该固定版本的正文。</p>
+{% if actions.lead_only %}<p class="muted">{{ actions.material_note }}</p>{% else %}<p class="muted">原句描述的是报道者或受访者的说法。核对角色与状态时可打开该固定版本的正文。</p>{% endif %}
 {% for m in actions['items'] %}<article class="desk-pane" id="m-{{ m.id }}">
-<strong>{{ action_labels[m.kind] }} · {{ action_labels[m.status] }}</strong> · {{ {'pending':'待核','rejected':'已排除','accepted':'原文关系已核对'}[m.decision] }}
+<strong>{{ action_labels[m.kind] }} · {{ action_labels[m.status] }}</strong> · {{ '摘要旧抽取结果，不能作为原文核对' if actions.lead_only else {'pending':'待核','rejected':'已排除','accepted':'原文关系已核对'}[m.decision] }}
 <p>{{ '标题' if m.field=='title' else '正文' }} [{{ m.start }}, {{ m.end }}) · {{ m.extractor }} · “{{ m.quote }}”</p>
 <p>动作「{{ m.trigger }}」{% if m.time %} · 时间「{{ m.time }}」 {{ m.date or '无可靠日期锚点' }}{% endif %}</p>
 {% for a in m.arguments %}<span class="badge" title="{{ a.evidence }}">{{ action_labels[a.role] }} · {{ a.text }}</span>{% endfor %}
-<div class="desk-row"><button class="ghost" data-id="{{ m.id }}" data-decision="accepted">已核对原文</button><button class="ghost" data-id="{{ m.id }}" data-decision="{{ 'pending' if m.decision=='rejected' else 'rejected' }}">{{ '恢复待核' if m.decision=='rejected' else '排除' }}</button>
+<div class="desk-row">{% if not actions.lead_only %}<button class="ghost" data-id="{{ m.id }}" data-decision="accepted">已核对原文</button>{% endif %}<button class="ghost" data-id="{{ m.id }}" data-decision="{{ 'pending' if m.decision=='rejected' else 'rejected' }}">{{ '恢复待核' if m.decision=='rejected' else '排除' }}</button>
 <button class="ghost" data-match="{{ m.id }}">查找其他报道中的相似陈述</button></div><div data-results="{{ m.id }}"></div></article>
 {% else %}<p>尚无带原句依据的陈述。</p>{% endfor %}
-<button class="ghost" id="run-reader">用已配置模型重新抽取本版本</button>
+{% if actions.model_allowed %}<button class="ghost" id="run-reader">用已配置模型重新抽取本版本</button>{% endif %}
 <button class="ghost" onclick="location.reload()">刷新结果</button><p id="reader-message" role="status"></p></section>
 <script>
 (()=>{const box=document.querySelector('#article-mentions'),msg=box.querySelector('#reader-message');

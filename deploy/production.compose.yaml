@@ -33,7 +33,7 @@ services:
       start_period: 20s
 
   app:
-    image: news2douyin:0.25.2
+    image: news2douyin:0.30.0
     build:
       context: ..
       dockerfile: deploy/Dockerfile
@@ -44,6 +44,8 @@ services:
     environment:
       # Deliberately overrides an old SQLite URL from .env in formal deployment.
       NEWS2DOUYIN_DATABASE_URL: postgresql+psycopg://news2douyin:${NEWS2DOUYIN_POSTGRES_PASSWORD:?Set a random hexadecimal PostgreSQL password in .env}@postgres:5432/news2douyin
+      # Fail on missing/non-PG runtime configuration instead of using an old SQLite file.
+      NEWS2DOUYIN_DATABASE_REQUIRE_POSTGRES: "1"
       # Upgrades must retain the old graph instance/volume and graph prefix.
       NEWS2DOUYIN_FALKOR_URL: ${NEWS2DOUYIN_FALKOR_URL:-redis://falkordb:6379}
     ports:

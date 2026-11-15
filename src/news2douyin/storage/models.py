@@ -103,7 +103,9 @@ class Article(SQLModel, table=True):
     canonical_url: str = Field(default='', index=True)
     title: str = Field(default='')
     content: str = Field(default='')
-    source_domain: str = Field(default='', index=True)
+    # Text search uses the dedicated FTS/trigram index. A raw B-tree can reject
+    # an otherwise valid source observation when its text exceeds a PG page.
+    source_domain: str = Field(default='')
     published_at: str = Field(default='', index=True)
     fetched_at: str = Field(default_factory=utc_now_iso)
     language: str = Field(default='en', index=True)
@@ -131,7 +133,8 @@ class Article(SQLModel, table=True):
 class Event(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     event_key: str = Field(index=True, unique=True)
-    event_title: str = Field(default='', index=True)
+    # Preserve complete headlines; the search subsystem owns text indexing.
+    event_title: str = Field(default='')
     topic: str = Field(default='', index=True)
     summary: str = Field(default='')
     first_seen_at: str = Field(default_factory=utc_now_iso, index=True)

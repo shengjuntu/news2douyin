@@ -1,56 +1,46 @@
 {% extends "base.html" %}
 {% block title %}新闻库 · news2douyin{% endblock %}
 {% block content %}
-<p class="muted small">全量原始材料保存在<a href="/intake">采集接收库</a>，此处是已进入抽取与研究流程的新闻版本。</p>
-<h1>新闻库 <span class="muted small">（共 {{ paging.total }} 条）</span></h1>
-<p class="muted">这里保存历次采集的原始报道。可查看原文和版本，或带着材料<a href="/workbench/new">形成选题</a>；相关报道与时间线请到<a href="/radar">事件雷达</a>。</p>
+<link rel="stylesheet" href="/research-assets/translation-ui.css">
+<div class="article-library-heading"><div><h1>新闻库 <span class="muted small">共 {{ paging.total }} 条</span></h1><p class="muted">查看报道线索、已保存正文和历史版本，选中材料后继续研究。</p></div><a href="/intake">采集进度 →</a></div>
 {% if task_id %}<p class="muted">只看本次采集入库的报道 · <a href="/tasks/{{ task_id }}">查看采集进度</a> · <a href="/articles">查看全部</a></p>{% endif %}
-<div class="card">
-<form method="get" action="/articles" class="row">
+<form method="get" action="/articles" class="card article-library-filter">
   {% if task_id %}<input type="hidden" name="task_id" value="{{ task_id }}">{% endif %}
   {% if profile_name %}<input type="hidden" name="profile_name" value="{{ profile_name }}">{% endif %}
-  <input name="q" value="{{ q }}" placeholder="关键词（标题/正文）" style="width:260px">
-  <select name="country">
-    <option value="">全部国家</option>
-    {% for c in countries %}<option value="{{ c }}" {{ 'selected' if c==country }}>{{ c }}</option>{% endfor %}
-  </select>
-  <select name="duplicates"><option value="any" {{ 'selected' if duplicates=='any' }}>全部报道</option><option value="no" {{ 'selected' if duplicates=='no' }}>独立报道</option><option value="yes" {{ 'selected' if duplicates=='yes' }}>转载或近似副本</option></select>
-  <input name="category" value="{{ category }}" placeholder="分类 如 military" style="width:150px">
-  <input name="limit" value="{{ limit }}" style="width:70px" title="每页条数">
-  <select name="mode"><option value="contains" {{ 'selected' if mode=='contains' }}>连续文本</option><option value="terms" {{ 'selected' if mode=='terms' }}>全部关键词（空格分隔）</option></select>
-  <select name="time_field" aria-label="时间字段"><option value="published" {{ 'selected' if time_field=='published' }}>发布时间</option><option value="collected" {{ 'selected' if time_field=='collected' }}>采集时间（含重复采集）</option><option value="created" {{ 'selected' if time_field=='created' }}>首次入库时间</option></select>
-  <select name="period" id="period" aria-label="时间范围">{% for value,label in [('all','不限时间'),('today','今天'),('yesterday','昨天'),('last7','近 7 天'),('last30','近 30 天'),('custom','自定义日期')] %}<option value="{{ value }}" {{ 'selected' if period==value }}>{{ label }}</option>{% endfor %}</select>
-  <label>从 <input type="date" name="date_from" value="{{ date_from }}"></label><label>至 <input type="date" name="date_to" value="{{ date_to }}"></label>
-  <input name="timezone" value="{{ timezone }}" aria-label="时区" title="时区" style="width:160px">
-  <button type="submit">搜索</button>
-  <a href="/articles"><button type="button" class="ghost">重置</button></a>
+  <div class="article-basic-filters">
+    <label>关键词<input name="q" value="{{ q }}" placeholder="标题或正文"></label>
+    <label>国家与地区<select name="country"><option value="">全部国家</option>{% for c in countries %}<option value="{{ c }}" {{ 'selected' if c==country }}>{{ c or '未知' }}</option>{% endfor %}</select></label>
+    <label>时间范围<select name="period" id="period">{% for value,label in [('all','不限时间'),('today','今天'),('yesterday','昨天'),('last7','近 7 天'),('last30','近 30 天'),('custom','自定义日期')] %}<option value="{{ value }}" {{ 'selected' if period==value }}>{{ label }}</option>{% endfor %}</select></label>
+    <button type="submit">应用筛选</button>
+  </div>
+  <details class="article-advanced-filters" {% if category or duplicates!='any' or mode!='contains' or period=='custom' or time_field!='published' or limit!=60 %}open{% endif %}><summary>分类、日期与更多条件</summary><div class="article-advanced-grid">
+    <label>分类<input name="category" value="{{ category }}" placeholder="例如 military"></label>
+    <label>转载与副本<select name="duplicates"><option value="any" {{ 'selected' if duplicates=='any' }}>全部报道</option><option value="no" {{ 'selected' if duplicates=='no' }}>独立报道</option><option value="yes" {{ 'selected' if duplicates=='yes' }}>转载或近似副本</option></select></label>
+    <label>匹配方式<select name="mode"><option value="contains" {{ 'selected' if mode=='contains' }}>连续文本</option><option value="terms" {{ 'selected' if mode=='terms' }}>全部关键词（空格分隔）</option></select></label>
+    <label>筛选依据<select name="time_field"><option value="published" {{ 'selected' if time_field=='published' }}>发布时间</option><option value="collected" {{ 'selected' if time_field=='collected' }}>采集时间（含重复采集）</option><option value="created" {{ 'selected' if time_field=='created' }}>首次入库时间</option></select></label>
+    <label>从<input type="date" name="date_from" value="{{ date_from }}"></label><label>至<input type="date" name="date_to" value="{{ date_to }}"></label>
+    <label>时区<input name="timezone" value="{{ timezone }}"></label><label>每页数量<input type="number" min="1" max="500" name="limit" value="{{ limit }}"></label>
+  </div><p class="muted small">日期包含起止两天，按所选时区计算。发布时间缺失的报道不进入发布日期筛选；无历史采集记录的旧文章按最后抓取时间查询。</p></details>
+  <a class="article-reset" href="/articles">清除筛选</a>
 </form>
-<p class="muted small">日期包含起止两天，按所选时区计算。发布时间缺失的报道不进入发布日期筛选；无历史采集记录的旧文章按最后抓取时间查询。</p>
-</div>
-<script>
-const period=document.getElementById('period'),dates=[...document.querySelectorAll('input[type=date]')];
-dates.forEach(input=>input.addEventListener('change',()=>{period.value='custom';}));
-period.addEventListener('change',()=>{if(period.value!=='custom')dates.forEach(input=>{input.value='';});});
-</script>
-<table style="margin-top:12px">
-<tr><th>标题</th><th>来源</th><th>国家</th><th>分类</th><th>情感</th><th>相关度</th><th>时间</th></tr>
+<p class="muted small">这里只展示已保存的新闻目录和版本；带“报道线索”的记录尚未取得正文。全部原始批次可在<a href="/intake">采集接收库</a>查阅。</p>
+<section class="article-library-results" aria-label="新闻材料列表">
 {% for a in articles %}
-<tr>
-  <td><a href="/articles/{{ a.key }}">{{ a.title }}</a> <a class="small" href="/research?article_key={{ a.key|urlencode }}">形成选题</a>
-    {% if a.provider=='mock' %}<span class="badge">演示数据</span>{% endif %}
-    {% if a.provider=='gdelt' %}<span class="badge">GDELT · 报道线索</span>{% endif %}
-    {% if a.is_duplicate %}<span class="badge">转载/副本</span>{% endif %}
-    <div class="snippet">{% if a.snippet %}{{ a.snippet }}…{% endif %}</div></td>
-  <td class="muted small">{{ a.domain }}</td>
-  <td>{{ a.country }}</td>
-  <td>{% for c in a.categories %}<span class="badge cat">{{ c }}</span> {% endfor %}</td>
-  <td><span class="badge {{ 'pos' if a.sentiment=='positive' else ('neg' if a.sentiment=='negative' else '') }}">{{ a.sentiment }}</span></td>
-  <td>{{ '%.2f' % a.score }}</td>
-  <td class="small">{{ a.published_at|local_ts(timezone) }}</td>
-</tr>
-{% else %}
-<tr><td colspan="7" class="muted">没有匹配的新闻</td></tr>
-{% endfor %}
-</table>
+<article class="card article-library-card">
+{% set ns=a.newsnow|default({}) %}
+  <div class="article-card-top"><div class="row"><span class="muted small">{{ a.domain or '来源待核对' }}</span><span class="badge" title="{{ a.language_info.basis }}">{{ a.language_info.display }}</span>{% if a.provider=='newsnow' %}<span class="badge warn">NewsNow · 标题／摘要线索</span>{% elif a.metadata_only %}<span class="badge warn">报道线索 · 尚无正文</span>{% else %}<span class="badge">已保存正文</span>{% endif %}{% if a.is_duplicate %}<span class="badge">转载/副本</span>{% endif %}{% if a.provider=='mock' %}<span class="badge">演示数据</span>{% endif %}</div><div class="article-date"><span>{% if a.provider=='newsnow' and ns.get('publication_precision')=='date' %}来源发布日期（仅日期，来源当地日期）{% else %}原文发布时间 · {{ timezone }}{% endif %}</span><strong>{% if a.provider=='newsnow' and ns.get('publication_precision')=='date' %}{{ (a.published_at|local_ts('Asia/Shanghai'))[:10] }}（仅日期）{% else %}{{ a.published_at|local_ts(timezone) if a.published_at else '未知' }}{% endif %}</strong></div></div>
+  {% if a.provider=='newsnow' %}{% set ns=a.newsnow|default({}) %}<p class="muted small">{{ ns.get('source_name') or ns.get('source_id') or 'NewsNow榜单/快讯' }} · 快照报告 {{ ns.get('snapshot_reported_at','')|local_ts(timezone) }}{% if ns.get('observed_list_position') %} · 本版本收录时列表位置 {{ ns.observed_list_position }}{% endif %} · 尚未取得新闻全文</p>{% endif %}
+  <h2><a href="/articles/{{ a.key|urlencode }}">{{ a.title or '报道线索 · 标题待补充' }}</a></h2>
+  {% if a.snippet %}<p class="article-snippet">{% if a.provider=='newsnow' %}<span class="muted small">来源摘要：</span>{% endif %}{{ a.snippet }}{% if a.snippet|length==200 %}…{% endif %}</p>{% endif %}
+  <div class="row article-card-meta">{% if a.country %}<span>{{ a.country|upper }}</span>{% endif %}{% for c in a.categories %}<span class="badge cat">{{ c }}</span>{% endfor %}<details><summary>更多属性</summary><p class="muted small">情感：{{ {'positive':'正向','negative':'负向','neutral':'中性'}.get(a.sentiment,a.sentiment or '未知') }} · 采集相关度：{{ '%.2f' % a.score }}（不是新闻重要度）</p></details></div>
+  <div class="row article-card-actions"><a href="/articles/{{ a.key|urlencode }}">查看材料与版本</a><a href="/workbench/new?article={{ a.key|urlencode }}">形成选题</a></div>
+  {% if a.title %}<section class="translation-box translation-compact" data-translation data-translation-kind="article" data-translation-key="{{ a.key }}" data-translation-scope="title"><button class="ghost" type="button" data-translation-start>译标题</button><span class="translation-status muted small" role="status" aria-live="polite" data-translation-status></span><div class="translation-result" data-translation-result hidden><strong>中文机器译文</strong><p class="translation-text" data-translation-text></p><details><summary>本次翻译原文</summary><p class="translation-original" data-translation-original></p></details><p class="muted small" data-translation-note>仅供阅读辅助，原始材料保持不变。</p></div></section>{% endif %}
+</article>
+{% else %}<p class="card muted">没有匹配的新闻。可以调整筛选，或到<a href="/intake">采集进度</a>查看接收情况。</p>{% endfor %}
+</section>
 {% include "pagination.html" %}
+<script>
+(() => {const period=document.getElementById('period'),dates=[...document.querySelectorAll('input[type=date]')];dates.forEach(input=>input.addEventListener('change',()=>{period.value='custom';}));period.addEventListener('change',()=>{if(period.value!=='custom')dates.forEach(input=>{input.value='';});});})();
+</script>
+<script src="/research-assets/translation-ui.js" defer></script>
 {% endblock %}

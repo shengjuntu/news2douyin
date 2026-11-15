@@ -1,0 +1,45 @@
+{
+  "checked_at": "2026-11-14T04:54:11+00:00",
+  "mode": "Read-only primary GDELT samples, in-memory ZIP decoding; no production access",
+  "codebook": "https://data.gdeltproject.org/documentation/GDELT-Event_Codebook-V2.0.pdf",
+  "samples": [
+    {
+      "feed": "events_english",
+      "url": "https://data.gdeltproject.org/gdeltv2/20261114041500.export.CSV.zip",
+      "member": "20261114041500.export.CSV",
+      "rows": 633,
+      "valid": 633,
+      "invalid": 0
+    },
+    {
+      "feed": "events_translation",
+      "url": "https://data.gdeltproject.org/gdeltv2/20261114013000.translation.export.CSV.zip",
+      "member": "20261114013000.translation.export.CSV",
+      "rows": 452,
+      "valid": 452,
+      "invalid": 0
+    },
+    {
+      "feed": "mentions_english",
+      "url": "https://data.gdeltproject.org/gdeltv2/20261114041500.mentions.CSV.zip",
+      "member": "20261114041500.mentions.CSV",
+      "rows": 2634,
+      "valid": 2634,
+      "invalid": 0
+    },
+    {
+      "feed": "mentions_translation",
+      "url": "https://data.gdeltproject.org/gdeltv2/20261114013000.translation.mentions.CSV.zip",
+      "member": "20261114013000.translation.mentions.CSV",
+      "rows": 728,
+      "valid": 728,
+      "invalid": 0
+    }
+  ],
+  "network_note": "Initial Events reads with 15s read timeout failed; retry using 30s read timeout succeeded. Mentions initial reads succeeded.",
+  "tests": {
+    "sqlite_official_and_archive_before_pg_parameterization": "31 passed",
+    "actual_postgresql_16_2_en_US_utf8_plus_sqlite_official": "29 passed in 4.29s",
+    "path": "tests/test_official_events.py"
+  }
+}

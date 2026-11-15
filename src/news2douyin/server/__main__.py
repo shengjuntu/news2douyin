@@ -14,7 +14,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(prog='news2douyin-server')
     ap.add_argument('--host', default='127.0.0.1')
     ap.add_argument('--port', type=int, default=18080)
-    ap.add_argument('--db-url', default=None, help='PostgreSQL URL; defaults to NEWS2DOUYIN_DATABASE_URL (SQLite fallback)')
+    ap.add_argument('--db-url', default=None, help='Database URL; defaults to NEWS2DOUYIN_DATABASE_URL (formal deployments require PostgreSQL)')
     ap.add_argument('--storage-root', default='runs_v7')
     args = ap.parse_args()
     # create_app performs required SQL initialization before uvicorn.run.

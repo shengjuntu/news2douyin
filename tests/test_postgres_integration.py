@@ -148,7 +148,10 @@ def test_postgres_connector_versions_search_and_repeat_startup(pg_app):
     assert client.get('/articles?q=Trump').status_code == 200
 
 
-def test_postgres_gkg_projection_resume_receipts_and_provenance(pg_app):
+@pytest.mark.parametrize('auto_events',[False,True],ids=['default-discovery','legacy-local-events'])
+def test_postgres_gkg_projection_resume_receipts_and_provenance(pg_app,monkeypatch,auto_events):
+    if auto_events:monkeypatch.setenv('NEWS2DOUYIN_GKG_AUTO_EVENTS','1')
+    else:monkeypatch.delenv('NEWS2DOUYIN_GKG_AUTO_EVENTS',raising=False)
     app, client, storage = pg_app
     engine = app.state.engine
     stamp = '20261104120000'
@@ -169,7 +172,9 @@ def test_postgres_gkg_projection_resume_receipts_and_provenance(pg_app):
     state = projection_status(engine)
     assert state['projected'] == 3 and state['skipped'] == 1 and state['waiting'] == 0
     with Session(engine) as session:
-        assert count(session, Article) == 2 and count(session, Event) == 1
+        assert count(session, Article) == 2 and count(session, Event) == int(auto_events)
+        if not auto_events:
+            assert {row.state for row in session.exec(select(VersionReading))} == {'metadata_only'}
         assert count(session, ArticleVersion) == 2 and count(session, IntakeProjectionReceipt) == 4
         assert session.get(IntakeBatch, key).projected_offset == 4
         article = session.exec(select(Article).where(Article.url == 'https://media.example/article/1')).one()

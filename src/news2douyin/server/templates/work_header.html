@@ -5,17 +5,21 @@
 <nav class="work-stages" aria-label="内容任务阶段">
 {% for key,label in phases.items() %}<a href="/workbench/{{ work.key }}/{{ key }}" class="{{ 'on' if work_stage==key }}" {% if work_stage==key %}aria-current="page"{% endif %}>{{ loop.index }} · {{ label }}</a>{% endfor %}
 </nav>
-<details class="work-context"><summary>资料与来路 · {{ work.sources|length }} 份原始材料{% if work.watch_name %} · {{ work.watch_name }}{% endif %}</summary>
-<div class="row">{% if work.event %}<a href="/events/{{ work.event|urlencode }}">查看起始事件</a>{% endif %}{% if work.watch %}<a href="/focus/{{ work.watch }}">返回长期专题</a>{% endif %}<a href="/workbench/{{ work.key }}/selection">调整角度与材料</a></div>
-{% for a in work.sources %}<p><a href="/articles/{{ a.article_key|urlencode }}{% if a.revision %}?revision={{ a.revision }}{% endif %}" target="_blank" rel="noopener">{{ a.title }}</a> · {{ a.published_at or '发布时间未知' }} · 固定版本 {{ a.revision or '快照' }}</p>{% endfor %}
+<div class="work-material-state" role="status"><strong>{{ work.materials.label }}</strong><span class="muted"> · {{ work.materials.next_step }}</span></div>
+<details class="work-context"><summary>资料与来路 · {{ work.materials.total }} 份快照{% if work.watch_name %} · {{ work.watch_name }}{% if work.watch_deleted %}（专题已删除）{% endif %}{% endif %}</summary>
+<div class="row">{% if work.event %}<a href="/events/{{ work.event|urlencode }}">查看起始事件</a>{% endif %}{% if work.watch and not work.watch_deleted %}<a href="/focus/{{ work.watch }}">返回长期专题</a>{% endif %}<a href="/workbench/{{ work.key }}/selection">调整角度与材料</a></div>
+{% for a in work.sources %}<div class="work-source-row"><button type="button" class="ghost" data-work-source="{{ a.source_id }}">{{ a.title }}</button><p class="muted small">{{ a.material_label }} · {{ a.language_display }}{% if a.source_kind!='event_metadata' %} · 报道日期 {{ a.published_at or '未知' }}{% endif %} · 固定版本 {{ a.revision or '快照' }}</p><div class="row">{% if a.detail_url %}<a href="{{ a.detail_url }}">{{ '查看关注议题' if a.attention_topic|default('') else '查看事件线索与报道依据' if a.source_kind=='event_metadata' else '查看新闻详情' }}</a>{% endif %}{% if a.archive_url %}<a href="{{ a.archive_url }}" target="_blank" rel="noopener">归档依据 ↗</a>{% endif %}{% if a.url %}<a href="{{ a.url }}" target="_blank" rel="noopener noreferrer">来源网页 ↗</a>{% endif %}</div></div>{% endfor %}
 </details>
 {% if work_stage=='research' %}<div class="row work-actions">
 {% for h in work.pending_handoffs %}<button class="ghost" data-work-resume="{{ h.handoff_id }}">继续提交已保存的研究任务</button>{% endfor %}
 {% if work.reports %}<label>用于创作的报告 <select id="work-report">{% for r in work.reports %}<option value="{{ r.id }}">{{ r.title }} · v{{ r.version }} · {{ r.cutoff }}</option>{% endfor %}</select></label><button id="work-from-report">基于研究创建可编辑初稿</button>{% endif %}
 {% for c in work.cases %}<a class="badge" href="/workbench/{{ work.key }}/research?case={{ c.id }}">{{ c.title }} · {{ loop.index }}</a>{% endfor %}
+{% if work.cases and work.sources %}<button type="button" class="ghost" data-work-handoff="materials">另开一轮补材</button>{% endif %}
 </div>{% endif %}
 {% if work_stage=='creation' %}<div class="row work-actions">{% for p in work.scripts %}<a class="badge" href="/workbench/{{ work.key }}/creation?script={{ p.id }}">稿件 {{ loop.index }} · {{ p.status }}</a>{% endfor %}<a href="/workbench/{{ work.key }}/research">补充研究</a><a href="/workbench/{{ work.key }}/works">查看交付结果</a></div>{% endif %}
-<p id="work-message" class="desk-error" role="status"></p>
+<p id="work-message" class="desk-error" role="status" aria-live="polite"></p>
 </section>
+<dialog id="work-source-dialog" aria-labelledby="work-source-title"><div class="row"><h2 id="work-source-title">资料快照</h2><button id="work-source-close" type="button" class="ghost">关闭</button></div><p id="work-source-meta" class="muted small"></p><p><button id="work-source-translate" type="button" class="ghost">翻译成中文</button></p><p id="work-translation-status" class="muted small" role="status" aria-live="polite"></p><section id="work-source-translation" hidden><h3>中文译文 · 仅供阅读</h3><pre id="work-source-translated"></pre></section><h3>保存的原文或线索</h3><pre id="work-source-content"></pre></dialog>
+<style>.work-material-state{padding:12px 0;line-height:1.7}.work-source-row{margin:12px 0;padding:10px 0;border-bottom:1px solid #34404a}.work-source-row p{margin:7px 0;overflow-wrap:anywhere}#work-source-dialog{width:min(850px,calc(100% - 24px));max-height:90vh;overflow:auto;background:#161922;color:#e6e8ee;border:1px solid #46516a;border-radius:12px}#work-source-dialog::backdrop{background:#0009}#work-source-dialog>.row{justify-content:space-between}#work-source-dialog pre{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.7}#work-source-dialog h2{overflow-wrap:anywhere}@media(max-width:600px){.work-material-state span{display:block}.work-source-row .row{gap:10px}}</style>
 <script>window.contentTask={{ work|tojson }};</script>
 <script src="/research-assets/workbench.js" defer></script>

@@ -1,0 +1,60 @@
+{
+  "ok": true,
+  "browser": "153.0.8010.0",
+  "results": {
+    "desktop": {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "automatic_official_landing": true,
+      "explicit_local_navigation": true,
+      "filters_work": true,
+      "preset_saved": true,
+      "source_detail_loaded": true,
+      "unknown_coverage_and_first_source": true,
+      "advanced_collapsed_initially": true,
+      "bounds": {
+        "width": 1440,
+        "scroll": 1440
+      }
+    },
+    "mobile": {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "automatic_official_landing": true,
+      "explicit_local_navigation": true,
+      "filters_work": true,
+      "preset_saved": true,
+      "source_detail_loaded": true,
+      "unknown_coverage_and_first_source": true,
+      "advanced_collapsed_initially": true,
+      "bounds": {
+        "width": 390,
+        "scroll": 390
+      }
+    },
+    "explicit_selection": {
+      "navigates_to_workbench": true,
+      "content_tasks": 1,
+      "local_events": 0,
+      "articles": 0
+    },
+    "intake_six_streams": true,
+    "mobile_intake_bounds": {
+      "width": 390,
+      "scroll": 390
+    }
+  },
+  "page_errors": [],
+  "console_errors": [],
+  "failed_requests": [],
+  "real_http": true,
+  "real_chromium": true,
+  "database": "disposable SQLite",
+  "graph_http_calls": 0,
+  "background_workers": false,
+  "fixtures": "Two synthetic official events and one source mention"
+}

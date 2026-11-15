@@ -10,6 +10,7 @@ from ..extraction.models import VersionReading, FocusPoint, TextMention
 from ..storage.models import utc_now_iso
 from ..storage.articles import lock_news
 from .research import same_origin
+from .tasks import task_call
 
 
 def register(app,engine,render):
@@ -35,7 +36,7 @@ def register(app,engine,render):
     def graph(event:str='',watch:str='',s=Depends(db)):
         state=info(s)
         from ..knowledge.radar import sources
-        data=knowledge.graph_view(s,event=event,watch=watch)
+        data=task_call(knowledge.graph_view,s,event=event,watch=watch)
         provenance=sources(s,[node['id'] for node in data['nodes']])
         for node in data['nodes']:
             node['sources']=[{k:v for k,v in group.items() if k!='articles'} for group in provenance.get(node['id'],[])]
@@ -87,5 +88,7 @@ def register(app,engine,render):
 
     @app.post('/api/focus/{key}/seen',dependencies=[Depends(same_origin)])
     def seen(key:str,s=Depends(db)):
-        if not s.get(Watch,key):raise HTTPException(404,'专题不存在')
+        from ..desk.focus_lifecycle import require_active
+        lock_news(s,'watch:'+key)
+        task_call(require_active,s,key)
         s.merge(FocusVisit(watch=key,seen=utc_now_iso()));s.commit();return {'ok':True}

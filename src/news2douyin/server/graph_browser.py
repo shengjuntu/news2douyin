@@ -39,7 +39,10 @@ def register(app,engine,render):
         except ValueError:url=''
         prefix=app.state.desk.graph.prefix
         graphs=[dict(name=prefix+'_active_global',label='全局活动知识图')]
-        graphs.extend(dict(name=prefix+'_focus_'+w.key,label=w.name) for w in s.exec(select(Watch).order_by(Watch.name)))
+        from ..desk.focus_lifecycle import is_deleted
+        graphs.extend(dict(name=prefix+'_focus_'+w.key,
+            label=w.name+(' · 已删除专题的存档图' if is_deleted(s,w.key) else ''))
+            for w in s.exec(select(Watch).order_by(Watch.name)))
         return render('graph_browser.html',active='knowledge',browser_url=url,graphs=graphs)
 
     @app.post('/api/knowledge/browser-setting',dependencies=[Depends(same_origin)])

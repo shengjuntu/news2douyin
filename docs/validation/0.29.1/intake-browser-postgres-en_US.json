@@ -1,0 +1,53 @@
+{
+  "ok": true,
+  "browser": "153.0.8010.0",
+  "results": {
+    "desktop": {
+      "bounds": {
+        "width": 1440,
+        "scroll": 1440
+      },
+      "probe_cursor_unchanged": true,
+      "retry_without_skipping": true,
+      "pause_resume_preserved_cursor": true
+    },
+    "mobile": {
+      "bounds": {
+        "width": 390,
+        "scroll": 390
+      },
+      "probe_cursor_unchanged": true,
+      "retry_without_skipping": true
+    },
+    "explicit_search_only": true
+  },
+  "page_errors": [],
+  "failed_requests": [],
+  "remote_requests": [],
+  "state": {
+    "calls": {
+      "probe": 2,
+      "raw_search": 1,
+      "forbidden": 0
+    },
+    "batch_offset": 37,
+    "retry_after": 0,
+    "receiver_cursor": "20261114091500",
+    "feed_enabled": true
+  },
+  "version": "0.29.1",
+  "database": "postgres",
+  "postgres_locale": "en_US.utf8",
+  "recorded_at": "2026-11-14T11:55:50Z",
+  "synthetic": true,
+  "source_probe": "deterministic local stub; official network not contacted",
+  "production_accessed": false,
+  "remote_model_contacted": false,
+  "forbidden_calls": 0,
+  "status_sql_audit": {
+    "executions": 60,
+    "writes": 0,
+    "expensive_history_aggregations": 0
+  },
+  "screenshots": "Scratch only; not part of source archive"
+}

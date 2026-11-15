@@ -63,6 +63,9 @@ def register(app,engine,storage,render):
     def new(event:str='',watch:str='',article:str='',s=Depends(db)):
         evt=s.exec(select(Event).where(Event.event_key==event)).first() if event else None
         topic=s.get(Watch,watch) if watch else None
+        if watch:
+            from ..desk.focus_lifecycle import require_active
+            topic=task_call(require_active,s,watch)
         if event and not evt:raise HTTPException(404,'事件不存在')
         if watch and not topic:raise HTTPException(404,'专题不存在')
         return render('workbench_new.html',active='workbench',event=event,watch=watch,article=article,

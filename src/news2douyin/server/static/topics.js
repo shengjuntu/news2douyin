@@ -1,6 +1,6 @@
 (()=>{
  'use strict';
- const $=id=>document.getElementById(id), state={workspace:null,dirty:false,busy:false,loading:false,offset:0,total:0,epoch:0,serial:0,chatKey:'',candidateKey:'',taskKey:'',scopeEvent:''};
+ const $=id=>document.getElementById(id), state={workspace:null,dirty:false,busy:false,loading:false,offset:0,total:0,epoch:0,serial:0,chatKey:'',candidateKey:'',taskKey:'',scopeEvent:'',sourceId:'',sourceTranslationSerial:0};
  const active=new Set(['queued','preparing','starting','running','waiting','stopping','uncertain']);
  const names={queued:'排队中',preparing:'准备环境',starting:'启动中',running:'讨论中',waiting:'等待处理',uncertain:'核对原请求中',stopping:'正在停止',paused:'已停止',completed:'已完成',partial:'部分完成',failed:'失败'};
  const node=(tag,text,cls)=>{const e=document.createElement(tag);if(text!==undefined)e.textContent=text;if(cls)e.className=cls;return e;};
@@ -33,13 +33,13 @@
   for(const id of ['topic-title','topic-angle','topic-query','topic-period','topic-from','topic-to','topic-time','topic-kind','topic-language','topic-duration','topic-images','topic-write','new-topic-brief'])$(id).disabled=state.busy;
   for(const id of ['topic-create','topic-list','topic-search','topic-save','topic-prev','topic-next','topic-short','topic-materials','topic-deep','topic-sync'])$(id).disabled=state.busy||(!w&&id!=='topic-create'&&id!=='topic-list');
   if(w){$('topic-prev').disabled=state.busy||state.offset===0;$('topic-next').disabled=state.busy||state.offset+20>=state.total;}
-  let pending=null;try{pending=stored(pendingKey('message'));const creation=stored(pendingKey('create','new'));$('topic-create').textContent=creation?'确认上次选题创建':'新建选题 / 开始讨论';const task=stored(pendingKey('handoff'));for(const kind of ['short','materials','deep']){const button=$('topic-'+kind);button.disabled=state.busy||!w||!!task&&task.action!==kind;button.textContent=task?.action===kind?'确认上次任务请求':({short:'仅用所选资料写短稿',materials:'补充材料',deep:'深入研究'})[kind];}}catch(e){note('无法读取会话存储；请允许站点存储后重试。');}
+  let pending=null;try{pending=stored(pendingKey('message'));const creation=stored(pendingKey('create','new'));$('topic-create').textContent=creation?'确认上次选题创建':'新建选题 / 开始讨论';const task=stored(pendingKey('handoff'));for(const kind of ['short','materials','deep']){const button=$('topic-'+kind);const unavailable=!w?.sources?.length||(kind==='short'&&!w?.materials?.can_write_from_sources);button.disabled=state.busy||!w||!!task&&task.action!==kind||(!task&&unavailable);button.title=kind==='short'&&!w?.materials?.can_write_from_sources?'先补原文或研究；事件、榜单和摘要线索不能单独用来写稿':'';button.textContent=task?.action===kind?'确认上次任务请求':({short:'仅用所选资料写短稿',materials:w?.materials?.stage==='leads'?'补充原文与背景':'补充材料',deep:'深入研究'})[kind];}}catch(e){note('无法读取会话存储；请允许站点存储后重试。');}
   $('topic-send').textContent=pending?'确认上次消息':'发送';$('topic-send').disabled=state.busy||!w||(running&&!pending);$('topic-prompt').disabled=state.busy||!!pending;
   $('topic-stop').disabled=state.busy||!running;
  }
  async function showSource(id){
   try{const w=state.workspace;const d=await api('/api/topics/'+w.workspace_id+'/sources/'+encodeURIComponent(id));if(w!==state.workspace&&w.workspace_id!==state.workspace?.workspace_id)return;
-   $('topic-source-title').textContent=d.title;$('topic-source-meta').textContent='报道日期 '+(d.published_at||'未知')+' · 快照 '+d.observed_at+' · '+(d.revision?'r'+d.revision:'内容快照');$('topic-source-content').textContent=d.content;$('topic-source-dialog').showModal();
+   state.sourceId=id;state.sourceTranslationSerial++;$('topic-source-title').textContent=d.title;$('topic-source-meta').textContent=(d.material_label||'资料快照')+' · 报道日期 '+(d.published_at||'未知')+' · '+(d.language_display||'语言未知')+' · 保存于 '+d.observed_at+' · '+(d.revision?'r'+d.revision:'内容快照');$('topic-source-content').textContent=d.content;$('topic-source-translation').hidden=true;$('topic-translation-status').textContent='';$('topic-source-translate').disabled=false;$('topic-source-dialog').showModal();
   }catch(e){note(e.message);}
  }
  function citations(parent,ids){const row=node('div',undefined,'topic-citations');for(const [i,id] of ids.entries()){const b=node('button','来源 '+(i+1),'ghost');b.onclick=()=>showSource(id);row.append(b);}parent.append(row);}
@@ -49,9 +49,9 @@
   const pending=stored(pendingKey('message',w.workspace_id));
   if(pending&&w.messages.some(m=>m.request_id===pending.request_id)){sessionStorage.removeItem(pendingKey('message',w.workspace_id));if($('topic-prompt').value===pending.text)$('topic-prompt').value='';}
   const pendingTask=stored(pendingKey('handoff',w.workspace_id));if(pendingTask&&w.tasks.some(t=>t.request_id===pendingTask.request_id))sessionStorage.removeItem(pendingKey('handoff',w.workspace_id));
-  $('topic-selected-count').textContent=w.sources.length+'/12';const selected=$('topic-selected');selected.replaceChildren();
+  $('topic-selected-count').textContent=w.sources.length+'/12';$('topic-readiness').textContent=(w.materials?.label||'')+'。'+(w.materials?.next_step||'');$('topic-materials').classList.toggle('ghost',w.materials?.stage!=='leads');$('topic-deep').classList.toggle('ghost',w.materials?.stage==='leads');const selected=$('topic-selected');selected.replaceChildren();
   if(!w.sources.length)selected.append(node('p','搜索后加入报道，或采用助手给出的候选选题。','muted'));
-  for(const source of w.sources){const row=node('div',undefined,'topic-card'),title=node('button',source.title,'ghost');title.onclick=()=>showSource(source.source_id);row.append(title,node('p',(source.published_at||'发布时间未知')+' · 已固定原文','muted small'));const remove=node('button','移出','ghost');remove.onclick=action(async()=>{await save(w.source_ids.filter(i=>i!==source.source_id));});row.append(remove);selected.append(row);}
+  for(const source of w.sources){const row=node('div',undefined,'topic-card'),title=node('button',source.title,'ghost');title.onclick=()=>showSource(source.source_id);row.append(title,node('p',(source.material_label||'资料快照')+' · '+(source.published_at||'报道日期未知')+' · '+(source.language_display||'语言未知'),'muted small'));const remove=node('button','移出','ghost');remove.onclick=action(async()=>{await save(w.source_ids.filter(i=>i!==source.source_id));});row.append(remove);selected.append(row);}
   const chatKey=JSON.stringify(w.messages);
   if(chatKey!==state.chatKey){state.chatKey=chatKey;const box=$('topic-chat');const previousTop=box.scrollTop,nearBottom=box.scrollHeight-box.scrollTop-box.clientHeight<80;box.replaceChildren();
    if(!w.messages.length)box.append(node('p','可以先说想了解的范围；无需先选新闻。','muted'));
@@ -60,7 +60,7 @@
     if(m.error)box.append(node('p',m.error,'topic-message'));}
    box.scrollTop=nearBottom?box.scrollHeight:previousTop;
   }
-  const latest=w.messages.at(-1);$('topic-state').textContent=latest?(names[latest.status]||latest.status)+' · 库内检索 '+latest.search_count+' 次 · 已读 '+latest.read_count+' 份原文'+(latest.session_id?' · 会话 '+latest.session_id:''):'尚未发起讨论';
+  const latest=w.messages.at(-1);$('topic-state').textContent=latest?(names[latest.status]||latest.status)+' · 库内检索 '+latest.search_count+' 次 · 已读 '+latest.read_count+' 份资料'+(latest.session_id?' · 会话 '+latest.session_id:''):'尚未发起讨论';
   if(w.rundesk_url){const u=new URL(w.rundesk_url);if(['http:','https:'].includes(u.protocol))$('topic-rundesk').href=u.href;}
   const candidateKey=JSON.stringify(w.candidates);
   if(candidateKey!==state.candidateKey){state.candidateKey=candidateKey;const box=$('topic-candidates');box.replaceChildren();if(!w.candidates.length)box.append(node('p','助手整理的候选会显示在这里。','muted'));
@@ -86,7 +86,17 @@
  $('topic-save').onclick=action(async()=>{await save();await refreshList();note('选题已保存。');});$('topic-search').onclick=action(()=>search());$('topic-prev').onclick=action(()=>search(Math.max(0,state.offset-20)));$('topic-next').onclick=action(()=>search(state.offset+20));
  $('topic-send').onclick=action(()=>sendText($('topic-prompt').value));$('topic-stop').onclick=action(async()=>{await api('/api/topics/'+state.workspace.workspace_id+'/stop',{});await refresh();});$('topic-sync').onclick=action(async()=>{const w=await api('/api/topics/'+state.workspace.workspace_id+'/sync',{});draw(w);});
  for(const id of ['topic-title','topic-angle','topic-query','topic-period','topic-from','topic-to','topic-time'])$(id).addEventListener('input',mark);
- $('topic-query').addEventListener('input',()=>state.scopeEvent='');$('topic-source-close').onclick=()=>$('topic-source-dialog').close();
+ $('topic-query').addEventListener('input',()=>state.scopeEvent='');$('topic-source-close').onclick=()=>$('topic-source-dialog').close();$('topic-source-dialog').addEventListener('close',()=>state.sourceTranslationSerial++);
+ $('topic-source-translate').onclick=async()=>{
+  const serial=++state.sourceTranslationSerial,id=state.sourceId,button=$('topic-source-translate');button.disabled=true;$('topic-translation-status').textContent='正在请求中文翻译…';
+  try{let d=await api('/api/translations',{kind:'topic_source',key:id,target:'zh-CN',retry:true});const deadline=Date.now()+120000;
+   while(['queued','running'].includes(d.status)&&Date.now()<deadline){if(serial!==state.sourceTranslationSerial||!$('topic-source-dialog').open)return;$('topic-translation-status').textContent=d.status==='queued'?'翻译已排队…':'正在翻译…';await new Promise(resolve=>setTimeout(resolve,1000));d=await api('/api/translations/'+encodeURIComponent(d.id));}
+   if(serial!==state.sourceTranslationSerial||!$('topic-source-dialog').open)return;
+   if(d.status==='succeeded'){$('topic-source-translated').textContent=d.translated_text;$('topic-source-translation').hidden=false;$('topic-translation-status').textContent='中文译文仅供阅读，原快照保留。'+(d.truncated?'本次只翻译已存文本的前一部分。':'')+(d.scope==='event_metadata'?' 这里翻译的是事件线索字段，不是新闻全文。':'');}
+   else if(['queued','running'].includes(d.status))$('topic-translation-status').textContent='翻译仍在后台进行，稍后再次点击查看。';
+   else $('topic-translation-status').textContent=d.error||'翻译未完成，可再次点击重试。';
+  }catch(e){if(serial===state.sourceTranslationSerial)$('topic-translation-status').textContent=e.message;}finally{if(serial===state.sourceTranslationSerial)button.disabled=false;}
+ };
  async function handoff(action){const wid=state.workspace.workspace_id;if(!stored(pendingKey('handoff'))){await save();}
   const w=state.workspace;const result=await receipt('handoff',{revision:w.revision,request_id:uid(),action,output_language:$('topic-language').value,duration_sec:Number($('topic-duration').value),find_images:$('topic-images').checked,write_script:$('topic-write').checked},body=>api('/api/topics/'+wid+'/handoffs',body),wid);
   if(window.contentTask){location.href=result.url;return;}

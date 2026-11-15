@@ -261,6 +261,26 @@
       await request(base, p, 'PUT'); location.reload();
     } catch (err) { status(msg, err.message, true); button.disabled = false; }
   });
+  const deleteDialog = document.getElementById('focus-delete-dialog');
+  document.getElementById('focus-delete')?.addEventListener('click', () => {
+    status(document.getElementById('focus-delete-message'), '');
+    deleteDialog.showModal();
+  });
+  document.getElementById('focus-delete-cancel')?.addEventListener('click', () => deleteDialog.close());
+  document.getElementById('focus-delete-confirm')?.addEventListener('click', async event => {
+    const button = event.currentTarget; if (button.disabled) return; button.disabled = true;
+    try {
+      await request(base, {version: watch.version}, 'DELETE');
+      disposed = true; clearTimeout(trackingTimer); forgetDraft(); location.assign('/focus');
+    } catch (err) { status(document.getElementById('focus-delete-message'), err.message, true); button.disabled = false; }
+  });
+  for (const button of document.querySelectorAll('[data-focus-restore]')) button.addEventListener('click', async () => {
+    if (button.disabled) return; button.disabled = true;
+    try {
+      const value = await request('/api/focus/' + encodeURIComponent(button.dataset.focusRestore) + '/restore', {version: Number(button.dataset.focusVersion)});
+      location.assign('/focus/' + encodeURIComponent(value.key));
+    } catch (err) { status(document.getElementById('focus-trash-message'), err.message, true); button.disabled = false; }
+  });
   document.getElementById('mark-seen')?.addEventListener('click', async event => {
     const button = event.currentTarget; button.disabled = true;
     try { await request(base + '/seen', {}); location.reload(); } catch (err) { status(msg, err.message, true); button.disabled = false; }

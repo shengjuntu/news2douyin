@@ -17,6 +17,18 @@ class FocusDefinition(SQLModel, table=True):
     updated: str = Field(default_factory=utc_now_iso)
 
 
+class FocusTrash(SQLModel, table=True):
+    """Recoverable topic removal; shared evidence and research keep their IDs."""
+    watch: str = Field(primary_key=True)
+    name: str
+    deleted_at: str = Field(default_factory=utc_now_iso)
+    restored_at: str = ''
+    previous_enabled: bool = False
+    previous_auto_research: bool = False
+    previous_scope_version: int = 0
+    restored_version: int = 0
+
+
 class FocusBuild(SQLModel, table=True):
     key: str = Field(primary_key=True)
     description: str

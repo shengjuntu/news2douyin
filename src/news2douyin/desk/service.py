@@ -232,10 +232,11 @@ def drain(engine,limit=60):
             if dirty is None:break
             key=dirty.key
             s.delete(dirty);s.flush()
-            watch_keys=list(s.exec(select(Watch.key).order_by(Watch.key)))
+            from .focus_lifecycle import visible_watch
+            watch_keys=list(s.exec(select(Watch.key).where(visible_watch()).order_by(Watch.key)))
             if postgres:
                 lock_news(s,'desk-event:'+key,*('watch:'+k for k in watch_keys))
-            watches=s.exec(select(Watch).order_by(Watch.key)).all()
+            watches=s.exec(select(Watch).where(visible_watch()).order_by(Watch.key)).all()
             update_event(s,key,watches)
             s.commit()
             processed+=1
@@ -243,9 +244,8 @@ def drain(engine,limit=60):
 
 
 def get_watch(s,key):
-    row=s.get(Watch,key)
-    if not row:raise KeyError('专题不存在')
-    return row
+    from .focus_lifecycle import require_active
+    return require_active(s,key)
 
 
 def iso_after(days):
@@ -263,7 +263,9 @@ def save_watch(s,scope:Scope,key=None,expected=None,seed=''):
                           for field in ('name','scope','dimensions','exclude','question','kind')):
         raise TaskConflict('请通过文字描述调整此专题的关注范围')
     duplicate=s.exec(select(Watch.key).where(Watch.name==scope.name, Watch.key!=w.key)).first()
-    if duplicate:raise ValueError('名称已存在')
+    if duplicate:
+        from .focus_lifecycle import is_deleted
+        raise ValueError('同名专题在回收站中，请先恢复或使用其他名称' if is_deleted(s,duplicate) else '名称已存在')
     if seed and not s.exec(select(Event.id).where(Event.event_key==seed)).first():raise KeyError('事件不存在')
     rescope=(not key or (scope.scope,scope.dimensions,scope.exclude,scope.kind,scope.enabled)!=(w.scope,w.dimensions,w.exclude,w.kind,w.enabled))
     if key:w.version+=1
@@ -338,11 +340,18 @@ def current_membership():
     Indexed scalar EXISTS checks do not load source text or scan history.
     """
     from sqlalchemy import or_
-    from .focus_models import FocusDefinition,FocusCandidate
+    from .focus_models import FocusDefinition,FocusCandidate,FocusTrash
     natural=select(FocusDefinition.watch).where(FocusDefinition.watch==WatchEvent.watch).correlate(WatchEvent).exists()
+    # A restored topic remains paused and can still show its unchanged saved
+    # membership. Resuming or editing increments Watch.version and expires
+    # this frozen baseline before the ordinary backfill publishes new work.
+    restored=select(FocusTrash.watch).where(FocusTrash.watch==Watch.key,
+        FocusTrash.deleted_at=='',FocusTrash.restored_version==Watch.version,
+        FocusTrash.previous_scope_version==FocusCandidate.scope_version,
+        Watch.enabled==False).correlate(Watch,FocusCandidate).exists()
     accepted=select(FocusCandidate.key).join(Watch,Watch.key==FocusCandidate.watch).where(
         FocusCandidate.watch==WatchEvent.watch,FocusCandidate.event==WatchEvent.event,
-        FocusCandidate.scope_version==Watch.version,FocusCandidate.status=='done',
+        or_(FocusCandidate.scope_version==Watch.version,restored),FocusCandidate.status=='done',
         FocusCandidate.decision.in_(('core','background'))).correlate(WatchEvent).exists()
     return or_(WatchEvent.choice!='auto',~natural,accepted)
 
@@ -351,9 +360,10 @@ def memberships_many(s,event_keys):
     """One scalar query for a visible event page, including empty memberships."""
     result={key:[] for key in event_keys}
     if not result:return result
+    from .focus_lifecycle import visible_watch
     rows=all_rows(s,select(WatchEvent.event,Watch.key,Watch.name,WatchEvent.reason)
         .select_from(WatchEvent).join(Watch,Watch.key==WatchEvent.watch)
-        .where(WatchEvent.event.in_(result),WatchEvent.choice!='exclude',current_membership())
+        .where(WatchEvent.event.in_(result),WatchEvent.choice!='exclude',current_membership(),visible_watch())
         .order_by(WatchEvent.event,Watch.name,Watch.key),name='desk.event_memberships')
     for event,key,name,reason in rows:
         result[event].append(dict(key=key,name=name,reason=reason))
@@ -378,6 +388,7 @@ def focus_entries(s,key,offset=0,limit=30,*,order='recent',branch=''):
 
 
 def make_review(s,w,event_key,trigger,cutoff=''):
+    get_watch(s,w.key)
     ident=hashlib.sha256(f'{w.key}|{event_key}|{trigger}|{w.version}'.encode()).hexdigest()[:28]
     review=s.get(WatchReview,ident)
     if review:return review

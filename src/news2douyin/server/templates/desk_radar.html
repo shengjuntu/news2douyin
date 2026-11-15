@@ -1,15 +1,17 @@
 {% extends 'base.html' %}{% block title %}事件雷达 · news2douyin{% endblock %}{% block content %}
 {% macro radar_count(value) %}{{ '…' if value is none or value is undefined else value }}{% endmacro %}
+<nav class="radar-view-tabs" aria-label="雷达材料视图"><a href="/radar?source=gdelt">全球事件线索</a><a href="/radar?source=local" class="on" aria-current="page">已整理事件</a><a href="/radar?source=attention">中文平台关注</a></nav>
 <div data-radar data-facet-state="loading" data-radar-facet-url="{{ facet_url }}">
 <div class="radar-heading"><div><p class="radar-kicker">GLOBAL EVENT RADAR</p><h1>事件雷达</h1><p class="desk-meta radar-intro">从不同频道观察正在发生的变化。看事件、看关联，也看国家之间有原文依据的行动。</p></div><div class="desk-row"><a href="/focus">我的专题 →</a><a href="/intake">全量采集接收</a></div></div>
 <div class="radar-channels" aria-label="雷达频道">{% for c in channels %}<a class="radar-channel {{ 'on' if params.channel==c.id }}" href="?{{ dict(params,channel=c.id)|urlencode }}" {% if params.channel==c.id %}aria-current="page"{% endif %}><strong>{{ c.label }}</strong><span class="count" data-radar-channel-count="{{ c.id }}">{{ radar_count(c.count) }}</span><p>{{ {'all':'全部事件与未分类线索','diplomacy':'会谈 · 访问 · 签署','conflict':'有原文出处的袭击行动'}.get(c.id,'') }}</p></a>{% endfor %}</div>
 <form id="radar-filter" class="card radar-filter" method="get">
+<input type="hidden" name="source" value="local">
 <label class="radar-search">搜索事件<input name="q" value="{{ params.q }}" maxlength="200" aria-label="事件关键词" placeholder="事件、人物或关联报道关键词"></label>
 <label>采集来源<select name="provider" aria-label="采集来源">{% for p in providers %}<option value="{{ p.id }}" data-radar-provider-label="{{ p.label }}" {{ 'selected' if params.provider==p.id }}>{{ p.label }} · {{ radar_count(p.count) }}</option>{% endfor %}</select></label>
 <label>时间范围<select name="period" aria-label="时间范围">{% for k,v in [('auto','默认 · 近 7 天'),('all','全部时间'),('1','近 24 小时'),('7','近 7 天'),('30','近 30 天')] %}<option value="{{ k }}" {{ 'selected' if params.period==k }}>{{ v }}</option>{% endfor %}</select></label>
 <label>优先级<select name="band" aria-label="优先级"><option value="">全部优先级</option>{% for v in ['优先看','优先核查','其他进展'] %}<option {{ 'selected' if params.band==v }}>{{ v }}</option>{% endfor %}</select></label>
 <input type="hidden" name="channel" value="{{ params.channel }}"><input id="radar-view-input" type="hidden" name="view" value="{{ params.view }}">
-{% for k in ['country','topic','mode','limit'] %}<input type="hidden" name="{{ k }}" value="{{ params[k] }}">{% endfor %}<button>应用筛选</button><a href="/radar">重置</a>
+{% for k in ['country','topic','mode','limit'] %}<input type="hidden" name="{{ k }}" value="{{ params[k] }}">{% endfor %}<button>应用筛选</button><a href="/radar?source=local">重置</a>
 </form>
 {% include 'graph_status.html' %}
 {% if indexing %}<p class="desk-alert">正在建立索引，尚有 {{ indexing }} 个事件待处理。稍后刷新。</p>{% endif %}
@@ -23,11 +25,11 @@
 {% for e in items %}<article class="radar-event" data-radar-event="{{ e.key }}"><div class="desk-row"><span class="badge">{{ metrics[e.key].band if metrics.get(e.key) else e.band }}</span><a class="desk-title" href="/events/{{ e.key|urlencode }}?back={{ back|urlencode }}">{{ e.title }}</a></div>
 <div class="radar-provenance"><span class="small muted">已记录采集渠道</span>{% for group in sources_by_event.get(e.key,[]) %}<span class="radar-source-tag">{{ group.label }} <span>{{ group.count }} 篇</span></span>{% else %}<span class="radar-source-tag">来源待确认</span>{% endfor %}</div>
 {% if metrics.get(e.key) %}<p class="radar-reason">{{ metrics[e.key].reason }}</p><p class="small muted">{{ metrics[e.key].caveat }}</p>{% else %}<p class="radar-reason">{{ e.reason }} · 图分析待更新</p>{% endif %}
-<div class="desk-meta">{{ e.evidence }}{% for area in areas.get(e.key,[])|sort %} · {{ area }}{% endfor %} · 最近资料 {{ e.seen }}</div>
+<div class="desk-meta">{{ e.evidence }}{% for area in areas.get(e.key,[])|sort %} · {{ area }}{% endfor %} · 最近资料 <time datetime="{{ e.seen }}"><strong>{{ e.seen|local_ts('Asia/Shanghai') }}</strong></time> 北京时间</div>
 <details class="radar-source-detail"><summary>查看采集来源、报道媒体与原文</summary>{% for group in sources_by_event.get(e.key,[]) %}<p><strong>{{ group.label }}</strong> · {{ group.count }} 篇入库报道</p><ul>{% for a in group.articles %}<li><a href="/articles/{{ a.key|urlencode }}{% if a.revision %}?revision={{ a.revision }}{% endif %}">{{ a.title }}</a><div class="muted">报道媒体：{{ a.domain or '未记录域名' }}{% if a.revision %} · 原文 r{{ a.revision }}{% endif %}{% if a.url|safe_url %} · <a href="{{ a.url|safe_url }}" target="_blank" rel="noopener noreferrer">原始报道 ↗</a>{% endif %}</div></li>{% endfor %}</ul>{% else %}<p>历史来源信息尚未确认，可进入事件查看原文。</p>{% endfor %}</details>
 <p class="desk-row"><a class="action-link" href="/workbench/new?event={{ e.key|urlencode }}">形成选题</a><a href="/focus?seed={{ e.key|urlencode }}">建立长期专题</a>{% for w in members[e.key] %}<a class="badge" href="/focus/{{ w.key }}">{{ w.name }}</a>{% endfor %}</p></article>
 {% else %}<div class="radar-empty" data-radar-empty><span data-radar-empty-label>{% if total is none %}当前页没有可展示的事件，完整范围统计中。{% else %}当前范围没有事件。{% endif %}</span><br>可以切换频道、来源或时间，或去<a href="/profiles">采集配置</a>进行采集。<br>外交与冲突频道需要有出处的结构化行动；未分类报道仍保留在综合频道。</div>{% endfor %}
-<div class="desk-row radar-pagination">{% if offset %}<a href="?{{ querystr }}&offset={{ [0,offset-limit]|max }}">上一页</a>{% endif %}{% if has_more %}<a href="?{{ querystr }}&offset={{ offset+limit }}">下一页</a>{% endif %}</div>
+<div class="desk-row radar-pagination"><span data-radar-pages data-page="{{ offset // limit + 1 }}" data-limit="{{ limit }}">第 {{ offset // limit + 1 }} 页 · 总页数统计中</span>{% if offset %}<a href="?{{ querystr }}&offset={{ [0,offset-limit]|max }}">上一页</a>{% endif %}{% if has_more %}<a href="?{{ querystr }}&offset={{ offset+limit }}">下一页</a>{% endif %}</div>
 </section>
 </div>
 <script src="/research-assets/knowledge.js" defer></script><script src="/research-assets/radar.js" defer></script>{% endblock %}

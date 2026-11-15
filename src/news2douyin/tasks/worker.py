@@ -66,7 +66,10 @@ class TaskWorker:
         thread = threading.Thread(target=heartbeat, daemon=True, name='news2douyin-heartbeat')
         thread.start()
         try:
-            if task.trigger_type == 'video':
+            if task.trigger_type == 'translation':
+                from ..translations.service import run_translation
+                run_translation(self.service.engine, task, self.storage_root, context)
+            elif task.trigger_type == 'video':
                 from ..video.render import run_video
                 run_video(self.service.engine, task, self.storage_root, context)
             elif task.trigger_type == 'script':

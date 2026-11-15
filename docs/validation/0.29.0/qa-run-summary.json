@@ -1,0 +1,104 @@
+{
+  "version": "0.29.0",
+  "recorded_at": "2026-11-14T09:38:37.482225+00:00",
+  "outcome": "passed",
+  "repository_suite": {
+    "command": "python -m pytest -q",
+    "passed": 957,
+    "skipped": 201,
+    "failed": 0,
+    "duration_seconds": 378.27,
+    "note": "Default environment has no configured PostgreSQL fixture URL; actual PostgreSQL and FalkorDB are exercised separately in attention-matrix.json. Final small UI/staleness additions also have targeted and browser coverage."
+  },
+  "installed_wheel": {
+    "isolated_mode": true,
+    "source_import_excluded": true,
+    "version": "0.29.0",
+    "smokes": {
+      "newsnow": {
+        "status": "passed",
+        "version": "0.29.0",
+        "checks": [
+          "packaged_provider_and_templates",
+          "real_local_http_json",
+          "configured_sources",
+          "durable_collection_worker",
+          "article_identity_and_version_dedup",
+          "metadata_without_event",
+          "unknown_publication_time",
+          "content_addressed_snapshots",
+          "small_frozen_checkpoints",
+          "durable_attention_inbox_and_worker",
+          "packaged_attention_ui",
+          "cached_no_fake_rise",
+          "attention_selection_to_workbench",
+          "frozen_original_text_required"
+        ],
+        "production_accessed": false
+      },
+      "intelligence": {
+        "status": "passed",
+        "version": "0.29.0",
+        "checks": [
+          "packaged_ui_resources",
+          "six_feeds",
+          "official_radar_deep_link",
+          "opt_in_count",
+          "source_overview",
+          "metadata_selection_handoff",
+          "durable_translation_worker",
+          "translation_preserves_source_hash",
+          "versioned_topic_recycle_and_restore"
+        ],
+        "remote_services_contacted": false,
+        "translation_provider": "deterministic local stub"
+      },
+      "core": {
+        "status": "passed",
+        "checks": [
+          "wheel_webui",
+          "mock_collection",
+          "script_package",
+          "bundled_prompts",
+          "bundled_templates",
+          "legacy_llm_import",
+          "packaged_asset_worker",
+          "cli_entrypoint",
+          "task_pages",
+          "task_sse",
+          "async_collection",
+          "cancel_and_retry",
+          "script_workbench_pages",
+          "script_edit_review",
+          "approved_archive",
+          "script_revision_restore",
+          "video_pages",
+          "video_capabilities"
+        ]
+      }
+    },
+    "note": "Fresh virtual environment installs the local wheel without dependency downloads; already-installed QA dependencies and optional legacy llm/assets extras are supplied through dependency-only paths. The product import is verified to come from the new wheel environment."
+  },
+  "integration_reports": [
+    "attention-matrix.json",
+    "attention-browser-sqlite.json",
+    "attention-browser-postgres-en_US.json"
+  ],
+  "counts_note": "Do not sum repository, locale, revalidation, browser and smoke counts: these overlap or exercise the same contracts in different environments.",
+  "package_validation": {
+    "wheel_source_bytes_match": true,
+    "sdist_source_bytes_match": true,
+    "new_templates_and_assets_present": true,
+    "archive_crc_and_sha256_manifest_verified": true
+  },
+  "production_accessed": false,
+  "deployed": false,
+  "private_newsnow_accessed": false,
+  "remote_model_contacted": false,
+  "limitations": [
+    "Controlled synthetic NewsNow HTTP snapshots validate mechanics, not real popularity or production load.",
+    "Grouping and event associations use conservative rules and bounded recent candidates, not verified semantic entity extraction.",
+    "Only observed Chinese hottest lists contribute to attention; list positions and changes are proxies, not audience reach or search volume.",
+    "Selected material remains a lead until original text is obtained and checked."
+  ]
+}

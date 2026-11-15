@@ -8,20 +8,69 @@ import json
 import os
 from pathlib import Path
 import re
+import zlib
 from threading import RLock
 from urllib.parse import urlsplit
 from zipfile import ZipFile
 from ..storage.models import utc_now_iso
 
 _LOCK=RLock()
-SCHEMA='''CREATE TABLE IF NOT EXISTS intake_records(
+PARSER_VERSION='gdelt-intake-2'
+SCHEMA="""CREATE TABLE IF NOT EXISTS intake_records_v2(
  feed VARCHAR, stamp VARCHAR, row_index BIGINT, record_id VARCHAR, document_date VARCHAR,
- url VARCHAR, title VARCHAR, metadata_json VARCHAR, valid BOOLEAN, error VARCHAR,
- raw_line VARCHAR, observed_at VARCHAR, PRIMARY KEY(feed,stamp,row_index));
+ url VARCHAR, title VARCHAR, valid BOOLEAN, error VARCHAR, observed_at VARCHAR,
+ search_text VARCHAR, payload BLOB, codec VARCHAR, raw_sha256 VARCHAR, raw_bytes BIGINT,
+ metadata_overlay_json VARCHAR DEFAULT '{}', parser_version VARCHAR DEFAULT 'gdelt-intake-2', PRIMARY KEY(feed,stamp,row_index));
 CREATE TABLE IF NOT EXISTS intake_archives(
  feed VARCHAR,stamp VARCHAR,sha256 VARCHAR,md5 VARCHAR,compressed_bytes BIGINT,
  archive_path VARCHAR,rows BIGINT,valid_rows BIGINT,invalid_rows BIGINT,
- completed_at VARCHAR,PRIMARY KEY(feed,stamp));'''
+ completed_at VARCHAR,PRIMARY KEY(feed,stamp));"""
+SUMMARY_COLUMNS='feed,stamp,row_index,record_id,document_date,url,title,valid,error,observed_at'
+
+
+def feed_kind(feed):
+    from .feeds import kind_for
+    return kind_for(feed)
+
+
+def decode_payload(raw,feed,stamp,index,observed):
+    if feed_kind(feed)=='gkg':return decoded_row(raw,feed,stamp,index,observed)
+    from .official_parser import decoded_row as official_row
+    return official_row(raw,feed,stamp,index,observed)
+
+
+def search_text(row):
+    metadata=row.get('metadata') or {}
+    fields=('persons','orgs','themes','locations','mention_iso','actor1_name','actor2_name',
+            'actor1_country','actor2_country','action_country','event_code','event_root_code')
+    return ' '.join(str(value) for value in (row.get('title',''),row.get('url',''),
+        *(metadata.get(name,'') for name in fields))).casefold()
+
+
+def packed_row(row,raw,*,metadata_overlay=None):
+    compressed=zlib.compress(raw,6)
+    payload,codec=(compressed,'zlib') if len(compressed)<len(raw) else (raw,'raw')
+    return [row.get(name,'') for name in SUMMARY_COLUMNS.split(',')]+[
+        search_text(row),payload,codec,hashlib.sha256(raw).hexdigest(),len(raw),
+        json.dumps(metadata_overlay or {},ensure_ascii=False,sort_keys=True),PARSER_VERSION]
+
+
+def unpack_payload(row):
+    payload=bytes(row['payload'])
+    maximum=positive_limit('NEWS2DOUYIN_GKG_MAX_EXPANDED_BYTES',1024*1024*1024)
+    expected=int(row['raw_bytes'])
+    if not 0<=expected<=maximum:raise ValueError('lake_payload_size_invalid')
+    if row['codec']=='zlib':
+        decoder=zlib.decompressobj()
+        raw=decoder.decompress(payload,expected+1)
+        if len(raw)>expected or decoder.unconsumed_tail or not decoder.eof or decoder.unused_data:
+            raise ValueError('lake_payload_compression_invalid')
+    elif row['codec']=='raw':raw=payload
+    else:raise ValueError('lake_payload_codec_unknown')
+    if len(raw)!=expected or hashlib.sha256(raw).hexdigest()!=row['raw_sha256']:
+        raise ValueError('lake_payload_hash_mismatch')
+    return raw
+
 
 
 def positive_limit(name,default):
@@ -40,7 +89,7 @@ def hashes(path):
 
 
 def validate_key(feed,stamp):
-    if feed not in ('gkg_english','gkg_translation'):raise ValueError('unknown_intake_feed')
+    feed_kind(feed)
     if not re.fullmatch(r'\d{14}',stamp or ''):raise ValueError('invalid_intake_stamp')
     dt=datetime.strptime(stamp,'%Y%m%d%H%M%S')
     if dt.second or dt.minute%15:raise ValueError('invalid_intake_stamp')
@@ -91,7 +140,8 @@ class Lake:
 
     @contextmanager
     def connection(self,create=False):
-        # DuckDB supports threads in one process; no process writes this file concurrently.
+        # One cooperating receiver process owns writes. Reads share this lock;
+        # HTTP never keeps a connection open while decoding large payloads.
         with _LOCK:
             if not create and not self.path.exists():yield None;return
             if create:self.root.mkdir(parents=True,exist_ok=True)
@@ -101,6 +151,11 @@ class Lake:
                 if create:connection.execute(SCHEMA)
                 yield connection
             finally:connection.close()
+
+    @staticmethod
+    def tables(connection):
+        return {row[0] for row in connection.execute(
+            "SELECT table_name FROM information_schema.tables WHERE table_schema='main'").fetchall()}
 
     def ingest_archive(self,feed,stamp,path,expected_md5='',expected_bytes=0):
         validate_key(feed,stamp)
@@ -121,8 +176,8 @@ class Lake:
                     members=archive.infolist()
                     if len(members)!=1:raise ValueError('archive_requires_one_data_member')
                     member=members[0]
-                    permitted={stamp+'.gkg.csv'} if feed=='gkg_english' else {stamp+'.gkg.csv',stamp+'.translation.gkg.csv'}
-                    if member.is_dir() or member.filename not in permitted:
+                    from .feeds import permitted_members
+                    if member.is_dir() or member.filename not in permitted_members(feed,stamp):
                         raise ValueError('unexpected_archive_member')
                     if member.file_size>maximum:raise ValueError('archive_expanded_size_limit')
                     consumed=0
@@ -130,41 +185,99 @@ class Lake:
                         for raw in source:
                             consumed+=len(raw)
                             if consumed>maximum:raise ValueError('archive_expanded_size_limit')
-                            total+=1;row=decoded_row(raw,feed,stamp,total,now);valid+=int(row['valid'])
-                            chunk.append([row[k] for k in ('feed','stamp','row_index','record_id','document_date','url','title')]+[json.dumps(row['metadata'],ensure_ascii=False),row['valid'],row['error'],row['raw_line'],now])
+                            total+=1;row=decode_payload(raw,feed,stamp,total,now);valid+=int(row['valid'])
+                            chunk.append(packed_row(row,raw))
                             if len(chunk)>=1000:
-                                connection.executemany('INSERT INTO intake_records VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',chunk);chunk=[]
+                                connection.executemany('INSERT INTO intake_records_v2 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',chunk);chunk=[]
                     if consumed!=member.file_size:raise ValueError('archive_expanded_size_mismatch')
-                if chunk:connection.executemany('INSERT INTO intake_records VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',chunk)
+                if chunk:connection.executemany('INSERT INTO intake_records_v2 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',chunk)
                 connection.execute('INSERT INTO intake_archives VALUES (?,?,?,?,?,?,?,?,?,?)',[feed,stamp,sha,md5,size,str(Path(path).resolve()),total,valid,total-valid,now])
                 connection.execute('COMMIT')
             except BaseException:
                 connection.execute('ROLLBACK');raise
         return dict(sha256=sha,md5=md5,compressed_bytes=size,archive_path=str(Path(path).resolve()),rows=total,valid_rows=valid,invalid_rows=total-valid,completed_at=now)
 
-    def _rows(self,query,values):
-        with self.connection() as connection:
-            if connection is None:return []
-            cursor=connection.execute(query,values);names=[d[0] for d in cursor.description]
-            result=[dict(zip(names,row)) for row in cursor.fetchall()]
-        for row in result:
-            if 'metadata_json' in row:row['metadata']=json.loads(row.pop('metadata_json'))
-        return result
+    @staticmethod
+    def material(row):
+        if 'payload' in row:
+            if row.get('parser_version')!=PARSER_VERSION:raise ValueError('lake_parser_version_unsupported')
+            raw=unpack_payload(row)
+            parsed=decode_payload(raw,row['feed'],row['stamp'],int(row['row_index']),row['observed_at'])
+            overlay=json.loads(row.get('metadata_overlay_json') or '{}')
+            for key in overlay.get('remove',[]):parsed['metadata'].pop(key,None)
+            parsed['metadata'].update(overlay.get('set',{}))
+            # Summary columns retain the interpretation used at ingestion.
+            parsed.update({name:row[name] for name in SUMMARY_COLUMNS.split(',')})
+            return parsed
+        row=dict(row)
+        if 'metadata_json' in row:row['metadata']=json.loads(row.pop('metadata_json'))
+        return row
 
     def rows(self,feed,stamp,after=0,limit=100):
         validate_key(feed,stamp)
-        return self._rows('SELECT * FROM intake_records WHERE feed=? AND stamp=? AND row_index>? ORDER BY row_index LIMIT ?',[feed,stamp,max(0,int(after)),max(1,min(int(limit),5000))])
+        after=max(0,int(after));limit=max(1,min(int(limit),5000))
+        with self.connection() as connection:
+            if connection is None:return []
+            tables=self.tables(connection)
+            for table in ('intake_records_v2','intake_records'):
+                if table not in tables:continue
+                cursor=connection.execute('SELECT * FROM '+table+' WHERE feed=? AND stamp=? AND row_index>? ORDER BY row_index LIMIT ?', [feed,stamp,after,limit])
+                names=[column[0] for column in cursor.description]
+                result=[dict(zip(names,row)) for row in cursor.fetchall()]
+                if result:break
+            else:result=[]
+        return [self.material(row) for row in result]
+
+    def raw_bytes(self,feed,stamp,row_index):
+        validate_key(feed,stamp)
+        with self.connection() as connection:
+            if connection is None:raise KeyError('lake_record_missing')
+            tables=self.tables(connection)
+            if 'intake_records_v2' in tables:
+                cursor=connection.execute('SELECT payload,codec,raw_sha256,raw_bytes FROM intake_records_v2 WHERE feed=? AND stamp=? AND row_index=?',[feed,stamp,row_index])
+                names=[column[0] for column in cursor.description];value=cursor.fetchone()
+                if value is not None:return unpack_payload(dict(zip(names,value)))
+            # Legacy raw_line lost newline bytes. Recover exact bytes only from
+            # the immutable ZIP, never pretend the decoded text is byte-exact.
+            archive=connection.execute('SELECT archive_path,sha256 FROM intake_archives WHERE feed=? AND stamp=?',[feed,stamp]).fetchone()
+        if not archive or not Path(archive[0]).is_file():raise ValueError('legacy_exact_bytes_require_archive')
+        if hashes(archive[0])[0]!=archive[1]:raise ValueError('archive_sha256_mismatch')
+        with ZipFile(archive[0]) as zipped:
+            members=zipped.infolist()
+            if len(members)!=1:raise ValueError('archive_requires_one_data_member')
+            with zipped.open(members[0]) as source:
+                for index,raw in enumerate(source,1):
+                    if index==row_index:return raw
+        raise KeyError('lake_record_missing')
+
+    def archive_reference(self,feed,stamp,row_index):
+        validate_key(feed,stamp)
+        with self.connection() as connection:
+            if connection is None:raise KeyError('archive_manifest_missing')
+            row=connection.execute('SELECT sha256 FROM intake_archives WHERE feed=? AND stamp=?',[feed,stamp]).fetchone()
+        if not row:raise KeyError('archive_manifest_missing')
+        return dict(feed=feed,stamp=stamp,row_index=int(row_index),archive_sha256=row[0],parser_version=PARSER_VERSION)
 
     def search(self,q='',feed='',limit=50,offset=0):
+        if feed:feed_kind(feed)
         conditions=[];values=[]
-        if feed:
-            if feed not in ('gkg_english','gkg_translation'):raise ValueError('unknown_intake_feed')
-            conditions.append('feed=?');values.append(feed)
+        if feed:conditions.append('feed=?');values.append(feed)
         if q:
-            conditions.append('(contains(lower(title),lower(?)) OR contains(lower(url),lower(?)) OR contains(lower(metadata_json),lower(?)))');values.extend([q,q,q])
+            conditions.append('contains(search_text,lower(?))');values.append(q)
         where=' WHERE '+' AND '.join(conditions) if conditions else ''
         with self.connection() as connection:
             if connection is None:return dict(items=[],total=0)
-            total=connection.execute('SELECT count(*) FROM intake_records'+where,values).fetchone()[0]
-        items=self._rows('SELECT * FROM intake_records'+where+' ORDER BY stamp DESC,feed,row_index LIMIT ? OFFSET ?',values+[max(1,min(int(limit),200)),max(0,int(offset))])
-        return dict(items=items,total=total)
+            tables=self.tables(connection);parts=[]
+            if 'intake_records_v2' in tables:parts.append('SELECT '+SUMMARY_COLUMNS+',search_text FROM intake_records_v2')
+            if 'intake_records' in tables:
+                # Legacy queries inspect text metadata but return narrow rows;
+                # existing archives are not rewritten on service startup.
+                parts.append('SELECT '+SUMMARY_COLUMNS+",lower(title||' '||url||' '||coalesce(metadata_json,'')) AS search_text FROM intake_records")
+            if not parts:return dict(items=[],total=0)
+            source='('+' UNION ALL '.join(parts)+') AS archived'
+            total=connection.execute('SELECT count(*) FROM '+source+where,values).fetchone()[0]
+            cursor=connection.execute('SELECT '+SUMMARY_COLUMNS+' FROM '+source+where+
+                ' ORDER BY stamp DESC,feed,row_index LIMIT ? OFFSET ?',values+[max(1,min(int(limit),200)),max(0,int(offset))])
+            names=[column[0] for column in cursor.description]
+            items=[dict(zip(names,row)) for row in cursor.fetchall()]
+        return dict(items=items,total=total,search_scope='title_url_entities_themes_places')

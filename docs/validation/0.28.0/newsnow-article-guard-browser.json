@@ -1,0 +1,61 @@
+{
+  "ok": true,
+  "browser": "153.0.8010.0",
+  "results": {
+    "desktop": {
+      "fixed_metadata_revision_blocked": true,
+      "full_text_revision_allowed": true,
+      "metadata_bounds": {
+        "width": 1440,
+        "scroll": 1440
+      },
+      "full_text_bounds": {
+        "width": 1440,
+        "scroll": 1440
+      }
+    },
+    "mobile": {
+      "fixed_metadata_revision_blocked": true,
+      "full_text_revision_allowed": true,
+      "metadata_bounds": {
+        "width": 390,
+        "scroll": 390
+      },
+      "full_text_bounds": {
+        "width": 390,
+        "scroll": 390
+      }
+    }
+  },
+  "state": {
+    "counts": {
+      "Article": 1,
+      "ArticleVersion": 2,
+      "Event": 1
+    },
+    "articles": [
+      {
+        "key": "117480176104a189c0d45876",
+        "title": "Saved full report",
+        "published_at": "2026-11-14T07:00:00Z",
+        "content": "Donald Trump announced a tariff decision in this saved full report."
+      }
+    ],
+    "upstream_calls": [
+      "zhihu"
+    ],
+    "graph_calls": 0,
+    "manifests": 1
+  },
+  "page_errors": [],
+  "failed_requests": [],
+  "version": "0.28.0",
+  "recorded_at": "2026-11-14T08:27:28+00:00",
+  "real_http": true,
+  "real_chromium": true,
+  "database": "disposable SQLite",
+  "provider": "disposable NewsNow-shaped HTTP fixture from documented field shapes",
+  "production_accessed": false,
+  "remote_model_contacted": false,
+  "graph_http_calls": 0
+}

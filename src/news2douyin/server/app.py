@@ -101,10 +101,16 @@ def create_app(*, db_url: str | None = None, storage_root: str = 'runs_v7') -> F
         if not app.state.intake.status_error:
             with startup.phase('workers.intake_projection'):
                 app.state.intake_projection.start()
+        with startup.phase('workers.attention'):
+            app.state.attention.start()
+        with startup.phase('workers.source_content'):
+            app.state.source_content.start()
         startup.ready()
         try:
             yield
         finally:
+            app.state.source_content.stop()
+            app.state.attention.stop()
             app.state.intake.stop()
             app.state.intake_projection.stop()
             app.state.desk.stop()
@@ -141,6 +147,10 @@ def create_app(*, db_url: str | None = None, storage_root: str = 'runs_v7') -> F
     app.state.scheduler = scheduler
     app.state.tasks = tasks
     app.state.worker = worker
+    from ..attention.runtime import AttentionWorker
+    app.state.attention = AttentionWorker(engine, storage_root)
+    from ..selection.source_runtime import SourceContentWorker
+    app.state.source_content = SourceContentWorker(engine,storage_root)
     from ..intake.runtime import IntakeWorker
     from ..intake.projection import ProjectionWorker
     with startup.phase('application.intake'):
@@ -158,6 +168,10 @@ def create_app(*, db_url: str | None = None, storage_root: str = 'runs_v7') -> F
 
     from .topics import register_topic_routes
     register_topic_routes(app,engine)
+    from .translations import register as register_translation_routes
+    register_translation_routes(app,engine)
+    from .source_content import register as register_source_content
+    register_source_content(app,engine)
 
     @app.get('/api/health')
     def health():

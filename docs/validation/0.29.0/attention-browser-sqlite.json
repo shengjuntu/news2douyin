@@ -1,0 +1,123 @@
+{
+  "ok": true,
+  "browser": "153.0.8010.0",
+  "results": {
+    "initial_without_javascript": {
+      "cached_warning": true,
+      "failed_source_unknown": true,
+      "bounds": {
+        "width": 390,
+        "scroll": 390
+      }
+    },
+    "desktop": {
+      "page_ready_ms": 157,
+      "list_bounds": {
+        "width": 1440,
+        "scroll": 1440
+      },
+      "detail_bounds": {
+        "width": 1440,
+        "scroll": 1440
+      },
+      "chart_points": 3,
+      "manual_confirm_reject": true,
+      "handoff": {
+        "url": "/workbench/topic_e3e9b84889aeb1cc6037669c/selection",
+        "lead_count": 4,
+        "original_text_required": true,
+        "bounds": {
+          "width": 1440,
+          "scroll": 1440
+        }
+      }
+    },
+    "mobile": {
+      "page_ready_ms": 140,
+      "list_bounds": {
+        "width": 390,
+        "scroll": 390
+      },
+      "detail_bounds": {
+        "width": 390,
+        "scroll": 390
+      },
+      "chart_points": 3,
+      "manual_decisions_persisted": true,
+      "handoff": {
+        "url": "/workbench/topic_99952d63c25eb6413485270a/selection",
+        "lead_count": 4,
+        "original_text_required": true,
+        "bounds": {
+          "width": 390,
+          "scroll": 390
+        }
+      }
+    },
+    "filter": {
+      "query": true,
+      "rising_order": true,
+      "bounds": {
+        "width": 390,
+        "scroll": 390
+      }
+    },
+    "backfill_recovery": {
+      "visible_failure": true,
+      "explicit_rescan_cleared_error": true,
+      "bounds": {
+        "width": 390,
+        "scroll": 390
+      }
+    }
+  },
+  "state": {
+    "counts": {
+      "Article": 8,
+      "Event": 0,
+      "AttentionInbox": 3,
+      "AttentionTopic": 5,
+      "AttentionItem": 8
+    },
+    "prohibited_calls": 0,
+    "upstream_calls": 21
+  },
+  "page_errors": [],
+  "failed_requests": [],
+  "remote_requests": [],
+  "version": "0.29.0",
+  "recorded_at": "2026-11-14T09:33:15Z",
+  "real_http": true,
+  "database": "sqlite",
+  "postgres_locale": "",
+  "collection_rounds": [
+    {
+      "round": 0,
+      "task": "succeeded"
+    },
+    {
+      "round": 1,
+      "task": "succeeded"
+    },
+    {
+      "round": 2,
+      "task": "succeeded"
+    }
+  ],
+  "fixture": "synthetic NewsNow HTTP snapshots, not measured real popularity",
+  "production_accessed": false,
+  "remote_model_contacted": false,
+  "graph_or_lake_interactive_calls": 0,
+  "observation_clock": "Synthetic 20-minute intervals; HTTP and the durable TaskWorker are real.",
+  "timing_method": "Navigation until visible topics and completed status fetch; not paint timing or production performance.",
+  "attention_get_sql_audit": {
+    "executions": 63,
+    "writes": 0,
+    "count_queries": 0
+  },
+  "screenshots": "Visually reviewed in scratch only; not included in the release.",
+  "limitations": [
+    "Synthetic NewsNow-shaped HTTP fixture; not real source availability or measured public attention.",
+    "No production/private service, original-news site, or model endpoint was contacted."
+  ]
+}

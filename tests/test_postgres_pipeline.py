@@ -117,12 +117,20 @@ def test_background_pipeline_keeps_read_pages_available_and_external_io_outside_
     }
     monkeypatch.setenv('NEWS2DOUYIN_GKG_STREAM_ENABLED','1')
     monkeypatch.setenv('NEWS2DOUYIN_GKG_PROJECTION_ENABLED','1')
+    # This fixture exercises the legacy two-GKG full extraction/graph path.
+    # The default discovery-only path and all six feeds have separate tests.
+    monkeypatch.setenv('NEWS2DOUYIN_GKG_AUTO_EVENTS','1')
     monkeypatch.setenv('NEWS2DOUYIN_GKG_PROJECTION_CHUNK','6')
     monkeypatch.setenv('NEWS2DOUYIN_GKG_PROJECTION_BUDGET_MS','100')
     monkeypatch.setenv('NEWS2DOUYIN_EVENT_READER','rules')
     storage=tmp_path/'runs'
     app=create_app(db_url=pipeline_postgres_url,storage_root=str(storage))
     engine=app.state.engine
+    with Session(engine) as session:
+        for feed in session.exec(select(FeedState)):
+            if feed.key not in fixtures:
+                feed.enabled=False;session.add(feed)
+        session.commit()
     active={};mutex=Lock();violations=[];boundaries=Counter()
 
     def began(connection):
@@ -206,7 +214,7 @@ def test_background_pipeline_keeps_read_pages_available_and_external_io_outside_
             with Session(engine) as session:
                 batches=session.exec(select(IntakeBatch)).all()
                 assert len(batches)==2 and all(b.state=='archived' and b.projected_offset==b.rows for b in batches)
-                assert all(f.last_complete==stamp and f.next_batch=='20261104121500' for f in session.exec(select(FeedState)))
+                assert all(f.last_complete==stamp and f.next_batch=='20261104121500' for f in session.exec(select(FeedState).where(FeedState.enabled==True)))
                 for model,total in ((IntakeProjectionReceipt,38),(Article,35),(ArticleVersion,35),(Event,34)):
                     assert session.exec(select(func.count()).select_from(model)).one()==total
                 assert session.exec(select(func.count()).select_from(TextMention)).one()>0

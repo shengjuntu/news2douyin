@@ -1,0 +1,66 @@
+{
+  "status": "passed",
+  "version": "0.28.0",
+  "python": "3.12",
+  "isolated_mode": true,
+  "outside_source_checkout": true,
+  "wheel_sha256": "3fb80b5f1eaba7c504bb1df7c4a423576c9708b3943b8eb67a4942168d996458",
+  "core": {
+    "status": "passed",
+    "checks": [
+      "wheel_webui",
+      "mock_collection",
+      "script_package",
+      "bundled_prompts",
+      "bundled_templates",
+      "legacy_llm_import",
+      "packaged_asset_worker",
+      "cli_entrypoint",
+      "task_pages",
+      "task_sse",
+      "async_collection",
+      "cancel_and_retry",
+      "script_workbench_pages",
+      "script_edit_review",
+      "approved_archive",
+      "script_revision_restore",
+      "video_pages",
+      "video_capabilities"
+    ]
+  },
+  "intelligence": {
+    "status": "passed",
+    "version": "0.28.0",
+    "checks": [
+      "packaged_ui_resources",
+      "six_feeds",
+      "official_radar_deep_link",
+      "opt_in_count",
+      "source_overview",
+      "metadata_selection_handoff",
+      "durable_translation_worker",
+      "translation_preserves_source_hash",
+      "versioned_topic_recycle_and_restore"
+    ],
+    "remote_services_contacted": false,
+    "translation_provider": "deterministic local stub"
+  },
+  "newsnow": {
+    "status": "passed",
+    "version": "0.28.0",
+    "checks": [
+      "packaged_provider_and_templates",
+      "real_local_http_json",
+      "configured_sources",
+      "durable_collection_worker",
+      "article_identity_and_version_dedup",
+      "metadata_without_event",
+      "unknown_publication_time",
+      "content_addressed_snapshots",
+      "small_frozen_checkpoints"
+    ],
+    "production_accessed": false
+  },
+  "dependencies": "new installed package; general QA dependencies reused through explicit site .pth",
+  "production_accessed": false
+}

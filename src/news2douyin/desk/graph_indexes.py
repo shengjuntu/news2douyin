@@ -16,10 +16,12 @@ AUDIT_INTERVAL = 300.0
 POLL_INTERVAL = .5
 ERROR_INTERVAL = 5.0
 
-GLOBAL_INDEXES = tuple((label, 'id') for label in (
+_BASE_INDEXES = tuple((label, 'id') for label in (
     'GraphMeta', 'Event', 'Article', 'Entity', 'EventMention', 'Argument',
     'Referent', 'OccurrenceCandidate', 'Focus')) + (('Place', 'iso'),)
-FOCUS_INDEXES = GLOBAL_INDEXES + tuple((label, 'id') for label in (
+GLOBAL_INDEXES = _BASE_INDEXES + tuple((label, 'key') for label in (
+    'AttentionTopic', 'AttentionSourceItem', 'SourceEvent'))
+FOCUS_INDEXES = _BASE_INDEXES + tuple((label, 'id') for label in (
     'Question', 'OutlinePoint', 'Investigation', 'ResearchQuestion', 'Claim',
     'EvidenceRef', 'Report', 'InterestScope', 'InterestEntity', 'InterestPattern'))
 

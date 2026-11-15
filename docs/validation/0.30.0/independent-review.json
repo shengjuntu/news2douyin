@@ -1,0 +1,199 @@
+{
+  "schema": 1,
+  "release": "0.30.0",
+  "status": "passed",
+  "recorded_at": "2026-11-14T13:18:05.974374+00:00",
+  "owner": "/root/event_qa0300",
+  "role": "Independent QA: new tests, tools and reports only; product code owned by implementation agents.",
+  "user_problem": "Coded actor/action/country labels do not tell an editor what happened and cannot support topic selection.",
+  "assessment": "Real related-report headlines and excerpts are now the primary card content. Missing and failed content stays explicit; coding is secondary and never used to invent a report.",
+  "final_frozen_product_verified": true,
+  "unresolved_release_blockers_in_tested_scope": [],
+  "production_accessed": false,
+  "public_news_accessed": false,
+  "real_llm_called": false,
+  "initial_focused_matrix": {
+    "report": "event-content-matrix.json",
+    "phases": [
+      {
+        "mode": "sqlite",
+        "counts": {
+          "passed": 124,
+          "skipped": 53
+        }
+      },
+      {
+        "mode": "postgres-c",
+        "counts": {
+          "passed": 177
+        }
+      },
+      {
+        "mode": "postgres-en-us",
+        "counts": {
+          "passed": 177
+        }
+      }
+    ],
+    "note": "Predates the final bounded-Mentions refinement and small UI changes. Unchanged fetch/parser/budget paths are covered here."
+  },
+  "final_affected_matrix": {
+    "report": "event-content-final-delta.json",
+    "phases": [
+      {
+        "mode": "sqlite",
+        "counts": {
+          "passed": 54,
+          "skipped": 33
+        }
+      },
+      {
+        "mode": "postgres-c",
+        "counts": {
+          "passed": 87
+        }
+      },
+      {
+        "mode": "postgres-en-us",
+        "counts": {
+          "passed": 87
+        }
+      }
+    ],
+    "source_changed_during_run": false,
+    "tests": [
+      "tests/test_source_content_runtime.py",
+      "tests/test_event_report_cards.py",
+      "tests/test_event_report_ui.py",
+      "tests/test_event_content_journey.py",
+      "tests/test_event_source_query_budget.py",
+      "tests/test_selection_backend.py",
+      "tests/test_event_metadata_handoff.py"
+    ],
+    "note": "Frozen final product; includes independent VM work budgets for unique and same-batch timestamps, real PostgreSQL plans, cards, source worker, HTTP journey, selection and material handoff."
+  },
+  "count_note": "Phases and the whole-repository suite overlap. Do not add their pass totals.",
+  "actual_postgres": {
+    "version": "16.2",
+    "collations": [
+      "C",
+      "en_US.utf8"
+    ],
+    "disposable_loopback_clusters": true
+  },
+  "independently_verified_behaviors": [
+    "Local ArticleIdentity hash lookup supplies real saved headlines, excerpts and language on the first SSR/GET without background writes.",
+    "OfficialMention-only document association works; one document shared by multiple event codes is labelled a related-report lead, not a verified event assertion.",
+    "Real controlled HTTP goes through public-address validation and IP-pinned safe_fetch to the real parser, worker, cache and subsequent GET.",
+    "Tracking aliases share one durable job and preview; network fetches hold no checked-out SQL connection.",
+    "403/blocked HTML stays a visible content gap; an explicit retry can recover after the source becomes readable.",
+    "Selected title, excerpt, provenance and hashes freeze as TopicSource research leads; later cache updates do not change them.",
+    "Source-preview translation queues the visible real title and excerpt, freezes input, and uses a deterministic task-worker model stub.",
+    "Reading GETs are SQL-only and read-only, do not open the raw archive or HTTP/LLM, and the new card/status polling endpoints do not COUNT.",
+    "Page source lookup has bounded query count for 1 versus 30 events, uses ArticleIdentity IN lookups and narrow SQL substr fields, not full ArticleVersion/raw payloads or long-URL equality scans.",
+    "A newly arrived local Article wins over an in-flight remote preview without overwriting local news or creating a researched Event.",
+    "Foreign-Origin writes, arbitrary URL payload fields, oversized requests and invalid event identifiers are refused.",
+    "Durable retry caps, title-only supplementation, concurrent enqueue, lease expiry and stale-publisher fencing pass on both databases.",
+    "No-source and disabled-worker states remain explicit; coding-only records cannot fabricate report content."
+  ],
+  "security_and_budget_coverage": {
+    "report": "event-content-matrix.json",
+    "test_file": "tests/test_source_fetch_budget.py",
+    "checks": [
+      "public-only DNS and pinned IPs",
+      "standard ports and no URL credentials",
+      "redirect revalidation and five-hop ceiling",
+      "one absolute deadline across bounded DNS, headers, redirect hops and slow body",
+      "decoded byte ceiling",
+      "real local TLS hostname verification and detached-socket deadline interruption"
+    ],
+    "transport": "Loopback-only synthetic HTTP/TLS; no public source or production service was contacted."
+  },
+  "performance_issue_found_and_fixed": {
+    "finding": "Window ranking by confidence scanned and sorted all historical Mentions of a hot event to return only three previews.",
+    "measured_before": {
+      "mentions_100": 7013,
+      "mentions_5000": 345103,
+      "unit": "SQLite VM instructions",
+      "returned_reports": 3
+    },
+    "fix": "Card previews read at most 12 recent indexed candidates per event, then choose up to 3 in memory; detail reads at most 31 recent rows. Recency SQL omits unindexed key tie sorting.",
+    "verified_after": {
+      "test": "tests/test_event_source_query_budget.py",
+      "timestamp_distributions": [
+        "distinct recency",
+        "same batch timestamp"
+      ],
+      "history_growth": "100 to 5000 rows",
+      "instruction_growth_limit": "at most 3x",
+      "status": "passed"
+    },
+    "query_scope": "Confidence ranking is only within recent candidates, explicitly surfaced in response scope metadata; it is not all-history top confidence."
+  },
+  "browser_evidence": {
+    "owner": "/root/event_ui0300",
+    "reports": [
+      "event-reports-browser-sqlite.json",
+      "event-reports-browser-pg-enus.json"
+    ],
+    "chromium": "153.0.8010.0",
+    "widths": [
+      1440,
+      390
+    ],
+    "get_writes": {
+      "sqlite": 0,
+      "postgres": 0
+    },
+    "screenshots_included": false,
+    "note": "Browser fetch/parser and translation task-worker flows use deterministic synthetic source/model stubs; the independent HTTP journey separately exercises the real safe-fetch transport."
+  },
+  "root_release_checks": {
+    "report": "release-validation.json",
+    "whole_suite": {
+      "passed": 1097,
+      "skipped": 274,
+      "warnings": 15,
+      "note": "Collected before final Mention refinements; final affected matrix above covers those changes."
+    },
+    "installed_wheel_smokes": [
+      "core",
+      "intelligence",
+      "newsnow",
+      "stability",
+      "event_content"
+    ],
+    "all_smokes_passed": true,
+    "common_product_hashes_matched": 324
+  },
+  "limits": [
+    "No real public news site, production database, production FalkorDB or real LLM provider was exercised; availability and translation quality of a user deployment remain outside this controlled QA.",
+    "Headlines and excerpts remain source-reading leads, not acquired fulltext or verification of a coded event. Source-only short drafting stays blocked.",
+    "Background discovery is deliberately bounded to the newest 60 events seen in seven days; manual current-page requests are prioritized. This does not assert full historical source enrichment.",
+    "Access-restricted, PDF and non-article sources may remain missing/title-only and require the later research/material-reading stage."
+  ],
+  "reproduction": {
+    "full_focused": "python tools/run_event_content_qa.py",
+    "final_affected": "python tools/run_event_content_qa.py --output docs/validation/0.30.0/event-content-final-delta.json --tests tests/test_source_content_runtime.py tests/test_event_report_cards.py tests/test_event_report_ui.py tests/test_event_content_journey.py tests/test_event_source_query_budget.py tests/test_selection_backend.py tests/test_event_metadata_handoff.py"
+  },
+  "source_sha256": {
+    "src/news2douyin/research/sources.py": "63dfaaf285330982541190704f99ef9fe6347ca967520394fe429e4ad6d17e7c",
+    "src/news2douyin/selection/event_content.py": "f826dc52f17eeb5a0fda96104d9b90a09ac3a8eaf520eaaec9727daeee0ece46",
+    "src/news2douyin/selection/service.py": "274aedd261e149089ce034d70ee228a200ab0a7d4a3b18e06e42bec201646d32",
+    "src/news2douyin/selection/source_content.py": "d9582aeae271dcc1c796f52c70af42e929215ffc65df9ac6f4baecf748f0f30f",
+    "src/news2douyin/selection/source_fetch.py": "e0ba4f69ab05f0f3d13cf43b176c02d5344dba98b84c7f6ccb3aa85e6f6aacaf",
+    "src/news2douyin/selection/source_models.py": "533fdca4da3e5c876eb815aea25a9b60b859d0a80dcf019a3c2d589e692207dc",
+    "src/news2douyin/selection/source_runtime.py": "af60686b0c39c2e35cc131020de75bc5b584ed4ea9a84e3d2db39b064ce92b39",
+    "src/news2douyin/server/app.py": "0c4a94ab1e4c456c867a655e59d9d27cb13e61e697a6c5d21d7bd38bb3516d0a",
+    "src/news2douyin/server/source_content.py": "3760dfbb9cc79cb568a0cab969a433c5b4451d0f2b331e239d57f8961531ac87",
+    "src/news2douyin/server/static/gdelt-events.js": "5d91a93cb4f693fd8e904db3cc71c7acbfcfe1be2a15556c1e997fb4ec2524a1",
+    "src/news2douyin/server/templates/gdelt_events.html": "bde493970216ee8f8598b13a4635c643b4be9d2d1b07d109b04b48c259ff5b05",
+    "src/news2douyin/server/translations.py": "44deda77d031dd65079ccbe1c750a88e388c661b65acf37659054453b74ca520",
+    "src/news2douyin/translations/service.py": "b03906c02cbd81833bee80bb8fb2e99dfef5aab900d05bcccba450583e0f043a",
+    "tests/test_event_content_journey.py": "478bb1ddd2a709cb4dee3466cc2806ee68183a583d4cf633b133af0b5aa9ccf3",
+    "tests/test_event_source_query_budget.py": "808610f30c9a29bd0145e2920f47b5f30522658a6d075486bcad8661ae89dd71",
+    "tests/event_content_test_support.py": "76ff146b6729c26f91d4ece7ba0f7bda5fe282b1f1deefd4889fff855305c325",
+    "tools/run_event_content_qa.py": "f43a30256beb41e0130d6eb68e71b82176ca0bed2697aa365ac2b1b5b7eefb48"
+  },
+  "source_manifest": "event-content-final-delta.json#source_sha256_after"
+}

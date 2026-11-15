@@ -1,0 +1,100 @@
+{
+  "ok": true,
+  "browser": "153.0.8010.0",
+  "results": {
+    "desktop": {
+      "saved_source_selection": true,
+      "default_rules": true,
+      "unknown_language_not_fabricated": true,
+      "source_diagnostics_visible": true,
+      "dry_run_no_article": true,
+      "bounds": {
+        "width": 1440,
+        "scroll": 1440
+      }
+    },
+    "mobile": {
+      "saved_source_selection": true,
+      "default_rules": true,
+      "unknown_language_not_fabricated": true,
+      "source_diagnostics_visible": true,
+      "dry_run_no_article": true,
+      "bounds": {
+        "width": 390,
+        "scroll": 390
+      }
+    },
+    "article": {
+      "excerpt_labelled": true,
+      "unknown_publication_visible": true,
+      "bounds": {
+        "width": 390,
+        "scroll": 390
+      }
+    },
+    "all_failed": {
+      "explicit_failure": true,
+      "source_diagnostics_visible": true,
+      "bounds": {
+        "width": 390,
+        "scroll": 390
+      }
+    }
+  },
+  "state": {
+    "counts": {
+      "Article": 3,
+      "ArticleVersion": 3,
+      "Event": 0
+    },
+    "articles": [
+      {
+        "key": "7b7464c7c9ba4aea179cdeff",
+        "title": "一汽解放发动机通过认证",
+        "published_at": "2026-11-14T06:45:58Z",
+        "content": ""
+      },
+      {
+        "key": "117480176104a189c0d45876",
+        "title": "关税调整将怎样影响普通家庭？",
+        "published_at": "",
+        "content": "这是保存的摘要线索，尚未读取来源全文。"
+      },
+      {
+        "key": "9cfac30c6149bc8b85f651a5",
+        "title": "港口运输出现了哪些变化？",
+        "published_at": "",
+        "content": ""
+      }
+    ],
+    "upstream_calls": [
+      "cls",
+      "fastbull",
+      "weibo",
+      "zhihu",
+      "cls",
+      "fastbull",
+      "weibo",
+      "zhihu",
+      "cls",
+      "fastbull",
+      "weibo",
+      "zhihu",
+      "broken",
+      "html"
+    ],
+    "graph_calls": 0,
+    "manifests": 4
+  },
+  "page_errors": [],
+  "failed_requests": [],
+  "version": "0.28.0",
+  "recorded_at": "2026-11-14T08:21:00+00:00",
+  "real_http": true,
+  "real_chromium": true,
+  "database": "disposable SQLite",
+  "provider": "disposable NewsNow-shaped HTTP fixture from documented field shapes",
+  "production_accessed": false,
+  "remote_model_contacted": false,
+  "graph_http_calls": 0
+}

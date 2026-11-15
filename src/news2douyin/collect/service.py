@@ -12,7 +12,7 @@ from sqlmodel import Session, select
 
 from .profiles import PROFILE_FIELDS, normalize_profile_dict, load_profile_file
 from .providers.gdelt import fetch_news as fetch_gdelt, query_for as gdelt_query
-from .providers import gkg
+from .providers import gkg,newsnow
 from ..desk.models import GkgSource
 from .providers.mock import fetch_mock_news
 from .providers.worldnewsapi import fetch_news as fetch_worldnewsapi
@@ -29,6 +29,7 @@ PROVIDERS = {
     'mock': fetch_mock_news,
     'gdelt': fetch_gdelt,
     'gkg': gkg.fetch_news,
+    'newsnow': newsnow.fetch_news,
 }
 
 
@@ -66,6 +67,7 @@ def create_or_update_profile(session: Session, profile: dict[str, Any]) -> Colle
     if profile['provider'] == 'gdelt':
         gdelt_query(profile)
     if profile['provider']=='gkg':gkg.validate(profile)
+    if profile['provider']=='newsnow':newsnow.validate(profile)
     lock_news(session, 'profile:' + profile['name'])
     row = session.exec(select(CollectProfile).where(CollectProfile.name == profile['name'])).first()
     now = utc_now_iso()
@@ -174,6 +176,7 @@ def run_collection(session: Session, profile_name: str, *, storage_root: str | P
     session.add(run)
     session.commit(); session.refresh(run)
 
+    newsnow_report={}
     try:
         provider = profile.get('provider', 'worldnewsapi')
         fetcher = PROVIDERS.get(provider)
@@ -183,10 +186,53 @@ def run_collection(session: Session, profile_name: str, *, storage_root: str | P
         if control:
             control.progress('fetching')
         raw_items = control.checkpoint('raw') if control else None
+        if provider=='newsnow':
+            from .newsnow_archive import persist_batch,save_stage,load_stage
+            newsnow_report=(control.checkpoint('newsnow_report') or {}) if control else {}
+            if isinstance(raw_items,dict) and raw_items.get('schema')=='newsnow_stage_v1':
+                raw_items=load_stage(storage_root,raw_items)
         if raw_items is None:
-            raw_items = list(fetcher(profile))
+            if provider=='newsnow':
+                # End any refresh/checkpoint read transaction before HTTP.
+                session.commit()
+                try:
+                    batch=newsnow.fetch_batch(profile,check_cancel=control.check if control else None)
+                except newsnow.NewsNowUnavailable as exc:
+                    newsnow_report=persist_batch(storage_root,run_dir,exc.batch)
+                    diagnostics=dict(newsnow=newsnow_report,fetched=0,kept=0,counts={})
+                    write_json(run_dir/'diagnostics.json',diagnostics)
+                    run.stats_json=dumps(dict(provider=provider,fetched=0,after_filter=0,
+                        newsnow=newsnow_report,diagnostics=diagnostics))
+                    if control:control.fence(session)
+                    session.add(run);session.commit()
+                    if trigger_type != 'profile_test':
+                        from ..attention.runtime import enqueue_manifest
+                        run_id=run.id;session.commit()
+                        enqueue_manifest(session.get_bind(),storage_root,newsnow_report,run_id)
+                    raise
+                newsnow_report=persist_batch(storage_root,run_dir,batch)
+                refs={row['source_id']:row for row in newsnow_report.get('snapshots',[])}
+                raw_items=batch['items']
+                for item in raw_items:
+                    attrs=item.get('newsnow') or {}
+                    ref=refs.get(attrs.get('source_id'))
+                    if ref:attrs['archive_ref']={key:ref[key] for key in ('archive_ref','archive_sha256','archive_bytes','representation') if key in ref}
+                    item['newsnow']=attrs
+                # Until raw is frozen, a recovered attempt may fetch a newer
+                # observation; replace the orphaned report from that window.
+                if control:control.save_checkpoint('newsnow_report',newsnow_report,replace=True)
+            else:
+                raw_items = list(fetcher(profile))
             if control:
-                control.save_checkpoint('raw', raw_items)
+                control.save_checkpoint('raw',save_stage(storage_root,run_dir,'raw',raw_items) if provider=='newsnow' else raw_items)
+        if provider=='newsnow' and newsnow_report and trigger_type!='profile_test':
+            # Publish every formal source observation, before article-level
+            # filters. Failed sources and empty lists are observations too.
+            # Recovered collection tasks enqueue the same immutable manifest.
+            from ..attention.runtime import enqueue_manifest
+            if control:control.fence(session)
+            run_id=run.id;session.commit()
+            enqueue_manifest(session.get_bind(),storage_root,newsnow_report,run_id)
         if control:
             control.fence(session)
         write_jsonl(run_dir / 'raw.jsonl', raw_items)
@@ -197,21 +243,30 @@ def run_collection(session: Session, profile_name: str, *, storage_root: str | P
         if control:
             control.progress('filtering', 0, len(raw_items))
         saved_filter = control.checkpoint('filtered') if control else None
+        if provider=='newsnow' and isinstance(saved_filter,dict) and saved_filter.get('schema')=='newsnow_stage_v1':
+            saved_filter=load_stage(storage_root,saved_filter)
         diagnostics = {}
         if saved_filter is None:
             filtered, filter_mode = llm_filter_items(raw_items, profile, check_cancel=control.check if control else None,
                                                     diagnostics=diagnostics)
+            if newsnow_report:diagnostics['newsnow']=newsnow_report
             if control:
-                control.save_checkpoint('filtered', {'items': filtered, 'mode': filter_mode, 'diagnostics': diagnostics})
+                frozen={'items':filtered,'mode':filter_mode,'diagnostics':diagnostics}
+                if provider=='newsnow':
+                    pointer=save_stage(storage_root,run_dir,'filtered',frozen)
+                    control.save_checkpoint('filtered',dict(pointer,mode=filter_mode,diagnostics=diagnostics,kept_count=len(filtered)))
+                else:control.save_checkpoint('filtered',frozen)
         else:
             filtered, filter_mode = saved_filter['items'], saved_filter['mode']
             diagnostics = saved_filter.get('diagnostics', {})
+        if newsnow_report:diagnostics['newsnow']=newsnow_report
         if trigger_type == 'profile_test':
             stats = {'dry_run': True, 'fetched': len(raw_items), 'after_filter': len(filtered),
                      'filter_mode': filter_mode, 'stored_articles': 0, 'updated_articles': 0,
                      'skipped_existing': 0, 'duplicate_reports': 0, 'duplicates': 0, 'events_delta': 0,
                      'diagnostics': diagnostics, 'provider': provider, 'profile_name': profile_name,
                      'collection_date': profile['date_str'], 'timezone': profile['timezone']}
+            if newsnow_report:stats['newsnow']=newsnow_report
             if control:
                 control.progress('exporting', len(filtered), len(filtered))
                 control.fence(session)
@@ -239,6 +294,10 @@ def run_collection(session: Session, profile_name: str, *, storage_root: str | P
                 if control.item_done(session, index):
                     continue
             item = enrich_item(dict(item), profile)
+            if provider=='newsnow':
+                # Full per-source extras already live in the response archive.
+                # Do not duplicate arbitrary/large extras in every SQL version.
+                item.pop('newsnow_extra',None)
             item['provider'] = provider
             item['country'] = (item.get('country') or profile.get('country', 'us')).lower()
             item['language'] = item.get('language') or profile.get('language', 'en')
@@ -249,8 +308,17 @@ def run_collection(session: Session, profile_name: str, *, storage_root: str | P
                 control.fence(session)
             existing = find_article(session, item)
             article_key = existing.article_key if existing else identity_key(item)[:24]
-            decision = decide_duplicate(session, item, before_id=existing.id) if existing else decide_duplicate(session, item)
-            assignment = None if existing else choose_event(session, item, decision)
+            if provider=='newsnow':
+                # Discovery excerpts cannot establish a complete copied text.
+                # URL identity is indexed; avoid loading 1000 bodies per hit.
+                from ..dedup.normalize import normalize_article,short_hash
+                from ..dedup.service import DedupDecision
+                norm=normalize_article(item.get('title',''),item.get('content',''),item.get('url',''))
+                decision=DedupDecision(norm,False,None,short_hash(article_key,length=18),
+                    'newsnow_discovery',0,norm.title_signature)
+            else:
+                decision = decide_duplicate(session, item, before_id=existing.id) if existing else decide_duplicate(session, item)
+            assignment = None if existing or provider=='newsnow' else choose_event(session, item, decision)
             row = Article(
                 article_key=article_key,
                 provider=provider,
@@ -281,12 +349,15 @@ def run_collection(session: Session, profile_name: str, *, storage_root: str | P
                 dedup_score=decision.score,
             )
             if existing:
+                was_newsnow=existing.provider=='newsnow'
+                upgrade_event_created=False
                 # Legacy/directly inserted rows get an honest baseline first.
                 record_version(session, existing, origin='legacy_baseline')
                 session.flush()
                 # A discovery hit cannot replace a full article or its attribution.
                 protect_article = provider in ('gdelt','gkg') and (existing.provider not in ('gdelt','gkg') or
                                                            existing.content or existing.published_at)
+                if provider=='newsnow' and existing.provider!='newsnow':protect_article=True
                 changed = not protect_article and record_version(session, row, run_key=run.run_key)
                 if changed:
                     for field in Article.model_fields:
@@ -298,6 +369,20 @@ def run_collection(session: Session, profile_name: str, *, storage_root: str | P
                         link.relation_type = 'duplicate' if decision.is_duplicate else 'primary'
                         session.add(link)
                         refresh_event(session, link.event_key)
+                    if (was_newsnow and not links and provider not in ('newsnow','gdelt','gkg')
+                            and row.content.strip()):
+                        # A later genuine document upgrades this identity from
+                        # discovery to the established local event pipeline.
+                        assignment=choose_event(session,item,decision)
+                        session.add(ArticleEventLink(article_key=article_key,event_key=assignment.event_key,
+                            relation_type='duplicate' if decision.is_duplicate else 'primary'))
+                        event=_upsert_event(session,item,assignment.event_key)
+                        upgrade_event_created=event.id is None
+                        refresh_event(session,assignment.event_key)
+                        session.add(EventAssignment(article_key=article_key,event_key=assignment.event_key,
+                            reason=assignment.reason,score=assignment.score,
+                            matched_article_key=assignment.matched_article_key))
+                        created_events+=int(upgrade_event_created)
                     updated_articles += 1
                     stored_articles.append(existing)
                     disposition = 'updated'
@@ -309,7 +394,8 @@ def run_collection(session: Session, profile_name: str, *, storage_root: str | P
                     disposition = 'existing'
                 if control:
                     control.record_item(session, index, article_key, disposition,
-                                        duplicate=decision.is_duplicate if changed else True)
+                                        duplicate=decision.is_duplicate if changed else True,
+                                        event_created=upgrade_event_created)
                 if changed and decision.is_duplicate:
                     dup_count += 1
             else:
@@ -318,14 +404,16 @@ def run_collection(session: Session, profile_name: str, *, storage_root: str | P
                 session.flush()
                 session.add(ArticleIdentity(identity_key=identity_key(item), article_key=article_key))
                 record_version(session, row, run_key=run.run_key)
-                session.add(ArticleEventLink(article_key=article_key, event_key=assignment.event_key,
-                            relation_type='duplicate' if decision.is_duplicate else 'primary'))
-                event = _upsert_event(session, item, assignment.event_key)
-                is_new_event = event.id is None
-                refresh_event(session, assignment.event_key)
-                session.add(EventAssignment(article_key=article_key, event_key=assignment.event_key,
-                            reason=assignment.reason, score=assignment.score,
-                            matched_article_key=assignment.matched_article_key))
+                is_new_event=False
+                if assignment is not None:
+                    session.add(ArticleEventLink(article_key=article_key,event_key=assignment.event_key,
+                                relation_type='duplicate' if decision.is_duplicate else 'primary'))
+                    event=_upsert_event(session,item,assignment.event_key)
+                    is_new_event=event.id is None
+                    refresh_event(session,assignment.event_key)
+                    session.add(EventAssignment(article_key=article_key,event_key=assignment.event_key,
+                                reason=assignment.reason,score=assignment.score,
+                                matched_article_key=assignment.matched_article_key))
                 if control:
                     control.record_item(session, index, article_key, 'stored', decision.is_duplicate, is_new_event)
                 created_events += int(is_new_event)
@@ -349,6 +437,12 @@ def run_collection(session: Session, profile_name: str, *, storage_root: str | P
                 session.add(discovery)
             session.flush()
             version = latest_version(session, article_key)
+            if provider=='newsnow' and (not existing or existing.provider=='newsnow'):
+                from ..extraction.models import VersionReading
+                reading=session.get(VersionReading,version.id)
+                if reading and reading.state=='baseline':
+                    reading.state='metadata_only';reading.note='NewsNow标题/摘要线索，选题后先读取原文'
+                    session.add(reading)
             session.add(CollectedObservation(observation_key=f'{scope_id}:{index}', scope_id=scope_id,
                         input_index=index, article_key=article_key, revision=version.revision,
                         disposition=disposition))
@@ -381,6 +475,7 @@ def run_collection(session: Session, profile_name: str, *, storage_root: str | P
             'timezone': profile['timezone'],
             'diagnostics': diagnostics,
         }
+        if newsnow_report:stats['newsnow']=newsnow_report
         if control:
             control.fence(session)
         snapshots = session.exec(select(ArticleVersion.payload_json)

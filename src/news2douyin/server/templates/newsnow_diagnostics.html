@@ -1,0 +1,17 @@
+{% if newsnow_report %}
+{% set ns=newsnow_report.get('summary',{}) %}
+<section class="card" data-newsnow-report style="margin:16px 0;min-width:0">
+<h2 style="margin-top:0">NewsNow 各来源状态</h2>
+<p class="muted small">成功读取 {{ ns.get('succeeded_sources',0) }} / {{ ns.get('requested_sources',newsnow_report.get('sources',[])|length) }} 个来源 · 空榜 {{ ns.get('empty_sources',0) }} · 未成功读取（含未尝试）{{ ns.get('failed_sources',0) }}{% if ns.get('truncated') %} · 在线候选已达数量上限{% endif %}</p>
+<p class="muted small">空榜、失败和未尝试分别记账。快照更新时间由NewsNow报告，不代表新闻发布时间或已确认重新抓取上游；原始完整响应另行保存。</p>
+<div style="overflow:auto"><table><thead><tr><th>来源</th><th>结果</th><th>原始 / 有效 / 本次候选</th><th>快照报告时间（北京时间）</th><th>问题</th></tr></thead><tbody>
+{% for source in newsnow_report.get('sources',[]) %}<tr data-newsnow-source-status="{{ source.source_id }}">
+<td>{{ source.get('name',source.source_id) }} <span class="muted small">{{ source.source_id }}</span></td>
+<td>{{ {'success':'成功','empty':'成功 · 空榜','failed':'失败','not_attempted':'未尝试'}.get(source.status,source.status) }}{% if source.get('http_status') %} · HTTP {{ source.http_status }}{% endif %}</td>
+<td>{{ source.get('raw_items',0) }} / {{ source.get('valid_items',0) }} / {{ source.get('selected_items',0) }}</td>
+<td>{{ source.get('snapshot_reported_at','')|local_ts('Asia/Shanghai') }}</td>
+<td style="max-width:320px;overflow-wrap:anywhere">{{ source.get('error') or source.get('error_code') or '—' }}</td>
+</tr>{% endfor %}
+</tbody></table></div>
+</section>
+{% endif %}

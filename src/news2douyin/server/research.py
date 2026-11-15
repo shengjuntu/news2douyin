@@ -92,6 +92,8 @@ def register_research_routes(app, engine, storage_root):
             plan = json.loads(packet.data) if packet else None
             watch = s.exec(select(Watch).join(WatchReview, WatchReview.watch == Watch.key)
                            .where(WatchReview.case_key == case_id)).first()
+            from ..desk.focus_lifecycle import is_deleted
+            if watch and is_deleted(s,watch.key):watch=None
         return page('research_case.html', case_id=case_id, watch=watch, event_key=case.event_key, plan=plan)
 
     @app.get('/api/research/settings')
@@ -224,7 +226,7 @@ def register_research_routes(app, engine, storage_root):
             version = params.get('protocolVersion')
             result = {'protocolVersion': version if version in supported else '2025-03-26',
                       'capabilities': {'tools': {'listChanged': False}},
-                      'serverInfo': {'name': 'news2douyin-research', 'version': '0.25.2'}}
+                      'serverInfo': {'name': 'news2douyin-research', 'version': '0.30.0'}}
         elif method == 'ping':
             result = {}
         elif method == 'tools/list':

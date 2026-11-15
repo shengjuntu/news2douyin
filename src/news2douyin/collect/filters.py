@@ -12,6 +12,9 @@ def domain_matches(domain: str, allowed: set[str]) -> bool:
 
 
 def hard_filter_reason(item, profile):
+    if (item.get('material_kind')=='newsnow_discovery' and
+            (item.get('newsnow') or {}).get('source_type')=='non_news'):
+        return 'not_news_material'
     text = f"{item.get('title','')}\n{item.get('content','')}".lower()
     domain = (((item.get('source') or {}).get('domain')) or urlparse(item.get('url') or '').hostname or '').lower().rstrip('.')
     whitelist = {d.lower() for d in profile.get('source_whitelist', [])}

@@ -90,13 +90,15 @@ def _write_definition(s, spec, description, method, *, key='', expected=None, se
     ident = key or 'w_'+uuid4().hex
     lock_news(s, 'watch:'+ident, 'watch-name:'+scope.name)
     old = s.get(Watch, ident)
-    if key and old is None:
-        raise KeyError('专题不存在')
+    if key:
+        from .focus_lifecycle import require_active
+        require_active(s, key)
     if old and old.version != expected:
         raise TaskConflict('专题已被修改，请刷新后重试')
     duplicate = s.exec(select(Watch.key).where(Watch.name == scope.name, Watch.key != ident)).first()
     if duplicate:
-        raise ValueError('专题名称已存在，请修改名称')
+        from .focus_lifecycle import is_deleted
+        raise ValueError('同名专题在回收站中，请先恢复或使用其他名称' if is_deleted(s,duplicate) else '专题名称已存在，请修改名称')
     w = old or Watch(key=ident, **scope.model_dump())
     if old:
         for field in ('name', 'kind', 'scope', 'dimensions', 'exclude', 'question'):
@@ -142,10 +144,8 @@ def create_from_build(s, draft, spec=None, seed=''):
     if build.status != 'ready':
         raise TaskConflict('专题还在生成，请稍后再试')
     if build.watch:
-        existing = s.get(Watch, build.watch)
-        if existing:
-            return existing
-        raise TaskConflict('这个生成结果已使用，请重新生成')
+        from .focus_lifecycle import require_active
+        return require_active(s, build.watch)
     w = _write_definition(s, spec if spec is not None else _loads(build.spec_json, {}),
                           build.description, build.method, seed=seed)
     build.watch = w.key
@@ -531,8 +531,8 @@ def judge_step(engine):
 
 def decisions(s, key, event):
     """Bounded read-only explanation trail, including fixed source references."""
-    if s.get(Watch, key) is None:
-        raise KeyError('专题不存在')
+    from .focus_lifecycle import require_active
+    require_active(s, key)
     card = s.get(RadarEntry, event)
     if card is None:
         raise KeyError('事件不存在')
@@ -567,9 +567,8 @@ def retry(s, key):
 
 def status(s, key):
     from .service import current_membership
-    w = s.get(Watch, key)
-    if w is None:
-        raise KeyError('专题不存在')
+    from .focus_lifecycle import require_active
+    w = require_active(s, key)
     job = s.get(FocusBackfill, key)
     backfill = dict(status=job.status, checked=job.checked, matched=job.matched, total=job.total,
                     error=job.error, updated=job.updated) if job else dict(status='idle' if w.enabled else 'paused', checked=None, matched=None, total=None, error='', updated='')

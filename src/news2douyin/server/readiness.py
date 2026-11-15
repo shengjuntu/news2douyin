@@ -67,6 +67,13 @@ def _profile(row, enabled):
     env_name = config.get('api_key_env', 'API_KEY')
     if provider == 'mock':
         state, note = 'demo', '演示资料，仅用于跑通操作。'
+    elif provider == 'newsnow':
+        from ..collect.providers.newsnow import validate
+        try:
+            validate(config)
+            state,note='configured','NewsNow地址与来源配置可读取；请试跑查看各源真实连通性、空榜和失败状态。'
+        except (TypeError,ValueError,AttributeError):
+            state,note='invalid','NewsNow地址或来源配置无效，请编辑策略。'
     elif provider in ('gdelt','gkg'):
         from ..collect.providers.gdelt import query_for
         if provider=='gkg':

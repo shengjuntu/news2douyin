@@ -1,0 +1,65 @@
+{
+  "version": "0.27.0",
+  "recorded_at": "2026-11-14T05:36:46+00:00",
+  "status": "validation_complete_with_resolved_display_regression",
+  "production_accessed": false,
+  "full_suite": {
+    "passed": 761,
+    "skipped": 116,
+    "failed": 2,
+    "seconds": 282.42,
+    "log": "qa-full-suite-final.log",
+    "real_falkor_fixtures_available": true,
+    "failures": [
+      "tests/test_gdelt.py::test_trial_and_collect_from_both_sources[True]",
+      "tests/test_gdelt.py::test_trial_and_collect_from_both_sources[False]"
+    ],
+    "failure_cause": "News detail redesign renamed the GDELT provenance section; existing checks expected the prior section title. Collection merge/version assertions had passed.",
+    "resolution": "Restored the existing GDELT 收录记录 label within the new collapsed source section; both cases passed in the final targeted run.",
+    "final_whole_suite_rerun": false
+  },
+  "final_targeted": {
+    "passed": 28,
+    "skipped": 11,
+    "seconds": 9.17,
+    "log": "qa-final-targeted.log",
+    "files": [
+      "tests/test_gdelt.py",
+      "tests/test_article_translation_ui.py",
+      "tests/test_focus_lifecycle.py",
+      "tests/test_ui0270_journey.py"
+    ],
+    "includes_final_restore_version_fencing": true
+  },
+  "final_journey_actual_postgresql": {
+    "version": "16.2",
+    "C": {
+      "passed": 6,
+      "seconds": 3.68,
+      "log": "qa-journey-fenced-postgres-C.log"
+    },
+    "en_US.utf8": {
+      "passed": 6,
+      "seconds": 3.71,
+      "log": "qa-journey-fenced-postgres-en-US.log"
+    },
+    "includes_sqlite_parameters": true,
+    "includes_final_restore_version_fencing": true
+  },
+  "browser": {
+    "report": "ui-browser.json",
+    "version": "153.0.8010.0",
+    "desktop_width": 1440,
+    "mobile_width": 390,
+    "real_http": true,
+    "model_provider_stub": true,
+    "translation_failure_then_retry_passed": true,
+    "translation_html_treated_as_text": true,
+    "article_version_unchanged": true,
+    "page_errors": 0,
+    "failed_requests": 0,
+    "graph_http_calls": 0,
+    "screenshots": "scratch QA only, not shipped"
+  },
+  "counting_note": "Runs overlap and must not be summed into an independent test count. The two resolved full-run failures were verified by focused reruns, not misreported as a clean whole-suite rerun."
+}

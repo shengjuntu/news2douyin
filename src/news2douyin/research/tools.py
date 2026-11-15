@@ -7,6 +7,7 @@ from ..storage.models import Article
 from .models import ResearchSource, ResearchToolCall, ResearchEnvironment
 from . import service as svc
 from . import sources
+from .materials import article_document
 from .config import require_search_route
 from ..topics.tools import tool_list as topic_tool_list
 
@@ -166,8 +167,13 @@ class ResearchTools:
                         article = s.exec(select(Article).where(Article.article_key == args.get('article_key', ''))).first()
                         if not article:
                             raise ValueError('需要 source_id、url 或有效 article_key')
+                        document=article_document(article)
+                        lead=document.get('source_kind')=='newsnow_metadata'
+                        provenance={'article_key':article.article_key}
+                        if lead:provenance.update(source_kind='newsnow_metadata', provider='newsnow',
+                            newsnow=document.get('newsnow',{}), content_kind=document.get('content_kind',''),requires_original_text=True)
                         fetched = dict(title=article.title, url=article.url, text=article.content or article.title,
-                                       published_at=article.published_at, kind='news_snapshot', provenance={'article_key': article.article_key})
+                                       published_at=article.published_at, kind='search_snippet' if lead else 'news_snapshot', provenance=provenance)
                     row = svc.add_source(s, case, **fetched)
                     result = self.page(row)
                 elif name == 'research_save_question':

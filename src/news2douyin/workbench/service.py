@@ -4,10 +4,11 @@ from types import SimpleNamespace
 from pydantic import BaseModel, Field, ConfigDict
 from typing import Literal
 from sqlmodel import Session, select
+from sqlalchemy import func
 from ..topics import service as topics
 from ..topics.models import TopicWorkspace, TopicHandoff
 from ..research import service as research
-from ..research.models import ResearchCase, ResearchReport, ResearchClaim, ShortScriptBrief
+from ..research.models import ResearchCase, ResearchReport, ResearchClaim, ResearchSource, ShortScriptBrief
 from ..storage.models import Article, ArticleEventLink, Event, ScriptPackage, ScriptState, ScriptExport, VideoProduction, TaskRecord, utc_now_iso
 from ..storage.articles import lock_news
 from ..desk.models import Watch, WatchEvent
@@ -90,7 +91,10 @@ def start(engine,payload):
             return detail(s,key)
         if s.get(TopicWorkspace,key):raise TaskConflict('创建编号已存在，请使用新的编号')
         event=s.exec(select(Event).where(Event.event_key==value.event)).first() if value.event else None
-        watch=s.get(Watch,value.watch) if value.watch else None
+        if value.watch:
+            from ..desk.focus_lifecycle import require_active
+            watch=require_active(s,value.watch)
+        else:watch=None
         if value.event and not event:raise KeyError('事件不存在')
         if value.watch and not watch:raise KeyError('专题不存在')
         if event and watch:
@@ -144,9 +148,20 @@ def detail(s,key):
     videos=s.exec(select(VideoProduction,TaskRecord).join(TaskRecord,TaskRecord.task_id==VideoProduction.task_id)
         .where(VideoProduction.package_key.in_(keys)).order_by(VideoProduction.created_at.desc())).all() if keys else []
     watch=s.get(Watch,task.watch) if task.watch else None
+    from ..desk.focus_lifecycle import is_deleted
+    watch_deleted=bool(watch and is_deleted(s,watch.key))
     selection=topics.detail(s,key)
+    materials=dict(selection['materials'])
+    materials['research_readable']=s.exec(select(func.count()).select_from(ResearchSource).where(
+        ResearchSource.case_id.in_(case_ids), ResearchSource.kind.notin_(('event_metadata','search_snippet')),
+        ResearchSource.paragraphs_json.notin_(('', '[]')))).one() if case_ids else 0
+    if reports:
+        materials.update(stage='report',label='已有研究报告',next_step='选择报告形成可编辑初稿，核对引用后继续创作。')
+    elif materials['research_readable']:
+        materials.update(stage='readable',label='研究中已读取原文',next_step='在研究页核对已读来源与判断，整理研究报告。')
     result=dict(key=key,title=w.title,angle=w.angle,phase=task.phase,version=task.version,topic_revision=w.revision,
-        event=task.event,watch=task.watch,watch_name=watch.name if watch else '',sources=selection['sources'],
+        event=task.event,watch=task.watch,watch_name=watch.name if watch else '',watch_deleted=watch_deleted,
+        sources=selection['sources'],materials=materials,
         pending_handoffs=[t for t in selection['tasks'] if not t['started']],
         updated=max(task.updated,w.updated_at),cases=cases,scripts=scripts,
         reports=[dict(id=r.report_id,case=r.case_id,title=r.title,version=r.version,cutoff=r.cutoff,completeness=r.completeness) for r in reports],

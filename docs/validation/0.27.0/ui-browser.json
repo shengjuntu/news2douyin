@@ -1,0 +1,89 @@
+{
+  "ok": true,
+  "browser": "153.0.8010.0",
+  "results": {
+    "desktop": {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "pagination_total_on_demand": true,
+      "filter_and_page_preserved": true,
+      "translation_text_safe": true,
+      "translation_failure_retry": "passed",
+      "relation_controls": true,
+      "preset_immediate": true,
+      "occurrence_date_visible": true,
+      "bounds": {
+        "width": 1440,
+        "scroll": 1440
+      }
+    },
+    "mobile": {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "pagination_total_on_demand": true,
+      "filter_and_page_preserved": true,
+      "translation_text_safe": true,
+      "translation_failure_retry": "not_exercised",
+      "relation_controls": true,
+      "preset_immediate": true,
+      "occurrence_date_visible": true,
+      "bounds": {
+        "width": 390,
+        "scroll": 390
+      }
+    },
+    "workbench": {
+      "snapshot_readable": true,
+      "metadata_only_short_disabled": true,
+      "translation_safe": true,
+      "research_next_step_present": true,
+      "selected_event_continues_task": true
+    },
+    "article": {
+      "declared_language_visible": true,
+      "translation_preserves_original": true,
+      "bounds": {
+        "width": 390,
+        "scroll": 390
+      }
+    },
+    "focus": {
+      "cancel_delete": true,
+      "moved_to_trash": true,
+      "restored_paused": true,
+      "independent_task_preserved": true,
+      "bounds": {
+        "width": 390,
+        "scroll": 390
+      }
+    }
+  },
+  "state": {
+    "counts": {
+      "Article": 1,
+      "Event": 1,
+      "ContentTask": 1,
+      "TopicSource": 1
+    },
+    "translation_calls": 4
+  },
+  "page_errors": [],
+  "failed_requests": [],
+  "version": "0.27.0",
+  "executed_at": "2026-11-14T05:35:19+00:00",
+  "real_http": true,
+  "real_chromium": true,
+  "database": "disposable SQLite",
+  "graph_http_calls": 0,
+  "background_workers": [
+    "existing TaskWorker only"
+  ],
+  "translation_provider": "deterministic local stub, no remote model",
+  "article_version_unchanged": true,
+  "article_version_sha256": "fedc9de13378ce62d059feedd80420375b702c60362a6c2e3558bea467351339",
+  "fixtures": "three synthetic official events, one mention and one Polish-language saved article"
+}

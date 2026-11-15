@@ -1,0 +1,21 @@
+{
+  "status": "passed",
+  "version": "0.26.0",
+  "python": "3.12",
+  "wheel_sha256": "969e3dbd7a8e9d4f77c8e2ac45a31f1fa6b2b72fb59502cdddfe610ba51179ac",
+  "installed_outside_checkout": true,
+  "core_smoke_checks": 18,
+  "gdelt_checks": [
+    "six_feed_catalog",
+    "bundled_templates_and_javascript",
+    "new_sql_models",
+    "official_and_local_radar",
+    "source_detail_api",
+    "country_alias_search",
+    "explicit_selection",
+    "selection_idempotency",
+    "metadata_only_handoff_no_article_or_event"
+  ],
+  "dependencies": "isolated installed package, dependencies reused through explicit site .pth from prior QA environments",
+  "production_accessed": false
+}

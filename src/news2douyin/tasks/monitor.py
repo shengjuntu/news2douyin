@@ -15,7 +15,7 @@ from ..search.dates import date_range, timezone_name
 from ..storage.models import TaskRecord, ScriptGeneration, DailyScriptGeneration, VideoProduction
 from .service import ACTIVE, TERMINAL, task_dict
 
-KINDS = {'all', 'collect', 'trial', 'daily_script', 'script', 'video'}
+KINDS = {'all', 'collect', 'trial', 'daily_script', 'script', 'video', 'translation'}
 STATUSES = {'all', 'active', 'queued', 'running', 'cancel_requested', *TERMINAL}
 
 
@@ -123,7 +123,7 @@ def task_page(engine, *, query='', kind='all', status='all', date_from='', date_
         escaped = term.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
         conditions.append(or_(TaskRecord.profile_name.ilike('%'+escaped+'%', escape='\\'),
                               TaskRecord.task_id.ilike('%'+escaped+'%', escape='\\')))
-    if kind == 'collect': conditions.append(TaskRecord.trigger_type.notin_(['profile_test', 'daily_script', 'script', 'video']))
+    if kind == 'collect': conditions.append(TaskRecord.trigger_type.notin_(['profile_test', 'daily_script', 'script', 'video', 'translation']))
     elif kind != 'all': conditions.append(TaskRecord.trigger_type == ('profile_test' if kind=='trial' else kind))
     if status == 'active': conditions.append(TaskRecord.status.in_(['queued', *ACTIVE]))
     elif status != 'all': conditions.append(TaskRecord.status == status)

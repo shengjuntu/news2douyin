@@ -205,7 +205,7 @@ def test_database_failure_does_not_open_an_error_write_and_lease_is_recoverable(
         with pytest.raises(OperationalError):service.step(engine,tmp_path,'gkg_english',now=1000)
     assert len(calls)==2
     assert calls[0]==('intake:feed:gkg_english',)
-    assert calls[1]==('intake:batch:gkg_english_'+STAMP,)
+    assert calls[1]==('intake:feed:gkg_english','intake:batch:gkg_english_'+STAMP)
     with Session(engine) as s:
         row=s.get(FeedState,'gkg_english')
         assert row.lease and not row.last_error and not row.last_complete

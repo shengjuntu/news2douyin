@@ -1,0 +1,18 @@
+{
+  "synthetic": true,
+  "duckdb_version": "1.4.5",
+  "rows": 1024,
+  "fixture": "One GKG batch;1000 varying GCAM key/count entries per row;UTF8Chinese titles;seed260",
+  "raw_utf8_bytes": 11254325,
+  "decoded_text_characters_without_newlines": 11245109,
+  "archive_bytes": 3833079,
+  "legacy_duckdb_bytes": 41431040,
+  "compact_duckdb_bytes": 5779456,
+  "measured_difference_bytes": 35651584,
+  "copy_verify_ms": 3480.175,
+  "verified": true,
+  "source_preserved": true,
+  "activated": false,
+  "logical_hashes_equal": true,
+  "limitations": "Small synthetic fixture, not fielddata;filegranularity/compression/contentvary, no extrapolation to58.75GiB"
+}

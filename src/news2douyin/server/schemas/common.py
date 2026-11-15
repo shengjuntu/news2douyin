@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 class ProfilePayload(BaseModel):
     name: str = Field(pattern=r'^[^/\\\x00-\x1f]{1,80}$')
-    provider: Literal['worldnewsapi', 'mock', 'gdelt', 'gkg'] = 'worldnewsapi'
+    provider: Literal['worldnewsapi', 'mock', 'gdelt', 'gkg', 'newsnow'] = 'worldnewsapi'
     country: str = Field(default='us', max_length=8)
     language: str = Field(default='en', max_length=8)
     categories: list[str] = Field(default_factory=list)
@@ -15,7 +15,7 @@ class ProfilePayload(BaseModel):
     keywords_exclude: list[str] = Field(default_factory=list)
     source_whitelist: list[str] = Field(default_factory=list)
     source_blacklist: list[str] = Field(default_factory=list)
-    max_items: int = Field(default=100, ge=1, le=1000)
+    max_items: int = Field(default=100, ge=1, le=10000)
     market_scope: str = 'global'
     market_tags: list[str] = Field(default_factory=list)
     extra: dict[str, Any] = Field(default_factory=dict)
@@ -38,7 +38,19 @@ class ProfilePayload(BaseModel):
     @model_validator(mode='after')
     def validate_options(self):
         from ...search.dates import timezone_name, calendar_day
-        if self.provider in ('gdelt','gkg'):
+        if self.provider != 'newsnow' and self.max_items > 1000:
+            raise ValueError('此新闻源单次最多1000条')
+        if self.provider == 'newsnow':
+            from ...collect.providers.newsnow import validate
+            self.country = self.country.strip().lower() if 'country' in self.model_fields_set else ''
+            self.language = self.language.strip().lower() if 'language' in self.model_fields_set else ''
+            if 'max_items' not in self.model_fields_set:self.max_items=1200
+            self.extra.setdefault('collection_mode','top')
+            self.extra.setdefault('filter_mode','rules')
+            if self.extra['collection_mode'] != 'top':
+                raise ValueError('NewsNow读取已聚合榜单/快讯，不提供上游关键词搜索')
+            validate({**self.extra,'max_items':self.max_items})
+        elif self.provider in ('gdelt','gkg'):
             from ...collect.providers.gdelt import query_for
             self.country = self.country.strip().lower() if 'country' in self.model_fields_set else ''
             self.language = self.language.strip().lower() if 'language' in self.model_fields_set else ''

@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import math
 import os
 import re
 import time
@@ -16,9 +17,12 @@ from datetime import datetime, timezone
 from threading import Event as StopEvent, Thread
 from typing import Any
 from urllib.parse import urlsplit
+from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field as InputField, model_validator
-from sqlalchemy import func
+from sqlalchemy import Index, case, func
+from sqlalchemy.exc import SQLAlchemyError
+from time import perf_counter, time as wall_time
 from sqlmodel import SQLModel, Field, Session, select
 
 from ..dedup.normalize import canonicalize_url, normalize_article
@@ -52,6 +56,122 @@ class IntakeProjectionState(SQLModel, table=True):
     key:str=Field(default='global',primary_key=True)
     last_error:str=''
     updated:str=Field(default_factory=utc_now_iso)
+
+
+class IntakeProjectionTurn(SQLModel, table=True):
+    """Fair source-kind scheduling survives restarts and old GKG backlog."""
+    key:str=Field(default='global',primary_key=True)
+    kind:str='mentions'
+
+
+class IntakeProjectionFailure(SQLModel, table=True):
+    """A held cursor and retry schedule, never a successful/skipped receipt."""
+    __table_args__=(Index('ix_intakeprojectionfailure_due','state','retry_after'),)
+    key:str=Field(primary_key=True)
+    feed:str=Field(index=True)
+    stamp:str=''
+    offset:int=0
+    row_index:int|None=None  # Prefetch/chunk failures need not identify one row.
+    error_context_json:str='{}'
+    phase:str=''
+    error_type:str=''
+    error:str=''
+    attempts:int=0
+    retry_after:float=0
+    state:str='blocked'
+    last_failed_at:str=Field(default_factory=utc_now_iso)
+    resolved_at:str=''
+
+
+class IntakeProjectionMeter(SQLModel, table=True):
+    key:str=Field(default='global',primary_key=True)
+    history_known:bool=False
+    created:str=Field(default_factory=utc_now_iso)
+
+
+class IntakeProjectionCounter(SQLModel, table=True):
+    """Small transactionally updated counters, not a historical receipt scan."""
+    key:str=Field(primary_key=True)
+    projected:int=0
+    skipped:int=0
+    last_chunk_json:str='{}'
+    updated:str=Field(default_factory=utc_now_iso)
+
+
+def _meter(session):
+    row=session.get(IntakeProjectionMeter,'global')
+    if row:return row
+    from .models import IntakeBatch
+    old_receipt=session.exec(select(IntakeProjectionReceipt.key).limit(1)).first()
+    old_offset=session.exec(select(IntakeBatch.key).where(IntakeBatch.projected_offset>0).limit(1)).first()
+    row=IntakeProjectionMeter(history_known=old_receipt is None and old_offset is None)
+    session.add(row)
+    return row
+
+
+def _counter(session,key):
+    row=session.get(IntakeProjectionCounter,key)
+    if row is None:
+        row=IntakeProjectionCounter(key=key);session.add(row)
+    return row
+
+
+def _object(value):
+    try:result=json.loads(value or '{}')
+    except (ValueError,TypeError):return {}
+    return result if isinstance(result,dict) else {}
+
+
+def _isolatable(exc):
+    # A database outage, lock timeout, statement cancellation or schema failure
+    # must not re-open the same database to report itself as a bad news row.
+    if not isinstance(exc,SQLAlchemyError):return True
+    original=getattr(exc,'orig',exc)
+    code=getattr(original,'sqlstate',None) or getattr(original,'pgcode',None) or ''
+    return code.startswith('22') or code in ('23502','23514','54000')
+
+
+def _failure_message(exc):
+    if isinstance(exc,SQLAlchemyError):
+        original=getattr(exc,'orig',exc)
+        code=getattr(original,'sqlstate',None) or getattr(original,'pgcode',None) or ''
+        return '记录写入未通过数据库校验'+('（SQLSTATE '+code+'）' if code else '')
+    return str(exc)[:500] or type(exc).__name__
+
+
+def _block_batch(engine,key,feed,stamp,offset,row_index,phase,exc,now,read_end):
+    from .models import IntakeBatch
+    with Session(engine) as s:
+        lock_news(s,'intake:projection-turn','intake:batch:'+key)
+        batch=s.get(IntakeBatch,key)
+        if not batch or batch.state!='archived' or batch.projected_offset!=offset:return False
+        row=s.get(IntakeProjectionFailure,key) or IntakeProjectionFailure(key=key,feed=feed)
+        row.feed,row.stamp,row.offset,row.row_index=feed,stamp,offset,row_index
+        row.phase,row.error_type,row.error=phase,type(exc).__name__,_failure_message(exc)
+        row.error_context_json=json.dumps(dict(read_start=offset+1,read_end=read_end,
+            row_is_exact=row_index is not None),ensure_ascii=False)
+        row.attempts+=1;row.state='blocked';row.resolved_at='';row.last_failed_at=utc_now_iso()
+        row.retry_after=now+min(900,5*2**min(row.attempts-1,8))
+        s.add(row)
+        from .feeds import kind_for
+        s.merge(IntakeProjectionTurn(key='global',kind=kind_for(feed)))
+        s.commit()
+    return True
+
+
+def retry_projection(engine,key):
+    """Release one backoff without editing coverage, input or receipts."""
+    from .models import IntakeBatch
+    if not isinstance(key,str) or len(key)>160:raise ValueError('投影批次编号无效')
+    with Session(engine) as s:
+        lock_news(s,'intake:batch:'+key)
+        batch=s.get(IntakeBatch,key)
+        if not batch:raise KeyError('投影批次不存在')
+        row=s.get(IntakeProjectionFailure,key)
+        if row:
+            row.retry_after=0;s.add(row)
+        s.commit()
+    return dict(queued=True,key=key)
 
 
 def _http_uri(value):
@@ -135,12 +255,13 @@ def _set_normalized(row):
         setattr(row,name,getattr(n,name))
 
 
-def _ensure_event(s,row):
+def _ensure_event(s,row,*,create=True):
     # A metadata-only URL is not an event. A real headline/body supplies an
     # honest report candidate; later graph analysis can connect candidates.
     if not row.title.strip() and not row.content.strip():return
     linked=s.exec(select(ArticleEventLink).where(ArticleEventLink.article_key==row.article_key)).all()
     if not linked:
+        if not create:return
         key='evt_intake_'+stable_id(row.article_key)[:20]
         event=s.exec(select(Event).where(Event.event_key==key)).first()
         if not event:
@@ -160,11 +281,25 @@ def _ensure_event(s,row):
             s.merge(DeskDirty(key=link.event_key))
 
 
+# Full GKG metadata remains in the immutable archive. These are the fields
+# actually used by radar, topic recall and provenance; GCAM/XML/enhanced blobs
+# must not be copied into every online article and immutable body snapshot.
+GKG_ONLINE_FIELDS=('persons','orgs','themes','locations','mention_iso','author','source',
+    'source_collection','translation','tone','document_date','gkg_record_id',
+    'source_language','source_country','projection_eligible','projection_note')
+
+
+def compact_gkg_metadata(metadata,pointer):
+    return dict({key:metadata[key] for key in GKG_ONLINE_FIELDS if key in metadata},
+                archive_ref=dict(pointer))
+
+
 def _upsert(s,document,*,pointer=None,discovery=False,locked=False):
     existing,key=_article_identity(s,document,locked=locked)
+    metadata=compact_gkg_metadata(document.metadata,pointer) if discovery and pointer else document.metadata
     raw=dict(provider=document.provider,record_id=document.record_id,uri=document.uri,
         observed_at=document.observed_at,published_at=document.published_at,
-        metadata=document.metadata,content_sha256=document.content_sha256)
+        metadata=metadata,content_sha256=document.content_sha256)
     if pointer:raw['intake']=pointer
     raw['material_kind']='discovery_metadata' if discovery else 'connector_document'
     raw['title_missing']=not bool(document.title.strip())
@@ -211,7 +346,18 @@ def _upsert(s,document,*,pointer=None,discovery=False,locked=False):
         job=s.get(VersionReading,version.id)
         if job and job.state in ('baseline','model_queued'):
             job.state='metadata_only';job.note='仅有采集元数据，等待可读标题或正文';s.add(job)
-    if changed:_ensure_event(s,row)
+    gkg_metadata=bool(discovery and pointer)
+    auto_events=os.getenv('NEWS2DOUYIN_GKG_AUTO_EVENTS','0').strip().lower() in ('1','true','on','yes')
+    if changed:_ensure_event(s,row,create=not gkg_metadata or auto_events)
+    if gkg_metadata and not auto_events and changed and version:
+        # Raw discovery is not a chosen editorial/research event. Do not queue
+        # all GKG headlines for model work; existing selected links still update.
+        linked=s.exec(select(ArticleEventLink.id).where(ArticleEventLink.article_key==key).limit(1)
+            .execution_options(n2d_query_name='intake.gkg.has_selected_link')).first()
+        if linked is None:
+            job=s.get(VersionReading,version.id)
+            if job and job.state in ('baseline','model_queued'):
+                job.state='metadata_only';job.note='来源元数据已保存，选题后再进行事件抽取';s.add(job)
     return row,version
 
 
@@ -243,88 +389,208 @@ def _setting(name,default,minimum):
     return max(minimum,value) if value<float('inf') else default
 
 
-def project_step(engine,storage_root,limit=None,*,time_budget_ms=None):
-    """Project all archived rows in bounded, replayable transactions."""
+def project_step(engine,storage_root,limit=None,*,time_budget_ms=None,now=None,observer=None):
+    """Project a bounded atomic prefix; failures hold their cursor and yield."""
     from .models import IntakeBatch
     from .lake import Lake
+    from .feeds import FEEDS,kind_for
+    now=wall_time() if now is None else float(now)
+    began=perf_counter();timings={}
     if limit is None:limit=_setting('NEWS2DOUYIN_GKG_PROJECTION_CHUNK',25,1)
     limit=max(1,min(int(limit),500))
     budget=max(1,float(time_budget_ms)) if time_budget_ms is not None else _setting('NEWS2DOUYIN_GKG_PROJECTION_BUDGET_MS',250,1)
+    lanes=('gkg','events','mentions')
     with Session(engine) as s:
-        batch=s.exec(select(IntakeBatch).where(IntakeBatch.state=='archived',
-            IntakeBatch.projected_offset<IntakeBatch.rows).order_by(IntakeBatch.stamp,IntakeBatch.feed).limit(1)).first()
+        turn=s.get(IntakeProjectionTurn,'global')
+        previous=turn.kind if turn and turn.kind in lanes else 'mentions'
+        start=(lanes.index(previous)+1)%len(lanes)
+        batch=None
+        blocked=select(IntakeProjectionFailure.key).where(
+            IntakeProjectionFailure.key==IntakeBatch.key,
+            IntakeProjectionFailure.state=='blocked',IntakeProjectionFailure.retry_after>now).correlate(IntakeBatch).exists()
+        for lane in lanes[start:]+lanes[:start]:
+            feeds=[feed for feed,spec in FEEDS.items() if spec['kind']==lane]
+            batch=s.exec(select(IntakeBatch).where(IntakeBatch.state=='archived',IntakeBatch.feed.in_(feeds),
+                IntakeBatch.projected_offset<IntakeBatch.rows,~blocked).order_by(IntakeBatch.stamp,IntakeBatch.feed).limit(1)
+                .execution_options(n2d_query_name='intake.projection.pick.'+lane)).first()
+            if batch:break
         if not batch:return False
         key,feed,stamp,offset,total=batch.key,batch.feed,batch.stamp,batch.projected_offset,batch.rows
-    rows=Lake(storage_root).rows(feed,stamp,after=offset,limit=limit)
-    if not rows:raise RuntimeError('完整归档存在但待投影记录不可读取')
-    # Archive API must return every row (including invalid) in exact source order.
-    indices=[int(row['row_index']) for row in rows]
-    if indices!=list(range(offset+1,offset+1+len(rows))) or indices[-1]>total:
-        raise RuntimeError('归档行号不连续，投影已停止以防跳过材料')
-    prepared=[]
-    for raw in rows:
-        document=None;error=''
-        if not raw.get('valid',False):error='原始记录格式无效，原档仍完整保留'
-        elif not raw.get('url'):error='来源未给出可投影的报道地址，原档仍完整保留'
-        else:
-            try:document=_lake_document(raw)
-            except (ValueError,TypeError):error='来源字段未通过投影校验，原档仍完整保留'
-        prepared.append((raw,document,error))
-    with Session(engine) as s:
-        lock_news(s,'intake:batch:'+key)
-        batch=s.get(IntakeBatch,key)
-        if not batch or batch.state!='archived' or batch.projected_offset!=offset:return True
-        # Acquire article identities in one deterministic order before any row
-        # mutation. Different batches may observe the same URLs concurrently.
-        resources=sorted({'article:'+_document_identity(doc) for _,doc,_ in prepared if doc is not None})
-        if resources:lock_news(s,*resources)
-        started=time.monotonic()
-        for raw,document,error in prepared:
-            index=int(raw['row_index']);ident=_receipt_key(feed,stamp,index)
-            if s.get(IntakeProjectionReceipt,ident):
-                # Receipt and offset are one SQL transaction. Recovery from a
-                # deliberately rewound cursor reuses the receipt without rewriting.
-                batch.projected_offset=index
+    timings['select']=round((perf_counter()-began)*1000,3)
+    phase='lake_read';row_index=None
+    try:
+        tick=perf_counter();lake=Lake(storage_root)
+        rows=lake.rows(feed,stamp,after=offset,limit=limit)
+        official=kind_for(feed)!='gkg'
+        reference=lake.archive_reference(feed,stamp,offset+1) if not official else None
+        timings['lake_read']=round((perf_counter()-tick)*1000,3)
+        if not rows:raise RuntimeError('完整归档存在但待投影记录不可读取')
+        indices=[int(row['row_index']) for row in rows]
+        if indices!=list(range(offset+1,offset+1+len(rows))) or indices[-1]>total:
+            raise RuntimeError('归档行号不连续，投影已停止以防跳过材料')
+        phase='prepare';tick=perf_counter();prepared=[]
+        for raw in rows:
+            document=None;error=''
+            if official:
+                prepared.append((raw,None,''));continue
+            if not raw.get('valid',False):error='原始记录格式无效，原档仍完整保留'
+            elif not raw.get('url'):error='来源未给出可投影的报道地址，原档仍完整保留'
             else:
-                article=None;version=None
-                if document is not None:
-                    article,version=_upsert(s,document,pointer=dict(feed=feed,stamp=stamp,row_index=index),discovery=True,locked=True)
-                    meta=dict(document.metadata,record_id=document.record_id,intake_feed=feed,
-                        intake_batch=stamp,intake_row=index,title_missing=not bool(document.title.strip()))
-                    previous=s.get(GkgSource,article.article_key)
-                    previous_stamp=json.loads(previous.attributes or '{}').get('intake_batch',previous.record_id[:14]) if previous else ''
-                    attributes=json.dumps(meta,ensure_ascii=False,sort_keys=True)
-                    if not previous or (stamp>=previous_stamp and (previous.record_id!=document.record_id or previous.attributes!=attributes)):
-                        s.merge(GkgSource(article_key=article.article_key,record_id=document.record_id,attributes=attributes))
-                    existing_discovery=s.get(GdeltDiscovery,article.article_key)
-                    discovery=existing_discovery or GdeltDiscovery(article_key=article.article_key)
-                    when=datetime.strptime(stamp,'%Y%m%d%H%M%S').strftime('%Y-%m-%dT%H:%M:%SZ')
-                    if not existing_discovery or not discovery.seen_at or when<discovery.seen_at:
-                        discovery.seen_at=when;s.add(discovery)
-                s.add(IntakeProjectionReceipt(key=ident,feed=feed,stamp=stamp,row_index=index,
-                    source_record_id=str(raw.get('record_id') or ''),status='skipped' if error else 'projected',
-                    article_key=article.article_key if article else '',revision=version.revision if version else 0,error=error))
-                batch.projected_offset=index
-            # The budget bounds a transaction, never collection completeness.
-            # At least one row is acknowledged; the next tick resumes exactly.
-            if (time.monotonic()-started)*1000>=budget:break
-        s.add(batch);s.commit()
-    return True
+                try:document=_lake_document(raw)
+                except (ValueError,TypeError):error='来源字段未通过投影校验，原档仍完整保留'
+            prepared.append((raw,document,error))
+        timings['prepare']=round((perf_counter()-tick)*1000,3)
+        phase='sql_lock';tick=perf_counter()
+        with Session(engine) as s:
+            lock_news(s,'intake:projection-turn','intake:batch:'+key)
+            batch=s.get(IntakeBatch,key)
+            if not batch or batch.state!='archived' or batch.projected_offset!=offset:return True
+            failure=s.get(IntakeProjectionFailure,key)
+            if failure and failure.state=='blocked' and failure.retry_after>now:return False
+            resources=sorted({'article:'+_document_identity(doc) for _,doc,_ in prepared if doc is not None})
+            if resources:lock_news(s,*resources)
+            lock_news(s,'intake:projection-metrics')
+            _meter(s);counter=_counter(s,feed)
+            timings['sql_lock']=round((perf_counter()-tick)*1000,3)
+            phase='sql_row';tick=perf_counter();new_projected=new_skipped=replayed=0
+            started=time.monotonic()
+            # The offset/turn locks fence all receipt writers for this batch.
+            # Read at most this prepared chunk's keys once, including skipped
+            # rows; replay must not perform N ledger round trips or re-count.
+            receipt_keys=[_receipt_key(feed,stamp,int(raw['row_index'])) for raw,_,_ in prepared]
+            present_receipts=set(s.exec(select(IntakeProjectionReceipt.key).where(
+                IntakeProjectionReceipt.key.in_(receipt_keys)).execution_options(
+                    n2d_query_name='intake.projection.receipts.chunk')).all())
+            for raw,document,error in prepared:
+                phase='sql_row';row_index=int(raw['row_index'])
+                index=int(raw['row_index']);ident=_receipt_key(feed,stamp,index)
+                if ident in present_receipts:
+                    # Receipt and offset are one SQL transaction. Recovery from a
+                    # deliberately rewound cursor reuses the receipt without rewriting.
+                    batch.projected_offset=index;replayed+=1
+                else:
+                    article=None;version=None
+                    if official:
+                        from .official_projection import project_row
+                        result=project_row(s,raw)
+                        s.add(IntakeProjectionReceipt(key=ident,feed=feed,stamp=stamp,row_index=index,
+                            source_record_id=str(raw.get('record_id') or ''),status=result['status'],
+                            error=result.get('error','')))
+                        batch.projected_offset=index
+                        new_skipped+=int(result['status']=='skipped');new_projected+=int(result['status']=='projected')
+                        if (time.monotonic()-started)*1000>=budget:break
+                        continue
+                    if document is not None:
+                        pointer=dict(reference,row_index=index)
+                        article,version=_upsert(s,document,pointer=pointer,discovery=True,locked=True)
+                        meta=dict(compact_gkg_metadata(document.metadata,pointer),record_id=document.record_id,intake_feed=feed,
+                            intake_batch=stamp,intake_row=index,title_missing=not bool(document.title.strip()))
+                        previous=s.get(GkgSource,article.article_key)
+                        previous_stamp=json.loads(previous.attributes or '{}').get('intake_batch',previous.record_id[:14]) if previous else ''
+                        attributes=json.dumps(meta,ensure_ascii=False,sort_keys=True)
+                        if not previous or (stamp>=previous_stamp and (previous.record_id!=document.record_id or previous.attributes!=attributes)):
+                            s.merge(GkgSource(article_key=article.article_key,record_id=document.record_id,attributes=attributes))
+                        existing_discovery=s.get(GdeltDiscovery,article.article_key)
+                        discovery=existing_discovery or GdeltDiscovery(article_key=article.article_key)
+                        when=datetime.strptime(stamp,'%Y%m%d%H%M%S').strftime('%Y-%m-%dT%H:%M:%SZ')
+                        if not existing_discovery or not discovery.seen_at or when<discovery.seen_at:
+                            discovery.seen_at=when;s.add(discovery)
+                    s.add(IntakeProjectionReceipt(key=ident,feed=feed,stamp=stamp,row_index=index,
+                        source_record_id=str(raw.get('record_id') or ''),status='skipped' if error else 'projected',
+                        article_key=article.article_key if article else '',revision=version.revision if version else 0,error=error))
+                    batch.projected_offset=index
+                    new_skipped+=int(bool(error));new_projected+=int(not error)
+                # The budget bounds a transaction, never collection completeness.
+                # At least one row is acknowledged; the next tick resumes exactly.
+                if (time.monotonic()-started)*1000>=budget:break
 
+            phase='sql_flush';row_index=None;s.flush()
+            timings['sql_apply']=round((perf_counter()-tick)*1000,3)
+            chunk=dict(feed=feed,stamp=stamp,key=key,measurement_id=uuid4().hex,at=utc_now_iso(),read_rows=len(rows),
+                processed_rows=batch.projected_offset-offset,new_projected=new_projected,new_skipped=new_skipped,
+                replayed=replayed,offset_before=offset,offset_after=batch.projected_offset,
+                phase_ms=dict(timings,commit=None),elapsed_ms=round((perf_counter()-began)*1000,3),
+                timing_note='SQL lock includes identity and metric locks; persisted timings exclude commit; lake_read includes lock wait, decoding and archive reference.')
+            counter.projected+=new_projected;counter.skipped+=new_skipped
+            counter.last_chunk_json=json.dumps(chunk,ensure_ascii=False);counter.updated=utc_now_iso();s.add(counter)
+            if failure and failure.state=='blocked':
+                failed_range=_object(failure.error_context_json)
+                target=failure.row_index or failed_range.get('read_end') or total
+                if batch.projected_offset>=target or batch.projected_offset>=total:
+                    failure.state='resolved';failure.resolved_at=utc_now_iso();failure.retry_after=0;s.add(failure)
+            s.add(batch);s.merge(IntakeProjectionTurn(key='global',kind=kind_for(feed)))
+            phase='commit';row_index=None;tick=perf_counter();s.commit()
+        chunk['phase_ms']['commit']=round((perf_counter()-tick)*1000,3)
+        chunk['elapsed_ms']=round((perf_counter()-began)*1000,3)
+        if observer is not None:
+            try:observer(chunk)
+            except Exception:log.warning('Projection timing observer failed after commit',exc_info=True)
+        return True
+    except Exception as exc:
+        if _isolatable(exc):
+            isolated=_block_batch(engine,key,feed,stamp,offset,row_index,phase,exc,now,min(total,offset+limit))
+            if isolated:setattr(exc,'_intake_batch_isolated',True)
+        raise
 
 def projection_status(engine,worker=None):
+    """Read compact counters and batch offsets, never scan receipt history."""
     from .models import IntakeBatch
+    from .feeds import FEEDS
     with Session(engine) as s:
-        counts=dict(s.exec(select(IntakeProjectionReceipt.status,func.count())
-            .where(~IntakeProjectionReceipt.feed.startswith('external:'))
-            .group_by(IntakeProjectionReceipt.status)).all())
-        external=s.exec(select(func.count()).select_from(IntakeProjectionReceipt)
-            .where(IntakeProjectionReceipt.feed.startswith('external:'))).one()
-        batches=s.exec(select(IntakeBatch).where(IntakeBatch.state=='archived')).all()
-        return dict(projected=counts.get('projected',0),skipped=counts.get('skipped',0),
-            waiting=sum(max(0,b.rows-b.projected_offset) for b in batches),
-            unresolved_batches=sum(b.rows>b.projected_offset for b in batches),
-            last_error=getattr(worker,'last_error',''),external_imported=external)
+        values=s.exec(select(IntakeBatch.feed,func.coalesce(func.sum(IntakeBatch.rows),0),
+            func.coalesce(func.sum(IntakeBatch.projected_offset),0),
+            func.coalesce(func.sum(case((IntakeBatch.rows>IntakeBatch.projected_offset,1),else_=0)),0))
+            .where(IntakeBatch.state=='archived').group_by(IntakeBatch.feed)
+            .execution_options(n2d_query_name='intake.projection.batch_offsets')).all()
+        totals={feed:dict(rows=int(rows),processed_rows=int(offset),waiting=max(0,int(rows)-int(offset)),
+            unresolved_batches=int(pending)) for feed,rows,offset,pending in values}
+        counters={row.key:row for row in s.exec(select(IntakeProjectionCounter))}
+        meter=s.get(IntakeProjectionMeter,'global')
+        if meter:known=meter.history_known
+        else:
+            # An indexed existence probe distinguishes a genuinely empty store
+            # from legacy receipts; no COUNT/GROUP over the historical ledger.
+            known=not any(row['processed_rows'] for row in totals.values()) and s.exec(
+                select(IntakeProjectionReceipt.key).limit(1)).first() is None
+        failures=s.exec(select(IntakeProjectionFailure).where(IntakeProjectionFailure.state=='blocked')
+            .order_by(IntakeProjectionFailure.last_failed_at.desc(),IntakeProjectionFailure.key).limit(21)).all()
+        failure_counts=dict(s.exec(select(IntakeProjectionFailure.feed,func.count()).where(
+            IntakeProjectionFailure.state=='blocked').group_by(IntakeProjectionFailure.feed)).all())
+        per_feed=[]
+        for feed in FEEDS:
+            counter=counters.get(feed)
+            pending=s.exec(select(IntakeBatch.key,IntakeBatch.stamp,IntakeBatch.projected_offset)
+                .where(IntakeBatch.feed==feed,IntakeBatch.state=='archived',
+                    IntakeBatch.projected_offset<IntakeBatch.rows)
+                .order_by(IntakeBatch.stamp,IntakeBatch.key).limit(1)).first()
+            recent=_object(counter.last_chunk_json) if counter else {}
+            observed=(getattr(worker,'last_chunks',{}) or {}).get(feed)
+            if observed and observed.get('measurement_id')==recent.get('measurement_id'):recent=observed
+            projected=counter.projected if counter else 0;skipped=counter.skipped if counter else 0
+            per_feed.append(dict(feed=feed,**totals.get(feed,dict(rows=0,processed_rows=0,waiting=0,unresolved_batches=0)),
+                projected=projected if known else None,skipped=skipped if known else None,
+                since_upgrade_projected=projected,since_upgrade_skipped=skipped,counts_known=known,
+                counts_scope='complete_since_empty_database' if known else 'since_upgrade_only',
+                blocked_batches=int(failure_counts.get(feed,0)),last_chunk=recent,
+                oldest_pending=dict(key=pending[0],stamp=pending[1],offset=pending[2]) if pending else None))
+        def public_failure(row):
+            data=row.model_dump(exclude={'error_context_json'})
+            data['context']=_object(row.error_context_json)
+            return data
+        projected=sum(row.projected for key,row in counters.items() if key!='external')
+        skipped=sum(row.skipped for key,row in counters.items() if key!='external')
+        external=counters.get('external');external_count=external.projected if external else 0
+        return dict(projected=projected if known else None,skipped=skipped if known else None,
+            processed_rows=sum(row['processed_rows'] for row in totals.values()),
+            waiting=sum(row['waiting'] for row in totals.values()),
+            unresolved_batches=sum(row['unresolved_batches'] for row in totals.values()),
+            blocked_batches=sum(failure_counts.values()),failures=[public_failure(row) for row in failures[:20]],
+            failures_limited=len(failures)>20,per_feed=per_feed,counts_known=known,
+            counts_scope='complete_since_empty_database' if known else 'since_upgrade_only',
+            since_upgrade=dict(projected=projected,skipped=skipped,external_imported=external_count),
+            last_error=getattr(worker,'last_error','') or (failures[0].error if failures else ''),
+            external_imported=external_count if known else None,
+            note='processed_rows为已处理源行游标，包含明确跳过；不是新增文章数。未完成批次不是错误批次。旧库不扫描历史回执，分类计数只展示本版以来的增量。')
 
 
 def import_document(engine,payload):
@@ -337,29 +603,44 @@ def import_document(engine,payload):
         lock_news(s,'intake:receipt:'+ident,'article:'+_document_identity(document))
         old=s.get(IntakeProjectionReceipt,ident)
         if old:return dict(_receipt_data(old),reused=True)
+        lock_news(s,'intake:projection-metrics');_meter(s);counter=_counter(s,'external')
         article,version=_upsert(s,document,locked=True)
         receipt=IntakeProjectionReceipt(key=ident,feed='external:'+document.provider,stamp='',
             source_record_id=document.record_id,status='projected',article_key=article.article_key,
             revision=version.revision if version else 0,
             envelope_json=json.dumps(document.model_dump(exclude={'content'}),ensure_ascii=False))
-        s.add(receipt);s.flush();result=dict(_receipt_data(receipt),reused=False)
+        s.add(receipt);counter.projected+=1;counter.updated=utc_now_iso();s.add(counter)
+        s.flush();result=dict(_receipt_data(receipt),reused=False)
         s.commit();return result
+
+
+def projection_interval(engine):
+    """Busy delay, independent of idle/error backoff; explicit settings win."""
+    default=.05 if getattr(getattr(engine,'dialect',None),'name','')=='postgresql' else 1.
+    raw=(os.getenv('NEWS2DOUYIN_GDELT_PROJECTION_INTERVAL','').strip()
+         or os.getenv('NEWS2DOUYIN_GKG_PROJECTION_INTERVAL','').strip())
+    try:value=float(raw) if raw else default
+    except ValueError:value=default
+    return max(.01,value) if math.isfinite(value) else default
 
 
 class ProjectionWorker:
     def __init__(self,engine,storage_root):
         self.engine,self.storage_root=engine,storage_root
         self.stop_event=StopEvent();self.thread=None
-        self.last_error='';self.failures=0
+        self.last_error='';self.failures=0;self.last_chunks={}
 
     @property
     def running(self):return bool(self.thread and self.thread.is_alive())
 
-    def step(self,limit=None):return project_step(self.engine,self.storage_root,limit)
+    def _observe(self,chunk):self.last_chunks[chunk['feed']]=chunk
+
+    def step(self,limit=None):return project_step(self.engine,self.storage_root,limit,observer=self._observe)
 
     def start(self):
         if self.thread and self.thread.is_alive():return
-        if os.getenv('NEWS2DOUYIN_GKG_PROJECTION_ENABLED','1').lower() in ('0','false','off'):return
+        configured=os.getenv('NEWS2DOUYIN_GDELT_PROJECTION_ENABLED','').strip() or os.getenv('NEWS2DOUYIN_GKG_PROJECTION_ENABLED','1').strip()
+        if configured.lower() in ('0','false','off','no'):return
         self.stop_event.clear();self.thread=Thread(target=self.loop,daemon=True);self.thread.start()
 
     def stop(self):
@@ -374,8 +655,8 @@ class ProjectionWorker:
                 # A locked/unavailable transaction store must not be opened
                 # again merely to persist its own failure report.
                 self.last_error=type(exc).__name__;self.failures+=1
-                delay=min(60,2**min(self.failures-1,6))
+                delay=.2 if getattr(exc,'_intake_batch_isolated',False) else min(60,2**min(self.failures-1,6))
             else:
                 self.last_error='';self.failures=0
-                delay=_setting('NEWS2DOUYIN_GKG_PROJECTION_INTERVAL',1,1) if changed else _setting('NEWS2DOUYIN_GKG_PROJECTION_IDLE_INTERVAL',3,1)
+                delay=projection_interval(self.engine) if changed else _setting('NEWS2DOUYIN_GKG_PROJECTION_IDLE_INTERVAL',3,1)
             self.stop_event.wait(delay)

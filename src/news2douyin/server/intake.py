@@ -3,20 +3,18 @@ from datetime import datetime, timezone
 import hmac
 import os
 import re
-from fastapi import Depends, Header, HTTPException, Query
+from fastapi import Depends, Header, HTTPException, Query, Response
 from pydantic import BaseModel, ConfigDict, Field
 from sqlmodel import Session, select
-from sqlalchemy import func
 from sqlalchemy.exc import SQLAlchemyError
 from ..intake import service
 from ..intake.lake import Lake
 from ..intake.projection import IntakeDocument, import_document, lookup_receipt, projection_status
-from ..extraction.models import VersionReading
 from .research import same_origin
 from .tasks import task_call
 from .readiness import database_configuration, intake_runtime
 
-FEEDS={'gkg_english':'GKG English','gkg_translation':'GKG Translingual'}
+FEEDS={key:info['label'] for key,info in service.FEEDS.items()}
 
 
 class FeedSetting(BaseModel):
@@ -65,12 +63,13 @@ def register(app,engine,storage,render):
     def info():
         runtime=intake_runtime(app)
         data=dict(database=database_configuration(engine),database_ok=False,receiver=runtime['receiver'],
-                  projection=runtime['projection'],feeds=[],batches=[],counters={},extraction={})
+                  projection=runtime['projection'],feeds=[],batches=[],counters={},extraction={},extraction_known=False)
         try:
             data.update(service.status(engine,storage))
             data['projection'].update(projection_status(engine,getattr(app.state,'intake_projection',None)))
-            with Session(engine) as s:
-                data['extraction']=dict(s.exec(select(VersionReading.state,func.count()).group_by(VersionReading.state)).all())
+            # Intake polling reports archive/offset progress. A full reading-state
+            # GROUP BY over all article versions does not belong in a five-second
+            # status request; detailed reading state has its own knowledge view.
             data['database_ok']=True
         except SQLAlchemyError:
             # Keep worker errors readable even when the transaction database is unavailable.
@@ -81,10 +80,11 @@ def register(app,engine,storage,render):
 
     @app.get('/intake')
     def page():
-        return render('intake.html',active='intake')
+        return render('intake.html',active='intake',feed_labels=FEEDS)
 
     @app.get('/api/intake/status')
-    def status():
+    def status(response:Response):
+        response.headers['Cache-Control']='no-store'
         return info()
 
     @app.get('/api/intake/records')
@@ -113,7 +113,11 @@ def register(app,engine,storage,render):
         item['raw_line']=raw[:200000]
         item['projection']=lookup_receipt(s,feed,stamp,row_index)
         item['content_available']=False
-        item['content_note']='GKG 提供报道元数据和链接，不含原始报道全文；全文可从已保存的新闻版本或来源页面核查。'
+        kind=service.FEEDS[feed].get('kind','gkg')
+        item['kind']=kind
+        item['content_note']=({'events':'Events 是官方自动编码的来源事件记录，不是已核实的本地研究事件。',
+            'mentions':'Mentions 记录文档与官方事件的提及关联，不含文章全文。'}.get(kind,
+            'GKG 提供报道元数据和链接，不含原始报道全文；全文可从已保存的新闻版本或来源页面核查。'))
         return item
 
     @app.post('/api/intake/feeds/{feed}/enabled',dependencies=[Depends(same_origin)])
@@ -127,9 +131,19 @@ def register(app,engine,storage,render):
         known(feed);task_call(service.retry,engine,feed)
         return info()
 
+    @app.post('/api/intake/feeds/{feed}/probe',dependencies=[Depends(same_origin)])
+    def probe(feed:str):
+        known(feed)
+        return task_call(service.probe,engine,feed)
+
+    @app.post('/api/intake/projection/{key}/retry',dependencies=[Depends(same_origin)])
+    def retry_projection(key:str):
+        from ..intake.projection import retry_projection as retry_batch
+        return task_call(retry_batch,engine,key)
+
     @app.post('/api/intake/documents',dependencies=[Depends(same_origin),Depends(connector_auth)])
     def document(payload:IntakeDocument):
-        if payload.provider.casefold() in {'gkg','gdelt','worldnewsapi','mock'}:
+        if payload.provider.casefold() in {'gkg','gdelt','worldnewsapi','mock','newsnow'}:
             raise HTTPException(422,'请用应用编号作为采集来源，例如 industry.site；此入口不能声明为保留的官方采集渠道')
         # A connector's provider is a provenance claim, not verified publisher identity.
         return task_call(import_document,engine,payload.model_dump())

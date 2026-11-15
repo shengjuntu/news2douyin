@@ -1,0 +1,78 @@
+{
+  "version": "0.28.0",
+  "recorded_at": "2026-11-14T16:28:14+08:00",
+  "timezone": "Asia/Shanghai",
+  "status": "passed_with_post_suite_reader_guard_supplement",
+  "production_accessed": false,
+  "full_suite": {
+    "passed": 861,
+    "skipped": 131,
+    "failed": 0,
+    "seconds": 302.0,
+    "log": "qa-full-suite-final.log",
+    "scope": "Full collection/legacy/UI suite before the final fixed-version NewsNow reader guard supplement; no repeat-full claim for that later small change.",
+    "real_falkor_fixtures_available": true
+  },
+  "independent_http_sql": {
+    "provider": "Synthetic NewsNow-shaped local HTTP service; actual TaskWorker and filesystem archives",
+    "postgres_version": "16.2",
+    "matrices": [
+      {
+        "locale": "C",
+        "passed": 23,
+        "seconds": 16.63,
+        "log": "qa-newsnow-pg-C.log"
+      },
+      {
+        "locale": "en_US.utf8",
+        "passed": 23,
+        "seconds": 16.39,
+        "log": "qa-newsnow-pg-en-US.log"
+      }
+    ],
+    "later_full_document_upgrade": {
+      "backends": [
+        "SQLite",
+        "PostgreSQL en_US.utf8"
+      ],
+      "passed": 2,
+      "seconds": 2.75,
+      "log": "qa-newsnow-later-full-pg.log"
+    },
+    "fixed_version_model_guard": {
+      "backends": [
+        "SQLite",
+        "PostgreSQL en_US.utf8"
+      ],
+      "passed": 2,
+      "seconds": 2.65,
+      "log": "qa-newsnow-reader-guard-pg.log"
+    },
+    "do_not_sum_overlapping_test_groups": true
+  },
+  "browser": {
+    "browser": "Chromium 153.0.8010.0",
+    "desktop_width": 1440,
+    "mobile_width": 390,
+    "full_journey": "newsnow-browser.json",
+    "reader_guard_supplement": "newsnow-article-guard-browser.json",
+    "page_errors": [],
+    "failed_requests": [],
+    "horizontal_overflow": false,
+    "remote_model_contacted": false,
+    "graph_http_calls": 0,
+    "screenshots_in_delivery": false
+  },
+  "independent_findings_resolved": [
+    "A restart between the NewsNow receipt checkpoint and raw pointer no longer fails on a duplicate checkpoint key.",
+    "A real full document arriving after a NewsNow discovery can enter the ordinary local event pipeline.",
+    "A NewsNow title/excerpt revision cannot be manually queued or reviewed as full-text extraction; a later genuine full-text revision remains allowed."
+  ],
+  "deployed_service": {
+    "address": "http://192.168.0.234:4444",
+    "tested_from_deployed_runtime": false,
+    "developer_environment_access": "Parent reported an immediate ConnectionError; no deployed availability claim.",
+    "field_probe": "tools/probe_newsnow.py",
+    "provided_source_counts_are_time_specific": true
+  }
+}

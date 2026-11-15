@@ -1,0 +1,16 @@
+{
+  "owner": "/root/event_ui0300",
+  "reports": [
+    {
+      "file": "event-reports-browser-sqlite.json",
+      "sha256": "cccd0681b8443abd83c2f38d33696d6c43a1731e9bc43082134238460fa6ff56",
+      "original_path": "/workspace/scratch/c21619997ed8/fix0300/qa-ui-sqlite/event-reports-browser.json"
+    },
+    {
+      "file": "event-reports-browser-pg-enus.json",
+      "sha256": "31ccf2764842db16908a82dd45858ecc0735f9f1b80013bbc55de51437ba3073",
+      "original_path": "/workspace/scratch/c21619997ed8/fix0300/qa-ui-pg-enus/event-reports-browser.json"
+    }
+  ],
+  "screenshots_included": false
+}

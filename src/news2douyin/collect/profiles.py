@@ -26,17 +26,21 @@ def normalize_profile_dict(data: dict[str, Any]) -> dict[str, Any]:
     profile.update({k: v for k, v in data.items() if k != 'extra'})
     profile.setdefault('provider', 'worldnewsapi')
     gdelt = profile['provider'] in ('gdelt','gkg')
-    profile.setdefault('country', '' if gdelt else 'us')
-    profile.setdefault('language', '' if gdelt else 'en')
+    newsnow = profile['provider'] == 'newsnow'
+    profile.setdefault('country', '' if gdelt or newsnow else 'us')
+    profile.setdefault('language', '' if gdelt or newsnow else 'en')
     if gdelt:
         profile.setdefault('collection_mode', 'search')
         profile.setdefault('filter_mode', 'rules')
+    if newsnow:
+        profile.setdefault('collection_mode','top')
+        profile.setdefault('filter_mode','rules')
     profile.setdefault('categories', [])
     profile.setdefault('keywords_include', [])
     profile.setdefault('keywords_exclude', [])
     profile.setdefault('source_whitelist', [])
     profile.setdefault('source_blacklist', [])
-    profile.setdefault('max_items', 100)
+    profile.setdefault('max_items', 1200 if newsnow else 100)
     profile.setdefault('market_scope', profile.get('country') or 'global')
     profile.setdefault('market_tags', [])
     return profile

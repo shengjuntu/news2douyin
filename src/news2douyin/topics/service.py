@@ -1,7 +1,9 @@
 """Durable selection state; all mutations use the existing short DB lock."""
 import json
+import re
 from datetime import datetime, timezone
 from typing import Literal
+from urllib.parse import quote, urlsplit
 from pydantic import BaseModel, Field, ConfigDict
 from sqlmodel import Session, select
 from ..research import service as rs
@@ -12,6 +14,7 @@ from ..search.service import article_page, event_page, _page, _time_predicate, _
 from ..search.index import index_available
 from ..search.dates import date_range
 from .models import TopicWorkspace, TopicSource, TopicMessage, TopicCandidate, TopicHandoff, TopicSearch
+from ..research.materials import is_lead, source_document, raw_metadata, source_label
 
 
 class Input(BaseModel):
@@ -83,11 +86,66 @@ def by_case(s, case_id):
 
 
 def source_data(s, row, full=False):
-    doc = json.loads(row.document_json)
-    return dict(source_id=row.source_id, article_key=row.article_key, title=doc['title'],
-                url=doc.get('url',''), published_at=doc.get('published_at',''),
-                revision=doc.get('revision'), content_hash=row.content_hash,
+    doc = source_document(json.loads(row.document_json))
+    metadata = doc.get('source_kind') == 'event_metadata'
+    lead = is_lead(doc)
+    official_id = str(doc.get('official_event_id') or '')
+    attention_id = str(doc.get('attention_topic') or '')
+    if not re.fullmatch(r'[A-Za-z0-9_-]{1,128}',attention_id):attention_id=''
+    if not re.fullmatch(r'\d{1,30}', official_id): official_id = ''
+    source_ref = doc.get('source_ref') or {}
+    if not isinstance(source_ref, dict): source_ref = {}
+    archive_url = ''
+    from ..intake.feeds import FEEDS
+    from ..intake.models import IntakeBatch
+    feed, stamp, index = source_ref.get('feed'), str(source_ref.get('stamp') or ''), source_ref.get('row_index')
+    if isinstance(feed,str) and feed in FEEDS and re.fullmatch(r'\d{14}', stamp) and isinstance(index, int) and not isinstance(index, bool) and index > 0:
+        batch=s.get(IntakeBatch,feed+'_'+stamp)
+        if batch and index<=batch.rows:archive_url = f'/api/intake/records/{feed}/{stamp}/{index}'
+    url = doc.get('url', '')
+    if not isinstance(url,str):url=''
+    try:
+        parsed = urlsplit(url)
+        if parsed.scheme not in ('http', 'https') or not parsed.hostname or parsed.username or parsed.password:
+            url = ''
+        if any(ord(c)<33 for c in url):url=''
+        parsed.port
+    except (TypeError, ValueError): url = ''
+    from ..translations.language import describe_language, event_language
+    language = event_language() if metadata else describe_language(
+        str(doc.get('title') or '')+'\n'+str(doc.get('content') or ''),declared=doc.get('language', ''))
+    data = dict(source_id=row.source_id, article_key=row.article_key, title=doc['title'],
+                url=url, published_at=doc.get('published_at',''),
+                revision=doc.get('revision'), source_kind=doc.get('source_kind', 'news_snapshot'),
+                official_event_id=official_id, source_ref=source_ref,
+                attention_topic=attention_id,
+                detail_url='/radar?source=attention&attention_topic='+attention_id if attention_id else
+                    '/radar?source=gdelt&event='+official_id if metadata and official_id else
+                    '/articles/'+quote(row.article_key, safe='')+('?revision='+str(doc['revision']) if
+                        isinstance(doc.get('revision'),int) and doc['revision']>0 else '') if not metadata else '',
+                archive_url=archive_url,
+                has_readable_text=not lead and bool(str(doc.get('content') or '').strip()),
+                requires_original_text=lead, newsnow=doc.get('newsnow', {}),
+                content_kind=doc.get('content_kind', ''),
+                language=language['code'], language_label=language['label'], language_basis=language['basis'],
+                language_display=language['display'],
+                content_hash=row.content_hash,
                 observed_at=row.observed_at, **({'content':doc['content']} if full else {}))
+    data['material_label']=source_label(data)
+    return data
+
+
+def material_status(sources):
+    """Describe available selected snapshots without treating metadata as text."""
+    readable = sum(bool(source.get('has_readable_text')) for source in sources)
+    leads = len(sources) - readable
+    stage = 'readable' if readable else 'leads' if sources else 'empty'
+    return dict(stage=stage, readable=readable, leads=leads, total=len(sources),
+                can_write_from_sources=bool(readable),
+                label={'readable':'已有可读材料', 'leads':'只有线索，待补原文', 'empty':'尚未选择材料'}[stage],
+                next_step={'readable':'可继续研究历史背景、核对不同来源，再进入创作。',
+                    'leads':'先补充原文与背景；事件元数据、榜单标题和摘要不能单独用来写稿。',
+                    'empty':'先加入资料或线索，再开展补材和研究。'}[stage])
 
 
 def get_source(s, workspace_id, source_id):
@@ -99,7 +157,7 @@ def get_source(s, workspace_id, source_id):
 def freeze(s, workspace_id, article_key):
     article = s.exec(select(Article).where(Article.article_key == article_key)).first()
     if not article: raise ValueError('新闻不存在')
-    doc = snapshot(article)
+    doc = source_document(snapshot(article), raw=raw_metadata(article))
     version = latest_version(s, article_key)
     doc['revision'] = version.revision if version and fingerprint(doc) == version.content_hash else None
     h = rs.digest(doc)
@@ -119,6 +177,7 @@ def detail(s, workspace_id):
                 revision=w.revision, created_at=w.created_at, updated_at=w.updated_at,
                 source_ids=json.loads(w.selected_json))
     data['sources'] = [source_data(s,get_source(s,w.workspace_id,i)) for i in data['source_ids']]
+    data['materials'] = material_status(data['sources'])
     data['candidates'] = [dict(candidate_id=r.candidate_id,run_id=r.run_id,**json.loads(r.document_json))
         for r in s.exec(select(TopicCandidate).where(TopicCandidate.workspace_id == workspace_id).order_by(TopicCandidate.created_at.desc()).limit(40))]
     messages = list(s.exec(select(TopicMessage).where(TopicMessage.workspace_id == workspace_id).order_by(TopicMessage.created_at)))
@@ -246,12 +305,19 @@ def handoff(engine,runtime,wid,payload):
                 source=get_source(s,wid,sid);doc=json.loads(source.document_json)
                 docs.append(dict(**doc,article_key=source.article_key,topic_source_id=sid))
             if len({d['article_key'] for d in docs})!=len(docs):raise ValueError('同一报道选择了多个版本，请只保留一版')
+            metadata_only = all(is_lead(d) for d in docs)
+            if value.action == 'short' and metadata_only:
+                raise ValueError('事件元数据或NewsNow榜单/摘要只是线索，请先补材或研究并读取原文，再用已有材料写稿')
             opts=dict(article_keys=[d['article_key'] for d in docs],output_language=value.output_language,
                 duration_sec=value.duration_sec,find_images=value.find_images if value.action=='materials' else False,
                 angle=w.angle,source_only=value.action=='short') if short else None
             description='仅使用所选资料生成短稿' if value.action=='short' else '补充背景、核对关键问题、寻找配图线索并整理素材报告' if value.action=='materials' else '深入研究并保存有据报告'
             language={'zh-CN':'简体中文','en':'English','ja':'日本語'}[value.output_language]
             goal=description+'。选题：'+w.title+'。角度：'+w.angle+'。用'+language+'交付。初始资料检索范围：'+w.scope_json
+            if any(d.get('source_kind') == 'event_metadata' for d in docs):
+                goal+='。初始GDELT事件元数据是自动编码线索，不是已核验新闻正文；先读取来源全文并交叉核对，不能单独作为事实证据。'
+            if any(source_document(d).get('source_kind') == 'newsnow_metadata' for d in docs):
+                goal+='。NewsNow榜单标题和摘要只是聚合线索，不是已取得的新闻全文；先打开来源链接读取原文并交叉核对，不能将榜单热度、快照时间或摘要单独作为事实证据。'
             if value.action=='materials' and not value.find_images:goal+='。本次不寻找配图，专注背景与来源核对。'
             if value.action=='materials' and not short:goal+='。本次仅交付带引用的素材报告、缺口和配图所在页面线索，不生成脚本。配图是线索，不代表已授权或已下载。'
             prepared=dict(action=value.action,short_options=opts,documents=docs,

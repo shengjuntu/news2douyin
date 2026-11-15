@@ -12,7 +12,7 @@
 <section class="card"><h2 style="margin-top:0">当前执行</h2><p id="worker-state" class="muted">正在读取执行状态…</p><p id="recovery-notice" class="queue-notice" hidden></p><div id="executing-list"></div><p id="executing-extra" class="muted small"></p><p class="muted small">每个服务执行器依次处理任务；多个实例可以共同处理队列。这里展示当前记录，不预估完成时间。</p></section>
 <form id="queue-filters" class="card queue-filters">
 <label>标题 / 策略 / 任务编号<input name="query" maxlength="200" placeholder="搜索任务" aria-label="搜索任务"></label>
-<label>任务类型<select name="kind"><option value="all">全部类型</option><option value="collect">新闻采集</option><option value="trial">策略试跑</option><option value="daily_script">每日脚本</option><option value="script">事件脚本</option><option value="video">视频制作</option></select></label>
+<label>任务类型<select name="kind"><option value="all">全部类型</option><option value="collect">新闻采集</option><option value="trial">策略试跑</option><option value="daily_script">每日脚本</option><option value="script">事件脚本</option><option value="video">视频制作</option><option value="translation">按需翻译</option></select></label>
 <label>状态<select name="status"><option value="all">全部状态</option><option value="active">进行中（含排队）</option><option value="queued">排队中</option><option value="running">执行中</option><option value="cancel_requested">正在取消</option><option value="failed">失败</option><option value="succeeded">已完成</option><option value="cancelled">已取消</option></select></label>
 <label>提交日期从<input name="date_from" type="date"></label><label>至<input name="date_to" type="date"></label>
 <label>时区<input name="timezone" value="{{ timezone }}" placeholder="Asia/Shanghai" style="width:160px"></label>

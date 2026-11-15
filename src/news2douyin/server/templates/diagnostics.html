@@ -7,6 +7,7 @@
 <p class="row"><a href="/profiles?selected={{ task.profile_name|urlencode }}">返回策略与计划</a><a href="/tasks/{{ task.task_id }}">查看进度 / 取消 / 重试</a><a href="/tasks/{{ task.task_id }}/diagnostics">刷新</a>{% if task.kind=='collect' %}<a href="/daily?task_id={{ task.task_id }}&day={{ task.collection_date }}&timezone={{ task.timezone|urlencode }}">选择本次新闻</a>{% endif %}</p>
 <div class="card" id="diagnostic-summary" role="status"><strong>{{ report.summary }}</strong>{% for code in d.get('fallbacks',[]) %}<p class="badge warn">{{ report.fallbacks.get(code,code) }}</p>{% endfor %}</div>
 {% if task.error_text %}<details style="margin:12px 0"><summary>任务错误详情</summary><pre>{{ task.error_text }}</pre></details>{% endif %}
+{% set newsnow_report=stats.get('newsnow') or d.get('newsnow') %}{% include 'newsnow_diagnostics.html' %}
 {% if d %}
 <h2>每一步留下多少新闻</h2><div class="grid">
 {% for label,value in [('取得新闻',d.fetched),('通过来源与排除词',d.after_hard_filter),('通过相关性筛选',d.kept)] %}<div class="card"><div class="muted">{{ label }}</div><div class="num">{{ value }}</div></div>{% endfor %}
@@ -17,7 +18,7 @@
 {% else %}<p class="muted">暂无已完成的筛选统计。任务仍在进行时，此页每 3 秒刷新。</p>{% endif %}
 <h2>本次使用的策略配置</h2><p class="muted small">编辑当前策略不会改变这个任务。试跑失败后“重试”复用已保存步骤；修改策略后要发起新的试跑。</p>
 <table><tr><th>设置</th><th>本次值</th></tr>
-{% for key,label in [('provider','新闻源'),('collection_mode','获取方式'),('search_query','上游检索词'),('country','国家'),('language','语言'),('max_items','最多条数'),('categories','关注分类'),('keywords_include','关注关键词'),('keywords_exclude','排除关键词'),('source_whitelist','来源白名单'),('source_blacklist','来源黑名单')] %}
-{% set value=report.profile.get(key) %}<tr><td>{{ label }}</td><td>{% if value is sequence and value is not string %}{{ value|join('，') if value else '未限制' }}{% else %}{{ value or '未设置' }}{% endif %}</td></tr>{% endfor %}</table>
+{% for key,label in [('provider','新闻源'),('base_url','NewsNow服务地址'),('newsnow_sources','NewsNow来源'),('collection_mode','获取方式'),('search_query','上游检索词'),('country','国家'),('language','语言'),('max_items','最多条数'),('categories','关注分类'),('keywords_include','关注关键词'),('keywords_exclude','排除关键词'),('source_whitelist','来源白名单'),('source_blacklist','来源黑名单')] %}
+{% if key not in ['base_url','newsnow_sources'] or report.profile.provider=='newsnow' %}{% set value=report.profile.get(key) %}<tr><td>{{ label }}</td><td>{% if value is sequence and value is not string %}{{ value|join('，') if value else '未限制' }}{% else %}{{ value or '未设置' }}{% endif %}</td></tr>{% endif %}{% endfor %}</table>
 {% if task.status in ['queued','running','cancel_requested'] %}<script>setTimeout(()=>location.reload(),3000);</script>{% endif %}
 {% endblock %}

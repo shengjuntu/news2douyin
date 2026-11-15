@@ -199,11 +199,24 @@ class DeskWorker:
             self._dispatch(key,lease)
 
     def _dispatch(self,key,lease):
+        # A successful removal cannot race a new research submission. This
+        # durable lease spans only local case/enqueue work, never agent I/O.
+        from .leases import acquire
+        with Session(self.engine) as s:
+            item=s.get(WatchReview,key)
+            if not item or item.status!='pending':return
+            watch=item.watch
+        with acquire(self.engine,'watch-lifecycle/'+watch,120) as lifecycle:
+            if lifecycle is None:return
+            self._dispatch_active(key,lease)
+
+    def _dispatch_active(self,key,lease):
         with Session(self.engine,expire_on_commit=False) as s:
             item=s.get(WatchReview,key)
             if not item or item.status!='pending':return
             w=s.get(Watch,item.watch)
-            if item.automatic and (not w.enabled or not w.auto_research or w.version!=item.scope_version):
+            from .focus_lifecycle import is_deleted
+            if not w or is_deleted(s,item.watch) or (item.automatic and (not w.enabled or not w.auto_research or w.version!=item.scope_version)):
                 item.status='cancelled';item.message='专题设置已改变';s.add(item);s.commit();return
             keys=[]
             frozen=None
@@ -229,7 +242,8 @@ class DeskWorker:
             row=s.get(WatchReview,key)
             if not row or row.status!='pending':return
             current=s.get(Watch,w.key)
-            if row.automatic and (not current or not current.enabled or not current.auto_research or current.version!=row.scope_version):
+            from .focus_lifecycle import is_deleted
+            if not current or is_deleted(s,w.key) or (row.automatic and (not current.enabled or not current.auto_research or current.version!=row.scope_version)):
                 state,message='cancelled','专题设置已改变'
             row.status,row.message=state,message
             s.add(row);desk.enqueue_graph(s,'watch/'+w.key);s.commit()

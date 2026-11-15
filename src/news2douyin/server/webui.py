@@ -161,11 +161,12 @@ def register_webui_routes(app: FastAPI, engine, scheduler, storage_root: str) ->
     @app.get('/profiles', response_class=HTMLResponse)
     def page_profiles(selected: str = ''):
         from .app import _profile_to_dict
+        from ..collect.providers.newsnow import SOURCE_CATALOG,DEFAULT_SOURCES
         with session_scope(engine) as session:
             profiles = [_profile_to_dict(p, session) for p in session.exec(select(CollectProfile).order_by(CollectProfile.name))]
             jobs = [job_dict(j) for j in session.exec(select(CollectJob).where(CollectJob.schedule_type != 'archived').order_by(CollectJob.id))]
         return render('profiles.html', active='profiles', profiles=profiles, jobs=jobs, selected=selected, gdelt=GDELT_CODES,
-                      today=calendar_day(), timezone=timezone_name())
+                      today=calendar_day(), timezone=timezone_name(),newsnow_catalog=SOURCE_CATALOG,newsnow_default_sources=DEFAULT_SOURCES)
 
     @app.get('/admin', response_class=HTMLResponse)
     def page_dashboard():
@@ -270,10 +271,14 @@ def register_webui_routes(app: FastAPI, engine, scheduler, storage_root: str) ->
             page = query_call(article_page, session, query=q, country=country, category=category,
                               duplicates=duplicates, limit=limit, offset=offset, mode=mode,
                               period=period, date_from=date_from, date_to=date_to, time_field=time_field, timezone=timezone,task_id=task_id,profile_name=profile_name)
+            from ..translations.language import describe_language
             rows = [{'key': r.article_key, 'title': r.title, 'url': r.url, 'domain': r.source_domain,
                      'provider': r.provider, 'country': r.country, 'published_at': r.published_at, 'categories': loads(r.category_tags_json, []),
                      'sentiment': r.sentiment, 'score': r.market_relevance_score,
-                     'is_duplicate': r.is_duplicate, 'snippet': r.content[:200]} for r in page.items]
+                     'is_duplicate': r.is_duplicate, 'snippet': r.content[:200],
+                     'language_info': describe_language(r.title+'\n'+r.content[:2000], r.language),
+                     'metadata_only': r.provider=='newsnow' or (r.provider in ('gdelt','gkg') and not r.content.strip()),
+                     'newsnow':loads(r.raw_json,{}).get('newsnow',{}) if r.provider=='newsnow' else {}} for r in page.items]
             countries = list(session.exec(select(Article.country).distinct().order_by(Article.country)))
         params = dict(q=q, country=country, category=category, duplicates=duplicates, limit=limit, mode=mode,
                       period=period, date_from=date_from, date_to=date_to, time_field=time_field, timezone=timezone,task_id=task_id,profile_name=profile_name)
@@ -301,15 +306,19 @@ def register_webui_routes(app: FastAPI, engine, scheduler, storage_root: str) ->
                     fromfile=f'r{selected.revision - 1}', tofile=f'r{selected.revision}', lineterm='')) if previous else ''
             from ..extraction.service import article_view
             from ..extraction.schema import LABELS
-            return render('article_detail.html', actions=article_view(session,selected), action_labels=LABELS, active='articles', article=row, document=document,
+            from ..translations.language import describe_language
+            language_info = describe_language(document.get('title','')+'\n'+document.get('content','')[:4000], document.get('language',''))
+            return render('article_detail.html', language_info=language_info, actions=article_view(session,selected), action_labels=LABELS, active='articles', article=row, document=document,
                           selected=selected, current=current, history=history, diff=diff,
-                          discovery=session.get(GdeltDiscovery, article_key))
+                          newsnow_info=(document.get('raw') or {}).get('newsnow',{}),discovery=session.get(GdeltDiscovery, article_key))
 
     from .desk import register_desk, safe_back
     from ..desk import service as desk
     from ..desk.models import Watch, RadarEntry, EventPlace
     from ..desk.places import countries as country_labels
     register_desk(app,engine,render)
+    from .attention import register as register_attention
+    register_attention(app,engine)
     from .workbench import register as register_workbench
     register_workbench(app,engine,storage_root,render)
     from .knowledge import register as register_knowledge
@@ -326,7 +335,8 @@ def register_webui_routes(app: FastAPI, engine, scheduler, storage_root: str) ->
             view = task_call(workspace, session, event_key)
             scripts = script_workbench.list_scripts(session, event_key=event_key, limit=10)
             related=desk.memberships(session,event_key)
-            watches=[(w.key,w.name) for w in session.exec(select(Watch).order_by(Watch.name))]
+            from ..desk.focus_lifecycle import visible_watch
+            watches=[(w.key,w.name) for w in session.exec(select(Watch).where(visible_watch()).order_by(Watch.name))]
             from ..workbench.service import related as related_work
             content_tasks=related_work(session,event=event_key)
             from ..knowledge.service import status as graph_status

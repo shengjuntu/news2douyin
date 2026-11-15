@@ -13,6 +13,7 @@ from ..storage.articles import latest_version
 from .models import (ResearchLock, ResearchStrategy, ResearchCase, ResearchRun, ResearchQuestion,
                      ResearchSource, ResearchClaim, ResearchReport, ResearchActivity, ResearchToolCall, ResearchEnvironment, ShortScriptBrief)
 from .config import StrategyInput, DEFAULT_STRATEGIES
+from .materials import source_document, article_document, is_lead
 
 ACTIVE = {'queued', 'preparing', 'starting', 'running', 'waiting', 'stopping', 'uncertain'}
 WRITABLE = {'starting', 'running', 'waiting', 'uncertain'}
@@ -170,7 +171,8 @@ def create_case(engine, payload, *, preparation=None, frozen_sources=None, fixed
         if event_key and not keys:
             keys = list(s.exec(select(ArticleEventLink.article_key).where(ArticleEventLink.event_key == event_key).limit(12)))
         articles = []
-        frozen = {d['article_key']:d for d in frozen_sources} if frozen_sources is not None else None
+        frozen = {d['article_key']:source_document(d) for d in frozen_sources} if frozen_sources is not None else None
+        documents = {}
         if frozen is not None and set(frozen)!=set(keys): raise ValueError('选题快照与选择不一致')
         for key in keys:
             if frozen is not None:
@@ -182,8 +184,13 @@ def create_case(engine, payload, *, preparation=None, frozen_sources=None, fixed
             if not article:
                 raise ValueError('所选新闻不存在')
             articles.append(article)
+            documents[key] = frozen[key] if frozen is not None else article_document(article)
         if not articles and not (allow_empty and fixed_case_id and payload.get('title')):
             raise ValueError('请至少选择一条新闻作为研究起点')
+        metadata_only = bool(documents) and all(doc.get('source_kind') == 'event_metadata' for doc in documents.values())
+        leads_only = bool(documents) and all(is_lead(doc) for doc in documents.values())
+        if leads_only and preparation and preparation.get('options', {}).get('source_only'):
+            raise ValueError('事件元数据或NewsNow榜单/摘要只是线索，请先补材或研究并读取原文，再用已有材料写稿')
         title = str(payload.get('title') or articles[0].title).strip()[:250]
         snapshot = dict(strategy_id=strategy.strategy_id, name=strategy.name, revision=strategy.revision,
                         **json.loads(strategy.config_json))
@@ -203,18 +210,31 @@ def create_case(engine, payload, *, preparation=None, frozen_sources=None, fixed
             evidence_text = article.content or article.title
             if survey_packet is not None and article.content and article.title != article.content:
                 evidence_text = article.title+'\n'+article.content
+            doc = documents[article.article_key]
+            source_kind = ('event_metadata' if doc.get('source_kind') == 'event_metadata' else
+                           'search_snippet' if doc.get('source_kind') in {'newsnow_metadata','search_snippet'} else 'news_snapshot')
+            provenance = {'article_key': article.article_key,
+                          'article_version': version.revision if version else doc.get('revision'),
+                          'topic_source_id': doc.get('topic_source_id', ''),
+                          'independence_group': article.duplicate_of_article_key or article.article_key}
+            if source_kind == 'event_metadata':
+                provenance.update(source_kind=source_kind, provider=doc.get('provider', 'gdelt_events'),
+                                  official_event_id=doc.get('official_event_id', ''),
+                                  source_ref=doc.get('source_ref', {}), requires_original_text=True)
+            elif doc.get('source_kind') == 'newsnow_metadata':
+                provenance.update(source_kind='newsnow_metadata', provider='newsnow',
+                                  newsnow=doc.get('newsnow',{}), content_kind=doc.get('content_kind',''),
+                                  requires_original_text=True)
             add_source(s, case, title=article.title, url=article.url, text=evidence_text,
-                       kind='news_snapshot', published_at=article.published_at,
-                       provenance={'article_key': article.article_key, 'article_version': (version.revision if version else None) if frozen is None else frozen[article.article_key].get('revision'),
-                                   'topic_source_id': frozen[article.article_key].get('topic_source_id','') if frozen is not None else '',
-                                   'independence_group': article.duplicate_of_article_key or article.article_key})
+                       kind=source_kind, published_at=article.published_at, provenance=provenance)
         if prior_watch:
             from ..desk.knowledge import carry_history
             carry_history(s, case, prior_watch)
         if survey_packet is not None:
             from ..extraction.survey import bind
             bind(s,case,survey_packet)
-        activity(s, case.case_id, 'created', '已创建研究课题并保存新闻快照')
+        activity(s, case.case_id, 'created', '已保存事件元数据线索，等待读取原文核查' if metadata_only else
+                 '已保存榜单／摘要线索，等待读取原文核查' if leads_only else '已创建研究课题并保存新闻快照')
         s.commit()
         return detail(s, case.case_id)
 
@@ -313,8 +333,8 @@ def save_claim(s, case, run, args):
     clean = []
     for item in evidence:
         source = s.get(ResearchSource, item['source_id'])
-        if not source or source.case_id != case.case_id or source.kind == 'search_snippet':
-            raise ValueError('证据必须来自本课题已读取的正文，不能引用搜索摘要')
+        if not source or source.case_id != case.case_id or source.kind in {'search_snippet', 'event_metadata'}:
+            raise ValueError('证据必须来自本课题已读取的正文，不能引用搜索摘要或事件元数据线索')
         paragraph = next((p for p in json.loads(source.paragraphs_json) if p['id'] == item['paragraph_id']), None)
         quote = str(item.get('quote', '')).strip()
         if not paragraph or not quote or quote not in paragraph['text']:

@@ -1,0 +1,45 @@
+{
+  "ok": true,
+  "browser": "153.0.8010.0",
+  "real_http": true,
+  "translation_api": "mocked queued/succeeded/failure; no model or external requests",
+  "results": {
+    "desktop": {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "bounds": {
+        "width": 1440,
+        "scroll": 1440
+      },
+      "advanced_collapsed": true,
+      "title_translation": true,
+      "no_translation_html_execution": true
+    },
+    "mobile": {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "bounds": {
+        "width": 390,
+        "scroll": 390
+      },
+      "advanced_collapsed": true,
+      "title_translation": true,
+      "no_translation_html_execution": true
+    },
+    "selected_revision": {
+      "revision": 1,
+      "correct_frozen_language": true,
+      "original_retained": true,
+      "error_and_retry": true,
+      "bounds": {
+        "width": 390,
+        "scroll": 390
+      }
+    }
+  },
+  "page_errors": []
+}

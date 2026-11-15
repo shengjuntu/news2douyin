@@ -6,14 +6,15 @@ from ..tasks.service import task_dict
 
 REASONS = {'source_not_allowed': '不在来源白名单', 'source_blocked': '命中来源黑名单',
            'excluded_keyword': '命中排除关键词', 'not_relevant_rule': '未命中关键词或分类规则',
-           'not_relevant_ai': 'AI 判为不相关', 'kept_rule': '规则保留', 'kept_ai': 'AI 保留'}
+           'not_relevant_ai': 'AI 判为不相关', 'kept_rule': '规则保留', 'kept_ai': 'AI 保留',
+           'not_news_material':'非新闻榜单条目，仅保存快照'}
 FALLBACKS = {'configured_rules': '按策略配置使用规则筛选', 'model_unavailable': '模型不可用，使用规则筛选',
              'request_failed': '模型请求失败，剩余新闻使用规则筛选',
              'invalid_response': '模型返回格式无效，剩余新闻使用规则筛选',
              'partial_response': '模型遗漏部分新闻，遗漏项使用规则筛选'}
 
 
-def summary(stats, status='succeeded', error=''):
+def _summary(stats, status='succeeded', error=''):
     if status == 'failed':
         text = (error or '').lower()
         if 'gdelt' in text:
@@ -49,6 +50,22 @@ def summary(stats, status='succeeded', error=''):
     return f"本次保留 {stats.get('after_filter', 0)} 条，新增 {stats.get('stored_articles', 0)} 条、更新 {stats.get('updated_articles', 0)} 条。"
 
 
+def summary(stats,status='succeeded',error=''):
+    report=stats.get('newsnow') or (stats.get('diagnostics') or {}).get('newsnow') or {}
+    sources=report.get('sources') or []
+    failures=sum(row.get('status')=='failed' for row in sources)
+    missing=sum(row.get('status')=='not_attempted' for row in sources)
+    success=sum(row.get('status') in ('success','empty') for row in sources)
+    if sources and status=='failed' and not success:
+        return 'NewsNow选定来源均未成功读取，任务失败；失败与未尝试不会记成空榜，请查看各来源状态。'
+    if sources and success and all(row.get('status')=='empty' for row in sources):
+        return 'NewsNow各来源本次均成功返回空榜；没有新闻候选，不代表源请求失败，也没有执行内容筛选。'
+    if sources and success and not stats.get('fetched') and sum(row.get('raw_items',0) for row in sources) and not sum(row.get('valid_items',0) for row in sources):
+        return 'NewsNow已返回原始条目，但没有可用的新闻候选；请查看各来源的有效条目与无效条目数量，不将其当作空榜。'
+    prefix=f'NewsNow有{failures}个来源失败、{missing}个未尝试，可用结果已保留。' if failures or missing else ''
+    return prefix+_summary(stats,status,error)
+
+
 def task_diagnostics(session, task_id):
     task = session.get(TaskRecord, task_id)
     if task is None:
@@ -61,10 +78,11 @@ def task_diagnostics(session, task_id):
             saved = loads(checkpoint.payload_json, {})
             diagnostic = saved.get('diagnostics') or {}
             stats = dict(stats, diagnostics=diagnostic, fetched=diagnostic.get('fetched', 0),
-                         after_filter=len(saved.get('items', [])), filter_mode=saved.get('mode', ''))
+                         after_filter=saved.get('kept_count',len(saved.get('items', []))), filter_mode=saved.get('mode', ''))
     stats['dry_run'] = task.trigger_type == 'profile_test'
     profile = loads(task.profile_json, {})
     fields = ('name', 'provider', 'country', 'language', 'categories', 'keywords_include', 'keywords_exclude',
-              'source_whitelist', 'source_blacklist', 'max_items', 'date_str', 'timezone', 'filter_mode', 'collection_mode', 'search_query')
+              'source_whitelist', 'source_blacklist', 'max_items', 'date_str', 'timezone', 'filter_mode', 'collection_mode', 'search_query',
+              'base_url','newsnow_sources')
     return {'task': task_dict(task), 'stats': stats, 'profile': {k: profile[k] for k in fields if k in profile},
             'summary': summary(stats, task.status, task.error_text), 'reasons': REASONS, 'fallbacks': FALLBACKS}

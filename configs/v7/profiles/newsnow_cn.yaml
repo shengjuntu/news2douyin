@@ -1,0 +1,53 @@
+# Direct JSON integration with the user's existing NewsNow instance.
+# Country/language are unknown unless an individual source supplies metadata.
+name: newsnow_cn
+provider: newsnow
+country: ''
+language: ''
+categories: []
+keywords_include: []
+keywords_exclude: []
+source_whitelist: []
+source_blacklist: []
+max_items: 1200
+market_scope: global
+market_tags: []
+filter_mode: rules
+collection_mode: top
+base_url: http://192.168.0.234:4444
+newsnow_sources:
+  - zhihu
+  - weibo
+  - baidu
+  - toutiao
+  - douyin
+  - tieba
+  - bilibili
+  - kuaishou
+  - douban
+  - thepaper
+  - tencent
+  - ifeng
+  - nowcoder
+  - chongbuluo
+  - freebuf
+  - qqvideo
+  - iqiyi
+  - aihot
+  - ithome
+  - solidot
+  - sspai
+  - juejin
+  - coolapk
+  - github
+  - producthunt
+  - wallstreetcn
+  - cls
+  - jin10
+  - gelonghui
+  - xueqiu
+  - fastbull
+  - cankaoxiaoxi
+  - sputniknewscn
+  - dongqiudi
+  - hupu

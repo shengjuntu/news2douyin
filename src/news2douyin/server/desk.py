@@ -47,6 +47,9 @@ class Link(BaseModel):
 class Create(Scope):
     seed:str=Field(default='',max_length=160)
 
+class RemoveFocus(BaseModel):
+    version:int=Field(ge=1)
+
 
 def register_desk(app,engine,render):
     def db():
@@ -59,6 +62,8 @@ def register_desk(app,engine,render):
     register_extraction(app,db)
     from .focus_init import register as register_focus_init
     register_focus_init(app,engine)
+    from .gdelt_events import register as register_gdelt_events
+    register_gdelt_events(app,engine,render)
     def remember(response,view):
         response.set_cookie('n2d_desk',view,max_age=31536000,httponly=True,samesite='lax')
         return response
@@ -78,7 +83,33 @@ def register_desk(app,engine,render):
     @app.get('/radar')
     def radar(request:Request,q:str='',country:str='',topic:str='',mode:str='contains',band:str='',
               period:str='auto',channel:str='all',provider:str='all',view:str='list',
+              source:str='',cameo:str='',min_sources:int=Query(0,ge=0,le=1000),watch:str='',preset:str='',order:str='recent',
+              event:str=Query('',pattern=r'^\d{0,30}$'),
+              attention_topic:str=Query('',max_length=128),
               limit:int=Query(30,ge=1,le=500),offset:int=Query(0,ge=0),s=Depends(db)):
+        if not source:
+            source='local'
+            if not request.query_params:
+                from ..intake.official_models import OfficialEvent
+                if s.exec(select(OfficialEvent.event_id).limit(1).execution_options(
+                        n2d_query_name='selection.landing.source')).first() is not None:
+                    source='gdelt'
+                else:
+                    from ..attention.models import AttentionTopic
+                    if s.exec(select(AttentionTopic.key).limit(1)).first() is not None:source='attention'
+        if source=='attention':
+            from .attention import page_context
+            result=page_context(s,q=q,period='72h' if period=='auto' else period,
+                order='attention' if order=='recent' and 'order' not in request.query_params else order,
+                watch=watch,offset=offset,limit=min(limit,100),attention_topic=attention_topic)
+            return remember(render('attention_radar.html',active='radar',**result),'radar')
+        if source=='gdelt':
+            from .gdelt_events import page_context
+            result=page_context(s,q=q,country=country,cameo=cameo,period='72h' if period=='auto' else period,
+                min_sources=min_sources,watch=watch,preset=preset,order=order,offset=offset,limit=min(limit,100))
+            result['open_event']=event
+            return remember(render('gdelt_events.html',active='radar',**result),'radar')
+        if source!='local':raise HTTPException(422,'事件来源视图无效')
         from ..knowledge import radar as projection
         params=task_call(projection.checked,q=q,country=country,topic=topic,mode=mode,band=band,
             period=period,channel=channel,provider=provider,view=view)
@@ -98,7 +129,8 @@ def register_desk(app,engine,render):
     @app.get('/focus')
     @app.get('/focus/{key}')
     def focus(request:Request,key:str='',seed:str='',order:str='recent',branch:str='',offset:int=Query(0,ge=0),s=Depends(db)):
-        watches=s.exec(select(Watch).order_by(Watch.created,Watch.key)).all()
+        from ..desk.focus_lifecycle import visible_watch, trash_items
+        watches=s.exec(select(Watch).where(visible_watch()).order_by(Watch.created,Watch.key)).all()
         w=task_call(desk.get_watch,s,key) if key else None
         total,items=desk.focus_entries(s,key,offset,order=order,branch=branch) if w else (0,[])
         reviews=s.exec(select(WatchReview,ResearchCase,ResearchRun).outerjoin(ResearchCase,ResearchCase.case_id==WatchReview.case_key)
@@ -140,6 +172,7 @@ def register_desk(app,engine,render):
         if seed and not seed_event:raise HTTPException(404,'事件不存在')
         from ..desk.focus_jobs import definition as focus_definition, status as focus_status
         return remember(render('desk_focus.html',active='focus',w=w,data=w.model_dump() if w else {},watches=watches,
+            trashed=trash_items(s),trash_open=request.query_params.get('trash')=='1',
             intent_definition=focus_definition(s,key) if w else None,
             tracking=focus_status(s,key) if w else {},
             counts=counts,total=total,items=items,offset=offset,reviews=reviews,presets=PRESETS,seed=seed,
@@ -162,6 +195,18 @@ def register_desk(app,engine,render):
     @app.put('/api/focus/{key}',dependencies=[Depends(same_origin)])
     def edit(key:str,p:Edit,s=Depends(db)):
         return task_call(desk.save_watch,s,Scope(**p.model_dump()),key,p.version)
+    @app.get('/api/focus/trash')
+    def trash(s=Depends(db)):
+        from ..desk.focus_lifecycle import trash_items
+        return dict(items=trash_items(s))
+    @app.delete('/api/focus/{key}',dependencies=[Depends(same_origin)])
+    def remove_focus(key:str,p:RemoveFocus,s=Depends(db)):
+        from ..desk.focus_lifecycle import remove
+        return task_call(remove,s,key,p.version)
+    @app.post('/api/focus/{key}/restore',dependencies=[Depends(same_origin)])
+    def restore_focus(key:str,p:RemoveFocus,s=Depends(db)):
+        from ..desk.focus_lifecycle import restore
+        return task_call(restore,s,key,p.version)
     @app.post('/api/focus/preview',dependencies=[Depends(same_origin)])
     def preview(p:Scope,s=Depends(db)):
         stmt=select(RadarEntry).order_by(RadarEntry.seen.desc(),RadarEntry.key).limit(250)
@@ -196,6 +241,7 @@ def register_desk(app,engine,render):
     @app.post('/api/focus/{key}/reviews/{ticket}/retry',dependencies=[Depends(same_origin)])
     def retry(key:str,ticket:str,s=Depends(db)):
         lock_news(s,'watch:'+key,'watch-review:'+ticket)
+        task_call(desk.get_watch,s,key)
         row=s.get(WatchReview,ticket)
         if not row or row.watch!=key:raise HTTPException(404,'补查不存在')
         if row.status=='blocked':
