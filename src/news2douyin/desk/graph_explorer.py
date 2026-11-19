@@ -1,8 +1,11 @@
 """Bounded, read-only views of the projected activity and focus graphs."""
 
+import os
+import time
+from collections import defaultdict
 from urllib.parse import quote
 
-from redis.exceptions import RedisError
+from redis.exceptions import RedisError, ResponseError, TimeoutError as RedisTimeout
 from sqlalchemy import func
 from sqlmodel import Session, select
 
@@ -17,7 +20,6 @@ from .service import current_membership
 
 DEFAULT_LIMIT = 240
 MAX_LIMIT = 800
-QUERY_TIMEOUT_MS = 600
 _DEPTH = 4
 _KINDS = (
     'Question', 'Focus', 'OutlinePoint', 'InterestScope', 'InterestEntity', 'InterestPattern',
@@ -26,15 +28,68 @@ _KINDS = (
     'Referent', 'OccurrenceCandidate', 'SourceEvent', 'GdeltActor', 'GdeltPlace', 'GdeltDocument',
     'GkgSubject', 'AttentionTopic', 'AttentionSourceItem',
 )
-_RELATIONS = (
-    'TRACKS', 'WATCHES', 'RELATED_EVENT', 'HAS_SOURCE', 'MENTIONS', 'MENTIONS_PLACE',
-    'ACTION_AT', 'IMPACTS', 'HAS_SUBQUESTION', 'DEFINED_BY', 'HAS_ANCHOR', 'HAS_PATTERN',
-    'MAPS_TO', 'PATTERN_SUBJECT', 'PATTERN_OBJECT', 'HAS_MATERIAL', 'RELEVANT_MATERIAL',
-    'CITES', 'CHECKED_BY', 'ASKS', 'FOUND', 'HAS_EVIDENCE', 'ANSWERED_BY', 'PRODUCED',
-    'DESCRIBES', 'HAS_ARGUMENT', 'REFERS_TO', 'HAS_MATCH_KEY', 'CODED_ACTOR1', 'CODED_ACTOR2',
-    'CODED_ACTION_AT', 'MENTIONED_IN', 'GKG_MENTIONS', 'OBSERVED_ITEM', 'CANDIDATE_MATCH', 'CANDIDATE_FOCUS',
-)
+_NEIGHBOR_BATCH = 16
+_NEIGHBOR_LIMIT = 16
+_OUTGOING = {
+    'Question': 'HAS_SUBQUESTION|DEFINED_BY|CHECKED_BY',
+    'OutlinePoint': 'HAS_SUBQUESTION|RELEVANT_MATERIAL|CHECKED_BY',
+    'Focus': 'WATCHES',
+    'InterestScope': 'HAS_ANCHOR|HAS_PATTERN',
+    'InterestEntity': 'MAPS_TO',
+    'InterestPattern': 'PATTERN_SUBJECT|PATTERN_OBJECT',
+    'Article': 'MENTIONS|MENTIONS_PLACE|DESCRIBES',
+    'Investigation': 'ASKS|FOUND|PRODUCED',
+    'ResearchQuestion': 'ANSWERED_BY',
+    'Claim': 'HAS_EVIDENCE',
+    'EventMention': 'HAS_ARGUMENT|HAS_MATCH_KEY',
+    'Argument': 'REFERS_TO',
+    'SourceEvent': 'CODED_ACTOR1|CODED_ACTOR2|CODED_ACTION_AT|MENTIONED_IN',
+    'GdeltDocument': 'GKG_MENTIONS',
+    'AttentionTopic': 'OBSERVED_ITEM|CANDIDATE_MATCH|CANDIDATE_FOCUS',
+}
 _OWNER_QUERY = 'MATCH (m:GraphMeta {id:$key}) RETURN m.owner LIMIT 1'
+
+
+class _BudgetSpent(Exception):
+    pass
+
+
+def _milliseconds(name, default, minimum, maximum):
+    try:
+        value = int(os.getenv('NEWS2DOUYIN_GRAPH_EXPLORER_' + name, str(default)))
+    except ValueError:
+        return default
+    return min(max(value, minimum), maximum)
+
+
+class _ReadBudget:
+    def __init__(self, mirror, client):
+        self.mirror = mirror
+        self.client = client
+        self.query_timeout = _milliseconds('QUERY_TIMEOUT_MS', 600, 50, 5000)
+        self.deadline = time.monotonic() + _milliseconds('BUDGET_MS', 1800, 200, 10000) / 1000
+
+    def __call__(self, graph, query, **params):
+        remaining = int((self.deadline - time.monotonic()) * 1000)
+        if remaining <= 0:
+            raise _BudgetSpent
+        return self.mirror.read(graph, query, _query_timeout_ms=min(remaining, self.query_timeout),
+                                _client=self.client, **params)
+
+
+def _read_failure(exc):
+    if isinstance(exc, _BudgetSpent):
+        return 'budget'
+    if isinstance(exc, RedisTimeout):
+        return 'socket_timeout'
+    if isinstance(exc, ResponseError):
+        message = str(exc).casefold()
+        if 'query timed out' in message:
+            return 'query_timeout'
+        if 'does not contain a graph object' in message or 'graph does not exist' in message:
+            return 'pending'
+        return 'query_error'
+    return 'unavailable'
 
 
 def _member_events(focus):
@@ -99,7 +154,11 @@ class _View:
                                         details=_details(details)))
 
     def payload(self, view, focus, backend, reason=''):
-        state = 'empty' if not self.nodes else 'degraded' if reason else 'ready'
+        state = 'ready'
+        if not self.nodes:
+            state = 'empty'
+        elif reason:
+            state = 'partial' if backend == 'falkordb' else 'degraded'
         return dict(view=view, focus=focus, backend=backend, state=state, reason=reason,
                     nodes=list(self.nodes.values()), edges=list(self.edges.values()),
                     truncated=self.truncated, node_limit=self.limit, edge_limit=self.edge_limit)
@@ -220,92 +279,108 @@ def _graph_node(row):
                          code=iso, provider=provider, platform=platform, source_url=publisher_url)
 
 
-def _read(mirror, graph, query, **params):
-    return mirror.read(graph, query, _query_timeout_ms=QUERY_TIMEOUT_MS, **params)
+def _remember(result, included, rows):
+    for raw in rows:
+        native, node = _graph_node(raw)
+        if node and result.add(node):
+            included[native] = node['id']
 
 
-def _read_snapshot(mirror, graph, focus, keys, result):
+def _walks(kind, focus):
+    if kind == 'Event':
+        if focus:
+            return (('HAS_MATERIAL', True), ('CITES', False))
+        return (('HAS_SOURCE|ACTION_AT|IMPACTS', False), ('TRACKS', True),
+                ('RELATED_EVENT', False), ('RELATED_EVENT', True))
+    outgoing = _OUTGOING.get(kind)
+    return ((outgoing, False),) if outgoing else ()
+
+
+def _neighbor_query(types, incoming):
+    direction = f'(a)<-[r:{types}]-(b)' if incoming else f'(a)-[r:{types}]->(b)'
+    # Anchor the pattern on a native node seek. Limit each typed adjacency
+    # before reading properties or filtering unselected neighbors, otherwise a
+    # high-degree node with few visible matches can consume the whole request.
+    return ('UNWIND $ids AS ident CALL { WITH ident MATCH ' + direction +
+            ' WHERE id(a)=ident RETURN r,b LIMIT $take } '
+            'RETURN ident,id(r),type(r), '
+            'CASE WHEN (NOT b:Event OR b.id IN $events) '
+            'AND (NOT b:Focus OR coalesce(b.archived,false)=false) '
+            'AND (NOT b:SourceEvent OR coalesce(b.evidence_available,true)=true) '
+            'AND (NOT (type(r) IN ["CANDIDATE_MATCH","CANDIDATE_FOCUS"]) OR coalesce(r.active,false)=true) '
+            'THEN 1 ELSE 0 END, '
+            'r.reason,r.kind,r.weight,r.evidence,r.article,r.revision,r.quote,' + _graph_node_fields('b'))
+
+
+def _expand(graph, selected, keys, result, included, read):
+    frontier = list(included)
+    for _ in range(_DEPTH):
+        groups = defaultdict(list)
+        for native in frontier:
+            for walk in _walks(result.nodes[included[native]]['kind'], selected):
+                groups[walk].append(native)
+        frontier = []
+        for (types, incoming), anchors in groups.items():
+            query = _neighbor_query(types, incoming)
+            for offset in range(0, len(anchors), _NEIGHBOR_BATCH):
+                if len(result.edges) >= result.edge_limit:
+                    result.truncated = True
+                    return
+                rows = read(graph, query, ids=anchors[offset:offset + _NEIGHBOR_BATCH],
+                            take=_NEIGHBOR_LIMIT + 1, events=keys)
+                counts = defaultdict(int)
+                for anchor, edge, kind, visible, reason, rel_type, weight, evidence, article, revision, excerpt, *raw in rows:
+                    counts[anchor] += 1
+                    if counts[anchor] > _NEIGHBOR_LIMIT:
+                        result.truncated = True
+                        continue
+                    if not visible:
+                        continue
+                    native, node = _graph_node(raw)
+                    if not node:
+                        continue
+                    if native not in included:
+                        if not result.add(node):
+                            continue
+                        included[native] = node['id']
+                        frontier.append(native)
+                    source, target = (native, anchor) if incoming else (anchor, native)
+                    result.connect('edge:' + str(edge), included[source], included[target], kind,
+                                   reason=reason, relation_type=rel_type, weight=weight,
+                                   evidence=evidence, article=article, revision=revision, quote=excerpt)
+        if not frontier:
+            break
+    result.truncated |= any(_walks(result.nodes[included[native]]['kind'], selected) for native in frontier)
+
+
+def _read_snapshot(graph, focus, keys, result, *, read):
     fields = _graph_node_fields('n')
-    seeds = []
+    included = {}
     if focus:
-        rows = _read(mirror, graph,
-                     f'MATCH (n:Question {{id:$key}}) WHERE coalesce(n.archived,false)=false RETURN {fields} LIMIT 1',
-                     key=focus['key'])
+        rows = read(graph, f'MATCH (n:Question {{id:$key}}) WHERE coalesce(n.archived,false)=false '
+                    f'RETURN {fields} LIMIT 1', key=focus['key'])
         if not rows:
             return False
-        seeds.extend(rows)
+        _remember(result, included, rows)
     if keys:
-        seeds.extend(_read(mirror, graph, 'UNWIND $keys AS key MATCH (n:Event {id:key}) '
-                           f'RETURN {fields} LIMIT $size', keys=keys, size=len(keys)))
+        _remember(result, included, read(graph, 'MATCH (n:Event) WHERE n.id IN $keys '
+                                         f'RETURN {fields} LIMIT $size', keys=keys, size=len(keys)))
     if not focus:
-        # These bounded label scans expose the actual official and platform
-        # roots in the same graph, including when there are no organized events.
+        # Read the current official and platform roots even when there are no
+        # organized events. Their slices never sort or count the whole graph.
         scopes = (
             ('SourceEvent', 24, 'coalesce(n.evidence_available,true)=true', {}),
             ('AttentionTopic', 30, 'n.projection_owner=$owner', {'owner': ATTENTION_OWNER}),
         )
         for label, divisor, visible, params in scopes:
             cap = max(1, result.limit // divisor)
-            rows = _read(mirror, graph, f'MATCH (n:{label}) WHERE {visible} RETURN {fields} LIMIT $size',
-                         size=cap + 1, **params)
-            result.truncated |= len(rows) > cap
-            seeds.extend(rows[:cap])
-    if not seeds:
-        return False
-    included = {}
-    for raw in seeds:
-        native, node = _graph_node(raw)
-        if node and result.add(node):
-            included[native] = node['id']
-    # An Event can be incident on many nodes. Only the selected recent
-    # Event seeds may enter the response via another neighborhood.
-    if focus:
-        roots = [native for native, key in included.items() if key.startswith('Question:')]
-        event_nodes = [native for native, key in included.items() if key.startswith('Event:')]
-        if event_nodes:
-            rows = _read(mirror, graph,
-                         'UNWIND $events AS ident MATCH (e) WHERE id(e)=ident '
-                         'MATCH (q:Question {id:$focus})-[r:HAS_MATERIAL]->(e) '
-                         'RETURN id(r),id(q),id(e),r.reason LIMIT $size',
-                         events=event_nodes, focus=focus['key'], size=len(event_nodes))
-            for native, left, right, reason in rows:
-                if left in included and right in included:
-                    result.connect('edge:' + str(native), included[left], included[right], 'HAS_MATERIAL', reason=reason)
-        frontier = roots + event_nodes
-    else:
-        frontier = list(included)
-    nodes_fields = _graph_node_fields('b')
-    query = ('UNWIND $ids AS ident MATCH (a) WHERE id(a)=ident '
-             'MATCH (a)-[r]-(b) WHERE type(r) IN $types AND (NOT b:Event OR b.id IN $events) '
-             'AND (startNode(r)=a OR type(r) IN $reverse) '
-             'AND (NOT b:Focus OR coalesce(b.archived,false)=false) '
-             'AND (NOT b:SourceEvent OR coalesce(b.evidence_available,true)=true) '
-             'AND (NOT type(r) IN $candidates OR coalesce(r.active,false)=true) '
-             'RETURN id(a),id(r),id(startNode(r)),type(r),'
-             'r.reason,r.kind,r.weight,r.evidence,r.article,r.revision,r.quote,'
-             f'{nodes_fields} LIMIT $size')
-    candidates = ['CANDIDATE_MATCH', 'CANDIDATE_FOCUS']
-    for _ in range(_DEPTH):
-        if not frontier:
-            break
-        rows = _read(mirror, graph, query, ids=frontier, types=list(_RELATIONS), events=keys,
-                     reverse=['TRACKS', 'RELATED_EVENT'], candidates=candidates, size=result.edge_limit + 1)
-        result.truncated |= len(rows) > result.edge_limit
-        frontier = []
-        for a, edge, start, kind, reason, relation_type, weight, evidence, article, revision, excerpt, *raw in rows[:result.edge_limit]:
-            native, node = _graph_node(raw)
-            if a not in included or not node:
-                continue
-            if native not in included:
-                if not result.add(node):
-                    continue
-                included[native] = node['id']
-                frontier.append(native)
-            source, target = (a, native) if start == a else (native, a)
-            result.connect('edge:' + str(edge), included[source], included[target], kind, reason=reason,
-                           relation_type=relation_type, weight=weight, evidence=evidence, article=article,
-                           revision=revision, quote=excerpt)
-    result.truncated |= bool(frontier)
+            scan = cap * 3
+            rows = read(graph, f'MATCH (n:{label}) WITH n LIMIT $size '
+                        f'RETURN CASE WHEN {visible} THEN 1 ELSE 0 END,{fields}', size=scan + 1, **params)
+            visible_rows = [row[1:] for row in rows[:scan] if row[0]]
+            result.truncated |= len(rows) > scan or len(visible_rows) > cap
+            _remember(result, included, visible_rows[:cap])
+    _expand(graph, focus, keys, result, included, read)
     return bool(result.nodes)
 
 
@@ -343,22 +418,26 @@ def explore(engine, mirror, *, view='global', focus='', limit=DEFAULT_LIMIT):
         owner = owner.value if owner else ''
     reason = 'unconfigured' if not mirror.url else 'pending'
     if mirror.url and owner and not pending:
+        result = _View(limit)
+        result.truncated = len(events) > cap
         try:
-            rows = _read(mirror, 'active_global', _OWNER_QUERY, key='schema')
-            if rows and rows[0][0] == owner:
-                result = _View(limit)
-                result.truncated = len(events) > cap
-                graph = 'focus_' + focus if focus else 'active_global'
-                if _read_snapshot(mirror, graph, selected, [row[0] for row in events[:cap]], result):
-                    if not selected:
-                        _hide_archived_focuses(engine, result)
-                    return result.payload(view, selected, 'falkordb')
-            elif rows:
-                reason = 'unavailable'
-        except RedisError:
-            # The UI can still show committed SQL facts during graph outages,
-            # and no graph endpoint/driver error is disclosed to the client.
-            reason = 'unavailable'
+            socket_timeout = _milliseconds('SOCKET_TIMEOUT_MS', 1000, 100, 6000)
+            with mirror.explorer_client(socket_timeout) as client:
+                read = _ReadBudget(mirror, client)
+                rows = read('active_global', _OWNER_QUERY, key='schema')
+                if rows and rows[0][0] == owner:
+                    graph = 'focus_' + focus if focus else 'active_global'
+                    keys = [row[0] for row in events[:cap]]
+                    if _read_snapshot(graph, selected, keys, result, read=read):
+                        reason = ''
+                elif rows:
+                    reason = 'owner_mismatch'
+        except (RedisError, _BudgetSpent) as exc:
+            reason = _read_failure(exc)
+        if result.nodes and not selected:
+            _hide_archived_focuses(engine, result)
+        if result.nodes:
+            return result.payload(view, selected, 'falkordb', reason)
 
     result = _View(limit)
     result.truncated = len(events) > cap

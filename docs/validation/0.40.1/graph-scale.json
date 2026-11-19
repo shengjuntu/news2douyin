@@ -1,0 +1,694 @@
+{
+  "scope": "Synthetic real-server comparison of released API v0.40.0 and the updated API on one isolated loopback FalkorDB namespace.",
+  "fixture": {
+    "falkordb": "4.22.1",
+    "event_nodes": 633667,
+    "edges": 4513450,
+    "range_indexes_ready": 17,
+    "range_indexes_expected": 17,
+    "largest_place_in_degree": 1267334,
+    "largest_focus_out_degree": 633667,
+    "topology": "Every Event has its own Article, a shared Place and a shared Focus. Two RELATED_EVENT edges per Event. Articles mention one of 5,000 people, with another 77,781 mentions spread over ten popular people.",
+    "durable_sql": "SQLite test snapshot with 80 eligible recent RadarEntries and one Focus, sourcing the same keys for both calls. No PostgreSQL system latency or remote socket transport measured.",
+    "runs_per_case": 3,
+    "measurement": "In-process FastAPI TestClient on the real route with separately recorded wall time for each real Redis GRAPH.RO_QUERY. Statement timings include loopback transport and Redis response parsing."
+  },
+  "source_sha256": {
+    "0.40.0": {
+      "graph_explorer.py": "47f19bb17e0d08468a5958b8b64f7983e9565770f0fa9edae4adf2f45a6dcb06",
+      "graph.py": "01328f9ed4adc2708bf66e2a6b052feba78b3661e5bd26a43107b5678ba1d8b5"
+    },
+    "0.40.1": {
+      "graph_explorer.py": "a7a59d7dc3a27d9df1b4dd6f8caed17533acff07d71b758a7c44b055e783b67c",
+      "graph.py": "427aa4ec79d67e2d3f6abc1d5629a62be3adadc7d02c765377d9f7ddfe3cc770"
+    }
+  },
+  "findings": {
+    "legacy_global_requests_timed_out_then_served_sql": 9,
+    "revised_global_requests_served_falkordb_successfully": 9,
+    "revised_focus_requests_served_falkordb_successfully": 3,
+    "legacy_query_with_wider_3000ms_timeout": [
+      {
+        "timeout_ms": 3000,
+        "outcome": "ResponseError",
+        "message": "Query timed out",
+        "wall_ms": 3001.225
+      }
+    ]
+  },
+  "versions": {
+    "0.40.0": {
+      "revision": "0.40.0",
+      "cases": {
+        "global-100": {
+          "samples": [
+            {
+              "wall_ms": 663.044,
+              "backend": "sql",
+              "state": "degraded",
+              "reason": "unavailable",
+              "nodes": 33,
+              "edges": 0,
+              "truncated": true,
+              "graph_calls": 5,
+              "query_wall_ms": 622.171
+            },
+            {
+              "wall_ms": 611.124,
+              "backend": "sql",
+              "state": "degraded",
+              "reason": "unavailable",
+              "nodes": 33,
+              "edges": 0,
+              "truncated": true,
+              "graph_calls": 5,
+              "query_wall_ms": 605.696
+            },
+            {
+              "wall_ms": 609.507,
+              "backend": "sql",
+              "state": "degraded",
+              "reason": "unavailable",
+              "nodes": 33,
+              "edges": 0,
+              "truncated": true,
+              "graph_calls": 5,
+              "query_wall_ms": 604.266
+            }
+          ],
+          "median_request_ms": 611.124,
+          "graph_statement_timing": {
+            "namespace-owner": {
+              "calls": 3,
+              "p50_wall_ms": 0.846,
+              "max_wall_ms": 2.933,
+              "total_wall_ms": 4.442,
+              "errors": []
+            },
+            "seeds-or-other-read": {
+              "calls": 9,
+              "p50_wall_ms": 0.937,
+              "max_wall_ms": 15.59,
+              "total_wall_ms": 23.175,
+              "errors": []
+            },
+            "neighborhood": {
+              "calls": 3,
+              "p50_wall_ms": 601.305,
+              "max_wall_ms": 602.033,
+              "total_wall_ms": 1804.516,
+              "errors": [
+                [
+                  "ResponseError: Query timed out",
+                  3
+                ]
+              ]
+            }
+          }
+        },
+        "global-240": {
+          "samples": [
+            {
+              "wall_ms": 621.711,
+              "backend": "sql",
+              "state": "degraded",
+              "reason": "unavailable",
+              "nodes": 80,
+              "edges": 0,
+              "truncated": false,
+              "graph_calls": 5,
+              "query_wall_ms": 608.872
+            },
+            {
+              "wall_ms": 615.172,
+              "backend": "sql",
+              "state": "degraded",
+              "reason": "unavailable",
+              "nodes": 80,
+              "edges": 0,
+              "truncated": false,
+              "graph_calls": 5,
+              "query_wall_ms": 607.947
+            },
+            {
+              "wall_ms": 612.339,
+              "backend": "sql",
+              "state": "degraded",
+              "reason": "unavailable",
+              "nodes": 80,
+              "edges": 0,
+              "truncated": false,
+              "graph_calls": 5,
+              "query_wall_ms": 605.879
+            }
+          ],
+          "median_request_ms": 615.172,
+          "graph_statement_timing": {
+            "namespace-owner": {
+              "calls": 3,
+              "p50_wall_ms": 0.754,
+              "max_wall_ms": 1.166,
+              "total_wall_ms": 2.393,
+              "errors": []
+            },
+            "seeds-or-other-read": {
+              "calls": 9,
+              "p50_wall_ms": 0.955,
+              "max_wall_ms": 2.527,
+              "total_wall_ms": 10.769,
+              "errors": []
+            },
+            "neighborhood": {
+              "calls": 3,
+              "p50_wall_ms": 601.932,
+              "max_wall_ms": 605.764,
+              "total_wall_ms": 1809.536,
+              "errors": [
+                [
+                  "ResponseError: Query timed out",
+                  3
+                ]
+              ]
+            }
+          }
+        },
+        "global-800": {
+          "samples": [
+            {
+              "wall_ms": 646.263,
+              "backend": "sql",
+              "state": "degraded",
+              "reason": "unavailable",
+              "nodes": 80,
+              "edges": 0,
+              "truncated": false,
+              "graph_calls": 5,
+              "query_wall_ms": 604.712
+            },
+            {
+              "wall_ms": 673.826,
+              "backend": "sql",
+              "state": "degraded",
+              "reason": "unavailable",
+              "nodes": 80,
+              "edges": 0,
+              "truncated": false,
+              "graph_calls": 5,
+              "query_wall_ms": 625.215
+            },
+            {
+              "wall_ms": 613.484,
+              "backend": "sql",
+              "state": "degraded",
+              "reason": "unavailable",
+              "nodes": 80,
+              "edges": 0,
+              "truncated": false,
+              "graph_calls": 5,
+              "query_wall_ms": 607.214
+            }
+          ],
+          "median_request_ms": 646.263,
+          "graph_statement_timing": {
+            "namespace-owner": {
+              "calls": 3,
+              "p50_wall_ms": 1.237,
+              "max_wall_ms": 9.819,
+              "total_wall_ms": 11.618,
+              "errors": []
+            },
+            "seeds-or-other-read": {
+              "calls": 9,
+              "p50_wall_ms": 2.111,
+              "max_wall_ms": 5.845,
+              "total_wall_ms": 19.66,
+              "errors": []
+            },
+            "neighborhood": {
+              "calls": 3,
+              "p50_wall_ms": 601.053,
+              "max_wall_ms": 603.891,
+              "total_wall_ms": 1805.863,
+              "errors": [
+                [
+                  "ResponseError: Query timed out",
+                  3
+                ]
+              ]
+            }
+          }
+        },
+        "focus-240": {
+          "samples": [
+            {
+              "wall_ms": 353.781,
+              "backend": "falkordb",
+              "state": "ready",
+              "reason": "",
+              "nodes": 161,
+              "edges": 160,
+              "truncated": false,
+              "graph_calls": 6,
+              "query_wall_ms": 338.802
+            },
+            {
+              "wall_ms": 370.979,
+              "backend": "falkordb",
+              "state": "ready",
+              "reason": "",
+              "nodes": 161,
+              "edges": 160,
+              "truncated": false,
+              "graph_calls": 6,
+              "query_wall_ms": 356.093
+            },
+            {
+              "wall_ms": 462.053,
+              "backend": "falkordb",
+              "state": "ready",
+              "reason": "",
+              "nodes": 161,
+              "edges": 160,
+              "truncated": false,
+              "graph_calls": 6,
+              "query_wall_ms": 440.076
+            }
+          ],
+          "median_request_ms": 370.979,
+          "graph_statement_timing": {
+            "namespace-owner": {
+              "calls": 3,
+              "p50_wall_ms": 0.653,
+              "max_wall_ms": 0.786,
+              "total_wall_ms": 2.045,
+              "errors": []
+            },
+            "seeds-or-other-read": {
+              "calls": 6,
+              "p50_wall_ms": 1.492,
+              "max_wall_ms": 2.383,
+              "total_wall_ms": 8.762,
+              "errors": []
+            },
+            "focus-membership": {
+              "calls": 3,
+              "p50_wall_ms": 9.845,
+              "max_wall_ms": 14.966,
+              "total_wall_ms": 32.463,
+              "errors": []
+            },
+            "neighborhood": {
+              "calls": 6,
+              "p50_wall_ms": 180.68,
+              "max_wall_ms": 238.423,
+              "total_wall_ms": 1091.701,
+              "errors": []
+            }
+          }
+        }
+      },
+      "example_plans": [
+        {
+          "id": "neighborhood-1",
+          "operators": [
+            "Results",
+            "    Limit",
+            "        Project",
+            "            Filter",
+            "                Conditional Traverse | (b)<-[r]-(a)",
+            "                    Filter",
+            "                        All Node Scan | (b)",
+            "                            Unwind"
+          ],
+          "example_wall_ms": 602.033,
+          "timeout_ms": 600,
+          "error": "ResponseError: Query timed out"
+        }
+      ]
+    },
+    "0.40.1": {
+      "revision": "0.40.1",
+      "cases": {
+        "global-100": {
+          "samples": [
+            {
+              "wall_ms": 104.749,
+              "backend": "falkordb",
+              "state": "ready",
+              "reason": "",
+              "nodes": 100,
+              "edges": 245,
+              "truncated": true,
+              "graph_calls": 20,
+              "query_wall_ms": 49.9
+            },
+            {
+              "wall_ms": 48.562,
+              "backend": "falkordb",
+              "state": "ready",
+              "reason": "",
+              "nodes": 100,
+              "edges": 245,
+              "truncated": true,
+              "graph_calls": 20,
+              "query_wall_ms": 38.304
+            },
+            {
+              "wall_ms": 54.003,
+              "backend": "falkordb",
+              "state": "ready",
+              "reason": "",
+              "nodes": 100,
+              "edges": 245,
+              "truncated": true,
+              "graph_calls": 20,
+              "query_wall_ms": 39.47
+            }
+          ],
+          "median_request_ms": 54.003,
+          "graph_statement_timing": {
+            "namespace-owner": {
+              "calls": 3,
+              "p50_wall_ms": 1.791,
+              "max_wall_ms": 2.641,
+              "total_wall_ms": 6.13,
+              "errors": []
+            },
+            "seeds-or-other-read": {
+              "calls": 9,
+              "p50_wall_ms": 1.248,
+              "max_wall_ms": 1.792,
+              "total_wall_ms": 9.699,
+              "errors": []
+            },
+            "neighborhood": {
+              "calls": 48,
+              "p50_wall_ms": 2.049,
+              "max_wall_ms": 7.2,
+              "total_wall_ms": 111.845,
+              "errors": []
+            }
+          }
+        },
+        "global-240": {
+          "samples": [
+            {
+              "wall_ms": 81.783,
+              "backend": "falkordb",
+              "state": "ready",
+              "reason": "",
+              "nodes": 240,
+              "edges": 620,
+              "truncated": true,
+              "graph_calls": 30,
+              "query_wall_ms": 61.536
+            },
+            {
+              "wall_ms": 110.922,
+              "backend": "falkordb",
+              "state": "ready",
+              "reason": "",
+              "nodes": 240,
+              "edges": 620,
+              "truncated": true,
+              "graph_calls": 30,
+              "query_wall_ms": 87.01
+            },
+            {
+              "wall_ms": 77.91,
+              "backend": "falkordb",
+              "state": "ready",
+              "reason": "",
+              "nodes": 240,
+              "edges": 620,
+              "truncated": true,
+              "graph_calls": 30,
+              "query_wall_ms": 55.428
+            }
+          ],
+          "median_request_ms": 81.783,
+          "graph_statement_timing": {
+            "namespace-owner": {
+              "calls": 3,
+              "p50_wall_ms": 1.891,
+              "max_wall_ms": 5.189,
+              "total_wall_ms": 8.331,
+              "errors": []
+            },
+            "seeds-or-other-read": {
+              "calls": 9,
+              "p50_wall_ms": 0.938,
+              "max_wall_ms": 2.465,
+              "total_wall_ms": 11.868,
+              "errors": []
+            },
+            "neighborhood": {
+              "calls": 78,
+              "p50_wall_ms": 1.89,
+              "max_wall_ms": 7.182,
+              "total_wall_ms": 183.775,
+              "errors": []
+            }
+          }
+        },
+        "global-800": {
+          "samples": [
+            {
+              "wall_ms": 72.804,
+              "backend": "falkordb",
+              "state": "ready",
+              "reason": "",
+              "nodes": 252,
+              "edges": 632,
+              "truncated": false,
+              "graph_calls": 30,
+              "query_wall_ms": 53.71
+            },
+            {
+              "wall_ms": 98.816,
+              "backend": "falkordb",
+              "state": "ready",
+              "reason": "",
+              "nodes": 252,
+              "edges": 632,
+              "truncated": false,
+              "graph_calls": 30,
+              "query_wall_ms": 77.445
+            },
+            {
+              "wall_ms": 97.567,
+              "backend": "falkordb",
+              "state": "ready",
+              "reason": "",
+              "nodes": 252,
+              "edges": 632,
+              "truncated": false,
+              "graph_calls": 30,
+              "query_wall_ms": 63.169
+            }
+          ],
+          "median_request_ms": 97.567,
+          "graph_statement_timing": {
+            "namespace-owner": {
+              "calls": 3,
+              "p50_wall_ms": 1.797,
+              "max_wall_ms": 2.237,
+              "total_wall_ms": 5.422,
+              "errors": []
+            },
+            "seeds-or-other-read": {
+              "calls": 9,
+              "p50_wall_ms": 1.112,
+              "max_wall_ms": 2.662,
+              "total_wall_ms": 13.149,
+              "errors": []
+            },
+            "neighborhood": {
+              "calls": 78,
+              "p50_wall_ms": 2.087,
+              "max_wall_ms": 5.786,
+              "total_wall_ms": 175.753,
+              "errors": []
+            }
+          }
+        },
+        "focus-240": {
+          "samples": [
+            {
+              "wall_ms": 52.716,
+              "backend": "falkordb",
+              "state": "ready",
+              "reason": "",
+              "nodes": 161,
+              "edges": 160,
+              "truncated": false,
+              "graph_calls": 19,
+              "query_wall_ms": 35.843
+            },
+            {
+              "wall_ms": 48.366,
+              "backend": "falkordb",
+              "state": "ready",
+              "reason": "",
+              "nodes": 161,
+              "edges": 160,
+              "truncated": false,
+              "graph_calls": 19,
+              "query_wall_ms": 36.916
+            },
+            {
+              "wall_ms": 40.598,
+              "backend": "falkordb",
+              "state": "ready",
+              "reason": "",
+              "nodes": 161,
+              "edges": 160,
+              "truncated": false,
+              "graph_calls": 19,
+              "query_wall_ms": 29.681
+            }
+          ],
+          "median_request_ms": 48.366,
+          "graph_statement_timing": {
+            "namespace-owner": {
+              "calls": 3,
+              "p50_wall_ms": 1.676,
+              "max_wall_ms": 6.83,
+              "total_wall_ms": 10.133,
+              "errors": []
+            },
+            "seeds-or-other-read": {
+              "calls": 6,
+              "p50_wall_ms": 2.42,
+              "max_wall_ms": 3.381,
+              "total_wall_ms": 12.029,
+              "errors": []
+            },
+            "neighborhood": {
+              "calls": 48,
+              "p50_wall_ms": 1.462,
+              "max_wall_ms": 5.553,
+              "total_wall_ms": 80.278,
+              "errors": []
+            }
+          }
+        }
+      },
+      "example_plans": [
+        {
+          "id": "neighborhood-1",
+          "operators": [
+            "Results",
+            "    Project",
+            "        Apply",
+            "            Unwind",
+            "            Limit",
+            "                Project",
+            "                    Conditional Traverse | (a)-[r:HAS_SOURCE|:ACTION_AT|:IMPACTS]->(b)",
+            "                        NodeByIdSeek | (a)",
+            "                            Project",
+            "                                Argument"
+          ],
+          "example_wall_ms": 6.051,
+          "timeout_ms": 600,
+          "error": null
+        },
+        {
+          "id": "neighborhood-2",
+          "operators": [
+            "Results",
+            "    Project",
+            "        Apply",
+            "            Unwind",
+            "            Limit",
+            "                Project",
+            "                    Conditional Traverse | (a)<-[r:TRACKS]-(b)",
+            "                        NodeByIdSeek | (a)",
+            "                            Project",
+            "                                Argument"
+          ],
+          "example_wall_ms": 2.295,
+          "timeout_ms": 600,
+          "error": null
+        },
+        {
+          "id": "neighborhood-3",
+          "operators": [
+            "Results",
+            "    Project",
+            "        Apply",
+            "            Unwind",
+            "            Limit",
+            "                Project",
+            "                    Conditional Traverse | (a)-[r:RELATED_EVENT]->(b)",
+            "                        NodeByIdSeek | (a)",
+            "                            Project",
+            "                                Argument"
+          ],
+          "example_wall_ms": 3.278,
+          "timeout_ms": 600,
+          "error": null
+        },
+        {
+          "id": "neighborhood-4",
+          "operators": [
+            "Results",
+            "    Project",
+            "        Apply",
+            "            Unwind",
+            "            Limit",
+            "                Project",
+            "                    Conditional Traverse | (a)<-[r:RELATED_EVENT]-(b)",
+            "                        NodeByIdSeek | (a)",
+            "                            Project",
+            "                                Argument"
+          ],
+          "example_wall_ms": 3.17,
+          "timeout_ms": 600,
+          "error": null
+        },
+        {
+          "id": "neighborhood-5",
+          "operators": [
+            "Results",
+            "    Project",
+            "        Apply",
+            "            Unwind",
+            "            Limit",
+            "                Project",
+            "                    Conditional Traverse | (a)-[r:MENTIONS|:MENTIONS_PLACE|:DESCRIBES]->(b)",
+            "                        NodeByIdSeek | (a)",
+            "                            Project",
+            "                                Argument"
+          ],
+          "example_wall_ms": 4.254,
+          "timeout_ms": 600,
+          "error": null
+        },
+        {
+          "id": "neighborhood-6",
+          "operators": [
+            "Results",
+            "    Project",
+            "        Apply",
+            "            Unwind",
+            "            Limit",
+            "                Project",
+            "                    Conditional Traverse | (a)-[r:WATCHES]->(b)",
+            "                        NodeByIdSeek | (a)",
+            "                            Project",
+            "                                Argument"
+          ],
+          "example_wall_ms": 1.226,
+          "timeout_ms": 600,
+          "error": null
+        }
+      ]
+    }
+  },
+  "limitations": [
+    "Synthetic topology, no production data or production load.",
+    "Graph API timing does not include browser rendering or WAN latency.",
+    "Baseline global times are time-to-SQL-fallback and therefore do not measure completion time of the old graph query."
+  ]
+}

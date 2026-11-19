@@ -1,4 +1,4 @@
-# news2douyin 0.40.0 · 事件雷达和选题工作台
+# news2douyin 0.40.1 · 事件雷达和选题工作台
 
 从导航的「图谱」打开全局活动图，也可以在图谱页切换任意焦点，或从焦点页直接打开该焦点的图。图中可搜索、缩放、拖动节点，并查看关系和来源。[图谱使用说明](docs/GRAPH-EXPLORER.md)
 
@@ -60,7 +60,7 @@ v0.33 使用三个连续日期的公开 GKG 归档复核了选题质量和转载
 Python 3.10+。先停止原服务，备份原数据库、运行目录与配置，然后在原环境安装：
 
 ```bash
-python -m pip install --upgrade "./release-0.40.0/news2douyin-0.40.0-py3-none-any.whl[research,ngrams]"
+python -m pip install --upgrade "./release-0.40.1/news2douyin-0.40.1-py3-none-any.whl[research,ngrams]"
 ```
 
 源码安装使用 `python -m pip install '.[research,ngrams]'`。仅使用原有正文读取时可省略 `ngrams`。CLI与服务默认读取 `NEWS2DOUYIN_DATABASE_URL`，显式 `--db-url` 优先；两者都未设置时才使用SQLite兼容默认值。`postgresql://` 自动规范为 `postgresql+psycopg://`。原SQLite用户可沿用原启动参数；迁移到PostgreSQL需要先停服务，运行迁移工具，保持原 `storage_root` 和图实例。不要通过连到空库代替迁移。

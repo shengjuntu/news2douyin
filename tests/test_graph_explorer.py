@@ -3,7 +3,7 @@ import pytest
 
 from news2douyin.desk.focus_models import FocusTrash
 from news2douyin.desk.graph import GraphMirror
-from news2douyin.desk.graph_explorer import explore, focuses
+from news2douyin.desk.graph_explorer import _NEIGHBOR_LIMIT, _neighbor_query, explore, focuses
 from news2douyin.desk.models import DeskMeta, EventPlace, GraphPending, RadarEntry, Watch, WatchEvent
 from news2douyin.extraction.models import FocusPoint
 from news2douyin.knowledge.models import GraphRelation, PointMaterial
@@ -147,4 +147,27 @@ def test_falkor_live_relationships_both_views_and_owner(store, pipeline_falkor):
         owner.value = 'another-owner'
         session.commit()
     global_map = explore(store, mirror)
-    assert global_map['backend'] == 'sql' and global_map['reason'] == 'unavailable'
+    assert global_map['backend'] == 'sql' and global_map['reason'] == 'owner_mismatch'
+
+
+def test_falkor_forces_typed_node_seek_and_caps_each_hub_without_starving_others(store, pipeline_falkor):
+    mirror = GraphMirror()
+    mirror.query('active_global', 'CREATE (:GraphMeta {id:"schema",owner:"test-owner"}),'
+                 '(a:Event {id:"event1",title:"Large source hub"}),(b:Event {id:"event2",title:"Second event"}),'
+                 '(s:Article {id:"other",title:"Independent source"}),(b)-[:HAS_SOURCE]->(s)')
+    mirror.query('active_global', 'MATCH (a:Event {id:"event1"}) UNWIND range(1,300) AS i '
+                 'CREATE (a)-[:HAS_SOURCE]->(:Article {id:"hub-"+toString(i)})')
+    mirror.query('active_global', 'MATCH (a:Event {id:"event1"}) UNWIND range(1,300) AS i '
+                 'CREATE (a)-[:IGNORED_BY_EXPLORER]->(:Article {id:"unrelated-"+toString(i)})')
+    native = mirror.read('active_global', 'MATCH (a:Event {id:"event1"}) RETURN id(a)')[0][0]
+    plan = mirror.explain('active_global', _neighbor_query('HAS_SOURCE|ACTION_AT|IMPACTS', False),
+                          ids=[native], take=_NEIGHBOR_LIMIT+1, events=['event1','event2'])
+    assert any('NodeByIdSeek' in component.replace(' ', '') for component in plan)
+    assert any('Conditional Traverse' in component and 'HAS_SOURCE' in component for component in plan)
+    assert not any('All Node Scan' in component for component in plan)
+    view = explore(store, mirror)
+    assert view['backend'] == 'falkordb' and view['state'] == 'ready' and view['truncated']
+    assert [(r['source'], r['target']) for r in view['edges'] if r['source'] == 'Event:event2'] == [
+        ('Event:event2', 'Article:other')]
+    assert sum(r['source'] == 'Event:event1' and r['kind'] == 'HAS_SOURCE' for r in view['edges']) == _NEIGHBOR_LIMIT
+    assert not any('unrelated-' in row['id'] for row in view['nodes'])

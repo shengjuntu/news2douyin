@@ -66,13 +66,33 @@ class GraphMirror:
             try:yield True
             finally:self._projection_lease=None
 
-    def _execute(self,command,graph,query,params,timeout=None):
+    @contextmanager
+    def explorer_client(self, timeout_ms):
+        """Keep the viewer's transport budget and retries separate from projections."""
+        from redis import Redis
+        from redis.backoff import NoBackoff
+        from redis.retry import Retry
+
+        options = dict(socket_timeout=timeout_ms / 1000,
+                       socket_connect_timeout=min(0.6, timeout_ms / 1000),
+                       retry=Retry(NoBackoff(), 0), retry_on_timeout=False)
+        client = Redis.from_url(self.url, decode_responses=True, **options)
+        # redis-py otherwise gives options in the URL precedence over keyword arguments.
+        client.connection_pool.connection_kwargs.update(options)
+        try:
+            yield client
+        finally:
+            client.close()
+
+    def _execute(self,command,graph,query,params,timeout=None,client=None):
         if self._projection_lease:self._projection_lease.touch()
         if not self.url:
             raise ValueError('FalkorDB 未配置')
-        if self.client is None:
-            from redis import Redis
-            self.client=Redis.from_url(self.url,decode_responses=True,socket_connect_timeout=2,socket_timeout=10)
+        if client is None:
+            if self.client is None:
+                from redis import Redis
+                self.client=Redis.from_url(self.url,decode_responses=True,socket_connect_timeout=2,socket_timeout=10)
+            client=self.client
         prefix=' '.join(key+'='+json.dumps(val,ensure_ascii=False) for key,val in params.items())
         args=[command,self.prefix+'_'+graph,('CYPHER '+prefix+' ' if prefix else '')+query]
         if timeout is not None:
@@ -80,7 +100,7 @@ class GraphMirror:
         started=time.perf_counter()
         self._lease_state.graph_calls=getattr(self._lease_state,'graph_calls',0)+1
         try:
-            result=self.client.execute_command(*args)
+            result=client.execute_command(*args)
         finally:
             self._lease_state.graph_ms=getattr(self._lease_state,'graph_ms',0.)+(time.perf_counter()-started)*1000
         if self._projection_lease:self._projection_lease.touch()
@@ -89,8 +109,8 @@ class GraphMirror:
     def query(self,graph,query,*,_query_timeout_ms=None,**params):
         return self._execute('GRAPH.QUERY',graph,query,params,_query_timeout_ms)
 
-    def read(self,graph,query,*,_query_timeout_ms=None,**params):
-        result=self._execute('GRAPH.RO_QUERY',graph,query,params,_query_timeout_ms)
+    def read(self,graph,query,*,_query_timeout_ms=None,_client=None,**params):
+        result=self._execute('GRAPH.RO_QUERY',graph,query,params,_query_timeout_ms,client=_client)
         return result[1] if len(result)>2 else []
 
     def explain(self,graph,query,**params):

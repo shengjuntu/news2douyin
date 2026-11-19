@@ -15,7 +15,7 @@ from news2douyin.server.app import create_app
 
 
 def main():
-    assert metadata.version('news2douyin') == '0.40.0'
+    assert metadata.version('news2douyin') == '0.40.1'
     os.environ['NEWS2DOUYIN_NGRAMS_ALLOW_DOWNLOAD'] = '0'
     now = datetime.now(timezone.utc) - timedelta(hours=2)
     stamp = now.strftime('%Y%m%d%H%M00')
@@ -51,7 +51,7 @@ def main():
             client.close()
         finally:
             engine.dispose()
-    print(json.dumps(dict(version='0.40.0', checked=['official_evidence','ngram_status','graph_status','action_excerpt','packaged_javascript'])))
+    print(json.dumps(dict(version='0.40.1', checked=['official_evidence','ngram_status','graph_status','action_excerpt','packaged_javascript'])))
 
 
 if __name__ == '__main__':

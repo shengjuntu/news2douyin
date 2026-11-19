@@ -51,6 +51,16 @@ const DETAIL_NAMES = {
   quote: '原文摘录', reason: '收录依据', relation_type: '关系类型', revision: '原文版本', role: '角色',
   scope: '关注范围', seen: '最近更新', status: '状态', type: '类型', weight: '关联权重',
 }
+const READ_REASONS = {
+  unconfigured: '尚未配置图数据库。',
+  pending: '图谱投影尚未完成。',
+  query_timeout: '图查询超时。',
+  socket_timeout: '等待图数据库返回超时。',
+  query_error: '图数据库返回查询错误。',
+  unavailable: '本次未能访问图数据库。',
+  owner_mismatch: '图数据库的投影归属与当前实例不一致。',
+  budget: '本次读取达到时间预算。',
+}
 
 function text(value) {
   return typeof value === 'string' ? value.trim() : ''
@@ -462,20 +472,18 @@ function installGraph(root) {
       const data = await response.json()
       ;({nodes, neighbors, edges} = unpack(data))
       const counts = `${nodes.length} 个节点 · ${edges.length} 条关系`
-      summary.textContent = data.backend === 'falkordb' ? `${counts} · FalkorDB` : `${counts} · 关系库快照`
-      const reasons = {
-        unconfigured: '尚未配置图数据库，当前显示关系库数据。',
-        pending: '图谱投影尚未完成，当前显示关系库数据。',
-        unavailable: '图数据库暂时不可用，当前显示关系库数据。',
-      }
+      const fromGraph = data.backend === 'falkordb'
+      summary.textContent = `${counts} · ${fromGraph ? 'FalkorDB' : '关系库快照'}`
       metadataNotice = [
-        data.state === 'degraded' ? (reasons[data.reason] || '当前显示关系库数据。') : '',
-        data.truncated ? '当前显示部分节点或关系。' : '',
+        Object.hasOwn(READ_REASONS, data.reason) ? READ_REASONS[data.reason] : '',
+        fromGraph && data.state === 'partial' ? '当前显示已经读取的图数据。' : '',
+        !fromGraph && nodes.length ? '当前显示关系库快照。' : '',
+        data.truncated ? '本次读取达到节点、关系或邻域上限。' : '',
       ].filter(Boolean).join(' ')
       renderDetail()
       if (!nodes.length) {
         root.dataset.graphic = 'empty'
-        report('所选范围暂无可显示的图谱。')
+        report(fromGraph ? '所选范围暂无可显示的图谱。' : '所选范围的关系库快照暂无可显示的节点。')
         return
       }
       order = nodes.map((_, index) => index).sort((a, b) => neighbors[b].length - neighbors[a].length || a - b)

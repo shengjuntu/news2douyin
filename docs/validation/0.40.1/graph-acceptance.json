@@ -1,0 +1,62 @@
+{
+  "chrome_version": "149.0.7827.54",
+  "webgl2": true,
+  "endpoints": {
+    "global": {
+      "backend": "falkordb",
+      "state": "ready",
+      "nodes": 14,
+      "edges": 10
+    },
+    "rail": {
+      "backend": "falkordb",
+      "state": "ready",
+      "nodes": 6,
+      "edges": 7
+    },
+    "electric": {
+      "backend": "falkordb",
+      "state": "ready",
+      "nodes": 6,
+      "edges": 7
+    },
+    "empty": {
+      "backend": "sql",
+      "state": "degraded",
+      "nodes": 1,
+      "edges": 0
+    }
+  },
+  "browser_checks": [
+    "global_webgl2_zoom_and_fit",
+    "separate_focus_graphs_and_paused_focus",
+    "keyboard_search_and_canvas_point_selection",
+    "native_mouse_drag_moves_point",
+    "node_type_filter",
+    "empty_global_and_focus_without_material",
+    "narrow_screen_no_overflow_and_touch",
+    "gpu_library_unavailable_keeps_search_and_relationships",
+    "webgl_unavailable_keeps_relationships",
+    "sql_fallback_explicit_and_rendered"
+  ],
+  "reason_rendering_checks": [
+    "query_timeout",
+    "socket_timeout_and_sample",
+    "connection",
+    "query_error",
+    "owner_mismatch",
+    "budget_partial",
+    "query_timeout_partial",
+    "sample_only",
+    "ready",
+    "timeout_and_empty_snapshot",
+    "empty_graph"
+  ],
+  "browser_renderer": "SwiftShader",
+  "socket_timeout_test": {
+    "requested_ms": 200,
+    "measured_ms": 203.8,
+    "url_timeout_s": 10,
+    "worker_pool_unmodified": true
+  }
+}
