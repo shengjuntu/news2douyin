@@ -1,4 +1,6 @@
 from datetime import datetime, timedelta, timezone
+from hashlib import sha256
+from pathlib import Path
 from urllib.parse import urlsplit, urlencode
 from fastapi import Request, Query, Depends, HTTPException
 from fastapi.responses import RedirectResponse
@@ -52,6 +54,8 @@ class RemoveFocus(BaseModel):
 
 
 def register_desk(app,engine,render):
+    focus_script = Path(__file__).with_name('static') / 'focus.js'
+    focus_script_version = sha256(focus_script.read_bytes()).hexdigest()[:16]
     def db():
         with Session(engine,expire_on_commit=False) as s:yield s
     from .extraction import register as register_extraction
@@ -197,7 +201,7 @@ def register_desk(app,engine,render):
                 point_material.setdefault(point,[]).append(dict(key=event,title=title,reason=reason))
         if seed and not seed_event:raise HTTPException(404,'事件不存在')
         from ..desk.focus_jobs import definition as focus_definition, status as focus_status
-        return remember(render('desk_focus.html',active='focus',w=w,data=w.model_dump() if w else {},watches=watches,
+        response = render('desk_focus.html',active='focus',w=w,data=w.model_dump() if w else {},watches=watches,
             trashed=trash_items(s),trash_open=request.query_params.get('trash')=='1',
             intent_definition=focus_definition(s,key) if w else None,
             tracking=focus_status(s,key) if w else {},
@@ -207,7 +211,10 @@ def register_desk(app,engine,render):
             order=order,branch=branch,branches=branches,tags=tags,questions=questions,summaries=summaries,
             candidate_dates=focus_timeline(s,key) if w else [],action_labels=LABELS,points=outline.points(s,key) if w else [],point_history=outline.history(s,key) if w else [],
             timeline=moments,excluded=excluded,paging=urlencode(dict(order=order,branch=branch)),
-            seed_title=seed_event.event_title if seed_event else '',video_seed=video_seed,**context(request,s)),'focus')
+            seed_title=seed_event.event_title if seed_event else '',video_seed=video_seed,
+            focus_script_version=focus_script_version,**context(request,s))
+        response.headers['Cache-Control'] = 'private, no-cache'
+        return remember(response,'focus')
 
     @app.get('/focus/{key}/survey')
     def survey_page(key:str,day:str='',s=Depends(db)):

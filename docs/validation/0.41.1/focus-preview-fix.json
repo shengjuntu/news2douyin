@@ -1,0 +1,45 @@
+{
+  "version": "0.41.1",
+  "scope": "Local test fixtures; no production deployment.",
+  "reproduction": {
+    "page_version": "0.41.0",
+    "cached_script_version": "0.38.1",
+    "browser": {
+      "chromium": "149.0.7827.54",
+      "mode": "baseline",
+      "ordinary": {
+        "matching_release_preview_and_save": true,
+        "stale_v0381_asset_reproduces_exact_error": true
+      },
+      "video_story": {
+        "matching_release_preview_and_save": true,
+        "stale_v0381_asset_reproduces_exact_error": true
+      },
+      "two_saved_focuses_confirmed_in_sqlite": true
+    }
+  },
+  "isolated_installed_wheel_browser": {
+    "chromium": "149.0.7827.54",
+    "mode": "patched",
+    "ordinary": {
+      "versioned_focus_asset": "/research-assets/focus.js?v=b490c18514a67af7",
+      "html_cache_revalidates": true,
+      "preview_and_save_under_stale_cache": true
+    },
+    "video_story": {
+      "versioned_focus_asset": "/research-assets/focus.js?v=b490c18514a67af7",
+      "html_cache_revalidates": true,
+      "preview_and_save_under_stale_cache": true,
+      "survives_missing_optional_status_nodes": true
+    },
+    "two_saved_focuses_confirmed_in_sqlite": true
+  },
+  "targeted_regression": {
+    "engines": [
+      "SQLite",
+      "PostgreSQL 16.2"
+    ],
+    "passed": 57,
+    "failures": 0
+  }
+}

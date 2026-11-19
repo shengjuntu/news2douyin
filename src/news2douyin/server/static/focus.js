@@ -154,14 +154,13 @@
     document.getElementById('topic-name').value = draftSpec.name;
     document.getElementById('topic-questions').value = safeArray(draftSpec.questions).join('\n');
     document.getElementById('topic-exclude').value = safeArray(draftSpec.exclude).join('\n');
-    document.getElementById('topic-method').textContent = value.method === 'model' ? 'AI 生成' : '规则生成';
-    const methodMessage = document.getElementById('topic-method-message');
-    methodMessage.textContent = value.method === 'model' ? '' : value.message || '已生成基础范围，可调整后开始跟踪。';
+    status(document.getElementById('topic-method'), value.method === 'model' ? 'AI 生成' : '规则生成');
+    status(document.getElementById('topic-method-message'), value.method === 'model' ? '' : value.message || '已生成基础范围，可调整后开始跟踪。');
     const boundaries = [];
     if (safeArray(draftSpec.include).length) boundaries.push('重点：' + draftSpec.include.slice(0, 6).join('；'));
     if (safeArray(draftSpec.geography).length) boundaries.push('地区：' + draftSpec.geography.join('、'));
     if (draftSpec.time_start || draftSpec.time_end) boundaries.push('关注时间：' + (draftSpec.time_start || '不限起点') + ' 至 ' + (draftSpec.time_end || '持续跟踪'));
-    document.getElementById('topic-boundaries').textContent = boundaries.join('。');
+    status(document.getElementById('topic-boundaries'), boundaries.join('。'));
     focusSpecGraph(document.querySelector('[data-intent-graph="preview"]'), draftSpec);
     preview.hidden = false; setBuilding(false);
     status(buildStatus, ''); status(saveStatus, '');

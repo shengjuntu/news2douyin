@@ -1,4 +1,5 @@
 """A saved video candidate can start a focus draft without changing either edition."""
+from hashlib import sha256
 import json
 
 from fastapi.testclient import TestClient
@@ -26,6 +27,14 @@ def test_saved_video_story_prefills_a_read_only_focus_draft(tmp_path):
         assert response.status_code == 200
         assert '持续跟踪「巴士司机换班后，把乘客送回了家 &lt;记事&gt;」的后续进展' in response.text
         assert '每日精选标题' not in response.text
+        asset = client.get('/research-assets/focus.js')
+        assert asset.status_code == 200
+        fingerprint = sha256(asset.content).hexdigest()[:16]
+        script_url = f'/research-assets/focus.js?v={fingerprint}'
+        assert client.get(script_url).content == asset.content
+        for focus_page in (response, client.get('/focus?new=1')):
+            assert f'src="{script_url}"' in focus_page.text
+            assert focus_page.headers['cache-control'] == 'private, no-cache'
         assert client.get('/focus', params={**query, 'video_key': 'missing'}).status_code == 404
         with Session(app.state.engine) as session:
             assert session.exec(select(func.count()).select_from(Watch)).one() == 0

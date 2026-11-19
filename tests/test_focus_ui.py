@@ -17,7 +17,8 @@ def render(**values):
         active='focus', intent_definition=None, tracking={}, changes=[], items=[], offset=0,
         total=0, reviews=[], branches=[], tags={}, order='recent', branch='', timeline=[],
         excluded=[], candidate_dates=[], action_labels={}, points=[], point_history=[],
-        point_material={}, questions=[], summaries=[], content_tasks=[], paging='', back='/focus')
+        point_material={}, questions=[], summaries=[], content_tasks=[], paging='', back='/focus',
+        focus_script_version='0123456789abcdef')
     context.update(values)
     return env.get_template('desk_focus.html').render(**context)
 
@@ -30,7 +31,7 @@ def test_new_topic_default_is_description_and_manual_editor_starts_closed():
     assert 'id="desk-editor" class="card focus-manual"' in page
     assert 'id="desk-editor" class="card focus-manual" open' not in page
     assert page.count('data-topic-example=') == 4
-    assert 'src="/research-assets/focus.js" defer' in page
+    assert 'src="/research-assets/focus.js?v=0123456789abcdef" defer' in page
     assert 'maxlength="4000"' in page
 
 

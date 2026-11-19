@@ -257,5 +257,5 @@
 </dialog>
 {% endif %}
 <script id="focus-config" type="application/json">{{ {'watch':data,'presets':presets,'seed':seed,'definition':definition,'tracking':tracking|default({})}|tojson }}</script>
-<script src="/research-assets/focus.js" defer></script><script src="/research-assets/knowledge.js" defer></script>
+<script src="/research-assets/focus.js?v={{ focus_script_version }}" defer></script><script src="/research-assets/knowledge.js" defer></script>
 {% endblock %}
