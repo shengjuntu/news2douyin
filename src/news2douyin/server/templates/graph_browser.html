@@ -1,6 +1,6 @@
 {% extends 'base.html' %}{% block title %}图数据库浏览器 · news2douyin{% endblock %}{% block content %}
 <style>main{overflow-wrap:anywhere}main pre{max-width:100%;white-space:pre-wrap}main .card{min-width:0}</style>
-<div class="row"><h1>图数据库浏览器</h1><a href="/knowledge">知识处理状态</a><a href="/radar?view=network">事件分析图</a></div>
+<div class="row"><h1>图数据库浏览器</h1><a href="/knowledge">知识处理状态</a><a href="/graphs">查看图谱</a><a href="/radar?view=network">事件分析图</a></div>
 <section class="card"><h2 style="margin-top:0">浏览器地址</h2>
 <form id="browser-setting"><label for="browser-url">从当前电脑能访问的地址</label><input id="browser-url" type="url" value="{{ browser_url }}" placeholder="http://服务器地址:13000" style="display:block;width:100%;margin:12px 0" maxlength="2000"><div class="row"><button>保存地址</button><a id="browser-open" {% if browser_url %}href="{{ browser_url|safe_url }}"{% else %}hidden{% endif %} target="_blank" rel="noopener noreferrer">打开 FalkorDB Browser ↗</a></div></form>
 <p id="browser-message" role="status"></p><p class="muted small">远程部署时，在 Compose 中同步设置 NEWS2DOUYIN_FALKOR_BROWSER_URL。</p></section>

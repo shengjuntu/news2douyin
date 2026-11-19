@@ -22,5 +22,21 @@
     "url": "https://unpkg.com/d3@7.9.0/LICENSE",
     "bytes": 731,
     "sha256": "3e6849627f74ff73c257a3ae1efb574015d94fc1035c05ec3c15805165efcbc4"
+  },
+  {
+    "file": "cosmos-graph-3.6.0.min.js",
+    "url": "https://registry.npmjs.org/@cosmos.gl/graph/-/graph-3.6.0.tgz",
+    "member": "package/dist/index.min.js",
+    "bytes": 817432,
+    "sha256": "7c788f15bd6599691e76f233cdd631e5d4f1d665fc591c72de474af7d42703a5",
+    "upstream_sha256": "c1d3e19ebf0caf28a47395fd1f1159bf1012f0ce62d45aeb5dd570bec237a5c8",
+    "transformation": "Omitted only the source map URL because the developer source map is not distributed."
+  },
+  {
+    "file": "cosmos-graph-3.6.0-LICENSES.txt",
+    "url": "https://registry.npmjs.org/@cosmos.gl/graph/-/graph-3.6.0.tgz",
+    "bytes": 48548,
+    "sha256": "645c1de703011511abb9cb1e97c3734f9b3fa8ba4353f321c17365bd319c20ff",
+    "covers": "The bundle and its bundled dependencies, whose sources and versions are enumerated in the upstream source map."
   }
 ]

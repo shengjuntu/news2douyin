@@ -1,0 +1,46 @@
+{
+  "version": "0.40.0",
+  "wheel_sha256": "3915615c07a3678286d1aa9ce1366cdcfd6557094b7ba042ae68443b1cf9eec6",
+  "isolated_wheel_install": true,
+  "retired_desktop_extras_modules_and_commands_absent": true,
+  "retired_side_branches_absent": true,
+  "installed_smoke_checks": [
+    "tools/smoke_installed.py",
+    "tools/smoke_intelligence_installed.py",
+    "tools/smoke_newsnow_installed.py",
+    "tools/smoke_stability_installed.py",
+    "tools/smoke_event_content_installed.py",
+    "tools/smoke_daily_radar_installed.py",
+    "tools/smoke_evidence_installed.py",
+    "tools/smoke_live_daily_installed.py"
+  ],
+  "installed_strategy_plugin": {
+    "core_version": "0.40.0",
+    "plugin_distribution": "news2douyin-latest-docs-example",
+    "plugin_version": "1.0.0",
+    "eligible_observations": 123,
+    "saved_selection": {
+      "api_version": 1,
+      "strategy": "latest-diverse",
+      "version": "1.0.0",
+      "limit": 110,
+      "options": {
+        "max_per_domain": 200
+      }
+    },
+    "default_items": 4,
+    "web_worker_items": 3,
+    "web_worker_hosts": 3,
+    "cli_items": 110,
+    "partial_items": 122,
+    "partial_limit": 200,
+    "updated_duplicate_selected": true,
+    "excluded_at_cutoff": true,
+    "tie_order_independent": true,
+    "prior_pick_filter_verified": true,
+    "web_cli_markdown_identical": true,
+    "legacy_unlinked_export": true,
+    "default_rebuild_identical": true
+  },
+  "installed_graph_navigation_and_api_tests": 2
+}

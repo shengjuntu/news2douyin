@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+{% block title %}{{ selected.name if selected else '全局活动图' if mode == 'global' else '焦点图' }} · 图谱{% endblock %}
+{% block graph_libraries %}
+<link rel="stylesheet" href="/research-assets/graph-explorer.css">
+{% endblock %}
+{% block content %}
+<div id="graph-explorer" data-endpoint="{{ endpoint }}" data-module="/research-assets/vendor/cosmos-graph-3.6.0.min.js">
+  <div class="graph-explorer-heading">
+    <h1>{{ selected.name if selected else '全局活动图' if mode == 'global' else '焦点图' }}</h1>
+    {% if selected %}<a href="/focus/{{ selected.key|urlencode }}">返回焦点 →</a>{% endif %}
+  </div>
+  <div class="graph-explorer-navigation">
+    <nav id="graph-mode" class="graph-explorer-mode" aria-label="图谱范围">
+      <a href="/graphs"{% if mode == 'global' %} class="on" aria-current="page"{% endif %}>全局活动图</a>
+      <a href="/graphs?view=focus"{% if mode == 'focus' %} class="on" aria-current="page"{% endif %}>焦点图</a>
+    </nav>
+    {% if endpoint %}
+    <form class="inline graph-explorer-scope" action="/graphs" method="get">
+      <input type="hidden" name="view" value="{{ mode }}">
+      {% if choices %}
+      <label for="graph-focus-key">焦点</label>
+      <select name="focus" id="graph-focus-key">
+        {% for item in choices %}<option value="{{ item.key }}"{% if item.key == selected.key %} selected{% endif %}>{{ item.name }}</option>{% endfor %}
+      </select>
+      {% endif %}
+      <label for="graph-limit">节点上限</label>
+      <select name="limit" id="graph-limit">
+        {% for value in node_limits %}<option value="{{ value }}"{% if value == limit %} selected{% endif %}>{{ value }}</option>{% endfor %}
+      </select>
+      <button type="submit" class="ghost">打开</button>
+    </form>
+    {% endif %}
+  </div>
+  {% if endpoint %}
+  <div class="graph-explorer-toolbar">
+    <label for="graph-search">搜索节点</label>
+    <input id="graph-search" type="search" placeholder="事件、人物或地点" autocomplete="off" maxlength="160">
+    <div class="row" aria-label="视图操作">
+      <button id="graph-zoom-out" class="ghost" type="button" aria-label="缩小" disabled>−</button>
+      <button id="graph-zoom-in" class="ghost" type="button" aria-label="放大" disabled>＋</button>
+      <button id="graph-fit" class="ghost" type="button" disabled>适合视图</button>
+      <button id="graph-clear" class="ghost" type="button" disabled>清除选中</button>
+    </div>
+  </div>
+  <p id="graph-status" role="status" aria-live="polite">正在加载图谱…</p>
+  <div class="graph-explorer-layout">
+    <section class="graph-explorer-plot" aria-label="交互关系图">
+      <div id="graph-canvas" tabindex="0" aria-label="关系图，可使用节点列表访问同一材料"></div>
+      <div id="graph-types" aria-label="节点类型"></div>
+    </section>
+    <section class="graph-explorer-sidebar" aria-label="节点与关系">
+      <div id="graph-summary"></div>
+      <div id="graph-detail"></div>
+      <div id="graph-nodes" aria-label="节点列表"></div>
+    </section>
+  </div>
+  <noscript><p>请启用 JavaScript 查看节点和关系。</p></noscript>
+  <script type="module" src="/research-assets/graph-explorer.js"></script>
+  {% else %}
+  <p>还没有可查看的焦点图。<a href="/focus?new=1">新建焦点</a></p>
+  {% endif %}
+</div>
+{% endblock %}

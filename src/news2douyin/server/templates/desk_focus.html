@@ -38,6 +38,7 @@
       {% if definition or w.question or w.scope %}<p class="focus-description">{{ definition.description if definition else w.question or w.scope }}</p>{% endif %}
       <div class="focus-head-actions">
         <a class="action-link" href="/workbench/new?watch={{ w.key }}">形成选题</a>
+        <a href="/graphs?view=focus&amp;focus={{ w.key|urlencode }}">查看图谱</a>
         <button id="focus-delete" type="button" class="ghost focus-delete">删除焦点</button>
       </div>
     </header>

@@ -331,6 +331,8 @@ def register_webui_routes(app: FastAPI, engine, scheduler, storage_root: str) ->
     register_daily_management(app,engine,render)
     from .graph_browser import register as register_graph_browser
     register_graph_browser(app,engine,render)
+    from .graph_explorer import register as register_graph_explorer
+    register_graph_explorer(app,engine,render)
 
     @app.get('/events/{event_key}', response_class=HTMLResponse)
     def page_event_detail(event_key: str, back: str = '/radar'):
