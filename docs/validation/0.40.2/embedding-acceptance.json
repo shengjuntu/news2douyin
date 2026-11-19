@@ -1,0 +1,23 @@
+{
+  "release": "0.40.2",
+  "fixture": "Isolated loopback HTTP server implementing the vLLM/OpenAI-compatible model list and dense embedding requests",
+  "isolated_source_tests_passed": 16,
+  "installed_wheel_tests_passed": 16,
+  "dimension_under_test": 1024,
+  "scenarios": [
+    "exact configured model ID",
+    "single-model discovery and cache",
+    "ambiguous model rejection",
+    "batch ordering by response indices",
+    "asynchronous text encoding",
+    "optional authorization",
+    "response shape and finite-value checks",
+    "no HTTP error body, text or key in errors",
+    "dotenv-based standalone CLI",
+    "standalone CLI with tenacity, openai, toml and httpx imports blocked",
+    "unadvertised model is rejected before any text is sent",
+    "legacy optional chat exports available"
+  ],
+  "live_endpoint": "Not reachable in the QA workspace",
+  "scope": "Embedding adapter and acceptance command"
+}

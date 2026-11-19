@@ -31,9 +31,9 @@ def _as_int(x, default=0):
         return default
 
 config = {
-    "EMBEDDING_BASE_URL": os.getenv("EMBEDDING_BASE_URL", "http://192.168.0.234:11435/v1"),
-    "EMBEDDING_MODEL": os.getenv("EMBEDDING_MODEL", "bge-large-zh"),
-    "EMBEDDING_API_KEY": os.getenv("EMBEDDING_API_KEY", "vllm"),
+    "EMBEDDING_BASE_URL": os.getenv("EMBEDDING_BASE_URL", ""),
+    "EMBEDDING_MODEL": os.getenv("EMBEDDING_MODEL", ""),
+    "EMBEDDING_API_KEY": os.getenv("EMBEDDING_API_KEY", ""),
     "OPENAI_API_KEY": os.getenv("OPENAI_API_KEY", "vllm"),
     "OPENAI_BASE_URL": os.getenv("OPENAI_BASE_URL", "http://192.168.0.234:9302/v1"),
     "MODEL": os.getenv("MODEL", "qwen72b"),
@@ -61,8 +61,6 @@ LLM_CACHE_DB = config["LLM_CACHE_DB"]
 LLM_CACHE_RATIO = config["LLM_CACHE_RATIO"]
 LLM_CACHE_TTL_SEC = config["LLM_CACHE_TTL_SEC"]
 
-print("EMBEDDING_BASE_URL:", EMBEDDING_BASE_URL)
-print("EMBEDDING_MODEL:", EMBEDDING_MODEL)
 print("OPENAI_BASE_URL:", OPENAI_BASE_URL)
 print("MODEL:", MODEL)
 print("USE_LLM_CACHE:", USE_LLM_CACHE)
