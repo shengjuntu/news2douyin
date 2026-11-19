@@ -1,0 +1,56 @@
+.daily-edition {max-width: 960px; margin: 0 auto; overflow-wrap: anywhere}
+.daily-heading, .daily-dates, .daily-byline, .daily-actions {display:flex; flex-wrap:wrap; align-items:center; gap:.8rem}
+.daily-heading {justify-content:space-between; padding:1.2rem 0 .8rem}
+.daily-heading h1 {font-size:1.65rem; margin:0}
+.daily-heading p, .daily-stats, .daily-evidence, .daily-byline {color:#aebfce}
+.daily-heading p {margin:.5rem 0 0}
+.daily-dates {font-size:.9rem}
+.daily-dates input {max-width:100%}
+.daily-stats {padding:.65rem 0; border-top:1px solid #34404a}
+.daily-stats summary, .daily-evidence summary {cursor:pointer; width:fit-content}
+.daily-stats dl {display:flex; gap:1.2rem; flex-wrap:wrap}
+.daily-stats dd {margin:.3rem 0; color:#eceff4; font-weight:600; font-variant-numeric:tabular-nums}
+.daily-entry {padding:1.15rem 0; border-top:1px solid #34404a}
+.daily-entry h2 {color:#eff3f8; margin:.42rem 0 .14rem; font-size:1.22rem; line-height:1.45}
+.daily-entry h2 a {color:inherit; text-decoration:none}
+.daily-entry h2 a:hover, .daily-entry h2 a:focus-visible {text-decoration:underline}
+.daily-change {color:#a5dad8}
+.daily-source-caption {margin:0 0 .45rem; color:#aebfce; font-size:.82rem}
+.daily-byline, .daily-evidence {font-size:.82rem}
+.daily-excerpt, .daily-reasons, .daily-empty p {line-height:1.65}
+.daily-excerpt {margin:.45rem 0; color:#d1dbe4}
+.daily-reasons {color:#aabfc9; margin:.6rem 0; font-size:.9rem}
+.daily-reasons strong {color:#b7d4da; padding-right:.25rem}
+.daily-actions {gap:1rem; margin-top:.65rem}
+.daily-select {color:#e6eff6; border:1px solid #557a86; border-radius:6px; padding:.3rem .7rem}
+.daily-coverage {margin:.3rem 0; font-size:.9rem; color:#b6c7d1}
+.daily-coverage strong, .daily-excerpt strong {margin-right:.3rem; color:#cce1e1}
+.daily-reconstruction-label {color:#ead1a4}
+.daily-evidence {margin-top:.7rem}
+.daily-evidence summary {color:#b9e0df; padding:.4rem 0; font-weight:600}
+.daily-why {margin:.7rem 0; display:grid; grid-template-columns:max-content minmax(0,1fr); gap:.75rem 1rem; line-height:1.6}
+.daily-why dt {font-weight:600; color:#d5e4eb}
+.daily-why dd, .daily-why p {margin:0}
+.daily-why p + p {margin-top:.2rem}
+.daily-source-list {padding-left:1.15rem; margin:.35rem 0 0}
+.daily-source-list span, .daily-evidence-note {color:#aabac8}
+@media(max-width:600px) {.daily-why {grid-template-columns:minmax(0,1fr); gap:.15rem}.daily-why dd + dt {margin-top:.45rem}}
+.daily-empty {margin-top:1rem}
+.daily-empty h2 {margin-top:0}
+@media (max-width:600px) {.daily-heading {align-items:flex-start} .daily-dates {gap:.4rem} .daily-byline time {display:block}}
+
+.daily-tools, .daily-date-choice, .daily-view-choice {display:flex; gap:.7rem; align-items:center; flex-wrap:wrap}
+.daily-tools, .daily-dates, .daily-jump {font-size:.9rem}
+.daily-dates {justify-content:space-between; padding:.72rem 0; border-top:1px solid #34404a}
+.daily-dates select, .daily-jump select {max-width:100%}
+.daily-timestamp {font-size:.85rem}
+.daily-job-note:empty {display:none}
+.daily-job-note, .daily-backfill {color:#d4c398; font-size:.92rem}
+.daily-jump {margin:1rem 0}
+.daily-group-heading {margin:1.2rem 0 .25rem; font-size:1.22rem; color:#c6e6e5; scroll-margin-top:4rem}
+.daily-group-heading small {font-size:.83rem; font-weight:400; color:#aebfce}
+.daily-sequence {font:600 .91rem/1.25 ui-monospace,monospace; font-variant-numeric:tabular-nums; color:#e3f6ff; padding:.15rem .45rem; border:1px solid #537780; border-radius:4px}
+@media(max-width:600px) {.daily-dates {align-items:flex-start}.daily-date-choice,.daily-view-choice {gap:.45rem}.daily-tools {gap:.6rem}}
+.daily-reading-place {display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;margin:.7rem 0;color:#aebfce}
+.daily-sequence {background:transparent;cursor:pointer;scroll-margin-top:4rem}
+.daily-sequence[aria-pressed=true] {background:#254e56;color:#d9fffa;border-color:#88d6ce}

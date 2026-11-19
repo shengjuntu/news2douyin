@@ -1,0 +1,69 @@
+{
+  "feed": "gkg_english",
+  "rows": 8087,
+  "archives": [
+    {
+      "url": "https://data.gdeltproject.org/gdeltv2/20250315001500.gkg.csv.zip",
+      "name": "20250315001500.gkg.csv.zip",
+      "bytes": 6152136,
+      "sha256": "0e06b6fbfff091f917957e2d0daf3a0bc1bebb9cfbfd4f9be716f80dab20424c",
+      "lines": 1412
+    },
+    {
+      "url": "https://data.gdeltproject.org/gdeltv2/20250315061500.gkg.csv.zip",
+      "name": "20250315061500.gkg.csv.zip",
+      "bytes": 3588115,
+      "sha256": "995cac145dd6189be618a41661021243fbcecda016d62f09934703fe773f59fd",
+      "lines": 872
+    },
+    {
+      "url": "https://data.gdeltproject.org/gdeltv2/20250315121500.gkg.csv.zip",
+      "name": "20250315121500.gkg.csv.zip",
+      "bytes": 3422068,
+      "sha256": "7d16129a8087fac00b13d7bec2a1312fa706c8a3892668a4c3f60f5470b7b091",
+      "lines": 766
+    },
+    {
+      "url": "https://data.gdeltproject.org/gdeltv2/20250316001500.gkg.csv.zip",
+      "name": "20250316001500.gkg.csv.zip",
+      "bytes": 2987952,
+      "sha256": "4ed18e9e2473e6fcf0a5b6b1a12ee68df68d9ffcdfbda06af4bbef44c9a1606e",
+      "lines": 736
+    },
+    {
+      "url": "https://data.gdeltproject.org/gdeltv2/20250316061500.gkg.csv.zip",
+      "name": "20250316061500.gkg.csv.zip",
+      "bytes": 2035951,
+      "sha256": "4ea3d5a6b89e0b64315129e445efa19721846df7a4c48a2250a28e231c70fc08",
+      "lines": 540
+    },
+    {
+      "url": "https://data.gdeltproject.org/gdeltv2/20250316121500.gkg.csv.zip",
+      "name": "20250316121500.gkg.csv.zip",
+      "bytes": 3398387,
+      "sha256": "466a119950792cf66b66cb54426e4b8eedcac23f1e9410d6757cd8d4b1c89f19",
+      "lines": 799
+    },
+    {
+      "url": "https://data.gdeltproject.org/gdeltv2/20250317001500.gkg.csv.zip",
+      "name": "20250317001500.gkg.csv.zip",
+      "bytes": 2867471,
+      "sha256": "3d65cc7f3ae6e8e7a8dbc9d902fd2d6363e52024dac9d74bcf3b5ab9d5de4230",
+      "lines": 683
+    },
+    {
+      "url": "https://data.gdeltproject.org/gdeltv2/20250317061500.gkg.csv.zip",
+      "name": "20250317061500.gkg.csv.zip",
+      "bytes": 3826596,
+      "sha256": "b7e2c91840fe19c90022b21d1e877e4fc0f7f2c8a6fd0049056ca4a5542dd38b",
+      "lines": 962
+    },
+    {
+      "url": "https://data.gdeltproject.org/gdeltv2/20250317121500.gkg.csv.zip",
+      "name": "20250317121500.gkg.csv.zip",
+      "bytes": 5552057,
+      "sha256": "bbb8be347385a5eebedb79e3a7f8e735132cfcb6636658313b4a83b1220cc1f9",
+      "lines": 1317
+    }
+  ]
+}

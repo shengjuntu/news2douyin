@@ -69,10 +69,9 @@ def test_event_and_topic_statistics_do_not_share_a_per_event_average():
             latency_ms=dict(mean=100000,p95=110000),recent=dict(window_seconds=300,rate_per_second=0))})
     page=render(status(projection=metrics),page='knowledge.html')
     assert '事件投影：已确认 40 项 · 已尝试 40 次 · 单次平均 0.02 秒 / P95 0.04 秒' in page
-    assert '专题投影：已确认 0 项 · 已尝试 4 次 · 已完成分批 4 次 · 单次平均 100.0 秒 / P95 110.0 秒' in page
-    assert '本次运行已确认事件投影 40 项 · 专题投影 0 项' in page
-    assert '分批完成不代表整个专题已同步' in page
-    assert '统计范围为本次服务运行' in page
+    assert '焦点投影：已确认 0 项 · 已尝试 4 次 · 已完成分批 4 次 · 单次平均 100.0 秒 / P95 110.0 秒' in page
+    assert '本次运行已确认事件投影 40 项 · 焦点投影 0 项' in page
+    assert '分批完成不代表整个焦点已同步' in page
     assert '近 300 秒确认率 0.133 项/秒' in page
 
 
@@ -101,7 +100,7 @@ def test_topic_progress_reports_batches_without_inventing_completion_percentage(
     page=render(status(focus_projection=dict(active=10,limited=True,topics=[
         dict(watch='private-watch-key',phase='events',scanned=400,changed=7,removed=0,batches=12)])),
         page='knowledge.html')
-    assert '已记录至少 10 个未完成专题' in page
+    assert '已记录至少 10 个未完成焦点' in page
     assert '最近批次：同步事件材料 · 已检查 400 项 · 写入 7 项 · 移除 0 项 · 完成 12 批' in page
     # User-facing progress does not display an opaque topic ID or assume that
     # a batch count represents completion of all pending material.

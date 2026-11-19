@@ -1,0 +1,69 @@
+{
+  "fixture": {
+    "rows": 4000,
+    "raw_bytes": 2258516,
+    "compressed_payload_bytes": 938881,
+    "min_raw_bytes": 497,
+    "max_raw_bytes": 582,
+    "duckdb_measured_bytes": 3158016,
+    "archives": 192,
+    "day": "2026-03-14",
+    "enabled_watches": 100
+  },
+  "scope": "Fresh operation databases were prepared from the same 100 watches. Four regular CLI runs (v0.37.0 / v0.38.0, SQLite / PostgreSQL 16.2 en_US.utf8) used the same DuckDB input. These synthetic rows test behavior and portability, not ranking quality or production-scale performance.",
+  "commands": [
+    "news2douyin-daily-radar build",
+    "news2douyin-daily-radar export",
+    "news2douyin-review compare-shortlist"
+  ],
+  "candidate_stream": {
+    "valid_readable": 3920,
+    "candidate_groups": 1200,
+    "selected": 100
+  },
+  "legacy_issue_fields_equal": true,
+  "new_audit": {
+    "api_version": 1,
+    "strategy": "balanced",
+    "version": "0.37.0",
+    "limit": 100,
+    "options": {}
+  },
+  "excluded_wallclock_field": "generated_at",
+  "four_way_ordered_cards_scores_reasons_and_evidence_identical": true,
+  "published_markdown_and_all_review_packet_files_byte_identical": true,
+  "export_and_replay_left_published_issue_unchanged": true,
+  "synthetic_confirmed_merges": 0,
+  "identical_sha256": {
+    "published_cards_canonical_json": "dfe077f15f50e111779a2b25a770c2d95a0eadf073a7e0429a9dbe443bf5a07e",
+    "published_markdown": "9e492d61137d1e4140298004e93635e58cfd892bd978825bdf5280f02bcac27e",
+    "four_review_arms": {
+      "baseline": {
+        "count": 100,
+        "ordered_cards_sha256": "dfe077f15f50e111779a2b25a770c2d95a0eadf073a7e0429a9dbe443bf5a07e"
+      },
+      "classification": {
+        "count": 100,
+        "ordered_cards_sha256": "81b8fb11aff42b99a29007751371785ce0692ddb4d36d0080954b2178d1e5dfe"
+      },
+      "merge": {
+        "count": 100,
+        "ordered_cards_sha256": "2695891f6566a6f954067b0c68868269d82d6e0743f974c99cbb9343a920163f"
+      },
+      "combined": {
+        "count": 100,
+        "ordered_cards_sha256": "e5c9965696de08ca60d77f3ee6687ac9afabb016a6745b4e3273a3b8992d6755"
+      }
+    },
+    "review_files": {
+      "answer-key.json": "f83bb572667c49cfe048488b62ab76b1c7f9d88501a105c1b21414d0135c414f",
+      "comparison.json": "e48180b21aacff470a18f999c7404de3811ff135f4dce0fb2102492b2aa45341",
+      "merge-review.csv": "ae15d5678b594e4273b8a30c8e21084cc5984b3578a4fa0ca4826c68c88c58c0",
+      "merges.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "review.csv": "51de29714f625c07eeb8f56096d182d7d3d6558134fd32054ec25fcd022060d5",
+      "review.html": "30b07f5b181fa9607777920bbe137eade69b714c2e829436f5c7076a4aff4e7a",
+      "shortlist.md": "c7162ebfae07972aaf81b54fa049b95b8e67bee731aea84f017adaad39930105"
+    }
+  },
+  "checked_utc": "2026-11-16T01:42:39.651501+00:00"
+}

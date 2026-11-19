@@ -1,0 +1,165 @@
+{
+  "scope": "One local synthetic CPU benchmark: v0.36.1 reference and v0.37.0 standalone four-arm command on exactly the same SQLite and DuckDB storage. Timings vary with system load; other release tests also ran. No network, LLM or graph queries; excludes seed generation and HTTP. Process RSS, not whole-system memory. Timestamps of synthetic events are fixed; this sample measures throughput only.",
+  "input": {
+    "rows": 500000,
+    "raw_bytes": 283510617,
+    "compressed_payload_bytes": 118186090,
+    "min_raw_bytes": 497,
+    "max_raw_bytes": 585,
+    "duckdb_measured_bytes": 207630336,
+    "archives": 192,
+    "day": "2026-11-12",
+    "enabled_watches": 100
+  },
+  "previously_published_controls": {
+    "measurement": "publish",
+    "seconds": 46.026,
+    "max_rss_mib": 128.3,
+    "postgres_or_sqlite_statements": {
+      "PRAGMA": 1,
+      "INSERT": 1,
+      "UPDATE": 2,
+      "SELECT": 9,
+      "BEGIN": 1
+    },
+    "test_utc": "2026-11-15T09:14:28+00:00",
+    "scanned": 490000,
+    "groups": 62400,
+    "frozen_keys_sha256": "3409d7e8778b8281eae9877cee9b696694771cd037e54440b9ed634a3f09b01e"
+  },
+  "baseline_read_only_replay": {
+    "measurement": "baseline",
+    "seconds": 48.347,
+    "max_rss_mib": 120.9,
+    "postgres_or_sqlite_statements": {
+      "BEGIN": 1,
+      "SELECT": 5
+    },
+    "test_utc": "2026-11-15T09:15:17+00:00",
+    "scanned": 490000,
+    "groups": 62400,
+    "partitioned_seconds": 48.137,
+    "selected_seconds": 0.184,
+    "frozen_keys_sha256": "3409d7e8778b8281eae9877cee9b696694771cd037e54440b9ed634a3f09b01e"
+  },
+  "four_arm_offline_command": {
+    "measurement": "trial",
+    "seconds": 127.043,
+    "max_rss_mib": 153.1,
+    "postgres_or_sqlite_statements": {
+      "PRAGMA": 2,
+      "BEGIN": 2,
+      "SELECT": 7
+    },
+    "test_utc": "2026-11-15T09:21:18+00:00",
+    "files": [
+      "answer-key.json",
+      "comparison.json",
+      "merge-review.csv",
+      "merges.jsonl",
+      "review.csv",
+      "review.html",
+      "shortlist.md"
+    ],
+    "snapshot_unchanged": true,
+    "stages": {
+      "baseline": {
+        "since_start_s": 123.917,
+        "select_wall_s": 0.12,
+        "selected": 100
+      },
+      "classification": {
+        "since_start_s": 124.041,
+        "select_wall_s": 0.629,
+        "selected": 100
+      },
+      "merge": {
+        "since_start_s": 124.67,
+        "select_wall_s": 0.399,
+        "selected": 100
+      },
+      "combined": {
+        "since_start_s": 125.069,
+        "select_wall_s": 0.481,
+        "selected": 100
+      }
+    },
+    "source_stats": {
+      "literal_focus_hints": 0,
+      "official_seen": 0,
+      "official_no_readable": 0,
+      "official_emitted": 0,
+      "local_seen": 0,
+      "local_no_readable": 0,
+      "local_emitted": 0,
+      "newsnow_seen": 0,
+      "newsnow_no_readable": 0,
+      "newsnow_emitted": 0,
+      "official_reconstructed": 0,
+      "official_augmented": 0,
+      "reconstruction_source_available": true,
+      "gkg_archives": 192,
+      "gkg_seen": 500000,
+      "gkg_invalid": 5000,
+      "gkg_no_readable": 5000,
+      "gkg_emitted": 490000,
+      "gkg_archive_present": true,
+      "gkg_coarse_metadata_read": 490000,
+      "gkg_coarse_metadata_unavailable": 0,
+      "gkg_coarse_genre": 16900,
+      "gkg_coarse_category": 490000,
+      "gkg_coarse_mention_country": 490000
+    }
+  },
+  "checksummed_trial_modules": {
+    "action_groups": {
+      "sha256": "ccad3b1090dc13b73742cbd63cd1cc70ba235c03c398c6ea0162eda3da9d3808",
+      "modified_during_measurement": false,
+      "modified_after_measurement": false
+    },
+    "archive": {
+      "sha256": "8963e17b0d6211531a2348c27609d859e3414c55a2a26a0db1eeb48bcf2dbdc9",
+      "modified_during_measurement": false,
+      "modified_after_measurement": false
+    },
+    "coarse": {
+      "sha256": "2bb4adba89a3e2ee27283da1fb22ed882398f159d607d260d9b46e197b345c70",
+      "modified_during_measurement": false,
+      "modified_after_measurement": false
+    },
+    "ranking": {
+      "sha256": "0b2f7708f67e4af74cd08d70768366331a114dc91e78e2db24f6ce586c75e7b8",
+      "modified_during_measurement": false,
+      "modified_after_measurement": false
+    },
+    "evaluation": {
+      "sha256": "244f3e9acc7f466dee1f3e54bdc51034076702899403358ae32147bae8158e04",
+      "modified_during_measurement": false,
+      "modified_after_measurement": false
+    },
+    "shortlist": {
+      "sha256": "4d891766fe4c882c3e597944dc49cad154b06f56e0ec88baaef60c2b8b07f262",
+      "modified_during_measurement": false,
+      "modified_after_measurement": false
+    },
+    "shortlist_trial": {
+      "sha256": "67868ca2a07d8431a74e5fbcd9329de9039504048d8bed7e2dd0c041584eda51",
+      "modified_during_measurement": false,
+      "modified_after_measurement": false
+    },
+    "shortlist_comparison": {
+      "sha256": "a58a6d397cf87b4984fc4aad55a921181a3126c776f2c6b425f3167bacbd75a7",
+      "modified_during_measurement": false,
+      "modified_after_measurement": false
+    },
+    "review_cli": {
+      "sha256": "dececc8d7961f91770dd99c98a5e89ddfafe7166c44f853484d771eaae26371a",
+      "modified_during_measurement": false,
+      "modified_after_measurement": false
+    }
+  },
+  "control_on_old_and_new_same": true,
+  "combined_eligible": 62400,
+  "speed_ratio_vs_single_control": 2.63,
+  "seed_recipe": "tools/seed_shortlist_benchmark.py, --rows 500000 --day 2026-11-12. Follow the build and compare-shortlist commands in its docstring."
+}

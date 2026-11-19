@@ -1,0 +1,59 @@
+{
+  "scope": "Disposable SQLite, seeded article and focus, in-process HTTP and rendered HTML. No production data used.",
+  "http_success_pages": [
+    "focus-list",
+    "focus-detail",
+    "focus-new",
+    "radar",
+    "radar-local",
+    "radar-gdelt",
+    "radar-attention",
+    "event",
+    "articles",
+    "workbench",
+    "workbench-selection",
+    "workbench-research",
+    "knowledge",
+    "intake",
+    "profiles",
+    "tasks",
+    "setup",
+    "research-settings"
+  ],
+  "focus_naming": {
+    "before": "专题",
+    "after": "焦点",
+    "old_label_absent_from_seeded_pages": true
+  },
+  "focus_controls_retained": {
+    "focus_source_linked": true,
+    "focus_trash_control": true,
+    "focus_create_redirect": true
+  },
+  "workbench_trash": {
+    "findable_from_list_and_editor": true,
+    "origin_and_stale_guard": true,
+    "active_list_hides_item": true,
+    "restore_visible_in_trash": true,
+    "legacy_mutation_fenced": true,
+    "shared_focus_and_news_preserved": true,
+    "original_source_snapshot_preserved_after_restore": true,
+    "research_stage_protected": true
+  },
+  "client_click_handlers_node": {
+    "confirmation_cancel_sends_no_request": true,
+    "normal_delete_redirect_or_reload": true,
+    "restore_uses_current_trash_revision": true,
+    "failed_action_shows_error_and_can_retry": true
+  },
+  "browser": {
+    "ran": false,
+    "reason": "The installed Chromium binary is blocked from creating its startup Unix socket in this environment. No bundled Playwright headless-shell binary is installed."
+  },
+  "sqlite_upgrade_from_0381": {
+    "v0381_sqlite_startup_preserved_task": true,
+    "additive_trash_table": true,
+    "previously_created_task_can_remove_and_restore": true
+  },
+  "changed_javascript_syntax_check": true
+}

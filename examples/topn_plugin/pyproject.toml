@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "news2douyin-latest-docs-example"
+version = "1.0.0"
+description = "Independent Top N selection strategy for the news2douyin daily radar"
+requires-python = ">=3.10"
+dependencies = ["news2douyin>=0.38,<1"]
+
+[project.entry-points."news2douyin.selection"]
+latest-diverse = "news2douyin_latest_docs:LatestDocuments"
+
+[tool.setuptools.packages.find]
+where = ["src"]

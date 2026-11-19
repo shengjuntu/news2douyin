@@ -38,3 +38,30 @@ class IntakeBatch(SQLModel, table=True):
     last_error: str = ''
     received_at: str = Field(default_factory=utc_now_iso)
     completed_at: str = ''
+
+
+class DailyRepairJob(SQLModel, table=True):
+    """One durable historical intake task per Beijing day; previous published scope survives retries."""
+    day: str = Field(primary_key=True)
+    id: str
+    status: str = Field(default='queued', index=True)
+    feeds_json: str = '[]'
+    ready_id: str = ''
+    restored_json: str = '[]'
+    partial_publish: bool = False
+    next_at: float = 0
+    last_error: str = ''
+    created_at: str = Field(default_factory=utc_now_iso)
+    updated_at: str = Field(default_factory=utc_now_iso)
+
+
+class DailyRepairPart(SQLModel, table=True):
+    key: str = Field(primary_key=True)
+    day: str = Field(index=True)
+    feed: str
+    stamp: str
+    state: str = 'pending'
+    attempts: int = 0
+    next_at: float = 0
+    error: str = ''
+    completed_at: str = ''

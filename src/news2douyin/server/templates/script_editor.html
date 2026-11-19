@@ -17,12 +17,12 @@ button:disabled { opacity:.4; cursor:not-allowed; }
 </style>
 <div class="row" style="justify-content:space-between"><h1>脚本编辑</h1><div class="row">{% if script.event_key %}<a href="/events/{{ script.event_key }}">查看事件</a>{% endif %}<a href="/scripts/{{ script.package_key }}/video">制作视频</a>{% if work is not defined %}<a href="/workbench?view=history">历史成果</a>{% endif %}</div></div>
 <p class="muted small">{{ script.package_key }} · <span id="revision"></span> · <span id="status"></span> <span id="dirty"></span></p>
-<details class="muted small"><summary>导出到外部制作工具</summary><p>审核通过后，可导出制作包。<a href="/handoff">查看交接说明</a></p></details>
+<a class="small" href="/handoff">交接到外部制作工具</a>
 <div id="message" role="status" aria-live="polite"></div>
 {% if script.legacy %}
 <div class="card">
   <h2>旧版脚本</h2>
-  <p>启用后会保留原稿作为第一版，并从当前事件补充来源快照。旧文件继续保留；补充的来源不代表生成原稿时的历史资料。</p>
+  <p>原稿保留为第一版。本次补充的是当前来源快照。</p>
   <button type="button" id="adopt">启用版本管理</button>
   <pre style="white-space:pre-wrap">{{ script.script_text }}</pre>
 </div>
@@ -43,16 +43,16 @@ document.getElementById('adopt').onclick = async () => {
 <div class="editor">
 <form id="editor" class="card">
   <label class="field" for="title">标题</label><input id="title" type="text" maxlength="300" required>
-  <section id="segments-panel" hidden><h2>逐段编辑与分镜</h2><p class="muted small">事实与分析分段标注。每段都需绑定节点与来源；引用校验只确认对应关系，准确性仍需人工核实。分析段按稿件语言自动加分析标记，口播全文随分段修改同步更新。</p><div id="segments-list"></div><button id="add-segment" type="button" class="ghost segment-control">增加一段</button></section>
+  <section id="segments-panel" hidden><h2>逐段编辑与分镜</h2><p class="muted small">每段标注事实或分析，并绑定进展与来源。事实需人工核实。</p><div id="segments-list"></div><button id="add-segment" type="button" class="ghost segment-control">增加一段</button></section>
   <details id="narration-panel" open style="margin-top:16px"><summary>查看完整口播</summary><label class="field" for="script-text">口播正文<span id="narration-hint" class="muted small"></span></label><textarea id="script-text" class="narration" maxlength="50000" required></textarea>
   <div class="row small muted"><span id="word-count"></span><label for="duration">目标时长（秒）</label><input id="duration" type="number" min="10" max="600" required style="width:90px"></div>
   <p id="pace-hint" class="muted small"></p></details>
   <details style="margin-top:14px"><summary>整体画面提示与编辑备注</summary>
-  <label class="field" for="visual-notes">画面与素材提示</label><textarea id="visual-notes" rows="4" maxlength="10000" placeholder="例如：开场标题卡、新闻来源截图、数据图表；需要补充哪些素材"></textarea>
+  <label class="field" for="visual-notes">画面与素材提示</label><textarea id="visual-notes" rows="4" maxlength="10000"></textarea>
   <label class="field" for="notes">编辑备注</label><textarea id="notes" rows="2" maxlength="5000"></textarea>
-  </details><label class="field" for="change-note">本次修改说明</label><input id="change-note" type="text" maxlength="2000" placeholder="可选，例如：核对数字、调整开头">
+  </details><label class="field" for="change-note">本次修改说明</label><input id="change-note" type="text" maxlength="2000" placeholder="可选">
   <div class="row" style="margin-top:16px"><button id="save" type="submit">保存新版本</button><button id="local-copy" type="button" class="ghost">保存本地副本</button><button id="reload" type="button" class="ghost">重新加载</button></div>
-  <p class="muted small">生成方式：{{ script.get('editorial', {}).get('generation', {}).get('label', '事件模板稿') }}。请核对日期、数字和来源。目标时长用于制作规划，实际时长以配音结果为准。</p>
+  <p class="muted small">生成方式：{{ script.get('editorial', {}).get('generation', {}).get('label', '事件模板稿') }}</p>
 </form>
 <div class="card" style="margin-top:16px">
   <h2 style="margin-top:0">审核当前版本</h2>
@@ -66,11 +66,11 @@ document.getElementById('adopt').onclick = async () => {
 </div>
 <aside>
 {% if script.get('editorial',{}).get('research') %}<div class="card" style="margin-bottom:16px"><h2>研究来源</h2><p><a href="/research/{{script.editorial.research.case_id}}">查看研究与证据</a>{% if script.editorial.research.get("version") %} · 报告 v{{ script.editorial.research.version }}{% endif %}</p><p>脚本语言：{{script.document.get('output_language','zh-CN')}}</p>{% if script.editorial.get('gaps') %}<p>待核对 / 素材缺口：</p><ul>{% for gap in script.editorial.gaps %}<li>{{gap}}</li>{% endfor %}</ul>{% endif %}</div>{% endif %}
-{% if script.get('editorial',{}).get('image_candidates') %}<div class="card" style="margin-bottom:16px"><h2>候选配图</h2><p class="muted small">来源页面中发现的图片。图片授权、拍摄时间及是否为事件现场仍待核对；不会自动用于成片。审核后的制作包包含已下载图片及出处。</p>{% for image in script.editorial.image_candidates %}<figure style="margin:16px 0">{% if image.status=='downloaded' %}<img src="/api/scripts/{{script.package_key}}/images/{{image.filename}}" alt="{{image.caption}}" loading="lazy" style="max-width:100%;max-height:240px;object-fit:contain"><p><a href="/api/scripts/{{script.package_key}}/images/{{image.filename}}" download="{{image.filename}}">下载图片</a> · {{image.width}} × {{image.height}}</p>{% else %}<p class="muted">{{image.error}}</p>{% endif %}<figcaption>{{image.caption}}</figcaption>{% if image.source_page_url | safe_url %}<a href="{{image.source_page_url | safe_url}}" target="_blank" rel="noopener noreferrer">查看出处 ↗</a>{% endif %}<p class="small muted">授权：尚未核实</p></figure>{% endfor %}</div>{% endif %}
+{% if script.get('editorial',{}).get('image_candidates') %}<div class="card" style="margin-bottom:16px"><h2>候选配图</h2><p class="muted small">图片授权、时间及拍摄地点待核。</p>{% for image in script.editorial.image_candidates %}<figure style="margin:16px 0">{% if image.status=='downloaded' %}<img src="/api/scripts/{{script.package_key}}/images/{{image.filename}}" alt="{{image.caption}}" loading="lazy" style="max-width:100%;max-height:240px;object-fit:contain"><p><a href="/api/scripts/{{script.package_key}}/images/{{image.filename}}" download="{{image.filename}}">下载图片</a> · {{image.width}} × {{image.height}}</p>{% else %}<p class="muted">{{image.error}}</p>{% endif %}<figcaption>{{image.caption}}</figcaption>{% if image.source_page_url | safe_url %}<a href="{{image.source_page_url | safe_url}}" target="_blank" rel="noopener noreferrer">查看出处 ↗</a>{% endif %}<p class="small muted">授权：尚未核实</p></figure>{% endfor %}</div>{% endif %}
 <div class="card">
   <h2 style="margin-top:0">新闻来源快照</h2>
   {% if script.get('editorial',{}).get('evidence') %}<details><summary>生成时固定的事实与引用</summary><p class="muted small">{{ script.editorial.evidence.snapshot_at }}{% if script.editorial.evidence.get("origin")=="short_script_research" %} · 研究证据快照，判断待人工核对{% else %} · 事件版本 {{ script.editorial.evidence.event_version }}{% endif %}。后续资料修改不会更换此处证据。</p>{% for m in script.editorial.evidence.moments %}<div class="source"><strong>{{ m.title }}</strong><p class="small">{{ {'occurred':'发生日期','reported':'报道日期','unknown':'时间未知'}[m.time_kind] }} {{ m.date_start }} {{ m.date_end }} · {{ {'exact':'来源明确记载','approximate':'大致时间','disputed':'来源有争议','unknown':'未确定'}[m.certainty] }}</p><p class="small">{{ m.time_note }}<br>{{ m.description }}</p></div>{% endfor %}</details>{% endif %}
-  <p class="muted small">勾选本稿使用的来源。摘录是收录时的资料，多个转载不等于多个独立来源。</p>
+  <p class="muted small">勾选本稿使用的来源。</p>
   {% if script.snapshot_origin=='legacy_adopted_now' %}<p class="muted small">此快照在旧稿启用版本管理时补充。</p>{% endif %}
   {% for s in script.sources %}
   <div class="source">{% if s.evidence_id %}<strong>{{ s.evidence_id }} · {% if s.article_revision %}来源 r{{ s.article_revision }}{% else %}原文快照{% endif %}</strong>{% endif %}<label><input class="source-key" type="checkbox" value="{{ s.article_key }}"> {{ s.title }}</label>
@@ -79,7 +79,7 @@ document.getElementById('adopt').onclick = async () => {
     {% if s.article_revision %}<p class="small"><a href="/articles/{{ s.article_key }}?revision={{ s.article_revision }}" target="_blank" rel="noopener">查看固定来源版本 ↗</a></p>{% endif %}
     <details><summary>查看资料摘录</summary><p class="small">{{ s.excerpt }}</p></details>
   </div>
-  {% else %}<p class="muted">没有可追溯来源，暂不能通过审核。请从有来源的事件重新生成脚本。</p>{% endfor %}
+  {% else %}<p class="muted">缺少可追溯来源，无法通过审核。</p>{% endfor %}
 </div>
 <div class="card" style="margin-top:16px">
   <h2 style="margin-top:0">版本历史</h2>

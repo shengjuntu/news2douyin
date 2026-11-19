@@ -170,7 +170,8 @@ class ArticleIdentity(SQLModel, table=True):
 
 class ArticleVersion(SQLModel, table=True):
     __table_args__ = (UniqueConstraint('article_key', 'revision'),
-                      Index('ix_articleversion_article_latest_id', 'article_key', 'id'))
+                      Index('ix_articleversion_article_latest_id', 'article_key', 'id'),
+                      Index('ix_articleversion_observed_id', 'observed_at', 'id'))
     id: Optional[int] = Field(default=None, primary_key=True)
     article_key: str = Field(index=True)
     revision: int

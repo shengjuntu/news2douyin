@@ -36,6 +36,7 @@
 ```bash
 python -m pytest -q
 python tools/run_postgres_test_server.py --locale en_US.utf8 -- python -m pytest -q tests/test_selection_counts_overview.py tests/test_selection_backend.py tests/test_reading_translations.py tests/test_focus_lifecycle.py tests/test_ui0270_journey.py
+# 此项复现使用本报告对应的历史源码包。
 python tools/check_ui0270_live.py /tmp/news2douyin-ui0270
 python tools/check_article_translation_live.py /tmp/news2douyin-article-translation
 ```

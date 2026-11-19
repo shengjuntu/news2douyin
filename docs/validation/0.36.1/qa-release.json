@@ -1,0 +1,13 @@
+{
+  "utc": "2026-11-15T09:06:14+00:00",
+  "scope": "All collected test IDs covered by a full four-way run in isolated PostgreSQL 16.2 processes plus final targeted reruns; SQLite, PostgreSQL, DuckDB use the same source tree.",
+  "tests_collected": 1600,
+  "passed": 1599,
+  "skipped": 1,
+  "skip_reasons": {
+    "tests.test_postgres_search_triggers.test_pg_trigram_search_matches_literal_wildcards_chinese_and_offset_dates": "pg_trgm not installed in this PostgreSQL QA distribution"
+  },
+  "failure": 0,
+  "error": 0,
+  "covered_ids_equal_final_collection": true
+}

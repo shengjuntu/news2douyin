@@ -1,0 +1,52 @@
+{
+  "date": "2025-03-18",
+  "feed": "gkg_english",
+  "archives": [
+    {
+      "url": "https://data.gdeltproject.org/gdeltv2/20250318001500.gkg.csv.zip",
+      "name": "20250318001500.gkg.csv.zip",
+      "bytes": 6593106,
+      "sha256": "d6a132c7352b3dd4d796ce6b18b867bba6d48ea6274299eb68710ad54aebdfd7",
+      "lines": 1599
+    },
+    {
+      "url": "https://data.gdeltproject.org/gdeltv2/20250318061500.gkg.csv.zip",
+      "name": "20250318061500.gkg.csv.zip",
+      "bytes": 4830278,
+      "sha256": "851cc3884ae865ee4bfa59e49dfd69bf7cc8bf26005534d5366163a00ac6d9c9",
+      "lines": 1227
+    },
+    {
+      "url": "https://data.gdeltproject.org/gdeltv2/20250318121500.gkg.csv.zip",
+      "name": "20250318121500.gkg.csv.zip",
+      "bytes": 6039919,
+      "sha256": "93bb41a98214190fad10c2fe78b8638c2187441a06f0b622971f13d2214ae647",
+      "lines": 1442
+    }
+  ],
+  "method": "Held-out day accessed only after freezing the ranking rules. Same three UTC times and mock local availability (+15 min) as the 3-day audit. The v0.32.0 and v0.33.0 releases separately use their own previously generated frozen 15–17 March lists as history. No editorial score or parameter tuning from this day.",
+  "versions": {
+    "032": {
+      "gkg_rows": 4268,
+      "readable_candidates": 4257,
+      "groups": 3566,
+      "prior_excluded": 1,
+      "items": 100,
+      "ordered_title_url_sha256": "5aff1cbaef9857c314f53c9de8ed4bb70f30a0be03ca160d1e619927b6541cd9"
+    },
+    "033": {
+      "gkg_rows": 4268,
+      "readable_candidates": 4257,
+      "groups": 3565,
+      "prior_excluded": 1,
+      "items": 100,
+      "ordered_title_url_sha256": "33c793170d47d4753e7576240f34e6f47cb65de336470abd25b01e224ec86633"
+    }
+  },
+  "same_positions": 99,
+  "same_positions_in_first_99": true,
+  "removed_rank_100_zh": "地方警员受到刑事指控",
+  "added_rank_100_zh": "电视主持人宣布怀孕",
+  "added_rank_100_subdomains": 5,
+  "interpretation_zh": "同一广播网络的一则娱乐报道，4条裸标题和1条带台站署名，合并后有5个子域名。合并确实生效，但留出日没有显示出编辑质量改善。"
+}

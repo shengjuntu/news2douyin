@@ -1,0 +1,30 @@
+{
+  "version": "0.36.0",
+  "built_utc": "2026-11-15T08:49:41+00:00",
+  "wheel_sha256": "2eccb71575e69d54a8dcff7aa48e81d2eb1796d235ab65cebe4855473777eb0d",
+  "installed_wheel_checks_exit_codes": {
+    "live_daily": 0,
+    "core": 0,
+    "daily_radar": 0,
+    "evidence": 0,
+    "newsnow": 0,
+    "event_content": 0,
+    "intelligence": 0,
+    "stability": 0
+  },
+  "upgrade": {
+    "from": "0.35.0",
+    "to": "0.36.0",
+    "backends": [
+      "sqlite",
+      "postgresql"
+    ],
+    "repeated_bootstraps": 2,
+    "legacy_edition_and_official_event_preserved": true
+  },
+  "published_sample": {
+    "cli_matches_http_bytes": true,
+    "sha256": "3a87297dd20f1a44c7088a0b440cff20b6ff3bd094460b20da4b45418f8f8942",
+    "editor_sample_sha256": "766018041a509c61c87a8c2acb57b42d9a2a36b68e45ec6d08bd949b70f9ab5f"
+  }
+}

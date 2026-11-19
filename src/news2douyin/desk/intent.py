@@ -94,11 +94,11 @@ class TopicSpec(BaseModel):
     @model_validator(mode='after')
     def check_scope(self):
         if not self.name:
-            raise ValueError('请填写专题名称')
+            raise ValueError('请填写焦点名称')
         if not self.entities and not self.keywords and not self.relations:
-            raise ValueError('专题需要至少一个对象、议题或关系模式')
+            raise ValueError('至少填写一个对象、议题或关系')
         if self.time_start and self.time_end and self.time_start > self.time_end:
-            raise ValueError('专题时间范围的起始日期不能晚于结束日期')
+            raise ValueError('起始日期不能晚于结束日期')
         return self
 
 
@@ -165,7 +165,7 @@ def validate_spec(raw, description=''):
     if isinstance(raw, TopicSpec):
         raw = raw.model_dump()
     if not isinstance(raw, dict):
-        raise ValueError('专题定义须为对象')
+        raise ValueError('焦点定义须为对象')
     raw = dict(raw)
     if description:
         raw['description'] = description.strip()
@@ -216,7 +216,7 @@ def _llm_chat(messages, **kwargs):
 
 def _decode_json(value):
     if not isinstance(value, str) or len(value) > 60000:
-        raise ValueError('模型输出不符合专题协议')
+        raise ValueError('模型未返回有效的焦点定义')
     value = re.sub(r'^```(?:json)?\s*|\s*```$', '', value.strip(), flags=re.I)
     result = json.loads(value)
     if not isinstance(result, dict):
@@ -507,7 +507,7 @@ def judge(spec, card, recall_result, use_model=True):
             if source is None or not any(evidence.quote in field for field in source['excerpts']):
                 raise ValueError('判断引文缺少指定版本的原文依据')
         if any(question not in spec.questions for question in result.questions):
-            raise ValueError('模型返回未定义的专题问题')
+            raise ValueError('模型返回未定义的关注问题')
         if result.decision == 'core' and (spec.time_start or spec.time_end) and not _in_time_window(spec, sources, result.evidence):
             return _pending('尚无符合关注时间范围的动作日期，候选保留待核。', 'model')
         return dict(**result.model_dump(), method='model')

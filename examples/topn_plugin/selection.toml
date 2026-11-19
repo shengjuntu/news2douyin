@@ -1,0 +1,6 @@
+[selection]
+strategy = "latest-diverse"
+limit = 3
+
+[selection.options]
+max_per_domain = 2

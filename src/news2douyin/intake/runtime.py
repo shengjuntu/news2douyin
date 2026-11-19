@@ -52,6 +52,7 @@ class IntakeWorker:
         self.engine=engine;self.storage_root=storage_root;self.stop_event=Event();self.thread=None
         self._ownership=None;self.status_error=''
         self.last_error='';self.failures=0;self._needs_recovery=False
+        self._repair_turn=True
 
     @property
     def running(self):return bool(self.thread and self.thread.is_alive())
@@ -77,7 +78,16 @@ class IntakeWorker:
         if self.thread:self.thread.join(timeout=15)
         # A blocked read may outlive stop(). Its thread retains ownership until its finally.
 
-    def step(self,feed=None,now=None):return service.step(self.engine,self.storage_root,feed=feed,now=now,stop=self.stop_event)
+    def step(self,feed=None,now=None):
+        if feed is None:
+            # The same receiver owns both archive writers. Give normal intake
+            # a turn between repair slots even during a long historical job.
+            self._repair_turn=not self._repair_turn
+            if self._repair_turn:
+                from ..digest import backfill
+                if backfill.step(self.engine,self.storage_root,now=now,stop=self.stop_event):
+                    return True
+        return service.step(self.engine,self.storage_root,feed=feed,now=now,stop=self.stop_event)
 
     def loop(self):
         try:

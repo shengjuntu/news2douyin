@@ -1,5 +1,6 @@
 """Official source-event candidates: read-only discovery, explicit topic creation."""
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
+import re
 from zoneinfo import ZoneInfo
 from fastapi import Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field
@@ -34,6 +35,11 @@ class SaveFilter(BaseModel):
     key: str | None = Field(default=None, max_length=160)
 
 
+class NgramRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    retry: bool = False
+
+
 def checked_filters(**values):
     from ..selection import service
     return task_call(service.checked, **values)
@@ -59,7 +65,7 @@ def page_context(session, **values):
         except KeyError:
             from urllib.parse import urlencode
             old=session.get(Watch,filters['watch'])
-            unavailable_watch=dict(key=filters['watch'],name=old.name if old else '原专题',
+            unavailable_watch=dict(key=filters['watch'],name=old.name if old else '原焦点',
                 clear_url='/radar?'+urlencode(dict(filters,source='gdelt',watch='',preset='',limit=values.get('limit',30))))
     data = (dict(items=[],total=None,has_more=False,coverage={},pagination=dict(
                 page=1,limit=values.get('limit',30))) if unavailable_watch else
@@ -106,6 +112,53 @@ def register(app,engine,render):
     def event(event_id:str,session=Depends(db)):
         from ..selection import service
         return task_call(service.detail,session,event_id)
+
+    @app.get('/api/gdelt/events/{event_id}/evidence')
+    def evidence(event_id: str, day: date | None = None, session=Depends(db)):
+        from ..selection.official_evidence import official_evidence
+        if day and day > datetime.now(ZoneInfo('Asia/Shanghai')).date():
+            raise HTTPException(422, '请选择今天或更早的北京时间日期')
+        result = task_call(official_evidence, session, event_id, day)
+        if result is None:
+            raise HTTPException(404, '截至所选日期没有可用的官方编码记录')
+        return result
+
+    def check_record(session, event_id):
+        from ..intake.official_models import OfficialEvent
+        if not re.fullmatch(r'\d{1,30}', event_id):
+            raise HTTPException(422, 'GDELT事件编号无效')
+        if session.get(OfficialEvent, event_id) is None:
+            raise HTTPException(404, '未找到这条官方事件')
+
+    @app.get('/api/gdelt/events/{event_id}/ngrams')
+    def ngram_status(event_id: str, session=Depends(db)):
+        from ..selection.ngram_enrichment import event_status
+        check_record(session, event_id)
+        return task_call(event_status, session, event_id)
+
+    @app.post('/api/gdelt/events/{event_id}/ngrams',dependencies=[Depends(same_origin)])
+    def queue_ngrams(event_id: str, payload: NgramRequest):
+        from ..selection.ngram_enrichment import enqueue_event
+        return task_call(enqueue_event, engine, event_id, retry=payload.retry)
+
+    def graph_context(result):
+        mirror = app.state.desk.graph
+        return dict(result, configured=bool(mirror.url), graph_name=mirror.prefix+'_active_global')
+
+    @app.get('/api/gdelt/events/{event_id}/graph')
+    def graph_status(event_id: str, session=Depends(db)):
+        from ..desk.official_graph import status
+        check_record(session, event_id)
+        return graph_context(task_call(status, session, event_id))
+
+    @app.post('/api/gdelt/events/{event_id}/graph',dependencies=[Depends(same_origin)])
+    def queue_graph(event_id: str, session=Depends(db)):
+        from ..desk.official_graph import request
+        if not app.state.desk.graph.url:
+            raise HTTPException(409, '尚未配置 FalkorDB')
+        state = task_call(request, session, event_id)
+        session.commit()
+        return graph_context(state)
 
     @app.post('/api/gdelt/events/{event_id}/select',dependencies=[Depends(same_origin)])
     def select(event_id:str,payload:SelectCandidate):

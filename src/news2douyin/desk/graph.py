@@ -32,6 +32,8 @@ class GraphMirror:
         self._event_cursor=''
         self._watch_cursor=''
         self._attention_cursor=''
+        self._official_cursor=''
+        self._nonofficial_attempts=0
         self._attention_due=False
         self._queue_index_state={'state':'checking'}
         self._queue_index_checked=False
@@ -400,7 +402,8 @@ class GraphMirror:
             row=pick(s,prefer_watch=watch_due,
                 prefer_attention=attention_due,include_attention=True,
                 after_event=self._event_cursor,after_watch=self._watch_cursor,
-                after_attention=self._attention_cursor)
+                after_attention=self._attention_cursor,include_official=True,
+                prefer_official=self._nonofficial_attempts>=12,after_official=self._official_cursor)
             if not row:return False
             kind,key=row.key.split('/',1)
         acknowledged=partial=False
@@ -426,6 +429,9 @@ class GraphMirror:
             self.work_state='projection'
             ack_token=row.token
             if kind=='event':self.event(card,key,places)
+            elif kind=='official':
+                from .official_graph import project
+                project(engine,self,key)
             elif kind=='attention':
                 from ..attention.graph import project
                 project(engine,self,key)
@@ -459,7 +465,9 @@ class GraphMirror:
                         .values(written=ack_token).execution_options(synchronize_session=False,
                             n2d_query_name='desk.graph_queue.ack.'+kind))
                     acknowledged=result.rowcount==1
-                    if acknowledged:
+                    if acknowledged and kind!='official':
+                        # Official source records have no local Event/participant edges.
+                        # Refreshing their evidence cannot invalidate local PageRank.
                         from .models import DeskMeta
                         epoch=s.get(DeskMeta,'graph_projection_epoch_1')
                         if epoch is None:epoch=DeskMeta(key='graph_projection_epoch_1')
@@ -478,7 +486,12 @@ class GraphMirror:
         finally:
             # Attempts (including partial chunks and stale tokens) participate
             # in fairness. One large or hot topic cannot pin other task keys.
-            self._attention_due=False
+            if kind=='official':
+                self._official_cursor=row.key
+                self._nonofficial_attempts=0
+            else:
+                self._nonofficial_attempts=min(12,self._nonofficial_attempts+1)
+                self._attention_due=False
             if kind=='event':
                 self._event_cursor=row.key
                 self._event_streak+=1

@@ -105,10 +105,16 @@ def create_app(*, db_url: str | None = None, storage_root: str = 'runs_v7') -> F
             app.state.attention.start()
         with startup.phase('workers.source_content'):
             app.state.source_content.start()
+        with startup.phase('workers.ngram_enrichment'):
+            app.state.ngram_worker.start()
+        with startup.phase('workers.daily_radar'):
+            app.state.digest_worker.start()
         startup.ready()
         try:
             yield
         finally:
+            app.state.digest_worker.stop()
+            app.state.ngram_worker.stop()
             app.state.source_content.stop()
             app.state.attention.stop()
             app.state.intake.stop()
@@ -147,6 +153,10 @@ def create_app(*, db_url: str | None = None, storage_root: str = 'runs_v7') -> F
     app.state.scheduler = scheduler
     app.state.tasks = tasks
     app.state.worker = worker
+    from ..selection.ngram_enrichment import NgramWorker
+    app.state.ngram_worker = NgramWorker(engine, storage_root)
+    from ..digest.runtime import DigestWorker
+    app.state.digest_worker = DigestWorker(engine, storage_root)
     from ..attention.runtime import AttentionWorker
     app.state.attention = AttentionWorker(engine, storage_root)
     from ..selection.source_runtime import SourceContentWorker
@@ -170,6 +180,10 @@ def create_app(*, db_url: str | None = None, storage_root: str = 'runs_v7') -> F
     register_topic_routes(app,engine)
     from .translations import register as register_translation_routes
     register_translation_routes(app,engine)
+    from .daily_translation import register as register_daily_translation
+    register_daily_translation(app,engine)
+    from .daily_brief import register as register_daily_brief
+    register_daily_brief(app,engine)
     from .source_content import register as register_source_content
     register_source_content(app,engine)
 

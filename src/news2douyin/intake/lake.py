@@ -139,14 +139,14 @@ class Lake:
         self.path=self.root/'records.duckdb'
 
     @contextmanager
-    def connection(self,create=False):
+    def connection(self,create=False,*,read_only=False):
         # One cooperating receiver process owns writes. Reads share this lock;
         # HTTP never keeps a connection open while decoding large payloads.
         with _LOCK:
             if not create and not self.path.exists():yield None;return
             if create:self.root.mkdir(parents=True,exist_ok=True)
             import duckdb
-            connection=duckdb.connect(str(self.path))
+            connection=duckdb.connect(str(self.path), read_only=read_only)
             try:
                 if create:connection.execute(SCHEMA)
                 yield connection
@@ -157,8 +157,14 @@ class Lake:
         return {row[0] for row in connection.execute(
             "SELECT table_name FROM information_schema.tables WHERE table_schema='main'").fetchall()}
 
-    def ingest_archive(self,feed,stamp,path,expected_md5='',expected_bytes=0):
+    def ingest_archive(self,feed,stamp,path,expected_md5='',expected_bytes=0,*,repair_day=None):
         validate_key(feed,stamp)
+        if repair_day is not None:
+            from ..digest.calendar import BEIJING
+            from datetime import datetime, timezone
+            moment = datetime.strptime(stamp, '%Y%m%d%H%M%S').replace(tzinfo=timezone.utc)
+            if moment.astimezone(BEIJING).date() != repair_day:
+                raise ValueError('repair slot is outside target day')
         sha,md5,size=hashes(path)
         if expected_bytes and size!=expected_bytes:raise ValueError('archive_size_mismatch')
         if expected_md5 and md5.lower()!=expected_md5.lower():raise ValueError('archive_md5_mismatch')
@@ -192,6 +198,13 @@ class Lake:
                     if consumed!=member.file_size:raise ValueError('archive_expanded_size_mismatch')
                 if chunk:connection.executemany('INSERT INTO intake_records_v2 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',chunk)
                 connection.execute('INSERT INTO intake_archives VALUES (?,?,?,?,?,?,?,?,?,?)',[feed,stamp,sha,md5,size,str(Path(path).resolve()),total,valid,total-valid,now])
+                if repair_day is not None and feed.startswith('gkg_'):
+                    # Commit the assignment with the raw batch. A late manual repair
+                    # must not silently turn into a new headline in the receipt day's radar.
+                    connection.execute('CREATE TABLE IF NOT EXISTS intake_digest_repairs ('
+                                       'feed VARCHAR, stamp VARCHAR, target_day VARCHAR, PRIMARY KEY (feed, stamp))')
+                    connection.execute('INSERT INTO intake_digest_repairs VALUES (?,?,?)',
+                                       [feed, stamp, repair_day.isoformat()])
                 connection.execute('COMMIT')
             except BaseException:
                 connection.execute('ROLLBACK');raise
@@ -226,7 +239,15 @@ class Lake:
                 result=[dict(zip(names,row)) for row in cursor.fetchall()]
                 if result:break
             else:result=[]
-        return [self.material(row) for row in result]
+            repair = None
+            if result and 'intake_digest_repairs' in tables:
+                repair = connection.execute('SELECT target_day FROM intake_digest_repairs WHERE feed=? AND stamp=?',
+                                            [feed,stamp]).fetchone()
+        material = [self.material(row) for row in result]
+        if repair:
+            for row in material:
+                row['repair_day'] = repair[0]
+        return material
 
     def raw_bytes(self,feed,stamp,row_index):
         validate_key(feed,stamp)

@@ -1,0 +1,138 @@
+{% extends 'base.html' %}
+{% block graph_libraries %}{% endblock %}
+{% block title %}每日精选 · {{ issue.day }} · 事件雷达{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="/research-assets/daily-radar.css">
+{% with radar_tab='daily' %}{% include 'radar_view_tabs.html' %}{% endwith %}
+{% set published=issue.status == 'ready' %}
+{% set job=issue.build_status or ('pending' if issue.requested else issue.status) %}
+{% set busy=job in ('pending','building') and (issue.requested or job=='building' or published) %}
+<div class="daily-edition" data-daily-edition="{{ issue.day }}" data-issue-status="{{ issue.status }}" data-build-status="{{ job }}" data-revision="{{ issue.revision or 0 }}" data-requested="{{ 1 if issue.requested else 0 }}" data-poll="{{ 1 if busy else 0 }}">
+  <header class="daily-heading">
+    <div><h1>每日精选</h1><p><time datetime="{{ issue.day }}">{{ issue.day }}</time> · 北京时间{% if published %} · {{ cards|length }} 条线索{% endif %}
+      {% if published and issue.edition_kind=='intraday' %} · {{ '今日滚动版' if is_today else '当日滚动版' }}{% if issue.revision %} · 第 {{ issue.revision }} 版{% endif %}{% endif %}</p>
+      {% if published and issue.cutoff_at %}<p class="daily-timestamp">资料截至 {{ issue.cutoff_at|local_ts('Asia/Shanghai') }} 北京时间</p>{% endif %}</div>
+    <div class="daily-tools">
+      {% if published and is_today and not busy %}<button type="button" class="ghost" data-daily-request>{{ '重试今日更新' if job=='failed' else '重新生成今日精选' }}</button>{% endif %}
+      {% if published %}<a href="/api/radar/daily/{{ issue.day }}/shortlist.md?revision={{ issue.revision }}">每日精选 · Markdown（{{ cards|length }} 条）</a>{% endif %}
+      <a href="/admin/daily-radar?day={{ issue.day }}">日报管理</a>
+    </div>
+  </header>
+  <form class="daily-dates" action="/radar" method="get" aria-label="日报日期与阅读方式">
+    <div class="daily-date-choice">
+      {% if prev_url %}<a href="{{ prev_url }}" aria-label="前一日">前一日</a>{% endif %}
+      <label>日报日期 <input name="day" type="date" value="{{ issue.day }}" max="{{ latest_day }}" required></label>
+      {% if next_url %}<a href="{{ next_url }}" aria-label="后一日">后一日</a><a href="{{ today_url }}">今天</a>{% endif %}
+    </div>
+    <div class="daily-view-choice">
+      <label>分组 <select name="group_by">{% for code,label in group_options.items() %}<option value="{{ code }}" {% if group_by==code %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+      <label>排序 <select name="sort_by">{% for code,label in sort_options.items() %}<option value="{{ code }}" {% if sort_by==code %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+      <button type="submit" class="ghost">查看</button>
+    </div>
+  </form>
+  {% if published %}
+    <p class="daily-job-note" data-daily-status role="status">{% if busy %}正在更新，当前显示上一版。{% elif job=='failed' %}上次更新失败，仍显示上一版。{{ issue.error or '' }}{% endif %}</p>
+    {% set stats=issue.stats %}
+    {% set intake=stats.get('sources',{}) %}
+    {% if intake.get('backfill_id') %}<p class="daily-backfill">历史补采后重算{% if intake.get('gkg_restored_archives') %} · 纳入 {{ intake.gkg_restored_archives }} 个事后收到的 GKG 批次，共 {{ intake.gkg_restored_rows }} 条归档记录{% endif %}</p>{% endif %}
+    <details class="daily-stats">
+      <summary>本期选取依据</summary>
+      {% set selection=stats.get('selection', {}) %}
+      <p>本期最多 {{ selection.get('limit', 100) }} 条。{% if selection %}选取策略 {{ selection.strategy }}（{{ selection.version }}）。{% endif %}</p>
+      <dl>
+        {% if 'scanned' in stats %}<div><dt>来源提供的候选记录</dt><dd>{{ stats.scanned }}</dd></div>{% endif %}
+        {% if 'strategy_consumed' in stats and stats.strategy_consumed != stats.get('scanned') %}<div><dt>策略实际读取的候选记录</dt><dd>{{ stats.strategy_consumed }}</dd></div>{% endif %}
+        {% for key, label in [('invalid','缺少可读标题或链接'),('groups','去重后的可读进展'),('prior_excluded','已在近期日报出现'),('selected','本期入选')] %}
+          {% if key in stats %}<div><dt>{{ label }}</dt><dd>{{ stats[key] }}</dd></div>{% endif %}
+        {% endfor %}
+      </dl>
+      {% set intake=stats.get('sources',{}) %}{% if intake %}
+      <dl>
+        {% for key, label in [('gkg_seen','扫描 GKG 归档行'),('gkg_no_readable','GKG 缺可读标题或链接'),('gkg_invalid','无效 GKG 记录'),('official_seen','扫描官方事件'),('official_no_readable','官方事件缺可读报道'),('local_seen','扫描已整理事件'),('local_no_readable','已整理事件缺可读报道'),('newsnow_seen','扫描关注议题'),('newsnow_no_readable','关注议题缺可读来源')] %}
+          {% if key in intake %}<div><dt>{{ label }}</dt><dd>{{ intake[key] }}</dd></div>{% endif %}
+        {% endfor %}
+      </dl>
+      {% if intake.get('gkg_archive_present') == false %}<p>本期未找到 GKG 归档。</p>{% endif %}
+      {% endif %}
+      {% if issue.generated_at %}<p>生成于 {{ issue.generated_at|local_ts('Asia/Shanghai') }} 北京时间</p>{% endif %}
+    </details>
+    {% if group_by != 'none' and reading_groups %}
+      <div class="daily-jump"><label>跳至分组 <select data-group-jump><option value="">选择分组</option>{% for group in reading_groups %}<option value="{{ group.id }}">{{ group.label }}（{{ group.members|length }}）</option>{% endfor %}</select></label></div>
+    {% endif %}
+    {% if cards %}<div class="daily-reading-place"><button type="button" class="ghost" hidden data-reading-resume></button><small data-reading-note role="status"></small></div>{% endif %}
+    {% for group in reading_groups %}
+      {% if group_by != 'none' %}<h2 class="daily-group-heading" id="{{ group.id }}" tabindex="-1">{{ group.label }} <small>{{ group.members|length }} 条</small></h2>{% endif %}
+      {% for entry in group.members %}
+      <article class="daily-entry" data-daily-progress="{{ entry.key }}">
+        {% set why = entry.why %}
+        {% set timing = why.timing %}
+        <div class="daily-byline">
+          <button type="button" id="daily-item-{{ entry.rank }}" class="daily-sequence" data-reading-ordinal="{{ entry.ordinal }}" aria-label="记住读到第 {{ entry.ordinal }} 条" aria-pressed="false" title="记住读到这条">{{ '%02d'|format(entry.ordinal) }}</button>
+          <strong class="daily-change{% if entry.reconstruction %} daily-reconstruction-label{% endif %}">{{ why.change.label }}</strong>
+          {% if entry.source_label %}<span>{{ entry.source_label }}</span>{% endif %}
+          {% if entry.country_text %}<span>{{ entry.country_text }}</span>{% endif %}
+          {% if entry.category_label and group_by != 'category' %}<span>{{ entry.category_label }}</span>{% endif %}
+          {% if timing.restored_at %}<span>历史补录 · 实际入库 {{ timing.restored_at|local_ts('Asia/Shanghai') }}</span>
+          {% elif entry.observed_at %}<time datetime="{{ entry.observed_at }}">观测 {{ entry.observed_at|local_ts('Asia/Shanghai') }}</time>{% endif %}
+        </div>
+        <h2>{% if entry.source_url|safe_url %}<a href="{{ entry.source_url|safe_url }}" target="_blank" rel="noopener noreferrer">{{ entry.title }}</a>{% else %}{{ entry.title }}{% endif %}</h2>
+        <p class="daily-source-caption">{{ entry.title_label }}{% if entry.domain %} · {{ entry.domain }}{% endif %}
+          {% if entry.headline_variants is number and entry.headline_variants > 1 %} · 合并了 {{ entry.headline_variants }} 种标题写法{% endif %}
+        </p>
+        {% if why.change.quote and why.change.quote != entry.title %}<p class="daily-excerpt"><strong>{{ '重建片段' if entry.reconstruction else '报道中的行动表述' }}</strong> {{ why.change.quote }}</p>
+        {% elif entry.excerpt and entry.excerpt != entry.title %}<p class="daily-excerpt">{{ entry.excerpt }}</p>{% endif %}
+        {% if entry.select_url or entry.detail_url %}<div class="daily-actions">
+          {% if entry.select_url %}<a class="daily-select" href="{{ entry.select_url }}">形成选题</a>{% endif %}
+          {% if entry.detail_url %}<a href="{{ entry.detail_url }}">查看{{ entry.source_label }}详情</a>{% endif %}
+        </div>{% endif %}
+        {% include 'daily_card_translation.html' %}
+        <details class="daily-evidence">
+          <summary>为什么值得跟</summary>
+          <dl class="daily-why">
+            <dt>本期新增</dt><dd>
+              <p>{{ why.change.detail }}</p>
+              {% if why.change.context %}<p><strong>参与方对照</strong> {{ why.change.context.summary }}{% if why.change.context.example %} <a href="/radar?source=gdelt&amp;event={{ why.change.context.example.event_id|urlencode }}&amp;evidence_day={{ why.change.context.window_end|urlencode }}">查看对照记录 #{{ why.change.context.example.event_id }}</a>{% endif %}</p>{% endif %}
+              {% if timing.event_day %}<p>{{ timing.event_basis }} <time datetime="{{ timing.event_day }}">{{ timing.event_day }}</time></p>{% endif %}
+              {% if timing.first_observed_at %}<p>{{ timing.first_basis }} <time datetime="{{ timing.first_observed_at }}">{{ timing.first_observed_at|local_ts('Asia/Shanghai') }}</time> 北京时间</p>{% endif %}
+              {% if timing.latest_observed_at and timing.latest_observed_at != timing.first_observed_at %}<p>{{ timing.latest_basis }} <time datetime="{{ timing.latest_observed_at }}">{{ timing.latest_observed_at|local_ts('Asia/Shanghai') }}</time> 北京时间</p>{% endif %}
+              {% if timing.local_received_at and timing.local_received_at not in (timing.restored_at, timing.first_observed_at, timing.latest_observed_at) %}<p>{{ timing.local_basis }} <time datetime="{{ timing.local_received_at }}">{{ timing.local_received_at|local_ts('Asia/Shanghai') }}</time> 北京时间</p>{% endif %}
+            </dd>
+            <dt>来源证据</dt><dd>
+              <p>{{ why.evidence.summary }}</p>
+              {% for note in why.evidence.limits %}<p class="daily-evidence-note">{{ note }}</p>{% endfor %}
+              {% if entry.publisher %}
+                {% if entry.publisher.mapped_families %}<p data-publisher-breadth>同一媒体网络的域名合计为一组。已识别 {{ entry.publisher.mapped_families|join('、') }}{% if entry.publisher.mapping_version %} · 本期归属表 {{ entry.publisher.mapping_version }}{% endif %}</p>{% endif %}
+                {% if entry.publisher.unmatched_hosts %}<p>{% if entry.publisher.unmatched_hosts_capped %}至少 {% endif %}{{ entry.publisher.unmatched_hosts }} 个域名的媒体归属待核。</p>{% endif %}
+              {% endif %}
+              {% if why.evidence.links %}<ul class="daily-source-list">{% for src in why.evidence.links %}
+                <li><a href="{{ src.url|safe_url }}" target="_blank" rel="noopener noreferrer">{{ src.title or src.url }}</a> <span>{{ src.domain }}{% if src.source_kind %} · {{ source_labels.get(src.source_kind, src.source_kind) }}{% endif %}</span></li>
+              {% endfor %}</ul>{% endif %}
+              {% if entry.reconstruction %}<p>GDELT Web News NGrams 3.0 · {{ entry.reconstruction.language or '语言未知' }}{% if entry.reconstruction.observed_at %} · 本地记录 {{ entry.reconstruction.observed_at|local_ts('Asia/Shanghai') }}{% endif %}{% if entry.reconstruction.source_stamps %} · 片段批次 {{ entry.reconstruction.source_stamps|join('、') }}{% endif %}</p>{% endif %}
+            </dd>
+            {% if why.focus %}<dt>焦点关联</dt><dd>
+              {% for match in why.focus %}
+                <p>{% if match.watch_key %}<a href="/focus/{{ match.watch_key|urlencode }}">{{ match.label }}</a>{% else %}<strong>{{ match.label }}</strong>{% endif %} · {{ match.detail }}{% if match.source_url|safe_url and match.source_url != entry.source_url %} <a href="{{ match.source_url|safe_url }}" target="_blank" rel="noopener noreferrer">关联报道 ↗</a>{% endif %}</p>
+              {% endfor %}
+            </dd>{% endif %}
+          </dl>
+          {% if entry.reasons %}<p class="daily-reasons"><strong>排序依据</strong> {{ entry.reasons|join(' · ') }}</p>{% endif %}
+        </details>
+      </article>
+      {% endfor %}
+    {% else %}
+      <section class="card daily-empty"><h2>本期没有入选进展</h2><p>可查看上方选取依据，或浏览<a href="/radar?source=gdelt">全球事件线索</a>。</p></section>
+    {% endfor %}
+  {% else %}
+    <section class="card daily-empty" aria-labelledby="daily-empty-heading">
+    {% if job=='building' %}<h2 id="daily-empty-heading">这期日报正在生成</h2>
+    {% elif busy %}<h2 id="daily-empty-heading">这期日报已排队</h2>
+    {% elif job=='failed' %}<h2 id="daily-empty-heading">这期日报生成失败</h2><p>{{ issue.error or '' }}</p>
+    {% else %}<h2 id="daily-empty-heading">这一天还没有生成日报</h2>{% endif %}
+    {% if not busy %}<button type="button" data-daily-request>{{ '请求重试' if job=='failed' else ('生成今日精选' if is_today else '生成这期日报') }}</button>{% endif %}
+    <p data-daily-status role="status">{% if busy %}完成后将自动显示。{% endif %}</p>
+    </section>
+  {% endif %}
+</div>
+<script src="/research-assets/daily-radar.js" defer></script>
+<script src="/research-assets/daily-translation.js" defer></script>
+{% endblock %}

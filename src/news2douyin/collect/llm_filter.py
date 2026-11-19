@@ -15,7 +15,7 @@ from typing import Any
 from loguru import logger
 
 from ..tasks.control import TaskControlError
-from .filters import filter_items, hard_filter_items
+from .filters import filter_items
 from ..llm.settings import get_settings, probe_endpoint
 
 BATCH_SIZE = 12
@@ -152,14 +152,6 @@ def _parse_decisions(text: str, batch: list[dict[str, Any]]) -> dict[int, dict[s
 
 def _apply_decision(item: dict[str, Any], decision: dict[str, Any]) -> dict[str, Any]:
     return dict(item, category_tags=decision['categories'], sentiment=decision['sentiment'])
-
-
-def _parse_response(text: str, batch: list[dict[str, Any]]) -> list[dict[str, Any]] | None:
-    """Compatibility helper: incomplete/invalid batches require fallback."""
-    by_id = _parse_decisions(text, batch)
-    if by_id is None or len(by_id) != len(batch):
-        return None
-    return [_apply_decision(item, by_id[i]) for i, item in enumerate(batch, 1) if by_id[i]['keep']]
 
 
 def llm_filter_items(items: list[dict[str, Any]], profile: dict[str, Any], *, check_cancel=None, diagnostics=None) -> tuple[list[dict[str, Any]], str]:

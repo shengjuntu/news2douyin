@@ -15,6 +15,7 @@ from ..desk.focus_lifecycle import require_active, visible_watch
 from ..selection.service import _card as event_card, _url
 from ..intake.official_models import OfficialEvent
 from ..tasks.control import TaskConflict
+from ..workbench.service import visible_task
 
 PERIODS = {'24h':24, '72h':72, '7d':168, 'all':None}
 
@@ -30,7 +31,7 @@ def checked(q='', period='72h', order='attention', watch=''):
     if not isinstance(q, str) or len(q)>200: raise ValueError('关键词最多200字符')
     if period not in PERIODS: raise ValueError('时间范围无效')
     if order not in ('attention', 'rising', 'recent'): raise ValueError('排序方式无效')
-    if watch and not re.fullmatch(r'w_[0-9a-f]{32}', watch): raise ValueError('专题编号无效')
+    if watch and not re.fullmatch(r'w_[0-9a-f]{32}', watch): raise ValueError('焦点编号无效')
     return dict(q=q.strip(),period=period,order=order,watch=watch)
 
 
@@ -66,7 +67,8 @@ def card(row, selected_task=''):
 def _selected(s, keys):
     if not keys: return {}
     rows=s.exec(select(AttentionSelection.topic,AttentionSelection.task)
-        .where(AttentionSelection.topic.in_(keys)).order_by(AttentionSelection.created,AttentionSelection.task)).all()
+        .where(AttentionSelection.topic.in_(keys),visible_task(AttentionSelection.task))
+        .order_by(AttentionSelection.created,AttentionSelection.task)).all()
     result={}
     for key,task in rows: result.setdefault(key,task)
     return result
@@ -128,7 +130,7 @@ def detail(s,key):
         watches=[dict(key=w.key,name=w.name,scope_version=m.scope_version,reasons=parsed(m.reasons_json,[]),
             mode='keyword_recall') for m,w in watches],
         series=parsed(row.chart_json,[]),notes=parsed(row.summary_json,{}).get('notes',[]),
-        note='议题为规则归并；事件关联为候选线索，专题关联为关键词召回，均须研究核查。')
+        note='事件关联待核。焦点按关键词匹配。')
 
 
 def set_match(s,key,status):

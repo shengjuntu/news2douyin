@@ -1,0 +1,54 @@
+{
+  "reference_version": "0.33.0",
+  "source_release_zip_sha256": "3026efce7913923def983712e9476672ec37a12139344ad7cb32215a049a79d2",
+  "candidate_version": "0.34.0",
+  "method": "Four synthetic consecutive days over the same ordered snapshots; each version carries its own previous selections. Canonical JSON byte-for-byte comparison of all returned card fields, public material, reasons, score, order and selection stats. Only stats.mode is normalized from balanced_v033 to the former name balanced.",
+  "rows_per_day": 1791,
+  "days": 4,
+  "day_range": [
+    "2025-03-15",
+    "2025-03-18"
+  ],
+  "policies": {
+    "balanced": {
+      "editions": 4,
+      "slots": 400,
+      "matching_editions": 4,
+      "combined_sha256": "efafb711df2b0f1d3ccebea5b90bb1ba165e64601b9c7806b38cd94c3dfec243"
+    },
+    "breadth": {
+      "editions": 4,
+      "slots": 400,
+      "matching_editions": 4,
+      "combined_sha256": "fb3faf0fd0cc208f0138466cce7eade5eb6a5a4e1345fa2b55f1792359f2ea6a"
+    },
+    "editorial": {
+      "editions": 4,
+      "slots": 400,
+      "matching_editions": 4,
+      "combined_sha256": "b2e02fea330f42ef1b33788ef76d0080a7886016f8f2f596ffff8f97907653fe"
+    },
+    "balanced_v031": {
+      "editions": 4,
+      "slots": 400,
+      "matching_editions": 4,
+      "combined_sha256": "15d9881836bf15ce39c087822d03e05acc89a41ff3d7bea5564018afe3563718"
+    },
+    "balanced_v032": {
+      "editions": 4,
+      "slots": 400,
+      "matching_editions": 4,
+      "combined_sha256": "c76795f3149f8b871b3fb42a098771cabf18ac85b9365b92bb8c9eb467f9364d"
+    }
+  },
+  "includes": "GKG, NewsNow, local, official samples; old/new headline forms, empty titles, >64 raw hosts, mapped hosts, dated official coverage, old/new reconstruction material, attention and watch hints.",
+  "stored_review": {
+    "schema": "news2douyin.daily-radar-review.v3",
+    "rated_csv_rows": 30,
+    "days": 2,
+    "warmup_days": 1,
+    "score_and_input_hashes_identical": true,
+    "combined_result_and_input_sha256": "62335ec573f5aa434fbe65ca0889f291bf09c7edbb5542a204c3dc89f2f9a52d"
+  },
+  "scope": "Backward compatibility, not an estimate of rank quality. Historical editions already published are not rebuilt."
+}

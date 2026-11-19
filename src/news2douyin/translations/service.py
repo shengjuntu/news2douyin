@@ -23,6 +23,10 @@ MAX_TITLE = 1000
 ACTIVE = ('queued','running','cancel_requested')
 
 
+class TranslationNotConfigured(RuntimeError):
+    """The local translation target lacks its endpoint or model name."""
+
+
 def _json(value):
     return json.dumps(value,ensure_ascii=False,sort_keys=True,separators=(',',':'))
 
@@ -37,6 +41,9 @@ def _event_text(event):
 
 
 def _saved_text(session,kind,key,revision,scope):
+    if kind=='daily_card':
+        from .daily import saved_text
+        return saved_text(session,key)
     if kind=='gdelt_event':
         if revision is not None:raise ValueError('官方事件不使用文章版本号')
         from ..selection.service import detail
@@ -117,8 +124,14 @@ def get(engine,ident):
         return _result(row,session.get(TaskRecord,row.task_id))
 
 
+def translation_identity(kind, key, revision, scope, target, original, language):
+    fingerprint = _digest(_json([original, scope, language]))
+    ident = 'translation_' + _digest(_json(['reading-v1', kind, key, revision, scope, target, fingerprint]))[:40]
+    return ident, fingerprint
+
+
 def submit(engine,*,kind,key,target='zh-CN',scope='document',revision=None,retry=False):
-    if kind not in ('article','gdelt_event','topic_source','source_preview'):raise ValueError('不支持的翻译资料类型')
+    if kind not in ('article','gdelt_event','topic_source','source_preview','daily_card'):raise ValueError('不支持的翻译资料类型')
     if target!='zh-CN':raise ValueError('当前支持翻译为简体中文')
     if scope not in ('title','content','document'):raise ValueError('翻译范围无效')
     if not isinstance(key,str) or not 1<=len(key)<=250:raise ValueError('资料编号无效')
@@ -126,12 +139,16 @@ def submit(engine,*,kind,key,target='zh-CN',scope='document',revision=None,retry
     settings=get_settings()
     with Session(engine,expire_on_commit=False) as session:
         original,language,truncated,resolved_scope,resolved_revision=_saved_text(session,kind,key,revision,scope)
-        fingerprint=_digest(_json([original,resolved_scope,language]))
-        ident='translation_'+_digest(_json(['reading-v1',kind,key,resolved_revision,resolved_scope,target,fingerprint]))[:40]
+        if kind == 'daily_card' and language.get('already_chinese'):
+            return dict(status='already_chinese', kind=kind, scope=resolved_scope, original=original,
+                        translated_text='', source_language=language['code'], truncated=truncated)
+        ident,fingerprint = translation_identity(kind,key,resolved_revision,resolved_scope,target,original,language)
         lock_news(session,'translation:'+ident)
         row=session.get(ReadingTranslation,ident)
         old=session.get(TaskRecord,row.task_id) if row else None
         if row and old and (old.status in ACTIVE or old.status=='succeeded' or not retry):return _result(row,old)
+        if kind == 'daily_card' and not (settings.base_url.strip() and settings.model.strip()):
+            raise TranslationNotConfigured('尚未配置翻译模型地址或模型名称，请在模型设置中填写后重试。')
         # No model/network operation runs in this transaction or HTTP handler.
         queued=list(session.exec(select(TaskRecord.task_id).where(TaskRecord.trigger_type=='translation',TaskRecord.status.in_(ACTIVE)).limit(51)))
         if len(queued)>=50:raise TaskConflict('翻译等待任务较多，请稍后再试')

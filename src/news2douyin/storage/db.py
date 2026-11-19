@@ -121,12 +121,14 @@ def load_models() -> None:
     from ..workbench import models as workbench_models
     from ..intake import models as intake_models
     from ..intake import official_models
+    from ..selection import ngram_models
     from ..selection import models as selection_models
     from ..selection import source_models as source_preview_models
     from ..translations import models as translation_models
     from ..intake import projection as intake_projection
     from ..intake import fetch_diagnostics
     from ..attention import models as attention_models
+    from ..digest import models as digest_models
 
 
 def create_schema(engine) -> None:

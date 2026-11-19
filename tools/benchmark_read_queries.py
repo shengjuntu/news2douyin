@@ -58,8 +58,7 @@ def block_network():
     socket.socket.connect = denied
     socket.socket.connect_ex = denied
     for name, value in {'NEWS2DOUYIN_GKG_STREAM_ENABLED': '0',
-        'NEWS2DOUYIN_GKG_PROJECTION_ENABLED': '0', 'NEWS2DOUYIN_FALKOR_URL': '',
-        'DEDUP_LLM_ENABLED': '0'}.items():
+        'NEWS2DOUYIN_GKG_PROJECTION_ENABLED': '0', 'NEWS2DOUYIN_FALKOR_URL': ''}.items():
         os.environ[name] = value
 
 

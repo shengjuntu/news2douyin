@@ -1,0 +1,5 @@
+<nav class="radar-view-tabs" aria-label="雷达材料视图">
+  {% for key, url, label in [('daily','/radar','每日精选'),('gdelt','/radar?source=gdelt','全球事件线索'),('local','/radar?source=local','已整理事件'),('attention','/radar?source=attention','中文平台关注')] %}
+  <a href="{{ url }}"{% if radar_tab == key %} class="on" aria-current="page"{% endif %}>{{ label }}</a>
+  {% endfor %}
+</nav>

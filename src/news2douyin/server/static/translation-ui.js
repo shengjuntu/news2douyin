@@ -32,7 +32,7 @@
         if(data.status!=='succeeded'||typeof data.translated_text!=='string'||!data.translated_text.trim())throw Error(data.error||'本次翻译未完成，请重试。');
         host.querySelector('[data-translation-text]').textContent=data.translated_text;
         const original=host.querySelector('[data-translation-original]');if(original)original.textContent=typeof data.original==='string'?data.original:'';
-        const note=host.querySelector('[data-translation-note]');if(note)note.textContent='机器翻译仅供阅读辅助，不作为核实证据。'+(data.truncated?'本次只翻译了已保存内容的前一部分。':'')+(data.revision?'对应材料版本 r'+data.revision+'。':'');
+        const note=host.querySelector('[data-translation-note]');if(note){note.textContent=[data.truncated?'译文仅含前段。':'',data.revision?'原文 r'+data.revision:''].filter(Boolean).join(' · ');note.hidden=!note.textContent;}
         result.hidden=false;status.textContent='翻译完成';button.textContent='重新查看译文';failed=false;
       }catch(error){
         failed=true;status.textContent=error.message;button.textContent='重试翻译';

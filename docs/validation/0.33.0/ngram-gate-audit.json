@@ -1,0 +1,243 @@
+{
+  "official_stamp_utc": "20250316001500",
+  "ngrams_minute_utc": "20250316000100",
+  "archive_sha256": {
+    "20250316001500.export.CSV.zip": "c11b7ae255d7e7b63b4770d9ad19a59aeb8fb34961b3b1422f0758a061384e2d",
+    "20250316001500.mentions.CSV.zip": "46a605a0bc6454834f96de6043206dca2027db4ba30737936aa8307ab32193a1",
+    "20250316000100.webngrams.json.gz": "4b73eed6c10471fa8c05e2eca4d403be66ba5d94c93f195fe4746ceabc4d49bb"
+  },
+  "event_rows": {
+    "valid": 1197
+  },
+  "mention_rows": {
+    "valid": 1736
+  },
+  "distinct_documents": 296,
+  "sampled_documents": 40,
+  "reconstruction": {
+    "not_found": 2,
+    "ready": 38
+  },
+  "paired_records": 149,
+  "passed": 0,
+  "gate_reasons": {
+    "actor_generic": 9,
+    "actor_literals_missing": 19,
+    "actor_missing": 70,
+    "actors_identical": 2,
+    "actors_separate": 12,
+    "cue_absent": 27,
+    "root_without_rule": 10
+  },
+  "reason_labels": {
+    "actor_generic": "官方一方使用通用身份，无法用它单独核对角色。",
+    "actor_literals_missing": "重建文字中未检出双方完整名称。",
+    "actor_missing": "官方编码缺少一方名称。",
+    "actors_identical": "官方编码的双方名称相同。",
+    "actors_separate": "双方名称出现在不同句子里。",
+    "cue_absent": "含双方名称的短句未命中该行动大类的用词。",
+    "root_without_rule": "这个 CAMEO 行动大类尚未配有英文动作词规则。"
+  },
+  "pair_sample": [
+    {
+      "pair_sha256": "0689aa26793a7a74b2aae412cda13915b61803983950e28a47071289f53630f4",
+      "event_id": "1232344495",
+      "doc_sha256": "106820e718a112a0ad5bd00ce820dd9caecdc578fdcc355bac6e5077f6413e5f",
+      "gate_reason": "actor_missing",
+      "cameo_code": "043",
+      "event_date": "2025-03-16"
+    },
+    {
+      "pair_sha256": "06b6a630be9acb2ff554f2f25a81e90b316f866f97a45af79ac9d0d7462c5b46",
+      "event_id": "1232345375",
+      "doc_sha256": "0c2d1e63f8c896b5702532a6ade2368b096f608c04819a9fe9309480783cde5f",
+      "gate_reason": "cue_absent",
+      "cameo_code": "040",
+      "event_date": "2025-03-16"
+    },
+    {
+      "pair_sha256": "088ead1f1313878f7f6500d708a7681fed20bfdb8d06a4e11582d1e7f4429c8a",
+      "event_id": "1232344530",
+      "doc_sha256": "18832333925089a67f1bf57ffe82122084909da9e3dee0b235009ac4acd3d513",
+      "gate_reason": "cue_absent",
+      "cameo_code": "090",
+      "event_date": "2025-03-16"
+    },
+    {
+      "pair_sha256": "08f671b20500bfee68029a8ec915e78a246c601c5327de4009097d6fc51e4e55",
+      "event_id": "1232344368",
+      "doc_sha256": "0c2d1e63f8c896b5702532a6ade2368b096f608c04819a9fe9309480783cde5f",
+      "gate_reason": "cue_absent",
+      "cameo_code": "051",
+      "event_date": "2025-03-16"
+    },
+    {
+      "pair_sha256": "0957ac838af82c368ed61ad7167ca3b2171abeb413e940f5e2e075a6300db394",
+      "event_id": "1232344383",
+      "doc_sha256": "00f643d8e82082d5d68c80e000985921b64ac17f975026a5f207edd7b20ede10",
+      "gate_reason": "actor_literals_missing",
+      "cameo_code": "190",
+      "event_date": "2025-03-16"
+    },
+    {
+      "pair_sha256": "0ae8717e7d63bb1f3175b3bf0b4a47168ea7582cec865a4f72fe8b565bb72242",
+      "event_id": "1232344706",
+      "doc_sha256": "0bf5822cac4704a2f782c9b0c8058c12821ae321fa1952b87c86df4ea917e219",
+      "gate_reason": "actor_literals_missing",
+      "cameo_code": "090",
+      "event_date": "2025-03-16"
+    },
+    {
+      "pair_sha256": "0d3f659c7878eed0b2a3db0fcc7ac75ad9d85713466af93e5aaf35ed0f39c251",
+      "event_id": "1232344962",
+      "doc_sha256": "05b8afd599a297053a96945885b60b85e430c96774c6512c26b6a8347dd73ede",
+      "gate_reason": "actor_literals_missing",
+      "cameo_code": "042",
+      "event_date": "2025-03-16"
+    },
+    {
+      "pair_sha256": "0d4759d9a92a992a80e1e502b01217d0e556c0c0d9f20072d4a2d69a5471a429",
+      "event_id": "1232345109",
+      "doc_sha256": "1857a70282e98e6b45faa37963156a5286a53a12b24329387a14e013e0595f7a",
+      "gate_reason": "actor_missing",
+      "cameo_code": "011",
+      "event_date": "2025-03-16"
+    },
+    {
+      "pair_sha256": "0da789532523c997e87615088fe41dd8fc214fddc25bad7876e37c1fa36d18d0",
+      "event_id": "1232344738",
+      "doc_sha256": "14532883123c295d1239d12abef98de871d0f75c11df077a43bb0a78bb6a62d3",
+      "gate_reason": "actor_missing",
+      "cameo_code": "040",
+      "event_date": "2025-03-16"
+    },
+    {
+      "pair_sha256": "127f76066c2e22db3dde81b451dc8e0151b34cdf458291ee1a03e67e3021eb38",
+      "event_id": "1232344273",
+      "doc_sha256": "140430e279c82049d14897b40d9983edcdc08d01b205aa94aff35d00c6862e59",
+      "gate_reason": "actor_missing",
+      "cameo_code": "040",
+      "event_date": "2025-03-16"
+    },
+    {
+      "pair_sha256": "17ed4bffa75372d9f8e799f114481c53c368cea7fb1abe1c3d4279c50681674c",
+      "event_id": "1232345121",
+      "doc_sha256": "1c4e9808abe7872b74c53ee3ad7486987ffda23083d729d8c891e496eeeb4735",
+      "gate_reason": "actor_missing",
+      "cameo_code": "020",
+      "event_date": "2025-03-16"
+    },
+    {
+      "pair_sha256": "19e3d45eef1c2c72cd62da42fe563c478a13630f3dfab164c3e7afa2a090341d",
+      "event_id": "1232344447",
+      "doc_sha256": "13204b8e5a207863685d0ab545cfb451fdad61e8f575d5b6323c0b6287c08e94",
+      "gate_reason": "cue_absent",
+      "cameo_code": "042",
+      "event_date": "2025-03-16"
+    },
+    {
+      "pair_sha256": "1a769698c8a651108a9ed17f8886de97cfb4ea5ad7ddf7c8c48adc1c62059ad1",
+      "event_id": "1232344365",
+      "doc_sha256": "0c2d1e63f8c896b5702532a6ade2368b096f608c04819a9fe9309480783cde5f",
+      "gate_reason": "cue_absent",
+      "cameo_code": "020",
+      "event_date": "2025-03-16"
+    },
+    {
+      "pair_sha256": "1ef0b0ec199acd3e966917df830336ea3b80cde3099f1ebb06619e5c709583fd",
+      "event_id": "1232344733",
+      "doc_sha256": "140430e279c82049d14897b40d9983edcdc08d01b205aa94aff35d00c6862e59",
+      "gate_reason": "actor_missing",
+      "cameo_code": "040",
+      "event_date": "2025-03-16"
+    },
+    {
+      "pair_sha256": "1f4ae37a089c76ac4915986fe9bde9bd5f8a30e8b47188c2e37d824a7774c405",
+      "event_id": "1232344197",
+      "doc_sha256": "0c2d1e63f8c896b5702532a6ade2368b096f608c04819a9fe9309480783cde5f",
+      "gate_reason": "actor_literals_missing",
+      "cameo_code": "043",
+      "event_date": "2025-02-14"
+    },
+    {
+      "pair_sha256": "20fba0571bb17e5bcc222df001744761e2f93928d9ef86ce6afc06f886a8fc82",
+      "event_id": "1232344653",
+      "doc_sha256": "0bf5822cac4704a2f782c9b0c8058c12821ae321fa1952b87c86df4ea917e219",
+      "gate_reason": "actors_separate",
+      "cameo_code": "172",
+      "event_date": "2025-03-16"
+    },
+    {
+      "pair_sha256": "218326ce47e3831cadefb5b9cccfd6fb6486be1fecfa1d088e004ba62ef7618c",
+      "event_id": "1232344912",
+      "doc_sha256": "0d49a98b346207cffe250df3b2a2656b2a4013a84df20b5c81bff349ba3174ad",
+      "gate_reason": "root_without_rule",
+      "cameo_code": "0353",
+      "event_date": "2025-03-16"
+    },
+    {
+      "pair_sha256": "224db3989eebcbea6f08951cc0157baf8e84a7da13c4e2b49b36aa0c67274ded",
+      "event_id": "1232344893",
+      "doc_sha256": "0d49a98b346207cffe250df3b2a2656b2a4013a84df20b5c81bff349ba3174ad",
+      "gate_reason": "actor_missing",
+      "cameo_code": "010",
+      "event_date": "2025-03-16"
+    },
+    {
+      "pair_sha256": "2a78cb228d8d9019928a8e532983c44e6a3c52bcbbc99c8c2bbc3be73fb30944",
+      "event_id": "1232345235",
+      "doc_sha256": "0d49a98b346207cffe250df3b2a2656b2a4013a84df20b5c81bff349ba3174ad",
+      "gate_reason": "actor_generic",
+      "cameo_code": "013",
+      "event_date": "2025-03-16"
+    },
+    {
+      "pair_sha256": "2ae13c1c0ba73bb6a4494849844930738feb7eb4b11f099fd689bf6eef829a70",
+      "event_id": "1232344528",
+      "doc_sha256": "18832333925089a67f1bf57ffe82122084909da9e3dee0b235009ac4acd3d513",
+      "gate_reason": "cue_absent",
+      "cameo_code": "046",
+      "event_date": "2025-03-16"
+    },
+    {
+      "pair_sha256": "2d30fdf84de77fdbd8f38ef083c23e002d2e87f0feb19ef7206166fba5c47e32",
+      "event_id": "1232345360",
+      "doc_sha256": "10e2257b3899bbc563f8a407dc26704b864af8ec166a6e5c586792b71a71ed84",
+      "gate_reason": "cue_absent",
+      "cameo_code": "070",
+      "event_date": "2025-03-16"
+    },
+    {
+      "pair_sha256": "2fb61936dc2ff36087b7f67305892043fa8c290fad47822080363a0bde625f3a",
+      "event_id": "1232344356",
+      "doc_sha256": "1835ebe0fa927732284f59aa552f463eaca8ce22fc160794638ef8ead79ca14b",
+      "gate_reason": "actor_missing",
+      "cameo_code": "190",
+      "event_date": "2025-03-16"
+    },
+    {
+      "pair_sha256": "30432d6396006033bb428338e6c3d17aee60e65228ab8699306bee5dc7c27b04",
+      "event_id": "1232344292",
+      "doc_sha256": "025a749e8c446f7a1c3b4b8e05dccc050c067f104d0e125571799aa0cd476e6d",
+      "gate_reason": "actor_missing",
+      "cameo_code": "040",
+      "event_date": "2025-03-16"
+    },
+    {
+      "pair_sha256": "3235c36632e1374f385e4a731402e55fec86b772a61213bb5192dd7578b8fc10",
+      "event_id": "1232344757",
+      "doc_sha256": "0d49a98b346207cffe250df3b2a2656b2a4013a84df20b5c81bff349ba3174ad",
+      "gate_reason": "actor_literals_missing",
+      "cameo_code": "138",
+      "event_date": "2025-03-16"
+    },
+    {
+      "pair_sha256": "3706729f70b6d7a4ce111a69265b1b1823ce214d6e8649400d384c50fab6568a",
+      "event_id": "1232344535",
+      "doc_sha256": "18832333925089a67f1bf57ffe82122084909da9e3dee0b235009ac4acd3d513",
+      "gate_reason": "cue_absent",
+      "cameo_code": "020",
+      "event_date": "2025-03-16"
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "sample": "2026-11-15",
+  "revision": 2,
+  "database": "PostgreSQL 16.2",
+  "source": "2 English GKG fixture archives originally received under v0.36.0. Real PostgreSQL disposable db, immutable archived SQLite db for comparison.",
+  "results": {
+    "postgres": {
+      "snapshot_sha256": "1d68856a5f2c7aa62b12e7dc0c57784c468bd0ce7bb8603e6f34d6d5e3a18ad3",
+      "combined_shortlist_sha256": "e741893debbc5fb29ff1d79f808dabdcd1cf65ece81db4cf9fca7b5e2546fb7d",
+      "arms": {
+        "baseline": "6fe3bef3eccbe0e8e17b711e213b4748e6a6fa9d85467fb93bb77b0ff5995baa",
+        "classification": "40c2a3b01428d0357efadc83ef98fc8e73364bf9cbd165e4377579c4452d6f9d",
+        "merge": "63f1225ebe21ff9d1f5c2228e8a8de2008e3987935ea6f411d2ecd823687e7de",
+        "combined": "8aef77108c312a01e3ca12047ba32320a4772217444125bc623cb6de41178026"
+      },
+      "sql": {
+        "SELECT": 9,
+        "SET": 2
+      },
+      "writes": 0
+    },
+    "sqlite": {
+      "snapshot_sha256": "1d68856a5f2c7aa62b12e7dc0c57784c468bd0ce7bb8603e6f34d6d5e3a18ad3",
+      "combined_shortlist_sha256": "e741893debbc5fb29ff1d79f808dabdcd1cf65ece81db4cf9fca7b5e2546fb7d",
+      "arms": {
+        "baseline": "6fe3bef3eccbe0e8e17b711e213b4748e6a6fa9d85467fb93bb77b0ff5995baa",
+        "classification": "40c2a3b01428d0357efadc83ef98fc8e73364bf9cbd165e4377579c4452d6f9d",
+        "merge": "63f1225ebe21ff9d1f5c2228e8a8de2008e3987935ea6f411d2ecd823687e7de",
+        "combined": "8aef77108c312a01e3ca12047ba32320a4772217444125bc623cb6de41178026"
+      },
+      "sql": {
+        "PRAGMA": 2,
+        "BEGIN": 2,
+        "SELECT": 7
+      },
+      "writes": 0
+    }
+  },
+  "checked_utc": "2026-11-15T09:19:15+00:00"
+}

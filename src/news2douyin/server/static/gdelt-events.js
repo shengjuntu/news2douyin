@@ -35,7 +35,7 @@
   byId('gdelt-detail-close').addEventListener('click',closeDetail);
   detailDialog.addEventListener('close',()=>{
     detailGeneration++;currentEvent='';detailReportFingerprint='';stopTranslationPolling();if(graph){graph.destroy();graph=null;}
-    const url=new URL(location.href);url.searchParams.delete('event');history.replaceState(null,'',url);
+    const url=new URL(location.href);url.searchParams.delete('event');url.searchParams.delete('evidence_day');history.replaceState(null,'',url);
     if(returnFocus?.isConnected)returnFocus.focus();returnFocus=null;
   });
   detailDialog.addEventListener('click',event=>{if(event.target===detailDialog){const bounds=detailDialog.getBoundingClientRect();if(event.clientX<bounds.left||event.clientX>bounds.right)closeDetail();}});
@@ -84,7 +84,6 @@
     const box=section(host,'中文译读');
     if(!report||!target?.kind||!target?.key){box.append(node('p','请先补充可读报道，再翻译标题和摘要。','gdelt-detail-note'));return;}
     box.append(node('p',report.language_info?.display||event.source_language?.display||'报道语言未知','desk-meta'));
-    box.append(node('p','翻译已保存的报道标题与摘要；编码信息另列，原文保持不变。','gdelt-detail-note'));
     const button=node('button','中文译读','ghost');button.type='button';button.id='gdelt-translate';box.append(button);
     const status=node('p','点击后调用已配置的翻译模型。','gdelt-translation-status');status.id='gdelt-translation-status';status.setAttribute('role','status');box.append(status);
     const output=node('div',undefined,'gdelt-translation-output');output.id='gdelt-translation-output';output.hidden=true;box.append(output);
@@ -115,10 +114,11 @@
       const line=node('p',report.domain||'来源报道','gdelt-report-source');
       const href=sourceUrl(report.final_url||report.source_url);if(href){line.append(document.createTextNode(' · '),link('查看来源报道 ↗',href));}box.append(line);
       box.append(node('p','这是与该编码关联的报道摘录，文章可能涉及多个事件；需对照原文判断具体内容。','gdelt-detail-note'));
-    }else{
+    }else if(!event.reconstruction){
       box.append(node('p','报道内容待补充','gdelt-report-heading'),node('p',contentNote(event),'gdelt-detail-note'));
       const href=sourceUrl(event.source_url);if(href)box.append(link('先查看官方记录的来源网页 ↗',href));
     }
+    if(event.reconstruction) renderReconstructed(box,event.reconstruction);
     const enrich=node('button',report?'补充报道摘要':'补充报道','ghost');enrich.type='button';enrich.dataset.gdeltEnrich=String(event.event_id);enrich.addEventListener('click',()=>enrichEvents([String(event.event_id)],enrich));box.append(enrich);
     return box;
   }
@@ -129,14 +129,15 @@
     detailReportFingerprint=(reportFor(event)?.content_hash||'')+':'+(event.content_status||'');
     detailHost.replaceChildren();
     reportSection(detailHost,event);
+    window.mountGdeltEvidence(detailHost, String(event.event_id), {node, link, request, sourceUrl, sourceArchive, time});
     translateSection(detailHost,event,generation);
     const heading=section(detailHost,'事件时间与选题');heading.append(node('div',event.event_date||'发生日期未知','gdelt-detail-date'));
     heading.append(node('p','发生日期精度为日，不补造具体时刻。','gdelt-detail-note'));
     const list=node('ul',undefined,'gdelt-detail-time-list');
-    for(const [label,value] of [['首次被本站索引',event.first_seen],['最近官方观测',event.last_seen]])list.append(node('li',label+' · '+time(value)));heading.append(list);
+    for(const [label,value] of [['官方首次观测',event.first_seen],['最近官方观测',event.last_seen]])list.append(node('li',label+' · '+time(value)));heading.append(list);
     const actions=node('div',undefined,'row');
     if(event.selected_task){const a=node('a','继续这项选题 →','action-link');a.href='/workbench/'+encodeURIComponent(event.selected_task)+'/selection';actions.append(a);}
-    const choose=node('button',event.selected_task?'另起一个角度':'形成选题',event.selected_task?'ghost':'');choose.type='button';choose.addEventListener('click',()=>openSelection(event.event_id,reportFor(event)?.title||''));actions.append(choose);heading.append(actions);
+    const choose=node('button',event.selected_task?'另起一个角度':'形成选题',event.selected_task?'ghost':'');choose.type='button';choose.addEventListener('click',()=>openSelection(event.event_id,reportFor(event)?.title||event.reconstruction?.excerpt||''));actions.append(choose);heading.append(actions);
     const sources=section(detailHost,'更多报道与采集依据');
     sources.append(node('p','本站已观测报道 '+(event.observed_documents??'未知')+' · 媒体域名 '+(event.observed_sources??'未知')+'。数量不代表独立核实。','gdelt-detail-note'));
     const mentions=Array.isArray(data.mentions)?data.mentions:[];
@@ -192,18 +193,31 @@
     }catch(error){byId('gdelt-select-message').textContent=error.message;}finally{button.disabled=false;}
   });
   let enrichmentGeneration=0,enrichmentTimer=null,pageClosed=false;
+  function renderReconstructed(host, material) {
+    if (!material?.excerpt) return;
+    const text=node('p',material.excerpt,'gdelt-reconstruction-excerpt');
+    text.lang=material.language||'';
+    const credit=node('p','GDELT Web News NGrams 3.0 · 片段重建 · 待核','muted small');
+    const url=sourceUrl(material.url);
+    if(url) credit.append(document.createTextNode(' · '),link('核对出版方网页 ↗',url));
+    host.append(text,credit);
+  }
   function updateCard(event){
     const card=document.querySelector('[data-gdelt-event="'+String(event.event_id)+'"]');if(!card)return;
     const report=reportFor(event),ready=Boolean(report);
     card.classList.toggle('gdelt-has-report',ready);card.classList.toggle('gdelt-needs-report',!ready);
     card.querySelector('[data-gdelt-report-title]').textContent=displayTitle(event);
-    card.querySelector('[data-gdelt-report-excerpt]').textContent=report?.excerpt||(ready?'尚无摘要，可先查看来源报道。':'这条记录只有事件编码，尚未取得可读的报道标题和摘要。');
+    const reconstructed=event.reconstruction;
+    const recovered=card.querySelector('[data-gdelt-reconstructed]');
+    recovered.replaceChildren(); recovered.hidden=!reconstructed;
+    if(reconstructed) renderReconstructed(recovered,reconstructed);
+    const excerpt=card.querySelector('[data-gdelt-report-excerpt]');excerpt.textContent=report?.excerpt||'';excerpt.hidden=!excerpt.textContent;
     card.querySelector('[data-gdelt-report-language]').textContent=report?.language_info?.display||event.source_language?.display||'报道语言未知';
-    const badge=card.querySelector('[data-gdelt-content-badge]');badge.textContent=ready?'相关报道':'报道待补充';badge.className='badge '+(ready?'ok':'warn');
+    const badge=card.querySelector('[data-gdelt-content-badge]');badge.textContent=ready?(report.excerpt?'相关报道':'仅标题'):reconstructed?'片段重建 · 待核':'报道待补充';badge.className='badge '+(ready?'ok':'warn');
     const source=card.querySelector('[data-gdelt-report-source]');source.replaceChildren();
     if(ready){source.append(document.createTextNode(report.domain||'来源报道'));const href=sourceUrl(report.final_url||report.source_url);if(href)source.append(document.createTextNode(' · '),link('查看报道 ↗',href));}
     else{const href=sourceUrl(event.source_url);if(href){source.append(document.createTextNode(new URL(href).hostname+' · '),link('查看来源网页 ↗',href));}else source.textContent='暂无来源地址';}
-    const select=card.querySelector('[data-gdelt-select]');if(select){select.dataset.gdeltTitle=report?.title||'';if(!event.selected_task){select.textContent=ready?'形成选题':'保留线索';select.classList.toggle('ghost',!ready);}}
+    const select=card.querySelector('[data-gdelt-select]');if(select){select.dataset.gdeltTitle=report?.title||reconstructed?.excerpt||'';if(!event.selected_task){select.textContent=ready?'形成选题':reconstructed?'核查重建线索':'保留线索';select.classList.toggle('ghost',!ready);}}
     let translate=card.querySelector('[data-gdelt-translate-card]');
     if(ready&&!translate){translate=node('button','中文译读','ghost');translate.type='button';translate.dataset.gdeltTranslateCard=String(event.event_id);card.querySelector('.gdelt-event-actions').insertBefore(translate,card.querySelector('[data-gdelt-sources]'));}
     if(!ready&&translate)translate.remove();

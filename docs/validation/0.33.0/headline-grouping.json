@@ -1,0 +1,97 @@
+{
+  "method": "Public 2025-03-15 to 17 GKG fixture, three batches/day, sequential local archive replay (see public-replay-inputs.json). Both policies start with empty history, carrying forward only their own selections. Static inputs, no editorial labels. prior_duplicate_slots measures only concrete headline identities that this policy can establish.",
+  "days": {
+    "2025-03-15": {
+      "candidates": 3038,
+      "old_groups": 2511,
+      "current_groups": 2507,
+      "old_selected": 100,
+      "current_selected": 100,
+      "prior_duplicate_slots": 0,
+      "current_selected_with_multiple_headline_variants": 0
+    },
+    "2025-03-16": {
+      "candidates": 2073,
+      "old_groups": 1771,
+      "current_groups": 1764,
+      "old_selected": 100,
+      "current_selected": 100,
+      "prior_duplicate_slots": 4,
+      "current_selected_with_multiple_headline_variants": 3
+    },
+    "2025-03-17": {
+      "candidates": 2962,
+      "old_groups": 2528,
+      "current_groups": 2528,
+      "old_selected": 100,
+      "current_selected": 100,
+      "prior_duplicate_slots": 0,
+      "current_selected_with_multiple_headline_variants": 0
+    }
+  },
+  "examples": [
+    {
+      "description_zh": "美国有关空袭的报道",
+      "day": "2025-03-16",
+      "prior_top_100_slots": 3,
+      "new_slots": 1,
+      "distinct_headline_groups": 3,
+      "source_hosts": [
+        "wflanews.iheart.com",
+        "newstalk1130.iheart.com",
+        "wgy.iheart.com",
+        "wrko.iheart.com"
+      ],
+      "published_source_urls": [
+        "https://wflanews.iheart.com/content/2025-03-15-trump-orders-powerful-airstrike-attack/",
+        "https://newstalk1130.iheart.com/content/2025-03-15-trump-orders-powerful-airstrike-attack/",
+        "https://wgy.iheart.com/content/2025-03-15-trump-orders-powerful-airstrike-attack/",
+        "https://wrko.iheart.com/content/2025-03-15-trump-orders-powerful-airstrike-attack/"
+      ]
+    },
+    {
+      "description_zh": "加拿大关税谈判报道",
+      "day": "2025-03-16",
+      "prior_top_100_slots": 3,
+      "new_slots": 1,
+      "distinct_headline_groups": 3,
+      "source_hosts": [
+        "www.nbcconnecticut.com",
+        "biztoc.com",
+        "www.nbcmiami.com"
+      ],
+      "published_source_urls": [
+        "https://www.nbcconnecticut.com/news/business/money-report/see-you-in-four-years-canada-flexes-economic-muscle-as-tariff-negotiations-continue/3521508/",
+        "https://biztoc.com/x/594cda375e1611b4",
+        "https://www.nbcmiami.com/news/business/money-report/see-you-in-four-years-canada-flexes-economic-muscle-as-tariff-negotiations-continue/3568620/"
+      ]
+    },
+    {
+      "description_zh": "美国职业球员去向报道",
+      "day": "2025-03-16",
+      "prior_top_100_slots": 0,
+      "new_slots": 1,
+      "distinct_headline_groups": 3,
+      "source_hosts": [
+        "590kqnt.iheart.com",
+        "1059thex.iheart.com",
+        "newstalk1130.iheart.com",
+        "wflanews.iheart.com",
+        "wgy.iheart.com",
+        "1070thegame.iheart.com",
+        "real923la.iheart.com",
+        "kfan.iheart.com"
+      ],
+      "published_source_urls": [
+        "https://590kqnt.iheart.com/content/2025-03-15-aaron-rodgers-preferred-next-team-revealed/",
+        "https://1059thex.iheart.com/content/2025-03-15-aaron-rodgers-preferred-next-team-revealed/",
+        "https://newstalk1130.iheart.com/content/2025-03-15-aaron-rodgers-preferred-next-team-revealed/",
+        "https://wflanews.iheart.com/content/2025-03-15-aaron-rodgers-preferred-next-team-revealed/",
+        "https://wgy.iheart.com/content/2025-03-15-aaron-rodgers-preferred-next-team-revealed/",
+        "https://1070thegame.iheart.com/content/2025-03-15-aaron-rodgers-preferred-next-team-revealed/",
+        "https://real923la.iheart.com/content/2025-03-15-aaron-rodgers-preferred-next-team-revealed/",
+        "https://kfan.iheart.com/content/2025-03-15-aaron-rodgers-preferred-next-team-revealed/"
+      ]
+    }
+  ]
+}

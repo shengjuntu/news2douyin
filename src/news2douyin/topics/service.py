@@ -120,18 +120,21 @@ def source_data(s, row, full=False):
                 official_event_id=official_id, source_ref=source_ref,
                 attention_topic=attention_id,
                 detail_url='/radar?source=attention&attention_topic='+attention_id if attention_id else
-                    '/radar?source=gdelt&event='+official_id if metadata and official_id else
+                '/radar?source=gdelt&event='+official_id if (metadata or lead) and official_id else
                     '/articles/'+quote(row.article_key, safe='')+('?revision='+str(doc['revision']) if
                         isinstance(doc.get('revision'),int) and doc['revision']>0 else '') if not metadata else '',
                 archive_url=archive_url,
                 has_readable_text=not lead and bool(str(doc.get('content') or '').strip()),
                 requires_original_text=lead, newsnow=doc.get('newsnow', {}),
+                material_kind=doc.get('material_kind',''),
                 content_kind=doc.get('content_kind', ''),
                 language=language['code'], language_label=language['label'], language_basis=language['basis'],
                 language_display=language['display'],
                 content_hash=row.content_hash,
                 observed_at=row.observed_at, **({'content':doc['content']} if full else {}))
     data['material_label']=source_label(data)
+    if full and doc.get('reconstruction'):
+        data['reconstruction'] = doc['reconstruction']
     return data
 
 
@@ -221,9 +224,11 @@ def create(engine,payload):
 
 
 def edit(engine,wid,payload):
+    from ..workbench.service import require_visible
     value=Edit.model_validate(payload);scope=value.scope.checked()
     with Session(engine,expire_on_commit=False) as s:
         rs.locked(s);w=require(s,wid)
+        require_visible(s,wid)
         if w.revision!=value.revision:raise ValueError('选题版本已变化，请刷新后重试')
         ids=list(dict.fromkeys(value.source_ids))
         for i in ids:get_source(s,wid,i)
@@ -233,8 +238,10 @@ def edit(engine,wid,payload):
 
 
 def add_article(engine,wid,article_key,revision):
+    from ..workbench.service import require_visible
     with Session(engine,expire_on_commit=False) as s:
         rs.locked(s);w=require(s,wid)
+        require_visible(s,wid)
         if w.revision!=revision:raise ValueError('选题版本已变化，请刷新后重试')
         ids=json.loads(w.selected_json);source=freeze(s,wid,article_key)
         # Replace an older version of the same article only on explicit add.
@@ -289,9 +296,11 @@ def prompt(w,message,run_id):
 
 
 def handoff(engine,runtime,wid,payload):
+    from ..workbench.service import require_visible
     value=Handoff.model_validate(payload);hid='handoff_'+rs.digest([wid,value.request_id])[:24];h=rs.digest(value.model_dump())
     with Session(engine,expire_on_commit=False) as s:
         rs.locked(s);w=require(s,wid);old=s.get(TopicHandoff,hid)
+        require_visible(s,wid)
         if old:
             if old.request_hash!=h:raise ValueError('任务编号已用于其他内容')
         else:
@@ -318,6 +327,8 @@ def handoff(engine,runtime,wid,payload):
                 goal+='。初始GDELT事件元数据是自动编码线索，不是已核验新闻正文；先读取来源全文并交叉核对，不能单独作为事实证据。'
             if any(source_document(d).get('source_kind') == 'newsnow_metadata' for d in docs):
                 goal+='。NewsNow榜单标题和摘要只是聚合线索，不是已取得的新闻全文；先打开来源链接读取原文并交叉核对，不能将榜单热度、快照时间或摘要单独作为事实证据。'
+            if any(d.get('reconstruction') for d in docs):
+                goal+='。GDELT 片段重建材料待核，请读取出版方原文，核对动作、数字及引语后再引用。'
             if value.action=='materials' and not value.find_images:goal+='。本次不寻找配图，专注背景与来源核对。'
             if value.action=='materials' and not short:goal+='。本次仅交付带引用的素材报告、缺口和配图所在页面线索，不生成脚本。配图是线索，不代表已授权或已下载。'
             prepared=dict(action=value.action,short_options=opts,documents=docs,

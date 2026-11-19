@@ -29,7 +29,7 @@ def is_deleted(session, key):
 def require_active(session, key):
     row = session.get(Watch, key)
     if not row or is_deleted(session, key):
-        raise KeyError('专题不存在或已移入回收站')
+        raise KeyError('焦点不存在或已移入回收站')
     return row
 
 
@@ -45,15 +45,15 @@ def remove(session, key, version):
     lock_news(session, 'watch:'+key, 'lease/watch-lifecycle/'+key)
     watch = session.get(Watch, key)
     if not watch:
-        raise KeyError('专题不存在')
+        raise KeyError('焦点不存在')
     tombstone = session.get(FocusTrash, key)
     if tombstone and tombstone.deleted_at:
         return dict(ok=True, deleted=True, key=key, name=tombstone.name)
     if watch.version != version:
-        raise TaskConflict('专题已被修改，请刷新后再移入回收站')
+        raise TaskConflict('焦点已被修改，请刷新后再移入回收站')
     lease = session.get(GraphLease, 'watch-lifecycle/'+key)
     if lease and lease.owner and lease.until > time.time():
-        raise TaskConflict('该专题正在提交研究任务，请稍后重试移入回收站')
+        raise TaskConflict('该焦点正在提交研究任务，请稍后重试移入回收站')
     now = utc_now_iso()
     tombstone = tombstone or FocusTrash(watch=key, name=watch.name)
     baseline = tombstone.previous_scope_version if tombstone.restored_version == watch.version else watch.version
@@ -66,14 +66,14 @@ def remove(session, key, version):
     session.add(watch)
     backfill = session.get(FocusBackfill, key)
     if backfill:
-        backfill.status, backfill.error, backfill.updated = 'paused', '专题已移入回收站', now
+        backfill.status, backfill.error, backfill.updated = 'paused', '焦点已移入回收站', now
         session.add(backfill)
     session.exec(update(FocusCandidate).where(FocusCandidate.watch == key,
         FocusCandidate.status.in_(('pending', 'running'))).values(status='superseded',
-        reason='专题已移入回收站', updated=now).execution_options(synchronize_session=False))
+        reason='焦点已移入回收站', updated=now).execution_options(synchronize_session=False))
     session.exec(update(WatchReview).where(WatchReview.watch == key,
         WatchReview.status.in_(('pending', 'blocked'))).values(status='cancelled',
-        message='专题已移入回收站，未提交的补查已取消').execution_options(synchronize_session=False))
+        message='焦点已移入回收站，未提交的补查已取消').execution_options(synchronize_session=False))
     from .service import enqueue_graph
     enqueue_graph(session, 'watch/'+key)
     session.commit()
@@ -84,7 +84,7 @@ def restore(session, key, version):
     lock_news(session, 'watch:'+key)
     watch, tombstone = session.get(Watch, key), session.get(FocusTrash, key)
     if not watch or not tombstone:
-        raise KeyError('回收站中没有这个专题')
+        raise KeyError('回收站中没有这个焦点')
     if not tombstone.deleted_at:
         return dict(ok=True, key=key, enabled=watch.enabled)
     if watch.version != version:

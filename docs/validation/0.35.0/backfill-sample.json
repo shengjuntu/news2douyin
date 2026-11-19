@@ -1,0 +1,155 @@
+{
+  "schema": "news2douyin.daily-backfill-public-sample.v1",
+  "tested_at_utc": "2026-11-15T07:41:26+00:00",
+  "scope": "Isolated SQLite and DuckDB, one enabled GKG English feed. 95 other time slots are explicitly synthetic empty ZIP archives with simulated on-time receipts, not samples of real GDELT content. The only repaired slot replays the original downloaded ZIP over a local, restricted requests transport. The normal streaming downloader, archive writer, queue, intake worker, digest worker, HTTP pages, and acknowledgement logic ran unchanged. Live feed polling was deferred. No production services or live LLM were used.",
+  "target_beijing_day": "2025-03-15",
+  "public_archive": {
+    "url": "https://data.gdeltproject.org/gdeltv2/20250315061500.gkg.csv.zip",
+    "bytes": 3588115,
+    "sha256": "995cac145dd6189be618a41661021243fbcecda016d62f09934703fe773f59fd",
+    "lines": 872
+  },
+  "expected_slots": 96,
+  "synthetic_preexisting_slots": 95,
+  "public_missing_slots": 1,
+  "worker_transitions": [
+    {
+      "status": "queued",
+      "done": 0,
+      "pending": 96,
+      "failed": 0,
+      "edition_revision": 1
+    },
+    {
+      "status": "running",
+      "done": 95,
+      "pending": 1,
+      "failed": 0,
+      "edition_revision": 1
+    },
+    {
+      "status": "running",
+      "done": 96,
+      "pending": 0,
+      "failed": 0,
+      "edition_revision": 1
+    },
+    {
+      "status": "submit_digest",
+      "done": 96,
+      "pending": 0,
+      "failed": 0,
+      "edition_revision": 1
+    },
+    {
+      "status": "awaiting_digest",
+      "done": 96,
+      "pending": 0,
+      "failed": 0,
+      "edition_revision": 1
+    },
+    {
+      "status": "awaiting_digest",
+      "done": 96,
+      "pending": 0,
+      "failed": 0,
+      "edition_revision": 2
+    },
+    {
+      "status": "completed",
+      "done": 96,
+      "pending": 0,
+      "failed": 0,
+      "edition_revision": 2
+    }
+  ],
+  "pre_repair": {
+    "coverage": {
+      "expected": 96,
+      "stored": 95,
+      "missing": 1,
+      "failed": 0
+    },
+    "edition": {
+      "revision": 1,
+      "selected": 0,
+      "edition_kind": "closed",
+      "cutoff_at": "2025-03-15T16:00:00Z",
+      "gkg_inputs": {
+        "gkg_archives": 95,
+        "gkg_seen": 0,
+        "gkg_no_readable": 0,
+        "gkg_emitted": 0
+      },
+      "ranked": {
+        "scanned": 0,
+        "groups": 0,
+        "selected": 0
+      }
+    }
+  },
+  "queue": {
+    "management_form_http": 303,
+    "repeated_api_http": 202,
+    "distinct_job_ids": 1,
+    "public_download_calls": 1
+  },
+  "post_repair": {
+    "coverage": {
+      "expected": 96,
+      "stored": 96,
+      "missing": 0,
+      "failed": 0
+    },
+    "edition": {
+      "revision": 2,
+      "selected": 100,
+      "edition_kind": "closed",
+      "cutoff_at": "2025-03-15T16:00:00Z",
+      "gkg_inputs": {
+        "gkg_archives": 96,
+        "gkg_seen": 872,
+        "gkg_no_readable": 1,
+        "gkg_emitted": 870,
+        "gkg_restored_archives": 1,
+        "gkg_restored_rows": 872
+      },
+      "ranked": {
+        "scanned": 870,
+        "groups": 739,
+        "selected": 100
+      }
+    },
+    "original_upstream_stamp_utc": "20250315061500",
+    "actual_archive_receipt_utc": "2026-11-15T07:41:30Z",
+    "all_selected_from_verified_zip": true,
+    "management_http": 200,
+    "historical_radar_http": 200,
+    "restored_titles_visible": 100,
+    "cards_with_actual_ingest_label": 100,
+    "representative_original_record_http": 200,
+    "stored_source_url_matches_original": true,
+    "job_ack_matches_edition": true,
+    "job_status_after_ack": "completed",
+    "wall_seconds_to_verify": 3.724,
+    "scope_of_time": "Local test; receiver scheduling clock advanced in one-second increments to elapse the acknowledgement delay."
+  },
+  "actual_receipt_day_other_inputs_absent": {
+    "beijing_day": "2026-11-15",
+    "revision": 1,
+    "selected": 0,
+    "edition_kind": "intraday",
+    "cutoff_at": "2026-11-15T07:41:34Z",
+    "gkg_inputs": {
+      "gkg_archives": 0,
+      "gkg_seen": 0,
+      "gkg_no_readable": 0,
+      "gkg_emitted": 0
+    },
+    "ranked": {
+      "scanned": 0,
+      "groups": 0,
+      "selected": 0
+    }
+  }
+}

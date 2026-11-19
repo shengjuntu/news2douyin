@@ -1,0 +1,151 @@
+{
+  "historical_public_reconstruction": {
+    "upstream_version": "1.1.0",
+    "public_minute": "20250316000100",
+    "archive_bytes": 30555745,
+    "sha256": "4b73eed6c10471fa8c05e2eca4d403be66ba5d94c93f195fe4746ceabc4d49bb",
+    "mode": "targeted exact urls from same archive, single local scan",
+    "elapsed_seconds": 5.52,
+    "results": [
+      {
+        "state": "ready",
+        "chars": 6000,
+        "fragments": 963,
+        "language": "en"
+      },
+      {
+        "state": "ready",
+        "chars": 4881,
+        "fragments": 797,
+        "language": "en"
+      },
+      {
+        "state": "ready",
+        "chars": 4633,
+        "fragments": 762,
+        "language": "en"
+      }
+    ]
+  },
+  "historical_public_independent_urls": {
+    "official_archive": "20250316001500",
+    "ngram_minute": "20250316000100",
+    "distinct_mentions_documents": 296,
+    "valid_mention_rows": 1736,
+    "sampled_documents": 40,
+    "sampling": "first 40 ascending SHA256(original document id); no NGram prefilter",
+    "states": {
+      "ready": 38,
+      "not_found": 2
+    },
+    "same_batch_official_action_doc_pairs_reconstructed": 149,
+    "lexical_candidate_pairs": 0,
+    "seconds": 6.38
+  },
+  "public_manual_request": {
+    "real_source": "GDELT Events + Mentions + Web News NGrams",
+    "official_stamp": "20250316001500",
+    "ngram_stamp": "20250316000100",
+    "event_id": "1232344252",
+    "url_sha256": "025a749e8c446f7a1c3b4b8e05dccc050c067f104d0e125571799aa0cd476e6d",
+    "archive_sha256": "4b73eed6c10471fa8c05e2eca4d403be66ba5d94c93f195fe4746ceabc4d49bb",
+    "manual_post_status": 200,
+    "requests_queued": 1,
+    "offline_worker_steps": 15,
+    "source_state": "document_only",
+    "language": "en",
+    "fragments": 1259,
+    "excerpt_characters": 500,
+    "topic_sources": [
+      "event_metadata"
+    ],
+    "writing_gate_blocked": true,
+    "network_attempts": 0
+  },
+  "synthetic_coverage": {
+    "database": "PostgreSQL 16.2 on x86_64-pc-linux-gnu, compiled by gcc (GCC) 10.2.1 20210130 (Red Hat 10.2.1-11), 64-bit",
+    "input_documents": 500000,
+    "events": 5000,
+    "timed_operation": "bulk official evidence aggregation",
+    "queries": 20,
+    "seconds": 0.704,
+    "synthetic": true
+  },
+  "scope": [
+    "Single English Mentions file and one historical Web News NGrams minute; no general estimate of present-day coverage.",
+    "Reconstruction metrics count retained characters only. The reference publisher texts were not recovered or compared.",
+    "SQL benchmark is an isolated aggregate over synthetic indexed rows, excluding network, ingestion, ranking and HTTP.",
+    "No human editorial ranking labels or production databases used.",
+    "Daily radar benchmark starts with local synthetic GKG summary archives and 100 enabled scopes. It excludes downloading, initial extraction, graph projection and human relevance evaluation.",
+    "The separate 2026-11-15 spot check could not obtain the advertised Events batch. It is not part of the reconstruction sample."
+  ],
+  "synthetic_daily_radar": {
+    "synthetic": true,
+    "stage": "archived_summaries_to_frozen_edition",
+    "rows": 500000,
+    "distribution": "skewed",
+    "enabled_watches": 100,
+    "selected_hints": 5,
+    "database": "PostgreSQL 16.2 on x86_64-pc-linux-gnu, compiled by gcc (GCC) 10.2.1 20210130 (Red Hat 10.2.1-11), 64-bit",
+    "archives": 192,
+    "seconds": 39.544,
+    "peak_process_rss_mib": 147.0,
+    "selected": 100,
+    "stats": {
+      "scanned": 490000,
+      "invalid": 0,
+      "groups": 62400,
+      "scanned_by_source": {
+        "gkg": 490000
+      },
+      "prior_excluded": 0,
+      "eligible": 62400,
+      "selected": 100,
+      "mode": "balanced",
+      "sources": {
+        "literal_focus_hints": 3500,
+        "official_seen": 0,
+        "official_no_readable": 0,
+        "official_emitted": 0,
+        "local_seen": 0,
+        "local_no_readable": 0,
+        "local_emitted": 0,
+        "newsnow_seen": 0,
+        "newsnow_no_readable": 0,
+        "newsnow_emitted": 0,
+        "official_reconstructed": 0,
+        "official_augmented": 0,
+        "reconstruction_source_available": true,
+        "gkg_archives": 192,
+        "gkg_seen": 500000,
+        "gkg_invalid": 5000,
+        "gkg_no_readable": 5000,
+        "gkg_emitted": 490000,
+        "gkg_archive_present": true
+      }
+    },
+    "pg_build_statements": 11,
+    "pg_read_statements": 1,
+    "pg_read_ms": 4.226
+  },
+  "release_verification": {
+    "regression_passed": 1176,
+    "regression_skipped": 287,
+    "separate_database_regression_passed": 99,
+    "wheel_smoke_suites_passed": 7,
+    "upgrade_replayed_twice": [
+      "SQLite",
+      "PostgreSQL"
+    ],
+    "browser_widths_px": [
+      390,
+      1440
+    ]
+  },
+  "current_public_spot_check": {
+    "date_utc": "2026-11-15",
+    "events_manifest_stamp": "20261115054500",
+    "event_export_get_http": 404,
+    "end_to_end_verified": false
+  }
+}

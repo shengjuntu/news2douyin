@@ -44,7 +44,7 @@ def test_missing_content_does_not_turn_actor_codes_into_a_news_headline():
     page=render()
     visible=page.split('data-gdelt-event="123456"',1)[1].split('</article>',1)[0]
     assert 'data-gdelt-report-title>报道内容待补充</h2>' in visible
-    assert '尚未取得可读的报道标题和摘要' in visible
+    assert 'data-gdelt-content-badge>报道待补充</span>' in visible
     assert 'data-gdelt-enrich="123456">补充报道' in visible
     assert '>保留线索</button>' in visible
     assert 'data-gdelt-translate-card' not in visible
@@ -55,7 +55,8 @@ def test_reporting_is_escaped_and_a_title_only_lead_is_not_called_fulltext():
     malicious='<img src=x onerror=alert(1)>'
     page=render(report(title=malicious,excerpt=''))
     assert malicious not in page and '&lt;img src=x onerror=alert(1)&gt;' in page
-    assert '尚无摘要，可先查看来源报道。' in page
+    assert 'data-gdelt-content-badge>仅标题</span>' in page
+    assert 'data-gdelt-report-excerpt hidden' in page and '>补充摘要</button>' in page
     assert '已核实事件摘要' not in page
     assert '相关报道可能涉及多个事件，编码仍需对照原文。' in page
 

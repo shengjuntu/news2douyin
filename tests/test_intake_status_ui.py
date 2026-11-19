@@ -78,7 +78,7 @@ def test_intake_page_explains_offsets_unknown_history_and_explicit_archive_searc
     template_root=Path(__file__).parents[1]/'src/news2douyin/server/templates'
     environment=Environment(loader=FileSystemLoader(template_root),autoescape=select_autoescape(['html']))
     page=environment.get_template('intake.html').render(active='intake',feed_labels={'events_english':'Events English'})
-    assert '未完成批次也不等于错误批次' in page
+    assert '待处理和失败分开统计' in page
     assert '包含成功投影与保留原档的跳过记录' in page
     assert '重试只解除等待' in page
     assert '尚未查询，页面刷新只读取接收进度' in page

@@ -1,0 +1,360 @@
+{
+  "schema_version": 1,
+  "reviewer": "Codex 阅读重建材料后逐对判读，未经过独立人类编辑复核。",
+  "review_question": "在该批次可见的报道材料中，是否有可归于编码各方、方向及具体行动的近期进展？近期以报道自身时序判断，不将数据库观测日当作发生日。",
+  "reference_labels": {
+    "current_action": "报道明确陈述了与编码匹配的近期行动。正式职衔可代表一方，但必须有充分语境；不据单篇报道作独立事实核验。",
+    "background_or_other": "相关段落能够定位，但实际在讲其他行动或其他主体、否定/假设、历史或署名等。",
+    "insufficient": "泛称、缺失参与方或材料不足以把报道断言同这一编码唯一对应。"
+  },
+  "sampling": {
+    "events_and_mentions_batch_utc": "20250316001500",
+    "ngrams_minute_utc": "20250316000100",
+    "valid_mentions_rows": 1736,
+    "distinct_mention_documents": 296,
+    "initial_url_draw": "按 UTF-8 原始文档标识的 SHA-256 升序取前 40 个；不作 URL 清洗或 NGrams 可得性预筛。",
+    "urls_drawn": 40,
+    "urls_reconstructed": 38,
+    "pair_pool": "在成功重建且同批 Events 有匹配 GlobalEventID 的记录中，去重 (GlobalEventID, 原始文档标识) 后固定 149 对。",
+    "eligible_pairs": 149,
+    "pair_draw": "对 UTF-8 编码的 GlobalEventID + 单个换行符 U+000A + 原始文档标识求 SHA-256，按完整摘要升序取前 25 对，无需随机种子。",
+    "pairs_drawn": 25,
+    "distinct_documents_in_draw": 15
+  },
+  "archives_sha256": {
+    "20250316000100.webngrams.json.gz": "4b73eed6c10471fa8c05e2eca4d403be66ba5d94c93f195fe4746ceabc4d49bb",
+    "20250316001500.export.CSV.zip": "c11b7ae255d7e7b63b4770d9ad19a59aeb8fb34961b3b1422f0758a061384e2d",
+    "20250316001500.mentions.CSV.zip": "46a605a0bc6454834f96de6043206dca2027db4ba30737936aa8307ab32193a1"
+  },
+  "baseline_version": "0.32.0",
+  "baseline_disjoint_waterfall": {
+    "priority": [
+      "missing_actor",
+      "ambiguous_or_generic_actor",
+      "unsupported_cameo_root",
+      "reached_sentence_check"
+    ],
+    "all_149": [
+      70,
+      11,
+      10,
+      58
+    ],
+    "reviewed_25": [
+      9,
+      1,
+      1,
+      14
+    ],
+    "passed_all_149": 0,
+    "passed_reviewed_25": 0
+  },
+  "verdict_counts": {
+    "background_or_other": 18,
+    "insufficient": 6,
+    "current_action": 1
+  },
+  "scope": "一个英文批次中的条件样本；同一报道可以关联多个编码，25 对不是 25 次独立新闻；没有核对出版方原稿，也没有给日报价值打分。不能换算一般召回率或全网重要事件遗漏率。",
+  "reviews": [
+    {
+      "pair_sha256": "0689aa26793a7a74b2aae412cda13915b61803983950e28a47071289f53630f4",
+      "document_sha256": "106820e718a112a0ad5bd00ce820dd9caecdc578fdcc355bac6e5077f6413e5f",
+      "event_id": "1232344495",
+      "event_code": "043",
+      "coded_event_date": "2025-03-16",
+      "actor1": "TRAVELLER",
+      "actor2": "",
+      "verdict": "background_or_other",
+      "reason": "role_direction",
+      "review_note_zh": "印度果阿的节庆报道提到有游客到访。举办活动的是当地机构，文中没有游客作为接待方的行动。"
+    },
+    {
+      "pair_sha256": "06b6a630be9acb2ff554f2f25a81e90b316f866f97a45af79ac9d0d7462c5b46",
+      "document_sha256": "0c2d1e63f8c896b5702532a6ade2368b096f608c04819a9fe9309480783cde5f",
+      "event_id": "1232345375",
+      "event_code": "040",
+      "coded_event_date": "2025-03-16",
+      "actor1": "CAPE TOWN",
+      "actor2": "US TREASURY",
+      "verdict": "background_or_other",
+      "reason": "nonparticipation",
+      "review_note_zh": "开普敦是会议地点。报道回顾美国财长选择不出席该会议，不能支持双方举行了会谈。"
+    },
+    {
+      "pair_sha256": "088ead1f1313878f7f6500d708a7681fed20bfdb8d06a4e11582d1e7f4429c8a",
+      "document_sha256": "18832333925089a67f1bf57ffe82122084909da9e3dee0b235009ac4acd3d513",
+      "event_id": "1232344530",
+      "event_code": "090",
+      "coded_event_date": "2025-03-16",
+      "actor1": "GREENLAND",
+      "actor2": "DENMARK",
+      "verdict": "background_or_other",
+      "reason": "different_action",
+      "review_note_zh": "有美国总统质疑丹麦主权的表述，也有当地游行；没有格陵兰对丹麦展开调查的表述。"
+    },
+    {
+      "pair_sha256": "08f671b20500bfee68029a8ec915e78a246c601c5327de4009097d6fc51e4e55",
+      "document_sha256": "0c2d1e63f8c896b5702532a6ade2368b096f608c04819a9fe9309480783cde5f",
+      "event_id": "1232344368",
+      "event_code": "051",
+      "coded_event_date": "2025-03-16",
+      "actor1": "AFRICA",
+      "actor2": "UNITED STATES OF AMERICA",
+      "verdict": "background_or_other",
+      "reason": "different_action",
+      "review_note_zh": "南非政府在回应外交官遭驱逐时表达维持对美关系的意愿；这不足以支持该子码所指的对美国赞扬或背书。"
+    },
+    {
+      "pair_sha256": "0957ac838af82c368ed61ad7167ca3b2171abeb413e940f5e2e075a6300db394",
+      "document_sha256": "00f643d8e82082d5d68c80e000985921b64ac17f975026a5f207edd7b20ede10",
+      "event_id": "1232344383",
+      "event_code": "190",
+      "coded_event_date": "2025-03-16",
+      "actor1": "VICTORIA",
+      "actor2": "FIREFIGHTER",
+      "verdict": "background_or_other",
+      "reason": "wrong_target",
+      "review_note_zh": "维多利亚州是山火发生地，消防员扑救的是山火；把州和消防员列为交战双方会颠倒材料含义。"
+    },
+    {
+      "pair_sha256": "0ae8717e7d63bb1f3175b3bf0b4a47168ea7582cec865a4f72fe8b565bb72242",
+      "document_sha256": "0bf5822cac4704a2f782c9b0c8058c12821ae321fa1952b87c86df4ea917e219",
+      "event_id": "1232344706",
+      "event_code": "090",
+      "coded_event_date": "2025-03-16",
+      "actor1": "EDUCATION DEPARTMENT",
+      "actor2": "UNITED STATES",
+      "verdict": "background_or_other",
+      "reason": "wrong_target",
+      "review_note_zh": "报道支持美国教育部对多所大学展开调查；美国是这些大学所在国，不能据此列为被调查方。文中还更正了一所大学的名称。"
+    },
+    {
+      "pair_sha256": "0d3f659c7878eed0b2a3db0fcc7ac75ad9d85713466af93e5aaf35ed0f39c251",
+      "document_sha256": "05b8afd599a297053a96945885b60b85e430c96774c6512c26b6a8347dd73ede",
+      "event_id": "1232344962",
+      "event_code": "042",
+      "coded_event_date": "2025-03-16",
+      "actor1": "DUTCH",
+      "actor2": "UNITED KINGDOM",
+      "verdict": "insufficient",
+      "reason": "participants_unclear",
+      "review_note_zh": "报道中的活动组织呼吁关注运送活羊的拖车，记载有拖车抵达英国；车辆和行程信息不足以核实编码中的荷兰一方造访英国。"
+    },
+    {
+      "pair_sha256": "0d4759d9a92a992a80e1e502b01217d0e556c0c0d9f20072d4a2d69a5471a429",
+      "document_sha256": "1857a70282e98e6b45faa37963156a5286a53a12b24329387a14e013e0595f7a",
+      "event_id": "1232345109",
+      "event_code": "011",
+      "coded_event_date": "2025-03-16",
+      "actor1": "UNITED STATES",
+      "actor2": "",
+      "verdict": "background_or_other",
+      "reason": "wrong_speaker",
+      "review_note_zh": "对撤回地方建设项目申诉一事不作评论的是圣迭戈一位居民，不能归于美国政府或美国这一行为方。"
+    },
+    {
+      "pair_sha256": "0da789532523c997e87615088fe41dd8fc214fddc25bad7876e37c1fa36d18d0",
+      "document_sha256": "14532883123c295d1239d12abef98de871d0f75c11df077a43bb0a78bb6a62d3",
+      "event_id": "1232344738",
+      "event_code": "040",
+      "coded_event_date": "2025-03-16",
+      "actor1": "IRAN",
+      "actor2": "",
+      "verdict": "background_or_other",
+      "reason": "wrong_actor",
+      "review_note_zh": "宾州报道汇编介绍议员联署对伊朗制裁法案，也谈到未来的协调机制；没有报道伊朗在当地展开磋商。"
+    },
+    {
+      "pair_sha256": "127f76066c2e22db3dde81b451dc8e0151b34cdf458291ee1a03e67e3021eb38",
+      "document_sha256": "140430e279c82049d14897b40d9983edcdc08d01b205aa94aff35d00c6862e59",
+      "event_id": "1232344273",
+      "event_code": "040",
+      "coded_event_date": "2025-03-16",
+      "actor1": "",
+      "actor2": "IRISH",
+      "verdict": "insufficient",
+      "reason": "participants_unclear",
+      "review_note_zh": "报道记述美国布法罗的爱尔兰传统节日游行和采访；编码只有爱尔兰一侧，难以识别独立的磋商双方。"
+    },
+    {
+      "pair_sha256": "17ed4bffa75372d9f8e799f114481c53c368cea7fb1abe1c3d4279c50681674c",
+      "document_sha256": "1c4e9808abe7872b74c53ee3ad7486987ffda23083d729d8c891e496eeeb4735",
+      "event_id": "1232345121",
+      "event_code": "020",
+      "coded_event_date": "2025-03-16",
+      "actor1": "UNITED STATES",
+      "actor2": "",
+      "verdict": "insufficient",
+      "reason": "participants_unclear",
+      "review_note_zh": "这篇报道包括美国之音员工休假、政府指令和多方表态；只有美国一侧和呼吁这一泛称，无法唯一对应一个请求。"
+    },
+    {
+      "pair_sha256": "19e3d45eef1c2c72cd62da42fe563c478a13630f3dfab164c3e7afa2a090341d",
+      "document_sha256": "13204b8e5a207863685d0ab545cfb451fdad61e8f575d5b6323c0b6287c08e94",
+      "event_id": "1232344447",
+      "event_code": "042",
+      "coded_event_date": "2025-03-16",
+      "actor1": "CHRISTIANITY",
+      "actor2": "IRELAND",
+      "verdict": "background_or_other",
+      "reason": "historical",
+      "review_note_zh": "文章回顾圣帕特里克在公元五世纪赴爱尔兰传教，此行有明确历史背景。"
+    },
+    {
+      "pair_sha256": "1a769698c8a651108a9ed17f8886de97cfb4ea5ad7ddf7c8c48adc1c62059ad1",
+      "document_sha256": "0c2d1e63f8c896b5702532a6ade2368b096f608c04819a9fe9309480783cde5f",
+      "event_id": "1232344365",
+      "event_code": "020",
+      "coded_event_date": "2025-03-16",
+      "actor1": "AFRICA",
+      "actor2": "AMBASSADOR",
+      "verdict": "insufficient",
+      "reason": "participants_unclear",
+      "review_note_zh": "南非发言人确实发出呼吁，受众笼统涵盖相关各方；材料无法确认特指编码中的大使。"
+    },
+    {
+      "pair_sha256": "1ef0b0ec199acd3e966917df830336ea3b80cde3099f1ebb06619e5c709583fd",
+      "document_sha256": "140430e279c82049d14897b40d9983edcdc08d01b205aa94aff35d00c6862e59",
+      "event_id": "1232344733",
+      "event_code": "040",
+      "coded_event_date": "2025-03-16",
+      "actor1": "IRISH",
+      "actor2": "",
+      "verdict": "insufficient",
+      "reason": "participants_unclear",
+      "review_note_zh": "同一篇布法罗节庆报道出现反向的单边磋商编码；仅凭受访者的文化背景，无法确定所指行动。"
+    },
+    {
+      "pair_sha256": "1f4ae37a089c76ac4915986fe9bde9bd5f8a30e8b47188c2e37d824a7774c405",
+      "document_sha256": "0c2d1e63f8c896b5702532a6ade2368b096f608c04819a9fe9309480783cde5f",
+      "event_id": "1232344197",
+      "event_code": "043",
+      "coded_event_date": "2025-02-14",
+      "actor1": "FOREIGN MINIST",
+      "actor2": "AFRICA",
+      "verdict": "background_or_other",
+      "reason": "historical_nonparticipation",
+      "review_note_zh": "段落回顾上个月部分美国官员未赴南非参会的经过。编码日期本身也早于这次报道批次。"
+    },
+    {
+      "pair_sha256": "20fba0571bb17e5bcc222df001744761e2f93928d9ef86ce6afc06f886a8fc82",
+      "document_sha256": "0bf5822cac4704a2f782c9b0c8058c12821ae321fa1952b87c86df4ea917e219",
+      "event_id": "1232344653",
+      "event_code": "172",
+      "coded_event_date": "2025-03-16",
+      "actor1": "ADMINISTRATION",
+      "actor2": "COLLEGE",
+      "verdict": "background_or_other",
+      "reason": "historical_or_conditional",
+      "review_note_zh": "报道的新进展是对高校展开调查；被警告可能失去拨款出自此前备忘录，材料没有给出本次已经施加的新限制。"
+    },
+    {
+      "pair_sha256": "218326ce47e3831cadefb5b9cccfd6fb6486be1fecfa1d088e004ba62ef7618c",
+      "document_sha256": "0d49a98b346207cffe250df3b2a2656b2a4013a84df20b5c81bff349ba3174ad",
+      "event_id": "1232344912",
+      "event_code": "0353",
+      "coded_event_date": "2025-03-16",
+      "actor1": "NAVAL",
+      "actor2": "TERRORIST",
+      "verdict": "background_or_other",
+      "reason": "different_action",
+      "review_note_zh": "报道涉及美方在也门采取行动和航运安全，未见海军表达释放人员或财产意向。"
+    },
+    {
+      "pair_sha256": "224db3989eebcbea6f08951cc0157baf8e84a7da13c4e2b49b36aa0c67274ded",
+      "document_sha256": "0d49a98b346207cffe250df3b2a2656b2a4013a84df20b5c81bff349ba3174ad",
+      "event_id": "1232344893",
+      "event_code": "010",
+      "coded_event_date": "2025-03-16",
+      "actor1": "MILITARY",
+      "actor2": "",
+      "verdict": "insufficient",
+      "reason": "participants_unclear",
+      "review_note_zh": "报道包含总统的公开发言、美国官员对行动的描述和匿名消息源；编码仅写军方，无法唯一确认军方发言者或对应表态。"
+    },
+    {
+      "pair_sha256": "2a78cb228d8d9019928a8e532983c44e6a3c52bcbbc99c8c2bbc3be73fb30944",
+      "document_sha256": "0d49a98b346207cffe250df3b2a2656b2a4013a84df20b5c81bff349ba3174ad",
+      "event_id": "1232345235",
+      "event_code": "013",
+      "coded_event_date": "2025-03-16",
+      "actor1": "AMERICAN",
+      "actor2": "PRESIDENT",
+      "verdict": "background_or_other",
+      "reason": "role_direction",
+      "review_note_zh": "总统警告伊朗时提及美国人及其总统；在该段话里二者都是被提到的对象，无法据此推为美国人向总统作乐观表态。"
+    },
+    {
+      "pair_sha256": "2ae13c1c0ba73bb6a4494849844930738feb7eb4b11f099fd689bf6eef829a70",
+      "document_sha256": "18832333925089a67f1bf57ffe82122084909da9e3dee0b235009ac4acd3d513",
+      "event_id": "1232344528",
+      "event_code": "046",
+      "coded_event_date": "2025-03-16",
+      "actor1": "GREENLAND",
+      "actor2": "DENMARK",
+      "verdict": "background_or_other",
+      "reason": "role_direction",
+      "review_note_zh": "美国总统称他与丹麦和格陵兰有联系，并未称格陵兰与丹麦就此展开谈判。"
+    },
+    {
+      "pair_sha256": "2d30fdf84de77fdbd8f38ef083c23e002d2e87f0feb19ef7206166fba5c47e32",
+      "document_sha256": "10e2257b3899bbc563f8a407dc26704b864af8ec166a6e5c586792b71a71ed84",
+      "event_id": "1232345360",
+      "event_code": "070",
+      "coded_event_date": "2025-03-16",
+      "actor1": "ASSOCIATED PRESS",
+      "actor2": "VENEZUELA",
+      "verdict": "background_or_other",
+      "reason": "byline",
+      "review_note_zh": "美联社和委内瑞拉首都一起出现在记者署名致谢中。文章讲述美国法院的裁定，署名信息不能用来支持援助行动。"
+    },
+    {
+      "pair_sha256": "2fb61936dc2ff36087b7f67305892043fa8c290fad47822080363a0bde625f3a",
+      "document_sha256": "1835ebe0fa927732284f59aa552f463eaca8ce22fc160794638ef8ead79ca14b",
+      "event_id": "1232344356",
+      "event_code": "190",
+      "coded_event_date": "2025-03-16",
+      "actor1": "",
+      "actor2": "SEATTLE",
+      "verdict": "background_or_other",
+      "reason": "wrong_target",
+      "review_note_zh": "报道讲述一名车主在西雅图被劫车者枪击；西雅图是地点，无法作为与他人交战的参与方。"
+    },
+    {
+      "pair_sha256": "30432d6396006033bb428338e6c3d17aee60e65228ab8699306bee5dc7c27b04",
+      "document_sha256": "025a749e8c446f7a1c3b4b8e05dccc050c067f104d0e125571799aa0cd476e6d",
+      "event_id": "1232344292",
+      "event_code": "040",
+      "coded_event_date": "2025-03-16",
+      "actor1": "",
+      "actor2": "BURMESE",
+      "verdict": "background_or_other",
+      "reason": "historical",
+      "review_note_zh": "文章讲述十九世纪的谈判及二战时的缅甸流亡政府，文中的相关接触属于历史叙述。"
+    },
+    {
+      "pair_sha256": "3235c36632e1374f385e4a731402e55fec86b772a61213bb5192dd7578b8fc10",
+      "document_sha256": "0d49a98b346207cffe250df3b2a2656b2a4013a84df20b5c81bff349ba3174ad",
+      "event_id": "1232344757",
+      "event_code": "138",
+      "coded_event_date": "2025-03-16",
+      "actor1": "ISRAEL",
+      "actor2": "DJIBOUTI",
+      "verdict": "background_or_other",
+      "reason": "wrong_actor",
+      "review_note_zh": "当下发出警告的是美国总统；文中所提以色列和红海与背景有关，看不到以色列对吉布提发出的该项威胁。"
+    },
+    {
+      "pair_sha256": "3706729f70b6d7a4ce111a69265b1b1823ce214d6e8649400d384c50fab6568a",
+      "document_sha256": "18832333925089a67f1bf57ffe82122084909da9e3dee0b235009ac4acd3d513",
+      "event_id": "1232344535",
+      "event_code": "020",
+      "coded_event_date": "2025-03-16",
+      "actor1": "GREENLAND",
+      "actor2": "EUROPEAN",
+      "verdict": "current_action",
+      "reason": "literal_pattern_missed",
+      "review_note_zh": "报道明确写到格陵兰候任总理周六请求欧洲国家支持。职衔与姓名位于地名和动词之间，动作写作请求，对方写作欧洲国家。线索支持近期呼吁，不能据此指定为编码日期当天发生。"
+    }
+  ]
+}

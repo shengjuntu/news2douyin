@@ -1,7 +1,29 @@
-(()=>{'use strict';const task=window.contentTask;if(!task)return;
+(()=>{'use strict';
 const $=id=>document.getElementById(id),message=()=>document.querySelector('#work-message');
-const uid=()=>globalThis.crypto?.randomUUID?.()||('work-'+Date.now()+'-'+Math.random().toString(36).slice(2));
 function detailError(data){return typeof data.detail==='string'?data.detail:Array.isArray(data.detail)?data.detail.map(x=>x.msg).join('；'):'请求未完成，请稍后重试。';}
+const task=window.contentTask;
+for(const button of document.querySelectorAll('[data-work-trash]')) {
+  button.addEventListener('click', async () => {
+    const removing = button.dataset.workTrash === 'remove';
+    if (removing && !window.confirm('删除这条选题？可在回收站恢复。')) return;
+    button.disabled = true;
+    message().textContent = '';
+    const key = encodeURIComponent(button.dataset.workKey);
+    const version = encodeURIComponent(button.dataset.workTrashVersion);
+    const path = '/api/workbench/' + key + (removing ? '' : '/restore') + '?version=' + version;
+    try {
+      const response = await fetch(path, {method: removing ? 'DELETE' : 'POST'});
+      if (!response.ok) throw Error(detailError(await response.json()));
+      if (task) location.assign('/workbench');
+      else location.reload();
+    } catch (error) {
+      message().textContent = error.message;
+      button.disabled = false;
+    }
+  });
+}
+if(!task)return;
+const uid=()=>globalThis.crypto?.randomUUID?.()||('work-'+Date.now()+'-'+Math.random().toString(36).slice(2));
 async function request(path,body){const r=await fetch(path,{method:body===undefined?'GET':'POST',headers:body===undefined?{}:{'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)});const d=await r.json();if(!r.ok){const e=Error(detailError(d));e.status=r.status;throw e;}return d;}
 function go(url){if(typeof url!=='string'||!/^\/workbench\/[A-Za-z0-9_-]+(?:\/(?:selection|research|creation|works))?(?:\?[^#]*)?$/.test(url))throw Error('任务已保存，请在内容工作台查看。');location.assign(url);}
 for(const button of document.querySelectorAll('[data-work-resume]'))button.onclick=async()=>{button.disabled=true;try{const d=await request('/api/topics/'+task.key+'/handoffs/'+button.dataset.workResume+'/resume',{});go(d.url);}catch(e){message().textContent=e.message;button.disabled=false;}};

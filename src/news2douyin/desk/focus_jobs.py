@@ -64,7 +64,7 @@ def submit_build(s, description):
 def get_build(s, key):
     row = s.get(FocusBuild, key)
     if row is None:
-        raise KeyError('专题生成任务不存在')
+        raise KeyError('焦点生成任务不存在')
     return dict(key=row.key, status=row.status, spec=_loads(row.spec_json, None),
                 method=row.method, message=row.message, watch=row.watch)
 
@@ -94,11 +94,11 @@ def _write_definition(s, spec, description, method, *, key='', expected=None, se
         from .focus_lifecycle import require_active
         require_active(s, key)
     if old and old.version != expected:
-        raise TaskConflict('专题已被修改，请刷新后重试')
+        raise TaskConflict('焦点已更新，请刷新后重试')
     duplicate = s.exec(select(Watch.key).where(Watch.name == scope.name, Watch.key != ident)).first()
     if duplicate:
         from .focus_lifecycle import is_deleted
-        raise ValueError('同名专题在回收站中，请先恢复或使用其他名称' if is_deleted(s,duplicate) else '专题名称已存在，请修改名称')
+        raise ValueError('同名焦点在回收站中，请恢复或改名' if is_deleted(s,duplicate) else '焦点名称已存在')
     w = old or Watch(key=ident, **scope.model_dump())
     if old:
         for field in ('name', 'kind', 'scope', 'dimensions', 'exclude', 'question'):
@@ -140,9 +140,9 @@ def create_from_build(s, draft, spec=None, seed=''):
     lock_news(s, 'focus-build/'+draft)
     build = s.get(FocusBuild, draft)
     if build is None:
-        raise KeyError('专题生成任务不存在')
+        raise KeyError('焦点生成任务不存在')
     if build.status != 'ready':
-        raise TaskConflict('专题还在生成，请稍后再试')
+        raise TaskConflict('焦点正在生成')
     if build.watch:
         from .focus_lifecycle import require_active
         return require_active(s, build.watch)
@@ -161,14 +161,14 @@ def update_definition(s, key, version, description, spec=None, draft=''):
     if draft:
         build = s.get(FocusBuild, draft)
         if not build or build.status != 'ready':
-            raise TaskConflict('请先完成专题描述的生成')
+            raise TaskConflict('请先生成关注范围')
         description = build.description
         spec = spec if spec is not None else _loads(build.spec_json, {})
         method = build.method
     if spec is None:
         raise ValueError('请先根据描述生成关注范围')
     if not 1 <= len(description.strip()) <= 4000:
-        raise ValueError('专题描述长度须为 1–4000 字')
+        raise ValueError('关注描述须为 1–4000 字')
     w = _write_definition(s, spec, description, method, key=key, expected=version)
     s.commit()
     s.refresh(w)
@@ -185,7 +185,7 @@ def _clear_auto(s, watch, event, generation=''):
         enqueue_graph(s, 'watch/'+watch)
         if generation:
             from ..knowledge.service import note_change
-            note_change(s, watch, event, 'rechecking', '材料已更新，正在重新判断是否属于专题', generation)
+            note_change(s, watch, event, 'rechecking', '材料已更新，正在重新匹配', generation)
 
 
 def queue_event(s, w, card, *, recall_extra=None, force=False):
@@ -210,9 +210,9 @@ def queue_event(s, w, card, *, recall_extra=None, force=False):
             route[field] = [_loads(v, v) for v in route[field]][:24]
         route['reason'] = '；'.join(v for v in (route.get('reason', ''), recall_extra.get('reason', '')) if v)[:600]
     if not route and manual:
-        route = dict(channels=['recheck'], paths=[], reason='已收录材料更新，重新核对专题相关性')
+        route = dict(channels=['recheck'], paths=[], reason='已收录材料更新，重新匹配')
     if not route and force:
-        route = dict(channels=['recheck'], paths=[], reason='人工恢复自动判断，按当前专题重新核对')
+        route = dict(channels=['recheck'], paths=[], reason='人工恢复自动判断')
     if not route:
         return None
     if recall_extra and recall_extra.get('historical'):
@@ -224,7 +224,7 @@ def queue_event(s, w, card, *, recall_extra=None, force=False):
         if force or existing.decision == 'manual':
             existing.status, existing.decision = 'pending', ''
             existing.attempts, existing.next_attempt = 0, 0
-            existing.reason = '重新按当前专题判断'
+            existing.reason = '重新匹配'
             existing.updated = utc_now_iso()
             s.add(existing)
             _clear_auto(s, w.key, card.key, key)
@@ -454,7 +454,7 @@ def _judge_step(engine):
                 if (not w or not w.enabled or w.version != scope_version or not current
                         or fingerprint(current) != digest or not _versions_unchanged(s, signatures)):
                     row.status = 'superseded'
-                    row.reason = '专题或原文已更新，旧判断不再发布'
+                    row.reason = '焦点或原文已更新，旧判断已失效'
                     s.add(row)
                     s.commit()
                     return True
@@ -476,7 +476,7 @@ def _judge_step(engine):
                     branch = (result.get('questions') or ['核心进展' if decision == 'core' else '背景材料'])[0]
                     s.merge(WatchEvent(watch=watch_key, event=event_key, choice='auto',
                         relevance=2 if decision == 'core' else 1, branch=str(branch)[:400],
-                        reason=('模型判断 · ' if row.method == 'model' else '专题判断 · ')+row.reason,
+                        reason=('模型判断 · ' if row.method == 'model' else '焦点匹配 · ')+row.reason,
                         first_seen=manual.first_seen if manual else utc_now_iso()))
                     # These links express relevance to a question, not support
                     # for a factual claim. Only exact existing question texts.
@@ -550,7 +550,7 @@ def retry(s, key):
     lock_news(s, 'watch:'+key)
     w = desk.get_watch(s, key)
     if not w.enabled:
-        raise TaskConflict('请先启用专题跟踪')
+        raise TaskConflict('请先启用跟踪')
     job = s.get(FocusBackfill, key)
     if job and job.status in ('paused', 'failed'):
         job.status = 'running' if job.through_key else 'pending'

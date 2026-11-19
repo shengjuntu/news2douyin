@@ -13,10 +13,10 @@ from .service import refresh_event, evidence_counts
 
 def require_event(session, key, *, active=False):
     event = session.exec(select(Event).where(Event.event_key == key)).first()
-    if not event: raise KeyError('事件专题不存在')
+    if not event: raise KeyError('事件不存在')
     state = session.get(EventState, key)
     if active and state and state.merged_into:
-        raise TaskConflict('此专题已并入 ' + state.merged_into + '，请打开目标专题')
+        raise TaskConflict('此事件已并入 ' + state.merged_into + '，请打开目标事件')
     return event
 
 
@@ -27,7 +27,7 @@ def canonical_event(session, key):
         state = session.get(EventState, key)
         if not state or not state.merged_into: return key
         key = state.merged_into
-    raise TaskConflict('专题合并关系存在循环，请检查历史数据')
+    raise TaskConflict('事件合并关系存在循环，请检查历史数据')
 
 
 def state_for(session, key):
@@ -44,7 +44,7 @@ def lock_event(session, key, expected):
     require_event(session, key, active=True)
     state = state_for(session, key)
     if state.version != expected:
-        raise TaskConflict('专题已更新，请刷新后再操作；尚未保存的内容请先复制保留')
+        raise TaskConflict('事件已更新，请刷新后再操作；尚未保存的内容请先复制保留')
     return state
 
 
@@ -142,7 +142,7 @@ def remove_source(session, key, article_key, expected):
     if references:
         raise TaskConflict('这篇报道正被脉络节点引用，请先修改或删除节点：' + '、'.join(references[:5]))
     links = session.exec(select(ArticleEventLink).where(ArticleEventLink.event_key == key, ArticleEventLink.article_key == article_key)).all()
-    if not links: raise KeyError('该报道不在此专题中')
+    if not links: raise KeyError('该报道不在此事件中')
     for link in links: session.delete(link)
     _repair_assignment(session, article_key, key)
     notes = loads(state.source_notes_json,{})
@@ -176,7 +176,7 @@ def save_moment(session, key, data, moment_key=None):
         raise KeyError('脉络节点不存在')
     allowed, evidence = linked_keys(session,key), []
     for source in data['sources']:
-        if source['article_key'] not in allowed: raise ValueError('证据报道必须先加入当前专题')
+        if source['article_key'] not in allowed: raise ValueError('证据报道必须先加入当前事件')
         version = session.exec(select(ArticleVersion).where(ArticleVersion.article_key == source['article_key'],ArticleVersion.revision == source['revision'])).first()
         if not version: raise ValueError('所选文章版本不存在，请重新选择来源')
         if version.content_hash != source['content_hash']: raise TaskConflict('来源版本指纹不匹配，请重新加载证据')
@@ -211,7 +211,7 @@ def relate(session,key,data):
     state=lock_event(session,key,data['expected_version'])
     target=data['target_event_key']
     require_event(session,target,active=True)
-    if key==target: raise ValueError('不能关联专题自身')
+    if key==target: raise ValueError('不能关联事件自身')
     rows=session.exec(select(EventRelation).where(EventRelation.kind==data['kind'])).all()
     for r in rows:
         a,b=canonical_event(session,r.from_event),canonical_event(session,r.to_event)
@@ -229,7 +229,7 @@ def unrelate(session,key,relation_key,expected):
     row=session.get(EventRelation,relation_key)
     if not row: raise KeyError('关联不存在')
     a,b=canonical_event(session,row.from_event),canonical_event(session,row.to_event)
-    if key not in {a,b}: raise KeyError('关联不属于此专题')
+    if key not in {a,b}: raise KeyError('关联不属于此事件')
     other=b if key==a else a
     audit(session,key,'remove_relation',row.model_dump())
     session.delete(row)
@@ -244,7 +244,7 @@ def merge(session,key,data):
     require_event(session,target,active=True)
     target_state=state_for(session,target)
     if target_state.version != data['target_expected_version']:
-        raise TaskConflict('目标专题已更新，请重新选择后合并')
+        raise TaskConflict('目标事件已更新，请重新选择后合并')
     keys=linked_keys(session,key)
     origin_notes=loads(state.source_notes_json,{})
     _add_sources(session,target,target_state,keys,'从 '+key+' 合并','merge')
@@ -278,7 +278,7 @@ def merge(session,key,data):
 def split(session,key,data):
     state=lock_event(session,key,data['expected_version'])
     chosen=set(data['article_keys'])
-    if not chosen or not chosen <= linked_keys(session,key): raise ValueError('拆分报道必须属于当前专题')
+    if not chosen or not chosen <= linked_keys(session,key): raise ValueError('拆分报道必须属于当前事件')
     moving=[]
     for node in active_moments(session,key):
         sources={s['article_key'] for s in loads(node.sources_json,[])}

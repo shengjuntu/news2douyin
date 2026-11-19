@@ -23,6 +23,7 @@
 ```bash
 python -m pip install '.[dev,research]' falkordblite==0.11.0
 pytest -q
+# 此项复现使用本报告对应的历史源码包。
 python tools/check_content_upgrade.py /path/to/news2douyin-0.19.0-py3-none-any.whl
 ```
 

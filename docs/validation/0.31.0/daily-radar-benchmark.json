@@ -1,0 +1,57 @@
+{
+  "synthetic": true,
+  "stage": "archived_summaries_to_frozen_edition",
+  "rows": 500000,
+  "distribution": "skewed",
+  "enabled_watches": 100,
+  "selected_hints": 5,
+  "database": "PostgreSQL 16.2 on x86_64-pc-linux-gnu, compiled by gcc (GCC) 10.2.1 20210130 (Red Hat 10.2.1-11), 64-bit",
+  "archives": 192,
+  "seconds": 37.983,
+  "peak_process_rss_mib": 146.3,
+  "selected": 100,
+  "stats": {
+    "scanned": 490000,
+    "invalid": 0,
+    "groups": 62400,
+    "scanned_by_source": {
+      "gkg": 490000
+    },
+    "prior_excluded": 0,
+    "eligible": 62400,
+    "selected": 100,
+    "mode": "balanced",
+    "sources": {
+      "literal_focus_hints": 3500,
+      "official_seen": 0,
+      "official_no_readable": 0,
+      "official_emitted": 0,
+      "local_seen": 0,
+      "local_no_readable": 0,
+      "local_emitted": 0,
+      "newsnow_seen": 0,
+      "newsnow_no_readable": 0,
+      "newsnow_emitted": 0,
+      "gkg_archives": 192,
+      "gkg_seen": 500000,
+      "gkg_invalid": 5000,
+      "gkg_no_readable": 5000,
+      "gkg_emitted": 490000,
+      "gkg_archive_present": true
+    }
+  },
+  "pg_build_statements": 10,
+  "pg_read_statements": 1,
+  "pg_read_ms": 5.727,
+  "temporary_disk_measurement": {
+    "temp_spool_sample_peak_mib": 486.4,
+    "simultaneous_tmp_files": 3
+  },
+  "untimed": [
+    "online acquisition",
+    "raw event parsing",
+    "fixture preparation",
+    "concurrent production load",
+    "HTTP"
+  ]
+}

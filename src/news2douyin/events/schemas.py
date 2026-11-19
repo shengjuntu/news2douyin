@@ -82,7 +82,7 @@ class SplitEdit(SourceEdit):
     @field_validator('title')
     @classmethod
     def nonblank(cls, value):
-        if not value.strip(): raise ValueError('新专题标题不能为空')
+        if not value.strip(): raise ValueError('新事件标题不能为空')
         return value.strip()
 
 

@@ -1,0 +1,206 @@
+{
+  "baseline": "0.33.0",
+  "current": "0.34.0",
+  "case": {
+    "baseline": {
+      "key": "progress_943666fdf6f6267f7d498793bb986272ea07757f",
+      "domains": [
+        "1360kktx.iheart.com",
+        "590kqnt.iheart.com",
+        "alt1073.iheart.com",
+        "jetradio1400.iheart.com",
+        "wccfradio.iheart.com"
+      ],
+      "domain_count": 5,
+      "links": [
+        "https://590kqnt.iheart.com/content/2025-03-17-fox-news-host-announces-pregnancy/",
+        "https://alt1073.iheart.com/content/2025-03-17-fox-news-host-announces-pregnancy/",
+        "https://jetradio1400.iheart.com/content/2025-03-17-fox-news-host-announces-pregnancy/?pname=www.jetradio1400.com&sc=dnsredirect",
+        "https://1360kktx.iheart.com/content/2025-03-17-fox-news-host-announces-pregnancy/",
+        "https://wccfradio.iheart.com/content/2025-03-17-fox-news-host-announces-pregnancy/"
+      ],
+      "selected_rank": 100
+    },
+    "current": {
+      "key": "progress_943666fdf6f6267f7d498793bb986272ea07757f",
+      "domains": [
+        "1360kktx.iheart.com",
+        "590kqnt.iheart.com",
+        "alt1073.iheart.com",
+        "jetradio1400.iheart.com",
+        "wccfradio.iheart.com"
+      ],
+      "domain_count": 5,
+      "publisher_breadth": {
+        "units": 1,
+        "units_capped": false,
+        "folded": true,
+        "mapped_families": [
+          "iHeartMedia"
+        ],
+        "unmatched_hosts": 0,
+        "unmatched_hosts_capped": false,
+        "mapping_version": "2026-11-15.v1"
+      },
+      "links": [
+        "https://590kqnt.iheart.com/content/2025-03-17-fox-news-host-announces-pregnancy/",
+        "https://alt1073.iheart.com/content/2025-03-17-fox-news-host-announces-pregnancy/",
+        "https://jetradio1400.iheart.com/content/2025-03-17-fox-news-host-announces-pregnancy/?pname=www.jetradio1400.com&sc=dnsredirect",
+        "https://1360kktx.iheart.com/content/2025-03-17-fox-news-host-announces-pregnancy/",
+        "https://wccfradio.iheart.com/content/2025-03-17-fox-news-host-announces-pregnancy/"
+      ],
+      "selected_rank": null
+    }
+  },
+  "days": {
+    "2025-03-15": {
+      "valid_candidates": 3038,
+      "groups": 2507,
+      "previous_seats": 100,
+      "current_seats": 100,
+      "common_keys": 100,
+      "same_position": 100,
+      "previous_fingerprints": "41602b62a2e357a4d006c13502adc74ee7336d47de2b208938da163628996b23",
+      "current_fingerprints": "41602b62a2e357a4d006c13502adc74ee7336d47de2b208938da163628996b23",
+      "exited": 0,
+      "entered": 0
+    },
+    "2025-03-16": {
+      "valid_candidates": 2073,
+      "groups": 1764,
+      "previous_seats": 100,
+      "current_seats": 100,
+      "common_keys": 99,
+      "same_position": 87,
+      "previous_fingerprints": "969bdafa6bdaf7acd83300ffe09d7178dd36b151b690eea6ef3f06c6430fc2f8",
+      "current_fingerprints": "7d0ec01e6cc7f1ecbc339332b2266d227d0d9541aa9379c056e1cb8e9da4401a",
+      "exited": 1,
+      "entered": 1
+    },
+    "2025-03-17": {
+      "valid_candidates": 2962,
+      "groups": 2528,
+      "previous_seats": 100,
+      "current_seats": 100,
+      "common_keys": 99,
+      "same_position": 58,
+      "previous_fingerprints": "1a018461cb977ad1724940affd5e85ecef9c11dc8a3bfa48d2d88a1de7b0f447",
+      "current_fingerprints": "bbcc8c0d0ecee9b759ea4aff1fd49393735c17e51625def05136a354c86c5a14",
+      "exited": 1,
+      "entered": 1
+    },
+    "2025-03-18": {
+      "valid_candidates": 4257,
+      "groups": 3565,
+      "previous_seats": 100,
+      "current_seats": 100,
+      "common_keys": 99,
+      "same_position": 75,
+      "previous_fingerprints": "33c793170d47d4753e7576240f34e6f47cb65de336470abd25b01e224ec86633",
+      "current_fingerprints": "67fa19ebe355b54389c5a931a1950fb52af541f9b2ae1b88da54256cf1ad3623",
+      "exited": 1,
+      "entered": 1
+    },
+    "2025-03-19": {
+      "valid_candidates": 4284,
+      "groups": 3618,
+      "previous_seats": 100,
+      "current_seats": 100,
+      "common_keys": 100,
+      "same_position": 100,
+      "previous_fingerprints": "4e942004371a6323108e1bbb5c39faf50b495c27eb333be1dcd8752a475e8ce3",
+      "current_fingerprints": "4e942004371a6323108e1bbb5c39faf50b495c27eb333be1dcd8752a475e8ce3",
+      "exited": 0,
+      "entered": 0,
+      "changed_sample": {
+        "previous_only": {
+          "sampled": 0,
+          "worthwhile": 0,
+          "ordinary": 0,
+          "undetermined": 0
+        },
+        "current_only": {
+          "sampled": 0,
+          "worthwhile": 0,
+          "ordinary": 0,
+          "undetermined": 0
+        }
+      }
+    },
+    "2025-03-20": {
+      "valid_candidates": 4225,
+      "groups": 3534,
+      "previous_seats": 100,
+      "current_seats": 100,
+      "common_keys": 98,
+      "same_position": 70,
+      "previous_fingerprints": "d0190dd03b6184f9a7a6035fab169bb0c13315b4de48bee0c886e59d48f4122d",
+      "current_fingerprints": "d6c247282434f96df70e945e178bbba5ce2f1327a8797fdece03dd22ad2995ba",
+      "exited": 2,
+      "entered": 2,
+      "changed_sample": {
+        "previous_only": {
+          "sampled": 2,
+          "worthwhile": 0,
+          "ordinary": 2,
+          "undetermined": 0
+        },
+        "current_only": {
+          "sampled": 2,
+          "worthwhile": 1,
+          "ordinary": 1,
+          "undetermined": 0
+        }
+      }
+    },
+    "2025-03-21": {
+      "valid_candidates": 3854,
+      "groups": 3314,
+      "previous_seats": 100,
+      "current_seats": 100,
+      "common_keys": 100,
+      "same_position": 100,
+      "previous_fingerprints": "f9f66d4e8ace1a597b98df521746a1d17f88549b8c46ec0ee8ff45ba4eaa7256",
+      "current_fingerprints": "f9f66d4e8ace1a597b98df521746a1d17f88549b8c46ec0ee8ff45ba4eaa7256",
+      "exited": 0,
+      "entered": 0,
+      "changed_sample": {
+        "previous_only": {
+          "sampled": 0,
+          "worthwhile": 0,
+          "ordinary": 0,
+          "undetermined": 0
+        },
+        "current_only": {
+          "sampled": 0,
+          "worthwhile": 0,
+          "ordinary": 0,
+          "undetermined": 0
+        }
+      }
+    }
+  },
+  "source_fingerprints": {
+    "signals.py": "8447a40bfa26da39c4331437ceb9a3bc429d8f6d825896ff75514cddd9d26e5d",
+    "ranking.py": "fff12b5258dabefecef3a9dd8a80865985e612cdd3c918301250de1159288056",
+    "sources.py": "695d297612d91f7c87a6c46be5f086b1c0df837479bede1da334610279a90b87",
+    "service.py": "ca16c678dc02b7bf0b16dea883dcfe01aa9c51f0d75b87bd1e5b24f98bfe0b45",
+    "publisher_families.py": "b8e405e4f40c1a3bd968c29c0f4afb34da019a7534352375dfd43eab54b2b332",
+    "headline_identity.py": "4f21482edeb98019199d6a6c2f05daaca8445e2ee9cde8d2e60b42abb382aa4f",
+    "source_breadth.py": "5748a209f00eff85b92930893925fc1e4a832826bcdfa1cc321fc8ce77444673",
+    "_iheart_station_hosts.py": "f5e7d8344825916820896f81bd7053943268fd53cc895e19837ca692a4438e0b"
+  },
+  "post_review_check": {
+    "blind_id": "a42fcf94467c3e34d1a5f294",
+    "day": "2025-03-20",
+    "prior_list_planned_action_titles": 4,
+    "archive": "20250320121500.gkg.csv.zip",
+    "row_index": 1309,
+    "simulated_available_utc": "2025-03-20T12:30:00Z",
+    "official_remarks_start_utc": "2025-03-20T20:22:00Z",
+    "official_source": "https://www.govinfo.gov/content/pkg/DCPD-202500377/html/DCPD-202500377.htm",
+    "interpretation_zh": "在盲评后另查时间。这个档案标题使用已签署语气，官方现场记录显示实际签署在演说开始之后。标题可作为查证线索，无法用它确认本期已完成签署。"
+  },
+  "editorial_label_note": "Editorial interest was assessed blind using the title. Post-review verification did not change these labels.",
+  "comparison_cli_crosscheck": "For 2025-03-18 through 21, news2douyin-review compare-publishers --warmup-days 3 matched both independently installed releases on positions, selected keys, and scores for every reported change."
+}

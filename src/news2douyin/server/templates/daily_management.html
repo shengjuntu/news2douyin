@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+{% block title %}日报管理 · news2douyin{% endblock %}
+{% block graph_libraries %}{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="/research-assets/daily-management.css">
+{% set d=data.detail %}{% set edition=d.issue %}{% set job=d.job %}
+{% macro form_action(action, label, disabled=false) %}
+<form method="post" action="/admin/daily-radar/{{ data.selected }}/{{ action }}?end={{ data.end }}"><button type="submit"{% if disabled %} disabled{% endif %}>{{ label }}</button></form>
+{% endmacro %}
+{% macro job_status(job) %}{{ job_labels.get(job.status,job.status) }}{% endmacro %}
+<div class="dm" data-daily-management data-running="{{ 1 if data.running else 0 }}">
+<div class="dm-head"><h1>日报管理</h1><a href="/radar?day={{ data.selected }}">查看这期日报 →</a></div>
+<form class="dm-picker" method="get" action="/admin/daily-radar"><label>查看日期（北京时间） <input type="date" name="day" max="{{ data.today }}" value="{{ data.selected }}" required></label><button type="submit">查看</button>{% if data.selected!=data.today %}<a href="/admin/daily-radar">回到今天</a>{% endif %}</form>
+{% if message %}<p class="dm-alert" role="{{ 'alert' if error else 'status' }}">{{ message }}</p>{% endif %}
+<section class="dm-detail card" id="day-detail" aria-labelledby="dm-date">
+<h2 id="dm-date">{{ data.selected }}{% if data.selected==data.today %} · 今天{% endif %}</h2>
+<div class="dm-status">
+<div><span>日报</span><strong>{{ edition.label }}</strong>{% if edition.revision %}<small>第 {{ edition.revision }} 版{% if edition.selected is number %} · {{ edition.selected }} 条{% endif %}</small>{% endif %}</div>
+<div><span>GDELT 归档缺口</span>{% if data.enabled_feeds %}<strong>{{ d.missing }} 批</strong><small>已收 {{ d.stored }} / 到点 {{ d.expected }}{% if d.failed %} · 失败 {{ d.failed }}{% endif %}{% if d.not_due %} · 未到点 {{ d.not_due }}{% endif %}</small>{% else %}<strong>未启用采集流</strong>{% endif %}</div>
+<div><span>当日补采任务</span><strong>{{ job_status(job) if job else '无' }}</strong>{% if job %}<small>已完成 {{ job.done }} / {{ job.total }}{% if job.pending %} · 待处理 {{ job.pending }}{% endif %}{% if job.retrying %}（{{ job.retrying }} 批待重试）{% endif %}{% if job.failed %} · 失败 {{ job.failed }}{% endif %}</small>{% endif %}</div>
+</div>
+{% if edition.generated_at or edition.cutoff_at %}<p class="dm-meta">{% if edition.generated_at %}最近发布 {{ edition.generated_at|local_ts('Asia/Shanghai') }}{% endif %}{% if edition.cutoff_at %} · 数据截止 {{ edition.cutoff_at|local_ts('Asia/Shanghai') }}{% endif %}（北京时间）</p>{% endif %}
+{% if edition.error %}<p class="dm-alert" role="status">日报生成错误：{{ edition.error }}</p>{% endif %}
+{% if job and job.last_error %}<p class="dm-alert" role="status">补采错误：{{ job.last_error }}</p>{% endif %}
+<div class="dm-actions">
+{{ form_action('rebuild','按已有数据重算' if edition.has_snapshot else '用已有数据生成',not data.digest_enabled or edition.build_status in ('pending','building') or job and job.status in active_jobs) }}
+{% if data.selected < data.today %}
+{% if job and job.status in ('partial','completed_partial','failed') or job and job.status=='completed' and d.missing %}
+{{ form_action('retry','重试补采',not data.receiver_enabled or not data.enabled_feeds) }}
+{% if job.status=='partial' and job.done and data.digest_enabled %}{{ form_action('publish-partial','用已补齐的批次重算',not data.receiver_enabled) }}{% endif %}
+{% elif not job %}
+{{ form_action('backfill','补缺并重算',not data.receiver_enabled or not data.enabled_feeds or not data.digest_enabled) }}
+{% endif %}
+{% endif %}
+{% if data.running %}<span class="dm-meta" aria-live="polite">后台处理中</span>{% endif %}
+</div>
+{% if not data.digest_enabled %}<p class="dm-meta">日报生成器已暂停。</p>{% endif %}
+{% if not data.receiver_enabled %}<p class="dm-meta">GDELT 接收器已暂停。可在<a href="/intake">全量采集接收</a>查看配置。</p>{% endif %}
+{% if data.selected==data.today %}<p class="dm-meta">下一版生成成功后发布。当天结束后可补采。</p>
+{% else %}<p class="dm-meta">补回的 GKG 报道参与重算。其他来源按本期观测时间取数。</p>
+{% endif %}
+{% if d.feeds %}<details class="dm-disclosure"><summary>按采集流查看缺口（{{ d.feeds|length }}）</summary><p class="dm-meta">缺口按本地归档统计，含失败批次。</p>
+<div class="dm-scroll"><table><thead><tr><th>采集流</th><th>已收 / 到点</th><th>缺批</th><th>失败</th><th>未到点</th><th>缺口示例（北京时间）</th></tr></thead><tbody>
+{% for feed in d.feeds %}<tr><th>{{ feed.label }}</th><td>{{ feed.stored }} / {{ feed.expected }}</td><td>{{ feed.missing }}</td><td>{{ feed.failed }}</td><td>{{ feed.not_due }}</td><td>{% for stamp in feed.missing_examples %}{{ batch_clock(stamp) }}{{ '、' if not loop.last }}{% else %}—{% endfor %}</td></tr>{% endfor %}
+</tbody></table></div></details>{% endif %}
+{% if job and job.examples %}<details class="dm-disclosure"><summary>查看任务批次样例</summary><ul>{% for item in job.examples %}<li>{{ item.feed }} · {{ batch_clock(item.stamp) }} 北京时间{% if item.error %} · {{ item.error }}{% else %} · {{ item.state }}{% endif %}</li>{% endfor %}</ul></details>{% endif %}
+</section>
+<section aria-labelledby="dm-days">
+<div class="dm-head"><h2 id="dm-days">逐日概览</h2><div class="dm-jump">{% if data.prev_end %}<a href="/admin/daily-radar?day={{ data.prev_end }}">前七天</a>{% endif %}{% if data.next_end %}<a href="/admin/daily-radar?day={{ data.next_end }}">后七天</a>{% endif %}</div></div>
+<div class="dm-scroll"><table><thead><tr><th>北京日期</th><th>日报</th><th>归档缺批</th><th>补采任务</th></tr></thead><tbody>
+{% for row in data.days %}<tr{% if row.day==data.selected %} aria-current="date"{% endif %}><th><a href="/admin/daily-radar?day={{ row.day }}&amp;end={{ data.end }}#day-detail">{{ row.day }}</a>{% if row.day==data.today %} · 今天{% endif %}</th><td>{{ row.issue.label }}</td><td>{% if data.enabled_feeds %}{{ row.missing }} / {{ row.expected }}{% else %}未启用{% endif %}</td><td>{{ job_status(row.job) if row.job else '—' }}</td></tr>{% endfor %}
+</tbody></table></div>
+</section>
+<section aria-labelledby="dm-jobs"><h2 id="dm-jobs">最近补采任务</h2>
+{% if data.jobs %}<div class="dm-scroll"><table><thead><tr><th>目标日期</th><th>状态</th><th>已完成 / 总批次</th><th>失败</th><th>更新时间（北京时间）</th></tr></thead><tbody>
+{% for task in data.jobs %}<tr><th><a href="/admin/daily-radar?day={{ task.day }}#day-detail">{{ task.day }}</a></th><td>{{ job_status(task) }}</td><td>{{ task.done }} / {{ task.total }}</td><td>{{ task.failed }}</td><td>{{ task.updated_at|local_ts('Asia/Shanghai') }}</td></tr>{% endfor %}
+</tbody></table></div>{% else %}<p>尚无补采任务。</p>{% endif %}</section>
+</div>
+{% if data.running %}<script defer src="/research-assets/daily-management.js"></script>{% endif %}
+{% endblock %}

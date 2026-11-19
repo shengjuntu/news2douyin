@@ -1,0 +1,23 @@
+{
+  "version": "0.36.1",
+  "wheel_sha256": "3da5278c79b8d2d3821272892db0736a13c7f767b682f61a76243a0b263d008b",
+  "isolated_wheel_smoke_exit_codes": {
+    "live_daily": 0,
+    "core": 0,
+    "daily_radar": 0,
+    "evidence": 0,
+    "newsnow": 0,
+    "event_content": 0,
+    "intelligence": 0,
+    "stability": 0
+  },
+  "upgrade_from": "0.36.0",
+  "upgrade_backends": [
+    "sqlite",
+    "postgresql"
+  ],
+  "legacy_edition_roundtrip": true,
+  "upgraded_bootstrap_runs_per_backend": 2,
+  "cli_export_of_frozen_100_sha256": "1d68856a5f2c7aa62b12e7dc0c57784c468bd0ce7bb8603e6f34d6d5e3a18ad3",
+  "production_ranking_changes": false
+}

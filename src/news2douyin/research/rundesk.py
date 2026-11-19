@@ -3,7 +3,6 @@ from importlib.resources import files
 from copy import deepcopy
 from urllib.parse import quote, urlsplit, urlunsplit
 import re
-import secrets
 
 import requests
 
@@ -93,17 +92,6 @@ def submit_once(client, key, path, payload, *, allow_send=True):
     if not isinstance(status,int) or not 200<=status<300:
         raise remote_error(status,receipt.get('response'))
     return receipt.get('response')
-
-
-def setup_submission(settings,config,client,kind,path,payload):
-    operations=config.setdefault('setup_requests',{})
-    if kind not in operations:
-        operations[kind]={'key':'n2d-'+secrets.token_hex(16),'path':path,'payload':payload}
-        settings.write(config)
-    op=operations[kind]
-    if op['path']!=path or op['payload']!=payload:
-        raise ValueError('研究助手的创建请求已保存，请先核对配置，不能替换未确认请求')
-    return submit_once(client,op['key'],op['path'],op['payload'])
 
 
 def bootstrap(settings, client_factory=RunDeskClient):

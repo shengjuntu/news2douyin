@@ -58,7 +58,7 @@ def test_backfill_many_to_many_exclusion_and_legacy_links(tmp_path,monkeypatch):
         assert {w['key'] for w in desk.memberships(s,key)}=={trump['key'],war['key']}
     assert c.get('/events?q=Trump',follow_redirects=False).headers['location']=='/radar?q=Trump'
     view=c.get('/events/'+key,params={'back':'/focus/'+war['key']}).text
-    assert '返回原专题' in view and '特朗普活动' in view and '俄乌战争' in view
+    assert '返回原焦点' in view and '特朗普活动' in view and '俄乌战争' in view
     assert 'href="//evil.example' not in c.get('/events/'+key,params={'back':'//evil.example'}).text
     topic='/api/focus/'+trump['key']
     assert c.post(topic+'/links',json={'event':key,'action':'exclude'}).status_code==200

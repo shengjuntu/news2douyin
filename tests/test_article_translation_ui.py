@@ -53,7 +53,7 @@ def test_detail_translates_the_selected_snapshot_and_preserves_original(article_
     assert 'Une ancienne version vérifiable.' in old.text
     assert '<script>alert(1)</script>' not in old.text
     assert '&lt;script&gt;alert(1)&lt;/script&gt;' in old.text
-    assert '这里的翻译对应正在查看的 r1' in old.text
+    assert '译读使用当前查看的 r1' in old.text
     assert '原文发布时间（北京时间）' in old.text
     latest=client.get('/articles/lang-article')
     assert latest.status_code==200 and '俄语 · 来源字段' in latest.text
@@ -66,7 +66,7 @@ def test_metadata_translation_does_not_offer_nonexistent_full_text(article_ui):
     page=client.get('/articles/lang-metadata')
     assert page.status_code==200,page.text
     assert '翻译已保存标题' in page.text
-    assert '尚未取得新闻全文' in page.text
+    assert '报道线索 · 尚无正文' in page.text
     assert 'data-translation-revision="1"' in page.text
     assert '打开原文 ↗' in page.text
 

@@ -1,0 +1,47 @@
+{
+  "time_utc_started": "2026-11-15T07:14:01+00:00",
+  "command": "python tools/benchmark_daily_radar.py --stage archive --rows 500000 --watches 100 --locale en_US.utf8",
+  "database": "PostgreSQL 16.2 on x86_64-pc-linux-gnu, compiled by gcc (GCC) 10.2.1 20210130 (Red Hat 10.2.1-11), 64-bit",
+  "input": {
+    "rows": 500000,
+    "enabled_scopes": 100,
+    "archives": 192,
+    "eligible_candidates": 490000,
+    "story_groups": 62400,
+    "distinct_input_source_hosts": 89
+  },
+  "reference_0.33.0": {
+    "seconds": 43.08,
+    "peak_process_rss_mib": 146.9,
+    "pg_read_ms": 3.873,
+    "pg_build_statements": 11,
+    "pg_read_statements": 1,
+    "selected": 100,
+    "selected_hints": 5
+  },
+  "candidate_0.34.0": {
+    "seconds": 45.708,
+    "peak_process_rss_mib": 148.1,
+    "pg_read_ms": 4.822,
+    "pg_build_statements": 11,
+    "pg_read_statements": 1,
+    "selected": 100,
+    "selected_hints": 5
+  },
+  "source_sha256": {
+    "src/news2douyin/digest/_iheart_station_hosts.py": "f5e7d8344825916820896f81bd7053943268fd53cc895e19837ca692a4438e0b",
+    "src/news2douyin/digest/archive.py": "fffcc4e60cb1519771c063d56509c9f129c1c92c449a09073192cfa479bc5781",
+    "src/news2douyin/digest/focus_hints.py": "f5616273bf6ea5aec4d6393e8adbec699a34b1ced34f1ca66ceea27ef2ca2790",
+    "src/news2douyin/digest/headline_identity.py": "4f21482edeb98019199d6a6c2f05daaca8445e2ee9cde8d2e60b42abb382aa4f",
+    "src/news2douyin/digest/publisher_families.py": "b8e405e4f40c1a3bd968c29c0f4afb34da019a7534352375dfd43eab54b2b332",
+    "src/news2douyin/digest/ranking.py": "fff12b5258dabefecef3a9dd8a80865985e612cdd3c918301250de1159288056",
+    "src/news2douyin/digest/service.py": "ca16c678dc02b7bf0b16dea883dcfe01aa9c51f0d75b87bd1e5b24f98bfe0b45",
+    "src/news2douyin/digest/signals.py": "8447a40bfa26da39c4331437ceb9a3bc429d8f6d825896ff75514cddd9d26e5d",
+    "src/news2douyin/digest/source_breadth.py": "5748a209f00eff85b92930893925fc1e4a832826bcdfa1cc321fc8ce77444673",
+    "src/news2douyin/digest/sources.py": "695d297612d91f7c87a6c46be5f086b1c0df837479bede1da334610279a90b87",
+    "src/news2douyin/intake/lake.py": "fe7563d1ee1784587be8c65304ae2682095d47ff6fa36647be76bba91150c95f",
+    "tools/benchmark_daily_radar.py": "3510a21656c73a09f085149b184b307bbbdd4b0a7f89e09af3c3bbaab47394a8",
+    "tools/check_publisher_volume.py": "48b9ce48aa71cf622000091641417538edf0c78c340a0de6749c7fe897e5a37f"
+  },
+  "scope": "Fresh isolated local PostgreSQL and DuckDB per version, identical deterministic synthetic GKG summary workload and 100 watches. All 89 fictional domains are unmapped. Each time starts with archived summaries and ends at a published edition; excludes setup, networking, extraction, graph projection and human evaluation. RSS is the Python process peak. Single sequential runs; host load and storage caches can differ. Not production latency percentiles."
+}

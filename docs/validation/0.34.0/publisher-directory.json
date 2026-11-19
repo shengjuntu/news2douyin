@@ -1,0 +1,401 @@
+{
+  "version": "2026-11-15.v1",
+  "scope": "Directory checked on this date, without historical ownership inference.",
+  "iheart": {
+    "index": "https://www.iheartmedia.com/stations",
+    "selector": "a.station-link.websitelink with a nonempty title and an href hostname matching a single label below iheart.com",
+    "states": [
+      {
+        "state": "AK",
+        "url": "https://www.iheartmedia.com/stations/?state=AK",
+        "station_hosts": 10,
+        "sorted_hosts_sha256": "db11a8b5160abd2981e9f85f0fbeafbbae8b776d69cd68e2684b8087c338f072",
+        "html_sha256": "8840cc173671acf75cca8d6b0c68142fd9df168fb2d8fa526ad7da670f061c1c"
+      },
+      {
+        "state": "AL",
+        "url": "https://www.iheartmedia.com/stations/?state=AL",
+        "station_hosts": 34,
+        "sorted_hosts_sha256": "82ad0cf314f755b1e83a9fc71b0447839c10f8a3252e838aaa28542efbeb4d80",
+        "html_sha256": "ff8246c2262f4dd48a811f14c99e9f4920f683499c6aee9e0f65afa73b902395"
+      },
+      {
+        "state": "AR",
+        "url": "https://www.iheartmedia.com/stations/?state=AR",
+        "station_hosts": 12,
+        "sorted_hosts_sha256": "9d6023ee8b8109e171ad8487df9064ca317d8a340341a9d2d3aa8b04acd60b2f",
+        "html_sha256": "b505db94d5843598d6ec8862e65f08298c8d1f67388fc3001dd0f74adee3d3d6"
+      },
+      {
+        "state": "AZ",
+        "url": "https://www.iheartmedia.com/stations/?state=AZ",
+        "station_hosts": 15,
+        "sorted_hosts_sha256": "f28be7dd046c09e6c7715c521c8778f6101b362d33257ea023899cf9f063f1c0",
+        "html_sha256": "3028114aaad112ee2f09e456e772d7856ae9bd331d933dfe584cd0c6845ffe4e"
+      },
+      {
+        "state": "CA",
+        "url": "https://www.iheartmedia.com/stations/?state=CA",
+        "station_hosts": 55,
+        "sorted_hosts_sha256": "ca68de4f30675b4ef2feb648102054b433728a787662c19c95f4f630b17f68d5",
+        "html_sha256": "2d055d8a3c69d85caf0cc5f4d7fb756639760998782101aaef72f842da2073c4"
+      },
+      {
+        "state": "CO",
+        "url": "https://www.iheartmedia.com/stations/?state=CO",
+        "station_hosts": 24,
+        "sorted_hosts_sha256": "f5f53a6a0282a10a52ced46c98f79472b40bfe148b8e8672081c594626df0e13",
+        "html_sha256": "3fdf9ada9977b270b8f5cab2e668efb2cd2abe9c7ec3cae0e8c445c381539265"
+      },
+      {
+        "state": "CT",
+        "url": "https://www.iheartmedia.com/stations/?state=CT",
+        "station_hosts": 9,
+        "sorted_hosts_sha256": "d701e01b91d797b8ad27edddc61df392b1dc835b2668a302b6d707ffc15540ba",
+        "html_sha256": "85c48a681e9ccf14b082bbc51ae24dca40f13be1c3f6cc12c5a068ea3f109f03"
+      },
+      {
+        "state": "DC",
+        "url": "https://www.iheartmedia.com/stations/?state=DC",
+        "station_hosts": 7,
+        "sorted_hosts_sha256": "61af74778ad9786e8bd878a61e116b5bde65e0b06d690c72e95ad843eb5005d2",
+        "html_sha256": "1c2dca917f462e0b32927af2d78757918e9c5f3fdfeabbd5865e7cc5f8ffe87a"
+      },
+      {
+        "state": "DE",
+        "url": "https://www.iheartmedia.com/stations/?state=DE",
+        "station_hosts": 4,
+        "sorted_hosts_sha256": "2e21678cd6d104826b8b2d41010b595bb371232f4c3f5ac64d3db23f2fa14a98",
+        "html_sha256": "99a3546fc060748c3edbeaee1eb4574172b2fe547976ae3b545ef5a6d103d9eb"
+      },
+      {
+        "state": "FL",
+        "url": "https://www.iheartmedia.com/stations/?state=FL",
+        "station_hosts": 77,
+        "sorted_hosts_sha256": "c8f1ea6ac166fa3bf791c99008b439fea35fe9ba2c6c1bf4fb1d5c9dd6694739",
+        "html_sha256": "9ea2555111eec1adc55f40d0a467be893088a06840e8f6dbde496982f3dd5ff8"
+      },
+      {
+        "state": "GA",
+        "url": "https://www.iheartmedia.com/stations/?state=GA",
+        "station_hosts": 39,
+        "sorted_hosts_sha256": "1dbb384ce029346c67d0902afd7ae77fae73b5d78a32cb39390b856acf2dd4f1",
+        "html_sha256": "376b69c27b495b90efd6cdfdeab772648e80005a1061dc16ace0d576f4a406e6"
+      },
+      {
+        "state": "HI",
+        "url": "https://www.iheartmedia.com/stations/?state=HI",
+        "station_hosts": 8,
+        "sorted_hosts_sha256": "f7a07aa4288a64f60c0b6e353268ed7c50a0770e1ef717ad321805dca91fcbc0",
+        "html_sha256": "22d91d4e1aa2df4a8ce8c4559fd75e54202b2d5e94444ef946763e5696ed10cb"
+      },
+      {
+        "state": "IA",
+        "url": "https://www.iheartmedia.com/stations/?state=IA",
+        "station_hosts": 25,
+        "sorted_hosts_sha256": "410b98fdf73a027a2b48d479a91a9acf8a5122863ca53ff9ec9385c50db915aa",
+        "html_sha256": "1b0c8bd0ad868694c224001b7a9aed6e3b3d591c137624da16f598a4d5ece31e"
+      },
+      {
+        "state": "IL",
+        "url": "https://www.iheartmedia.com/stations/?state=IL",
+        "station_hosts": 7,
+        "sorted_hosts_sha256": "3097370f2da8dc6a8e02c8427cb3a379432abc95b58b09c1915d3372a9afed05",
+        "html_sha256": "a537310d619b5b4440dc0ff8708bcb870e0d221b6713dfce6d464a86d505e0ea"
+      },
+      {
+        "state": "IN",
+        "url": "https://www.iheartmedia.com/stations/?state=IN",
+        "station_hosts": 5,
+        "sorted_hosts_sha256": "fd21992735399ff534b6584c0b41d830f27abd916470737bfb67d0bda93a56ba",
+        "html_sha256": "343ac307cc7b403873db8a594ed7927367c5a128847e5d94f7fe9934d8c56ee0"
+      },
+      {
+        "state": "KS",
+        "url": "https://www.iheartmedia.com/stations/?state=KS",
+        "station_hosts": 4,
+        "sorted_hosts_sha256": "f89a66f59fc42c61cb1335eaec6db60884f9f4396921d9bf3418efc1aa6606f5",
+        "html_sha256": "131135115fd9e518943a42a7881aa900d6cb014cec2b793398562096227c0f88"
+      },
+      {
+        "state": "KY",
+        "url": "https://www.iheartmedia.com/stations/?state=KY",
+        "station_hosts": 21,
+        "sorted_hosts_sha256": "b7b494c63b757537bad278f94a7eb6e8e6c15db94584d11ddd1f766d06fefd22",
+        "html_sha256": "9df926d0f3ea2cfee67139d8569b2b3ba836414271f2f8476e3f167c3440b6d3"
+      },
+      {
+        "state": "LA",
+        "url": "https://www.iheartmedia.com/stations/?state=LA",
+        "station_hosts": 13,
+        "sorted_hosts_sha256": "6bcce2764874e5a076aaa08f9031c495b0bd82d25a1a58b1e71fcdf6571bf464",
+        "html_sha256": "5c0879ea345f237558d7094dcca20346dd060e28cb1b148434a7a0f1625d55a0"
+      },
+      {
+        "state": "MA",
+        "url": "https://www.iheartmedia.com/stations/?state=MA",
+        "station_hosts": 16,
+        "sorted_hosts_sha256": "ba5084480a65e00cb30696cbca42fbe1d89c7498b72449057ce27751a78d88f0",
+        "html_sha256": "c7a3831cbc438b0fae68c85f763842626ec731cf4e345ca35e0ed2a4f5e4e258"
+      },
+      {
+        "state": "MD",
+        "url": "https://www.iheartmedia.com/stations/?state=MD",
+        "station_hosts": 10,
+        "sorted_hosts_sha256": "062904ecd9607288d77ce90bb3581865fa2cac006510702417b3972304d4ea54",
+        "html_sha256": "6a10244037af81466fa429f0bc12002bd1a6d6952c4d8c03ab1d2e04e48e3217"
+      },
+      {
+        "state": "MI",
+        "url": "https://www.iheartmedia.com/stations/?state=MI",
+        "station_hosts": 15,
+        "sorted_hosts_sha256": "26b82f051aedf0d7480ae66293a27be780ba5350a8eaf59f7786b52c9acc7230",
+        "html_sha256": "148ced24ed5721047944e5a02d716693f877971eed180bdbadc954f962792723"
+      },
+      {
+        "state": "MN",
+        "url": "https://www.iheartmedia.com/stations/?state=MN",
+        "station_hosts": 10,
+        "sorted_hosts_sha256": "cd76e64ee3a4d8257941f47b65e0a882a1e7c73f4b9c9ce5bf45c6f88a63262f",
+        "html_sha256": "6baa967714b3f4b9959a1ac32194310d35e357aa95d682ea0179a07a53b03dec"
+      },
+      {
+        "state": "MO",
+        "url": "https://www.iheartmedia.com/stations/?state=MO",
+        "station_hosts": 12,
+        "sorted_hosts_sha256": "96292168f5202b9767d8f05f83fb9e7571925bc6e9183f1594418ea8ee37e464",
+        "html_sha256": "5615f57ef58dbcf86845acb8dcb2014f0368d774923e1b12b88330b18cd116b2"
+      },
+      {
+        "state": "MS",
+        "url": "https://www.iheartmedia.com/stations/?state=MS",
+        "station_hosts": 16,
+        "sorted_hosts_sha256": "ae816a78b05b80d9e2053f4f15d85d543ea10ccf34eade313e5b587da4027b36",
+        "html_sha256": "411071229a1b3b83ba61ae49aa9f9c86c3c2ae95a40eead3da4f6a40c2dd274d"
+      },
+      {
+        "state": "NC",
+        "url": "https://www.iheartmedia.com/stations/?state=NC",
+        "station_hosts": 23,
+        "sorted_hosts_sha256": "01a8a12714c701649b7b7507f2635d907f17257508562bf64385189270e04da9",
+        "html_sha256": "5087f2e32e1a83c426308978cf0639680a4f17d2c507b96fa9c1e1161e040eb2"
+      },
+      {
+        "state": "ND",
+        "url": "https://www.iheartmedia.com/stations/?state=ND",
+        "station_hosts": 19,
+        "sorted_hosts_sha256": "55b89c563daaa35b6e600731c48c323251ca6e497fd7f55c80bced25476aebea",
+        "html_sha256": "7335d8d5d9fe95bf846cfe664969ff002ace53859697bf54c48276623c4ff58f"
+      },
+      {
+        "state": "NE",
+        "url": "https://www.iheartmedia.com/stations/?state=NE",
+        "station_hosts": 9,
+        "sorted_hosts_sha256": "547734d9e643a50dcd7f7ac5617c740dce2ee07392c121860dc42adc32b44e81",
+        "html_sha256": "2f96b983af8c4f73c70ebe96f4a74b9d1abc72fa9cf0c94417ed86bd19caa2ab"
+      },
+      {
+        "state": "NH",
+        "url": "https://www.iheartmedia.com/stations/?state=NH",
+        "station_hosts": 7,
+        "sorted_hosts_sha256": "307a023d165eea458e209a34790d76aab92aadd7dc5f6527a2e5ef22f4c3f485",
+        "html_sha256": "da6a75fe14a995463362876fd70ecd1428de7fe7267833f3292e80397a70b01b"
+      },
+      {
+        "state": "NJ",
+        "url": "https://www.iheartmedia.com/stations/?state=NJ",
+        "station_hosts": 6,
+        "sorted_hosts_sha256": "1144818105eb6570dbd9ccc42587b11567cbd84ed4ba9aab5cae99619cb4c894",
+        "html_sha256": "2a83645512908e12c9119e74212c676c180d35d026c91600fd42f7abb25a594e"
+      },
+      {
+        "state": "NM",
+        "url": "https://www.iheartmedia.com/stations/?state=NM",
+        "station_hosts": 16,
+        "sorted_hosts_sha256": "0960d71192c0103c4d9213249b9f157de952dacec1218f5f6ef7e43ec28c8ba3",
+        "html_sha256": "b4447ab2a354f0352576278dbcbdb62c2f268992b91192620d0e6b30c88b20af"
+      },
+      {
+        "state": "NV",
+        "url": "https://www.iheartmedia.com/stations/?state=NV",
+        "station_hosts": 4,
+        "sorted_hosts_sha256": "ade57277c7ea8f664cde79e8048d190384e4a579ebd3300c5b27f672c6e7f7d6",
+        "html_sha256": "273e5a18439169f328be5fa69193fbc03eea6ebbe9244c150118869dfe769778"
+      },
+      {
+        "state": "NY",
+        "url": "https://www.iheartmedia.com/stations/?state=NY",
+        "station_hosts": 38,
+        "sorted_hosts_sha256": "514df16dc98fe1036027435513887e84595b6f74506a1d7ec4c528946aac3549",
+        "html_sha256": "c65ea6e7a0996bdeff74e742400d7e3f9698fb7d25f58bfe60e85058d069713c"
+      },
+      {
+        "state": "OH",
+        "url": "https://www.iheartmedia.com/stations/?state=OH",
+        "station_hosts": 70,
+        "sorted_hosts_sha256": "0b911833e146f1d107e8d15ba9be162b7d9d98df8c98f5dcaf96aa3735f9da1c",
+        "html_sha256": "245dd6e778c233d7332e97882e03de749a8bb45ca64075480cc6aad306b33d64"
+      },
+      {
+        "state": "OK",
+        "url": "https://www.iheartmedia.com/stations/?state=OK",
+        "station_hosts": 13,
+        "sorted_hosts_sha256": "9ec630c0704637ef908ca8945ee51142bdd05852e2d438880d7b3241a4bd5fd0",
+        "html_sha256": "a81a41713539dbe085c4a99747bacacbc399a1dafdd7e9fc2081a43fd4bf2c78"
+      },
+      {
+        "state": "OR",
+        "url": "https://www.iheartmedia.com/stations/?state=OR",
+        "station_hosts": 8,
+        "sorted_hosts_sha256": "f6254fae110db00e9965bece4f6e0e44801f15a8809a390bb86e69bb325d26f6",
+        "html_sha256": "7700e41e8ed309db5ffbeb2bfc02cba8f43bde5382c46b86a2ad5936b1c181d8"
+      },
+      {
+        "state": "PA",
+        "url": "https://www.iheartmedia.com/stations/?state=PA",
+        "station_hosts": 38,
+        "sorted_hosts_sha256": "607ac920117789424437d452cc5009e4050878af31120e67f3d01e8c4027c5cb",
+        "html_sha256": "daaac692a4505ea222756d01ea30314990ea65bb7163545a0f4b577b66ebdc39"
+      },
+      {
+        "state": "RI",
+        "url": "https://www.iheartmedia.com/stations/?state=RI",
+        "station_hosts": 4,
+        "sorted_hosts_sha256": "2d8e4d196a646d645b9668ca14010e14558c1c272224aa272185545628c9f769",
+        "html_sha256": "5d574f97574c66f97b171abd2edcf137c1f75143c52aa7432031a5574f119cce"
+      },
+      {
+        "state": "SC",
+        "url": "https://www.iheartmedia.com/stations/?state=SC",
+        "station_hosts": 26,
+        "sorted_hosts_sha256": "698a9a34d96ee16a60761d5b57e5f00f75b8a4aea60b3c84a2c35887c47a8f08",
+        "html_sha256": "103fe701eb521a64b2e7d846493d47af9ba83d12ba01365e91808abf3ab2acdf"
+      },
+      {
+        "state": "TN",
+        "url": "https://www.iheartmedia.com/stations/?state=TN",
+        "station_hosts": 13,
+        "sorted_hosts_sha256": "9b1c03ca08fd2c9337db805446d142e47c8794206e39c7921070389cdee23215",
+        "html_sha256": "b4f799dcb5ed8a49842a723593b263205385d94907801369afa7d26acb0c77de"
+      },
+      {
+        "state": "TX",
+        "url": "https://www.iheartmedia.com/stations/?state=TX",
+        "station_hosts": 62,
+        "sorted_hosts_sha256": "a4d8bb1508e1d47706b2073b215e1481c9026f810ed0c020305f197ba1794e34",
+        "html_sha256": "78dc9ffe5aaf66a2c992cc9bb5a3a9a38c09f51bfe539b4f8878e23da0ce187c"
+      },
+      {
+        "state": "UT",
+        "url": "https://www.iheartmedia.com/stations/?state=UT",
+        "station_hosts": 6,
+        "sorted_hosts_sha256": "b1c2d243cd9aa28541688864beabf86d17834cc82b9246c337286cef369fc79a",
+        "html_sha256": "f47bfd075351c2a785e9a946afe588c2ab3ba95d946f7ecce6837b12f4848a4d"
+      },
+      {
+        "state": "VA",
+        "url": "https://www.iheartmedia.com/stations/?state=VA",
+        "station_hosts": 16,
+        "sorted_hosts_sha256": "34762392deef423dba3f4bd3e18811002b6f45ef3490e6a9db143395c0a0d437",
+        "html_sha256": "c0e8e6bf59f6854815bf714bd09047a34e10597b873b3139958b7f1cb3342404"
+      },
+      {
+        "state": "WA",
+        "url": "https://www.iheartmedia.com/stations/?state=WA",
+        "station_hosts": 15,
+        "sorted_hosts_sha256": "545406d901f9a7875730dd2bbc090ece221c88d96533c4c02925b0bc131df5ad",
+        "html_sha256": "2d45f13115435dab965db49f77f615935f6152a73a29b0407dbace44d0f02627"
+      },
+      {
+        "state": "WI",
+        "url": "https://www.iheartmedia.com/stations/?state=WI",
+        "station_hosts": 19,
+        "sorted_hosts_sha256": "5b9ccc2491a5a2f53803b30dca18d9e1e5cdf55d668a5b92c05453971ca357b4",
+        "html_sha256": "b02921f9b27ff9cb60a855fc7b54f14e08a0e5fc7d0b86e7fda33315bf70b247"
+      },
+      {
+        "state": "WV",
+        "url": "https://www.iheartmedia.com/stations/?state=WV",
+        "station_hosts": 16,
+        "sorted_hosts_sha256": "21f12a7c3d44e0211b3e94bac71e5235167ca1ad06f6acd5a9b7ef4f93f01d0e",
+        "html_sha256": "294951016beabd8446f48fb8cd9f4b1dc0888edb1c4c5710ac7cfb2613ea8631"
+      },
+      {
+        "state": "WY",
+        "url": "https://www.iheartmedia.com/stations/?state=WY",
+        "station_hosts": 2,
+        "sorted_hosts_sha256": "09cc2adf642ad8f2fbdf6fcd05da493e3e9e0c4ee573d6a0e270e456227ebda9",
+        "html_sha256": "b463ad95a175348aca107a17a23ace6e283aea936c9b1f48925e2f43abb022ab"
+      }
+    ],
+    "directory_hosts": 878,
+    "directory_hosts_sha256": "a88aed741fbbb0779c241c623ae98bf1f93bb25eb03329f844d7365081218fe6",
+    "supplemental_stations": {
+      "wccfradio.iheart.com": [
+        "https://wccfradio.iheart.com/advertise/",
+        "https://docs.fcc.gov/public/attachments/DOC-404679A1.pdf"
+      ]
+    },
+    "snapshot_hosts_sha256": "048782a8a1b30bbc3972b4f4de1b0ca7912423126591c5ef54a0abc0c993dcd6"
+  },
+  "nbc_local": {
+    "owned_station_list": "https://together.nbcuni.com/network/nbc-owned-television-stations/",
+    "verified_stations": [
+      {
+        "host": "nbcbayarea.com",
+        "call_sign": "KNTV",
+        "url": "https://www.nbcbayarea.com/contact-us/"
+      },
+      {
+        "host": "nbcboston.com",
+        "call_sign": "WBTS",
+        "url": "https://www.nbcboston.com/contact-us/"
+      },
+      {
+        "host": "nbcchicago.com",
+        "call_sign": "WMAQ",
+        "url": "https://www.nbcchicago.com/news/local/about-us/2951228/"
+      },
+      {
+        "host": "nbcconnecticut.com",
+        "call_sign": "WVIT",
+        "url": "https://www.nbcconnecticut.com/contact-us/"
+      },
+      {
+        "host": "nbcdfw.com",
+        "call_sign": "KXAS",
+        "url": "https://www.nbcdfw.com/contact-us/"
+      },
+      {
+        "host": "nbclosangeles.com",
+        "call_sign": "KNBC",
+        "url": "https://www.nbclosangeles.com/contact-us/"
+      },
+      {
+        "host": "nbcmiami.com",
+        "call_sign": "WTVJ",
+        "url": "https://www.nbcmiami.com/send-feedback/"
+      },
+      {
+        "host": "nbcnewyork.com",
+        "call_sign": "WNBC",
+        "url": "https://www.nbcnewyork.com/send-feedback/"
+      },
+      {
+        "host": "nbcphiladelphia.com",
+        "call_sign": "WCAU",
+        "url": "https://www.nbcphiladelphia.com/contact-us/"
+      },
+      {
+        "host": "nbcsandiego.com",
+        "call_sign": "KNSD",
+        "url": "https://www.nbcsandiego.com/knsd-accessibility/"
+      },
+      {
+        "host": "nbcwashington.com",
+        "call_sign": "WRC",
+        "url": "https://www.nbcwashington.com/contact-us/"
+      }
+    ]
+  }
+}

@@ -192,7 +192,7 @@ def _validate_sources(document, sources, editorial=None):
         raise ValueError('有证据的脚本必须保留逐段引用，请在分段编辑中修改')
     if document.get('segments'):
         if not evidence:
-            raise ValueError('此稿没有冻结的事件节点，请从事件专题创建分段草稿')
+            raise ValueError('此稿没有冻结的事件进展，请从事件详情创建分段草稿')
         refs = {s['evidence_id']: s for s in sources}
         moments = {m['moment_key']: set(m['evidence_ids']) for m in evidence['moments']}
         for part in document['segments']:

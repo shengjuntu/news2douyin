@@ -16,10 +16,10 @@ let browser;
   async function noOverflow(label){const value=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth}));assert(value.scroll<=value.width+3,label+' overflow '+JSON.stringify(value));return value;}
   async function counts(){return (await page.request.get(base+'/qa/gdelt-counts')).json();}
   for(const [name,viewport] of Object.entries({desktop:{width:1440,height:1000},mobile:{width:390,height:844}})){
-    await page.setViewportSize(viewport);await page.goto(base+'/radar');
+    await page.setViewportSize(viewport);await page.goto(base+'/radar?source=gdelt');
     assert.equal(await page.locator('[data-gdelt-event]').count(),2);
     await page.getByRole('link',{name:'已整理事件',exact:true}).click();await page.waitForURL(/source=local/);assert.equal(await page.locator('[data-radar]').count(),1);
-    await page.goto(base+'/radar');assert.equal(await page.locator('[data-gdelt-event]').count(),2);
+    await page.goto(base+'/radar?source=gdelt');assert.equal(await page.locator('[data-gdelt-event]').count(),2);
     assert.equal(await page.locator('.gdelt-advanced').getAttribute('open'),null);
     const uncovered=page.locator('[data-gdelt-event="987654"]');assert((await uncovered.textContent()).includes('媒体域名'));assert.equal(await uncovered.locator('.gdelt-event-facts strong').first().textContent(),'未知');
     await uncovered.locator('summary').click();await page.locator('#gdelt-detail-dialog').getByRole('link',{name:'官方事件记录的首次来源 ↗'}).waitFor();await page.locator('#gdelt-detail-close').click();
@@ -32,7 +32,7 @@ let browser;
     await page.locator('#gdelt-save-filter').click();await page.getByText('筛选已保存，可直接切换。').waitFor();
     assert(await page.locator('select[name="preset"]').textContent().then(value=>value.includes('浏览器筛选-'+name)));
     await page.screenshot({path:path.join(folder,'gdelt-'+name+'.png'),fullPage:true});
-    results[name]={viewport,automatic_official_landing:true,explicit_local_navigation:true,filters_work:true,preset_saved:true,source_detail_loaded:true,unknown_coverage_and_first_source:true,advanced_collapsed_initially:true,bounds:await noOverflow(name)};
+    results[name]={viewport,explicit_official_navigation:true,explicit_local_navigation:true,filters_work:true,preset_saved:true,source_detail_loaded:true,unknown_coverage_and_first_source:true,advanced_collapsed_initially:true,bounds:await noOverflow(name)};
   }
   await page.locator('[data-gdelt-select="123456"]').click();await page.locator('#gdelt-topic-title').fill('浏览器测试选题');await page.locator('#gdelt-topic-angle').fill('核对援助事实与历史变化');
   await page.locator('#gdelt-select-submit').click();await page.waitForURL(/\/workbench\/[^/]+\/selection/);await page.waitForLoadState('networkidle');

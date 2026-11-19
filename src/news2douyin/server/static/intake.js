@@ -19,7 +19,7 @@ function counter(value,label){const n=node('div',undefined,'intake-counter');n.a
 function definition(host,label,value,url=false){const term=node('dt',label),item=node('dd');if(url&&safe(value)){const link=a(value,safe(value));link.target='_blank';link.rel='noopener noreferrer';item.append(link);}else item.textContent=value==null||value===''?'未知':String(value);host.append(term,item);}
 function diagnostics(host,value){
  const d=object(value);host.replaceChildren();
- if(!Object.keys(d).length){host.append(node('p','尚无下载诊断。等待下一次接收，或主动检查官方源。','muted small'));return;}
+ if(!Object.keys(d).length){host.append(node('p','暂无下载诊断。','muted small'));return;}
  const dl=node('dl',undefined,'intake-diagnostics');
  definition(dl,'请求状态',({running:'正在请求',succeeded:'上次请求成功',failed:'上次请求失败',waiting:'等待后续批次',interrupted:'上次请求中断，等待重试'})[d.status]||d.status||'未知');
  definition(dl,'请求阶段',phases[d.phase]||d.phase||'未知');definition(dl,'当前目标批次',stamp(d.target_stamp));definition(dl,'清单最新批次',stamp(d.latest_stamp||d.latest_manifest_stamp));
@@ -28,7 +28,7 @@ function diagnostics(host,value){
  if(d.error_kind)definition(dl,'诊断类型',errorKinds[d.error_kind]||d.error_kind);if(d.message)definition(dl,'说明',d.message);
  if(d.expected_md5)definition(dl,'清单MD5',d.expected_md5);if(numeric(d.expected_bytes))definition(dl,'清单字节数',number(d.expected_bytes));
  if(d.archive_reused)definition(dl,'归档来源','复用已保存原档，未重新下载');host.append(dl);
- if(d.http_status===404)host.append(node('p','404只说明本次请求未取得文件，尚不能认定来源停用或批次永久缺失。','intake-note small'));
+ if(d.http_status===404)host.append(node('p','404：本次未取得文件，批次仍待核。','intake-note small'));
 }
 function showProbe(host,result){
  host.replaceChildren(node('p',result.message||'官方源检查完成。此操作不推进接收或投影游标。','intake-note'));
@@ -39,27 +39,26 @@ function showProbe(host,result){
   if(data.stamp)definition(dl,'批次',stamp(data.stamp));definition(dl,'HTTP状态',numeric(data.http_status)?data.http_status:'未知');definition(dl,'地址',data.request_url||data.url,true);
   if(data.error_kind)definition(dl,'诊断类型',errorKinds[data.error_kind]||data.error_kind);if(data.message)definition(dl,'说明',data.message);section.append(dl);host.append(section);
  }
- host.append(node('p','仅检查官方地址及当前断点；没有跳过、补造或标记完成任何批次。','muted small'));
 }
 function feedCard(feed){
  let c=cards.get(feed.key);if(c)return c;
  const host=node('article',undefined,'card intake-feed');host.dataset.intakeFeed=feed.key;
- const title=node('h3',labels[feed.key]||feed.key),state=node('span','等待状态','badge'),progress=node('p'),latest=node('p'),projected=node('p'),classes=node('p',undefined,'muted small'),error=node('p',undefined,'feed-error'),controls=node('div',undefined,'row'),pause=node('button','暂停接收','ghost'),retry=node('button','重试并继续','ghost'),form=node('form',undefined,'feed-start'),label=node('label','首批 UTC 时间（可空）'),start=node('input'),submit=node('button','设置开始并继续','ghost'),hint=node('small','仅在尚未完成首批时可指定整刻；留空从该流最新已发布批次开始。'),message=node('p',undefined,'feed-control-message');
+ const title=node('h3',labels[feed.key]||feed.key),state=node('span','等待状态','badge'),progress=node('p'),latest=node('p'),projected=node('p'),classes=node('p',undefined,'muted small'),error=node('p',undefined,'feed-error'),controls=node('div',undefined,'row'),pause=node('button','暂停接收','ghost'),retry=node('button','重试并继续','ghost'),form=node('form',undefined,'feed-start'),label=node('label','首批 UTC 时间（可空）'),start=node('input'),submit=node('button','设置开始并继续','ghost'),hint=node('small','仅首批可设置，留空取最新批次。'),message=node('p',undefined,'feed-control-message');
  progress.className=projected.className='feed-progress';
  const details=node('details',undefined,'intake-feed-details'),summary=node('summary','请求与处理详情'),diagnostic=node('div'),timing=node('div'),probeMessage=node('p',undefined,'muted small'),probeResult=node('div',undefined,'intake-probe-output');
  const probe=button('检查官方源',async()=>{
-  if(c.probing)return;c.probing=true;probe.disabled=true;probeMessage.textContent='正在检查官方清单与文件响应，可能需要等待连接超时；接收断点保持原状。';
+  if(c.probing)return;c.probing=true;probe.disabled=true;probeMessage.textContent='正在检查官方清单与文件响应…';
   try{const result=await request('/api/intake/feeds/'+encodeURIComponent(feed.key)+'/probe',{});c.probeResult=result;showProbe(probeResult,result);probeMessage.textContent='检查完成 · '+clock(result.completed_at);}
   catch(e){probeMessage.textContent=e.message;}finally{c.probing=false;probe.disabled=false;}
  });probe.dataset.intakeProbe=feed.key;details.append(summary,diagnostic,timing,probe,probeMessage,probeResult);
  start.type='datetime-local';start.step='900';start.setAttribute('aria-label',(labels[feed.key]||feed.key)+'开始批次 UTC');start.dataset.feedStart=feed.key;pause.type=retry.type='button';submit.type='submit';label.append(start);form.append(label,hint,submit);controls.append(pause,retry);host.append(title,state,progress,latest,projected,classes,error,controls,form,message,details);$('intake-feeds').append(host);
- const action=async(path,body)=>{if(c.busy)return;c.busy=true;pause.disabled=retry.disabled=submit.disabled=true;message.textContent='正在保存…';try{render(await request(path,body));message.textContent='已保存。已接收的原始材料继续保留。';}catch(e){message.textContent=e.message;}finally{c.busy=false;pause.disabled=retry.disabled=false;submit.disabled=!!(c.feed.last_complete||c.feed.next_batch);c.form.hidden=submit.disabled;}};
+ const action=async(path,body)=>{if(c.busy)return;c.busy=true;pause.disabled=retry.disabled=submit.disabled=true;message.textContent='正在保存…';try{render(await request(path,body));message.textContent='已保存。';}catch(e){message.textContent=e.message;}finally{c.busy=false;pause.disabled=retry.disabled=false;submit.disabled=!!(c.feed.last_complete||c.feed.next_batch);c.form.hidden=submit.disabled;}};
  pause.onclick=()=>action('/api/intake/feeds/'+feed.key+'/enabled',{enabled:!c.feed.enabled});retry.onclick=()=>action('/api/intake/feeds/'+feed.key+'/retry',{});form.onsubmit=e=>{e.preventDefault();action('/api/intake/feeds/'+feed.key+'/enabled',{enabled:true,start_batch:start.value});};
  c={host,state,progress,latest,projected,classes,error,pause,retry,form,start,submit,message,details,diagnostic,timing,probe,probeMessage,probeResult,feed,busy:false,probing:false};cards.set(feed.key,c);return c;
 }
 function renderFailures(projection){
  const failures=list(projection.failures||projection.blocked_batches).filter(value=>value&&typeof value==='object'),host=$('intake-failures');host.replaceChildren();$('intake-failures-section').hidden=!failures.length;
- $('intake-failures-note').textContent=projection.failures_limited?'仅显示最近20个受阻批次，其他待处理材料仍保留。':'失败次数与未完成批次数分别记录，不将未完成批次判成坏数据。';
+ $('intake-failures-note').textContent=projection.failures_limited?'显示最近 20 个受阻批次。':'';
  for(const f of failures){
   const key=f.key||f.batch_key,card=node('article',undefined,'intake-failure');card.dataset.intakeFailure=key;const header=node('div',undefined,'row');header.append(node('strong',(labels[f.feed]||f.feed)+' · '+stamp(f.stamp)),node('span',f.retry_after>Date.now()/1000?'退避中':'等待重试','badge warn'));card.append(header);
   card.append(node('p','已处理至第 '+number(f.offset)+' 行'+(numeric(f.row_index)?' · 受阻记录第 '+number(f.row_index)+' 行':numeric(object(f.context).read_start)&&numeric(object(f.context).read_end)?' · 本次读取第 '+number(f.context.read_start)+'–'+number(f.context.read_end)+' 行，具体受阻位置待核':' · 受阻记录位置待核')+' · 失败 '+number(f.attempts)+' 次'),node('p',(phases[f.phase]||f.phase||'未知阶段')+'：'+(f.error||f.error_type||'未记录具体原因'),'feed-error'));
@@ -81,7 +80,7 @@ function render(data){
  const since=object(projection.since_upgrade);
  $('intake-counts-note').textContent=!available?'事务库状态不可用，计数与游标为未知。':projection.counts_known===false?'历史成功 / 跳过分类未知；升级后成功投影 '+number(since.projected)+'、保留原档跳过 '+number(since.skipped)+'。累计进度以处理游标为准。':'累计成功投影 '+number(projection.projected)+' · 保留原档跳过 '+number(projection.skipped)+'。这些是源记录行数，不等于新增文章数。';
  $('intake-projection-note').textContent=projection.last_error?'接收记录处理遇到错误：'+projection.last_error:projection.running===false?'接收记录处理后台当前未运行。':'';
- $('intake-runtime').textContent=data.runtime_enabled===false?'当前服务环境关闭了自动接收；仍可查看已保存材料。':receiver.running?(receiver.last_error?'接收后台正在运行，部分来源遇到错误；各流详情如下。':'全量接收后台正在运行，按各自断点保存批次。'):receiver.last_error?'接收后台未运行：'+receiver.last_error:'接收后台当前未运行；已启用的流会在服务启动后按断点继续。';
+ $('intake-runtime').textContent=data.runtime_enabled===false?'当前服务环境关闭了自动接收；仍可查看已保存材料。':receiver.running?(receiver.last_error?'接收后台正在运行，部分来源遇到错误；各流详情如下。':'接收后台运行中。'):receiver.last_error?'接收后台未运行：'+receiver.last_error:'接收后台当前未运行；已启用的流会在服务启动后按断点继续。';
  for(const feed of list(data.feeds)){
   const c=feedCard(feed),p=object(byFeed.get(feed.key));c.feed=feed;c.state.textContent=!feed.enabled?'已暂停':data.runtime_enabled===false?'已启用，自动接收关闭':receiver.running?'已启用接收':'已启用，等待接收服务';c.state.className='badge '+(feed.last_error||feed.enabled&&!receiver.running?'warn':feed.enabled?'ok':'');
   c.progress.textContent='最近归档完成：'+stamp(feed.last_complete)+'\n'+(feed.last_error?'受阻接收批次：':'下一接收批次：')+stamp(feed.next_batch);

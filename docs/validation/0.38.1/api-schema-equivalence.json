@@ -1,0 +1,7 @@
+{
+  "api_routes": 272,
+  "openapi_schema_paths": 239,
+  "stored_models": 116,
+  "contract_sha256": "739ad0e287aa2c47387093575f8e87a6d6f422214098dbf4528626576ea0b17b",
+  "route_methods_openapi_model_ddl_and_indexes_identical": true
+}

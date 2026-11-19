@@ -66,8 +66,7 @@ def test_profile_page_has_simple_newsnow_address_and_source_controls(ui):
     html=client.get('/profiles').text
     assert 'value="newsnow"' in html
     assert 'id="newsnow-base-url"' in html and 'id="newsnow-source-list"' in html
-    assert '缺少发布时间保持未知' in html
-    assert '不自动进行财经AI筛选' in html
+    assert '默认按规则筛选' in html
     assert '日期仅用于标识本次运行' in html
     assert 'data-newsnow-report' not in html
 
@@ -126,4 +125,4 @@ def test_newsnow_article_keeps_snapshot_time_separate_from_unknown_or_date_only_
     assert '2026-11-05（仅日期）' in day
     assert '2026-11-05 00:00' not in day
     listing=client.get('/articles').text
-    assert 'NewsNow · 标题／摘要线索' in listing and '尚未取得新闻全文' in listing
+    assert 'NewsNow · 标题／摘要线索' in listing and '本版本收录时列表位置' in listing

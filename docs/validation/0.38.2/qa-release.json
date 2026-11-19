@@ -1,0 +1,13 @@
+{
+  "release": "0.38.2",
+  "checked_at": "2026-11-19T06:19:42.506104+00:00",
+  "scope": "Full pytest suite in isolated PostgreSQL 16.2 and SQLite fixtures. Supersedes early runs with the last regression runs for the modified UI and workbench tests.",
+  "collected": 1664,
+  "passed": 1663,
+  "skipped": 1,
+  "failures": 0,
+  "skip_reasons": {
+    "tests/test_postgres_search_triggers.py::test_pg_trigram_search_matches_literal_wildcards_chinese_and_offset_dates": "pg_trgm not installed in this PostgreSQL QA distribution"
+  },
+  "unique_current_test_ids_verified": true
+}

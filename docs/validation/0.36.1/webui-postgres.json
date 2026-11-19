@@ -1,0 +1,44 @@
+{
+  "published_replay_on_postgresql": {
+    "db": "PostgreSQL 16.2",
+    "day": "2026-11-15",
+    "revision": 2,
+    "rows": 100,
+    "same_bytes_as_sqlite_http_and_cli": true,
+    "sha256": "1d68856a5f2c7aa62b12e7dc0c57784c468bd0ce7bb8603e6f34d6d5e3a18ad3",
+    "http_selects": 2,
+    "stale_http": 409
+  },
+  "chromium": [
+    {
+      "width": 390,
+      "day": "2026-11-13",
+      "visible_issue_total": 3,
+      "included_unlinked": true,
+      "source_link_visible": true,
+      "keyboard_disclosure": true,
+      "overflow": false,
+      "download": "news2douyin-shortlist-2026-11-13-r3.md",
+      "checked_revision": 3,
+      "stale_http": 409,
+      "updated_revision": 4
+    },
+    {
+      "width": 1440,
+      "day": "2026-11-13",
+      "visible_issue_total": 3,
+      "included_unlinked": true,
+      "source_link_visible": true,
+      "keyboard_disclosure": true,
+      "overflow": false,
+      "download": "news2douyin-shortlist-2026-11-13-r3.md",
+      "checked_revision": 3,
+      "stale_http": 409,
+      "updated_revision": 4
+    },
+    {
+      "js_errors": []
+    }
+  ],
+  "browser_scope": "Three-card synthetic issue including one without a saved URL, two sequential publications. Real clickable attachment, live badge count, keyboard disclosure, responsive overflow, stale revision response and recovery link."
+}

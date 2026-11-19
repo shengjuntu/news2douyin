@@ -31,7 +31,9 @@ def test_empty_install_does_not_call_network_or_create_files(app, monkeypatch):
     from news2douyin.video import media
     monkeypatch.setattr(media, 'capabilities', lambda: pytest.fail('GET must not run media probes'))
     client = TestClient(app)
-    page = client.get('/setup'); assert page.status_code == 200 and '跑通核心流程' in page.text
+    page = client.get('/setup')
+    assert page.status_code == 200
+    assert all(f'id="{section}-card"' in page.text for section in ('news', 'model', 'video', 'service'))
     r = client.get('/api/setup/check'); assert r.headers['cache-control'] == 'no-store'
     data = r.json(); assert data['database_ok'] and not data['worker_running']
     assert data['database']==dict(dialect='sqlite',driver='pysqlite',label='SQLite',mode='lightweight')

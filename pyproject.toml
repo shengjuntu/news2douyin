@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "news2douyin"
-version = "0.30.0"
+version = "0.38.2"
 description = "Event intelligence, persistent knowledge tracking and evidence-based content workflow"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -14,6 +14,7 @@ dependencies = [
   "sqlmodel>=0.0.16,<0.1",
   "jinja2>=3.1.2,<4",
   "python-multipart>=0.0.9,<1",
+  "tomli>=2,<3; python_version < '3.11'",
   "python-dotenv>=1.0,<2",
   "PyYAML>=6.0.1,<7",
   "requests>=2.31,<3",
@@ -27,23 +28,21 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+ngrams = ["gdeltnews==1.1.0"]
 graph = ["redis>=5,<8"]
 research = ["pypdf>=5,<7", "Pillow>=10,<13"]
 video = ["Pillow>=10,<13"]
 voice-offline = ["espeakng-loader>=0.2.4,<0.3"]
-desktop = ["PyQt6>=6.6,<7"]
 tts = ["edge-tts>=6.1.10,<8", "pyttsx3>=2.90,<3"]
 llm = ["openai>=1,<3", "toml>=0.10,<1", "httpx[socks]>=0.27,<1"]
 assets = ["beautifulsoup4>=4.12,<5", "lxml>=5.2,<7", "tqdm>=4.66,<5", "python-dateutil>=2.9,<3"]
 dev = ["pytest>=7,<10", "httpx>=0.27,<1", "build>=1,<2"]
 
 [project.scripts]
+news2douyin-review = "news2douyin.digest.review_cli:main"
+news2douyin-daily-radar = "news2douyin.digest.cli:main"
 news2douyin = "news2douyin.cli:main"
 news2douyin-server = "news2douyin.server.__main__:main"
-news2douyin-gui = "news2douyin.gui.app:main"
-news2douyin-simple-gui = "news2douyin.gui.simple_app:main"
-news2douyin-platform = "news2douyin.platform.__main__:main"
-news2douyin-v7-gui = "news2douyin.gui.v7_client_app:main"
 news2douyin-repair-events = "news2douyin.storage.repair:main"
 news2douyin-migrate-sqlite = "news2douyin.storage.migrate:main"
 news2douyin-db-query-index = "news2douyin.storage.query_indexes:main"
@@ -53,7 +52,7 @@ where = ["src"]
 include = ["news2douyin*"]
 
 [tool.setuptools.package-data]
-news2douyin = ["extraction/*.yaml", "collect/providers/*.json", "server/data/*.json", "server/data/*.txt", "server/templates/*.html", "server/static/*.js", "server/static/*.css", "server/static/vendor/*", "platform/templates/*.html", "prompts/en/*.txt", "prompts/zh/*.txt", "export/templates/*.j2", "research/*.md", "intake/*.md"]
+news2douyin = ["extraction/*.yaml", "collect/providers/*.json", "server/data/*.json", "server/data/*.txt", "server/templates/*.html", "server/static/*.js", "server/static/*.css", "server/static/vendor/*", "prompts/en/*.txt", "prompts/zh/*.txt", "export/templates/*.j2", "research/*.md", "intake/*.md"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

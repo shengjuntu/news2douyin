@@ -1,8 +1,59 @@
-{% extends 'base.html' %}{% block title %}内容工作台 · news2douyin{% endblock %}{% block content %}
-<div class="row" style="justify-content:space-between"><div><h1>内容工作台</h1><p class="muted">从一个问题开始，带着资料完成研究、创作和交付。</p></div><a class="action-link" href="/workbench/new">＋ 新建选题</a></div>
-<nav class="work-stages"><a class="{{ 'on' if not view }}" href="/workbench">全部</a>{% for key,label in phases.items() %}<a class="{{ 'on' if view==key }}" href="/workbench?view={{ key }}">{{ label }}</a>{% endfor %}<a class="{{ 'on' if view=='history' }}" href="/workbench?view=history">历史成果</a></nav>
-<form class="row work-actions"><input type="hidden" name="view" value="{{ view }}"><input name="q" value="{{ q }}" placeholder="搜索内容任务" aria-label="搜索内容任务"><button class="ghost">搜索</button></form>
-{% if view=='history' %}<p class="muted">升级前的独立研究和稿件保留在这里。长期专题的研究也可以从专题内查看。 <a href="/videos">查看历史视频作品</a></p>{% for h in historical %}<article class="desk-pane"><a href="{{ h.url }}">{{ h.title }}</a> <span class="badge">{{ '研究' if h.kind=='case' else '稿件' }}</span> <button class="ghost" data-adopt-kind="{{ h.kind }}" data-adopt-ref="{{ h.id }}">继续这项工作</button></article>{% else %}<p>暂无独立历史成果。</p>{% endfor %}
-{% else %}<div class="work-cards">{% for t,w in rows %}<article class="card"><span class="badge">{{ phases[t.phase] }}</span><h2><a href="/workbench/{{ t.key }}">{{ w.title }}</a></h2><p>{{ w.angle or '先明确这次想回答的问题。' }}</p><p class="muted small">更新 {{ w.updated_at }}</p><a href="/workbench/{{ t.key }}">{{ {'selection':'继续选题','research':'查看研究与下一步','creation':'继续创作','works':'查看作品'}[t.phase] }} →</a></article>{% else %}<div class="card"><p>这里还没有内容任务。可以从事件雷达或长期专题形成选题，也可以直接新建。</p><a href="/radar">去看事件</a> · <a href="/focus">查看专题</a></div>{% endfor %}</div>
-<div class="row work-actions">{% if offset %}<a href="?view={{ view }}&q={{ q|urlencode }}&offset={{ [0,offset-40]|max }}">上一页</a>{% endif %}{% if rows|length==40 %}<a href="?view={{ view }}&q={{ q|urlencode }}&offset={{ offset+40 }}">下一页</a>{% endif %}</div>{% endif %}
-<p id="adopt-message" role="status"></p><script>for(const b of document.querySelectorAll('[data-adopt-ref]'))b.onclick=async()=>{b.disabled=true;try{const r=await fetch('/api/workbench/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:b.dataset.adoptKind,ref:b.dataset.adoptRef})});const d=await r.json();if(!r.ok)throw Error(d.detail);location.href='/workbench/'+d.key;}catch(e){document.getElementById('adopt-message').textContent=e.message;b.disabled=false;}};</script>{% endblock %}
+{% extends 'base.html' %}
+{% block title %}内容工作台 · news2douyin{% endblock %}
+{% block content %}
+<div class="row" style="justify-content:space-between">
+  <h1>内容工作台</h1>
+  <a class="action-link" href="/workbench/new">＋ 新建选题</a>
+</div>
+<nav class="work-stages" aria-label="内容任务">
+  <a class="{{ 'on' if not view }}" href="/workbench">全部</a>
+  {% for key,label in phases.items() %}<a class="{{ 'on' if view==key }}" href="/workbench?view={{ key }}">{{ label }}</a>{% endfor %}
+  <a class="{{ 'on' if view=='history' }}" href="/workbench?view=history">历史成果</a>
+  <a class="{{ 'on' if view=='trash' }}" href="/workbench?view=trash">回收站</a>
+</nav>
+<form class="row work-actions">
+  <input type="hidden" name="view" value="{{ view }}">
+  <input name="q" value="{{ q }}" placeholder="搜索内容任务" aria-label="搜索内容任务">
+  <button class="ghost">搜索</button>
+</form>
+<p id="work-message" class="desk-error" role="status"></p>
+{% if view=='history' %}
+  <p><a href="/videos">查看历史视频作品</a></p>
+  {% for h in historical %}
+  <article class="desk-pane">
+    <a href="{{ h.url }}">{{ h.title }}</a> <span class="badge">{{ '研究' if h.kind=='case' else '稿件' }}</span>
+    <button class="ghost" data-adopt-kind="{{ h.kind }}" data-adopt-ref="{{ h.id }}">继续这项工作</button>
+  </article>
+  {% else %}<p>暂无独立历史成果。</p>{% endfor %}
+{% else %}
+<div class="work-cards">
+  {% for t,w,trash in rows %}
+  <article class="card">
+    <span class="badge">{{ phases[t.phase] }}</span>
+    {% if view=='trash' %}
+      <h2>{{ w.title }}</h2>
+      <button type="button" class="ghost" data-work-trash="restore" data-work-key="{{ t.key }}"
+        data-work-trash-version="{{ trash.version }}" aria-label="恢复选题 {{ w.title }}">恢复</button>
+    {% else %}
+      <h2><a href="/workbench/{{ t.key }}">{{ w.title }}</a></h2>
+      {% if w.angle %}<p>{{ w.angle }}</p>{% endif %}
+      <p class="muted small">更新 {{ w.updated_at }}</p>
+      {% if t.phase=='selection' %}
+        <button type="button" class="ghost" data-work-trash="remove" data-work-key="{{ t.key }}"
+          data-work-trash-version="{{ trash.version if trash else 0 }}" aria-label="删除选题 {{ w.title }}">删除选题</button>
+      {% endif %}
+    {% endif %}
+  </article>
+  {% else %}
+    {% if view=='trash' %}<p>回收站为空。</p>
+    {% else %}<p>暂无内容任务。<a href="/radar">查看雷达</a> · <a href="/focus">查看焦点</a></p>{% endif %}
+  {% endfor %}
+</div>
+<div class="row work-actions">
+  {% if offset %}<a href="?view={{ view }}&q={{ q|urlencode }}&offset={{ [0,offset-40]|max }}">上一页</a>{% endif %}
+  {% if rows|length==40 %}<a href="?view={{ view }}&q={{ q|urlencode }}&offset={{ offset+40 }}">下一页</a>{% endif %}
+</div>
+{% endif %}
+<script src="/research-assets/workbench.js" defer></script>
+<script>for(const b of document.querySelectorAll('[data-adopt-ref]'))b.onclick=async()=>{b.disabled=true;try{const r=await fetch('/api/workbench/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:b.dataset.adoptKind,ref:b.dataset.adoptRef})});const d=await r.json();if(!r.ok)throw Error(d.detail);location.href='/workbench/'+d.key;}catch(e){document.getElementById('work-message').textContent=e.message;b.disabled=false;}};</script>
+{% endblock %}

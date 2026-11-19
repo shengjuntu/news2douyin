@@ -98,6 +98,8 @@ class ResearchRuntime:
                 if not handoff or handoff.case_id!=case_id: raise ValueError('任务交接编号不匹配')
                 if handoff.run_id: return s.get(ResearchRun,handoff.run_id).model_dump()
             if topic:
+                from ..workbench.service import require_visible
+                require_visible(s, topic.workspace_id)
                 if topic_request is None: raise ValueError('请从选题工作台发送讨论消息')
                 message_input = topics.Message.model_validate(topic_request)
                 message_key = 'topicmsg_' + svc.digest([topic.workspace_id,message_input.request_id])[:24]

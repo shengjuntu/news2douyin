@@ -1,0 +1,1 @@
+{"old_release": "0.38.1", "postgres_version": "16.2", "new_trash_table_created": true, "legacy_topic_visible_after_upgrade": true, "legacy_title_angle_preserved_on_delete_restore": true, "concurrent_same_version_delete_results": [200, 409], "delete_versus_phase_races": [[409, 200], [200, 409], [200, 409], [409, 200]], "version_guard_after_restore": true}

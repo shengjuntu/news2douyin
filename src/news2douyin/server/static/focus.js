@@ -52,7 +52,7 @@
   function setBuilding(value) {
     building = value;
     generate.disabled = value;
-    generate.textContent = value ? '正在理解…' : watch.key ? '重新理解范围' : '生成专题';
+    generate.textContent = value ? '正在生成…' : '生成关注范围';
     cancel.hidden = !value;
     form.setAttribute('aria-busy', String(value));
   }
@@ -82,7 +82,7 @@
     const names = new Map(entities.map(e => [String(e.id), entityName(e)]));
     const toolbar = document.createElement('div'); toolbar.className = 'focus-intent-toolbar';
     const hint = document.createElement('span'); hint.className = 'desk-meta small';
-    hint.textContent = '点选节点查看；拖动、滚轮或双指缩放。'; toolbar.append(hint);
+    hint.textContent = '点选节点查看详情。'; toolbar.append(hint);
     const controls = document.createElement('div'); controls.className = 'desk-row'; toolbar.append(controls);
     const canvas = document.createElement('div'); canvas.className = 'focus-intent-canvas';
     canvas.tabIndex = 0; canvas.setAttribute('role', 'img');
@@ -99,16 +99,13 @@
       item.textContent = (names.get(String(relation.subject)) || relation.subject || '相关参与方') + ' → ' + (relation.relation || '关注关系') + ' → ' + (names.get(String(relation.object)) || relation.object || '相关对象');
       relationList.append(item);
     }
-    if (!relations.length) {
-      const item = document.createElement('li'); item.textContent = '围绕核心实体持续发现相关行动与进展。'; relationList.append(item);
-    }
     host.append(toolbar, canvas, selected, entitiesText, relationList);
     if (typeof window.cytoscape !== 'function') {
       canvas.hidden = true; toolbar.hidden = true;
       selected.textContent = '关注图组件未加载，下面的实体与关系仍可查看。'; return;
     }
     const rootId = '__focus__';
-    const nodes = [{data: {id: rootId, label: spec.name || '关注专题', type: 'focus'}}];
+    const nodes = [{data: {id: rootId, label: spec.name || '焦点', type: 'focus'}}];
     const nodeIds = new Set([rootId]);
     for (const entity of entities) {
       const id = String(entity.id || entity.name || ''); if (!id || nodeIds.has(id)) continue;
@@ -158,11 +155,8 @@
     document.getElementById('topic-questions').value = safeArray(draftSpec.questions).join('\n');
     document.getElementById('topic-exclude').value = safeArray(draftSpec.exclude).join('\n');
     document.getElementById('topic-method').textContent = value.method === 'model' ? 'AI 生成' : '规则生成';
-    document.getElementById('topic-method-message').textContent = value.message || (value.method === 'model' ? '请看一眼关注范围，名称和问题都可以修改。' : '已生成基础范围。模型恢复后，候选材料会继续判断；也可手动关联。');
-    const entities = safeArray(draftSpec.entities);
-    const core = entities.filter(e => e.core).map(entityName);
-    const labels = (core.length ? core : entities.map(entityName)).slice(0, 8);
-    document.getElementById('topic-scope').textContent = labels.length ? '主要关注：' + labels.join('、') : '按描述中的行动与议题持续发现进展。';
+    const methodMessage = document.getElementById('topic-method-message');
+    methodMessage.textContent = value.method === 'model' ? '' : value.message || '已生成基础范围，可调整后开始跟踪。';
     const boundaries = [];
     if (safeArray(draftSpec.include).length) boundaries.push('重点：' + draftSpec.include.slice(0, 6).join('；'));
     if (safeArray(draftSpec.geography).length) boundaries.push('地区：' + draftSpec.geography.join('、'));
@@ -170,7 +164,7 @@
     document.getElementById('topic-boundaries').textContent = boundaries.join('。');
     focusSpecGraph(document.querySelector('[data-intent-graph="preview"]'), draftSpec);
     preview.hidden = false; setBuilding(false);
-    status(buildStatus, '关注范围已生成。'); status(saveStatus, '');
+    status(buildStatus, ''); status(saveStatus, '');
     rememberDraft({key: draft, description: draftDescription});
     document.getElementById('topic-name').focus({preventScroll: true});
   }
@@ -182,7 +176,7 @@
       if (value.status === 'ready') { showSpec(value, token); return; }
       if (value.status === 'failed') { draft = ''; forgetDraft(); throw new Error(value.message || '暂时无法生成，请保留描述后重试。'); }
       attempts += 1;
-      status(buildStatus, attempts > 25 ? '后台仍在理解描述，可以取消等待后稍后重试。' : '正在提取关注对象、关系和长期问题…');
+      if (attempts === 26) status(buildStatus, '仍在后台处理，可取消等待。');
       await new Promise(resolve => setTimeout(resolve, 1200));
     }
   }
@@ -192,7 +186,7 @@
     const resumeKey = draft && draftDescription === text ? draft : '';
     stopBuild(); const token = buildToken;
     draftSpec = null; draftDescription = text; preview.hidden = true; setBuilding(true);
-    status(buildStatus, resumeKey ? '正在恢复已提交的生成任务…' : '已提交，正在理解关注描述…'); status(saveStatus, '');
+    status(buildStatus, ''); status(saveStatus, '');
     try {
       if (resumeKey) { await pollBuild(resumeKey, token); return; }
       draft = '';
@@ -206,29 +200,29 @@
       setBuilding(false); status(buildStatus, err.message, true);
     }
   });
-  cancel?.addEventListener('click', () => stopBuild('已取消等待。描述已保留，后台已提交的生成任务可能仍会完成。'));
+  cancel?.addEventListener('click', () => stopBuild('已取消等待。生成任务仍可能在后台完成。'));
   description?.addEventListener('input', () => {
     if (draftDescription && description.value.trim() !== draftDescription) {
       stopBuild(); draft = ''; draftSpec = null; draftDescription = ''; preview.hidden = true; forgetDraft();
-      status(buildStatus, '描述已修改，点击生成后查看新的关注范围。');
+      status(buildStatus, '');
     }
   });
   for (const button of document.querySelectorAll('[data-topic-example]')) button.addEventListener('click', () => {
     stopBuild(); draft = ''; draftSpec = null; draftDescription = ''; preview.hidden = true; forgetDraft();
-    description.value = button.dataset.topicExample; description.focus(); status(buildStatus, '可以直接生成，也可以继续修改描述。');
+    description.value = button.dataset.topicExample; description.focus(); status(buildStatus, '');
   });
   document.getElementById('topic-back')?.addEventListener('click', () => { preview.hidden = true; description.focus(); });
   start?.addEventListener('click', async () => {
     if (saving || !draft || !draftSpec) return;
-    const name = document.getElementById('topic-name'); if (!name.value.trim()) { status(saveStatus, '请填写专题名称。', true); name.focus(); return; }
+    const name = document.getElementById('topic-name'); if (!name.value.trim()) { status(saveStatus, '请填写焦点名称。', true); name.focus(); return; }
     const spec = JSON.parse(JSON.stringify(draftSpec));
     spec.name = name.value.trim(); spec.questions = listLines(document.getElementById('topic-questions').value, 12);
     spec.exclude = listLines(document.getElementById('topic-exclude').value, 12); spec.description = draftDescription;
     saving = true; start.disabled = true; generate.disabled = true;
-    status(saveStatus, watch.key ? '正在保存，历史材料会在后台重新匹配…' : '正在建立专题，历史材料会在后台检查…');
+    status(saveStatus, '正在保存…');
     try {
       const value = watch.key ? await request(base + '/definition', {version: watch.version, description: draftDescription, draft, spec}, 'PUT') : await request('/api/focus/from-description', {draft, spec, seed: cfg.seed || ''});
-      if (!value.key) throw new Error('专题已提交，但未取得专题编号。请刷新专题列表确认。');
+      if (!value.key) throw new Error('未取得焦点编号，请刷新列表确认。');
       forgetDraft(); location.assign('/focus/' + encodeURIComponent(value.key));
     } catch (err) { status(saveStatus, err.message, true); saving = false; start.disabled = false; generate.disabled = false; }
   });
@@ -313,7 +307,7 @@
         const value = await request(base + '/decisions/' + encodeURIComponent(eventKey), undefined, 'GET');
         body.replaceChildren();
         const item = safeArray(value.items)[0];
-        if (!item) { body.textContent = '当前没有自动筛选记录，可能由人工关联或旧规则纳入。'; loaded = true; return; }
+        if (!item) { body.textContent = body.dataset.fallbackReason || '暂无筛选记录。'; loaded = true; return; }
         const reason = document.createElement('p'); reason.textContent = item.reason || '已记录本次筛选。'; body.append(reason);
         const method = document.createElement('p'); method.className = 'desk-meta small';
         const labels = {core: '核心进展', background: '背景材料', pending: '待核', exclude: '不相关'};
@@ -327,7 +321,6 @@
             link.textContent = '查看原文' + (Number.isInteger(revision) && revision > 0 ? ' · 版本 ' + revision : ''); body.append(link);
           }
         }
-        const note = document.createElement('p'); note.className = 'desk-meta small'; note.textContent = '这是与专题的相关性判断，事实状态请以原文和核查结果为准。'; body.append(note);
         loaded = true;
       } catch (err) { body.textContent = '暂时无法读取依据，关闭后展开可重试。'; }
       finally { loading = false; }
@@ -338,25 +331,21 @@
   function renderTracking(value) {
     const root = document.getElementById('focus-tracking'); if (!root) return;
     const backfill = value.backfill || {}, counts = value.counts || {};
-    const names = {pending: '准备回溯历史', running: '正在回溯历史', complete: '历史材料已检查', completed: '历史材料已检查', ready: '历史材料已检查', paused: '已暂停历史回溯', failed: '历史回溯需要重试', idle: '持续接收新进展'};
-    document.getElementById('tracking-title').textContent = names[backfill.status] || (watch.enabled ? '持续接收新进展' : '专题已暂停');
+    const names = {pending: '准备回溯历史', running: '正在回溯历史', complete: '历史材料已检查', completed: '历史材料已检查', ready: '历史材料已检查', paused: '已暂停历史回溯', failed: '历史回溯需要重试', idle: watch.enabled ? '等待新材料' : '已暂停'};
+    document.getElementById('tracking-title').textContent = names[backfill.status] || (watch.enabled ? '等待新材料' : '已暂停');
     const pieces = [];
     if (Number.isFinite(backfill.checked)) pieces.push('已检查 ' + backfill.checked + (Number.isFinite(backfill.total) ? ' / ' + backfill.total : '') + ' 项');
     const automaticCount = (Number(counts.core) || 0) + (Number(counts.background) || 0);
     if (typeof counts.core === 'number' || typeof counts.background === 'number') {
-      pieces.push('已归集 ' + automaticCount + ' 项');
       if (initialAutomaticCount === null) initialAutomaticCount = automaticCount;
       const refresh = document.getElementById('tracking-refresh');
       if (refresh && automaticCount > initialAutomaticCount) refresh.hidden = false;
     }
-    if (Number(counts.pending)) pieces.push('待核 ' + counts.pending + ' 项');
     document.getElementById('tracking-counts').textContent = pieces.join(' · ');
-    document.getElementById('tracking-detail').textContent = backfill.status === 'complete' || backfill.status === 'completed' || backfill.status === 'ready' ? '本轮历史材料检查已完成；新的事件仍会继续筛选。待核材料需要补充信息或重试判断。' : '历史材料由后台分批检查，关闭页面也会继续；已检查不代表全部已经收录。';
-    if (backfill.status === 'idle') document.getElementById('tracking-detail').textContent = '已有材料仍可查看，新事件会按专题范围继续匹配；历史检查进度尚无记录。';
     const err = document.getElementById('tracking-error'); err.hidden = !backfill.error; err.textContent = backfill.error || '';
     const pending = safeArray(value.pending).slice(0, 8), box = document.getElementById('tracking-pending-box');
     box.hidden = !(pending.length || Number(counts.pending) || backfill.status === 'failed');
-    document.getElementById('tracking-pending-summary').textContent = '需要核对的材料' + (Number(counts.pending) ? ' · ' + counts.pending + ' 项' : '');
+    document.getElementById('tracking-pending-summary').textContent = '待核材料' + (Number(counts.pending) ? ' · ' + counts.pending + ' 项' : '');
     const list = document.getElementById('tracking-pending-list');
     const signature = JSON.stringify(pending.map(item => [item.event, item.title, item.reason]));
     if (signature === pendingSignature) return;
@@ -364,10 +353,9 @@
     for (const item of pending) {
       const row = document.createElement('div'); row.className = 'focus-pending-item';
       const link = document.createElement('a'); link.href = '/events/' + encodeURIComponent(item.event) + '?back=' + encodeURIComponent('/focus/' + watch.key); link.textContent = item.title || '查看事件'; row.append(link);
-      if (item.reason) { const reason = document.createElement('p'); reason.className = 'desk-meta'; reason.textContent = item.reason; row.append(reason); }
       const details = document.createElement('details'); details.className = 'focus-decision';
-      const summary = document.createElement('summary'); summary.textContent = '查看筛选依据';
-      const body = document.createElement('div'); body.setAttribute('data-decision-body', ''); details.append(summary, body);
+      const summary = document.createElement('summary'); summary.textContent = '查看待核依据';
+      const body = document.createElement('div'); body.dataset.decisionBody = ''; body.dataset.fallbackReason = item.reason || ''; details.append(summary, body);
       attachDecision(details, item.event); row.append(details);
       list.append(row);
     }
@@ -376,12 +364,12 @@
   async function pollTracking() {
     if (!watch.key || disposed) return;
     try { if (!document.hidden) { renderTracking(await request(base + '/tracking', undefined, 'GET')); trackingFailures = 0; } }
-    catch (err) { trackingFailures += 1; const node = document.getElementById('tracking-error'); if (node) { node.hidden = false; node.textContent = '暂时无法刷新进度；已有材料仍可查看。'; } }
+    catch (err) { trackingFailures += 1; const node = document.getElementById('tracking-error'); if (node) { node.hidden = false; node.textContent = '暂时无法刷新进度。'; } }
     if (!disposed) trackingTimer = setTimeout(pollTracking, Math.min(30000, 6000 * (trackingFailures + 1)));
   }
   document.getElementById('tracking-retry')?.addEventListener('click', async event => {
     const button = event.currentTarget; if (button.disabled) return; button.disabled = true;
-    try { await request(base + '/tracking/retry', {}); renderTracking(await request(base + '/tracking', undefined, 'GET')); status(msg, '已提交后台重试，可以继续查看材料。'); }
+    try { await request(base + '/tracking/retry', {}); renderTracking(await request(base + '/tracking', undefined, 'GET')); status(msg, '已提交后台重试。'); }
     catch (err) { status(msg, err.message, true); } finally { button.disabled = false; }
   });
   if (watch.key) { renderTracking(cfg.tracking || {}); pollTracking(); }

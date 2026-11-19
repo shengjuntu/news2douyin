@@ -59,7 +59,7 @@ def freeze_evidence(session, event_key, request):
     wanted = set(request.moment_keys)
     nodes = [m for m in view['moments'] if m['moment_key'] in wanted]
     if len(nodes) != len(wanted):
-        raise ValueError('节点不存在或已从当前专题移除，请刷新')
+        raise ValueError('进展不存在或已从此事件移除，请刷新')
     if any(not m['reviewed'] for m in nodes):
         raise ValueError('仅能使用已核对的节点，请先核对说明、日期与原文摘录')
     sources, identities, versions = [], {}, []

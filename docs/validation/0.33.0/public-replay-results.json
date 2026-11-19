@@ -1,0 +1,127 @@
+{
+  "version": "0.33.0",
+  "input": "public-replay-inputs.json",
+  "clock": "Each 15-minute batch is deemed received at its timestamp plus 15 minutes, UTC. Historical local ingestion timestamps and real historical editions were unavailable.",
+  "scope": "Fixed English GKG slices at 00:15, 06:15 and 12:15 UTC for 2025-03-15 through 2025-03-17. No additional sources, attention feeds, active watches or older history. Empty isolated SQLite operational DB and real DuckDB archive, no production data. Title and publisher URL review only. These are leads, not verified events.",
+  "selected_sample": "Per day use the first 8 published ids sorted by SHA256(UTF8(\"public-reading-seats-033|\" + blind id)). All 8 outside records from export-daily --outside 8 --seed public-replay-033. Importance sampled separately from targeted grouping audit.",
+  "review_order": "Importance was assigned on intermixed titles without a visible slot number or stratum. The same assistant then consulted all 100 slots and sampled omissions in the respective issue to label defensible matches, explicit unique cases, and unresolved relationships. This is an assistant screen, not independent human ground truth.",
+  "days": {
+    "2025-03-15": {
+      "input_rows": 3050,
+      "valid_readable": 3038,
+      "distinct_groups": 2507,
+      "ordered_selected_ids_sha256": "9eeb90adc1a565d66718010b13aa73ae93aa254bb85c25e082dcfa5576421f14",
+      "prior_read_excluded": 0,
+      "outside_strata": 1,
+      "selected": {
+        "total": 100,
+        "worthwhile": 2,
+        "judged": 7,
+        "unjudged": 93,
+        "duplicate_slots": 3,
+        "grouping_checked": 9,
+        "grouping_unjudged": 91,
+        "confirmed_worthwhile_groups": 2,
+        "worthwhile_grouping_pending": 0
+      },
+      "outside_sample": {
+        "total": 8,
+        "worthwhile": 2,
+        "judged": 8,
+        "unjudged": 0,
+        "population": 2407,
+        "prior_read_excluded": 0,
+        "gkg_archive_present": true,
+        "confirmed_missed_cards": 1,
+        "confirmed_missed_groups": 1,
+        "confirmed_missed_ungrouped_cards": 0,
+        "covered_worthwhile_cards": 1,
+        "unresolved_worthwhile_cards": 0
+      },
+      "missed": [
+        {
+          "blind_id": "d11f1af3624a42ccb588407d",
+          "description_zh": "中国影片在欧洲首映，海外发行出现可核对节点"
+        }
+      ]
+    },
+    "2025-03-16": {
+      "input_rows": 2075,
+      "valid_readable": 2073,
+      "distinct_groups": 1764,
+      "ordered_selected_ids_sha256": "78c0b81e2207768fa6006a240c7d6a277d8960ef2ea605e1b9dc09695df385d9",
+      "prior_read_excluded": 0,
+      "outside_strata": 1,
+      "selected": {
+        "total": 100,
+        "worthwhile": 3,
+        "judged": 8,
+        "unjudged": 92,
+        "duplicate_slots": 2,
+        "grouping_checked": 9,
+        "grouping_unjudged": 91,
+        "confirmed_worthwhile_groups": 3,
+        "worthwhile_grouping_pending": 0
+      },
+      "outside_sample": {
+        "total": 8,
+        "worthwhile": 3,
+        "judged": 8,
+        "unjudged": 0,
+        "population": 1664,
+        "prior_read_excluded": 0,
+        "gkg_archive_present": true,
+        "confirmed_missed_cards": 1,
+        "confirmed_missed_groups": 1,
+        "confirmed_missed_ungrouped_cards": 0,
+        "covered_worthwhile_cards": 1,
+        "unresolved_worthwhile_cards": 1
+      },
+      "missed": [
+        {
+          "blind_id": "a37f17a3db5b9c4409a1e558",
+          "description_zh": "加拿大新总理拟首次出访法国和英国，属于外交行程计划"
+        }
+      ]
+    },
+    "2025-03-17": {
+      "input_rows": 2962,
+      "valid_readable": 2962,
+      "distinct_groups": 2528,
+      "ordered_selected_ids_sha256": "4c201c38aa671f2368da065f889a1ece653d89e33a3cab388d1f779204335410",
+      "prior_read_excluded": 1,
+      "outside_strata": 1,
+      "selected": {
+        "total": 100,
+        "worthwhile": 4,
+        "judged": 7,
+        "unjudged": 93,
+        "duplicate_slots": 8,
+        "grouping_checked": 15,
+        "grouping_unjudged": 85,
+        "confirmed_worthwhile_groups": 3,
+        "worthwhile_grouping_pending": 1
+      },
+      "outside_sample": {
+        "total": 8,
+        "worthwhile": 1,
+        "judged": 8,
+        "unjudged": 0,
+        "population": 2427,
+        "prior_read_excluded": 1,
+        "gkg_archive_present": true,
+        "confirmed_missed_cards": 1,
+        "confirmed_missed_groups": 1,
+        "confirmed_missed_ungrouped_cards": 0,
+        "covered_worthwhile_cards": 0,
+        "unresolved_worthwhile_cards": 0
+      },
+      "missed": [
+        {
+          "blind_id": "1e4dc84393d05d0784d911e6",
+          "description_zh": "荷兰庇护名单两年间显著增长，有量化的移民政策变化线索"
+        }
+      ]
+    }
+  }
+}

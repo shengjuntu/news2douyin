@@ -1,0 +1,74 @@
+{
+  "scope": "Incremental elapsed time for the post-ranking official participant comparison only. Synthetic official event index with 100,000 prior records and 100 selected current records distributed over 20 action countries. Inputs already seeded; no upstream, UI, graph or model calls. First measurement is after ingestion/ANALYZE, not an OS cold-cache test.",
+  "issue_day": "2026-11-15",
+  "candidate_records": 100000,
+  "current_records": 100,
+  "countries": 20,
+  "country_rows_returned_including_sentinel": 5140,
+  "module_sha256": "f5c073f87e837f023586a5608f39aeb4e8dcbd4d1a77d4258b69a5d66fb937e1",
+  "checked_at": "2026-11-15T08:49:08+00:00",
+  "results": [
+    {
+      "backend": "sqlite",
+      "version": "3.53.1",
+      "sql_read_count": 3,
+      "indexes_by_query": [
+        {
+          "sqlite_autoindex_officialevent_1": 1
+        },
+        {
+          "ix_officialevent_country_recent": 16
+        },
+        {
+          "ix_officialevent_country_recent": 4
+        }
+      ],
+      "first_run_ms": 155.1,
+      "warm_runs_ms": [
+        93.71,
+        62.09,
+        61.99,
+        59.42,
+        64.6,
+        58.91,
+        60.43
+      ],
+      "warm_median_ms": 61.99,
+      "warm_max_ms": 93.71,
+      "selected": 100,
+      "status_seen": 34,
+      "status_not_seen_in_sample": 66
+    },
+    {
+      "backend": "postgresql",
+      "version": "PostgreSQL 16.2 on x86_64-pc-linux-gnu, compiled by gcc (GCC) 10.2.1 20210130 (Red Hat 10.2.1-11), 64-bit",
+      "sql_read_count": 3,
+      "indexes_by_query": [
+        {
+          "officialevent_pkey": 1
+        },
+        {
+          "ix_officialevent_country_recent": 16
+        },
+        {
+          "ix_officialevent_country_recent": 4
+        }
+      ],
+      "first_run_ms": 85.32,
+      "warm_runs_ms": [
+        71.56,
+        66.42,
+        65.44,
+        100.23,
+        66.1,
+        62.39,
+        63.11
+      ],
+      "warm_median_ms": 66.1,
+      "warm_max_ms": 100.23,
+      "selected": 100,
+      "status_seen": 34,
+      "status_not_seen_in_sample": 66
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "known_regression_date": "2025-03-18",
+  "warmup_start": "2025-03-15",
+  "held_out_dates": [
+    "2025-03-19",
+    "2025-03-20",
+    "2025-03-21"
+  ],
+  "utc_batch_times": [
+    "00:15",
+    "06:15",
+    "12:15"
+  ],
+  "feed": "gkg_english",
+  "observation_time": "upstream batch timestamp plus 15 minutes UTC in isolated replay",
+  "selection": "Compare the actual v0.33 and v0.34 implementations at 100 seats, carrying each policy's own history from March 15. No older history or other feeds. Rankers do not see holdout results prior to freeze.",
+  "outputs": "Per date overlap of selected progress keys, ordered identity and entry/exit counts; on March 18 inspect the known iHeart card's old and new rank and breadth, sampling full candidate rank only if directly available. For held-out lists, intermixed changed-in and changed-out cards receive a blinded assistant editorial read of the title only. Up to 20 per stratum per day in ascending SHA256(blind_id); leave ambiguous cards unjudged. Record denominators; no general quality inference.",
+  "missing_data": "Record unavailable dates or partial days. Do not substitute different dates or files.",
+  "editorial_rubric": {
+    "question": "Does the headline identify a concrete update worthy of one of 100 seats for a general public-affairs editor?",
+    "1": "Identifiable material geopolitical, economic, cross-regional industry or public-interest development, or a substantive new stage of a high-consequence story.",
+    "0": "Routine promotion, celebrity or match coverage, narrowly local anecdote, commentary or recap without a material new step apparent.",
+    "blank": "Too little headline information to judge. Judgement is relevance to this editorial rubric, not fact verification or audience engagement."
+  },
+  "scope": "English GKG headlines and article URLs in three daily slices, no official Events, NewsNow or user watches. Archived articles are historical. Source-family rules are fixed as of the v0.34 release; the study does not reconstruct historical ownership or editorial independence."
+}

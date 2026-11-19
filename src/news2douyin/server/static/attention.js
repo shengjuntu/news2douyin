@@ -93,8 +93,10 @@
     const host = [...document.querySelectorAll('[data-attention-position]')].find(element => element.dataset.attentionPosition === key);
     if (host) {
       const comparable = platforms.filter(row => numeric(row.position_delta) && row.observation_state === 'observed');
-      if (comparable.length) host.textContent = '返回列表位置 · ' + comparable.slice(0, 3).map(row => platformName(row) + ' ' + positionDelta(row)).join('；');
-      else host.textContent = '返回列表位置 · 暂无可比变化；查看来源观测。';
+      if (comparable.length) {
+        host.textContent = comparable.slice(0, 3).map(row => platformName(row) + ' ' + positionDelta(row)).join(' · ');
+        host.hidden = false;
+      }
     }
     const notesHost = [...document.querySelectorAll('[data-attention-notes]')].find(element => element.dataset.attentionNotes === key);
     if (notesHost) {
@@ -109,7 +111,7 @@
   function section(title) {
     const element = node('section', undefined, 'attention-detail-section'); element.append(node('h3', title)); byId('attention-detail-content').append(element); return element;
   }
-  const methodNames = {new_topic: '首次建立议题', same_title: '标准化标题一致', conservative_title: '实体与进展词相近', same_url: '原文地址一致', canonical_url: '规范原文地址一致', url: '原文地址一致', exact_title: '标准化标题一致', title_signature: '标题特征相近', title_similarity: '标题相似', entity_action: '实体与进展词匹配', entity_overlap: '实体词项重合', structured_candidate: '主体、行为与时空线索匹配', source_document_url: '首次报道地址匹配', mention_document_url: '提及报道地址匹配', keyword: '词项召回', keyword_recall: '专题词项召回', rules: '规则匹配', rule: '规则匹配', llm: '模型辅助判断'};
+  const methodNames = {new_topic: '首次建立议题', same_title: '标准化标题一致', conservative_title: '实体与进展词相近', same_url: '原文地址一致', canonical_url: '规范原文地址一致', url: '原文地址一致', exact_title: '标准化标题一致', title_signature: '标题特征相近', title_similarity: '标题相似', entity_action: '实体与进展词匹配', entity_overlap: '实体词项重合', structured_candidate: '主体、行为与时空线索匹配', source_document_url: '首次报道地址匹配', mention_document_url: '提及报道地址匹配', keyword: '词项召回', keyword_recall: '焦点关键词匹配', rules: '规则匹配', rule: '规则匹配', llm: '模型辅助判断'};
   const displayMethod = value => methodNames[value] || (value ? String(value) : '未提供归并方式');
   const reasonNames = {entities: '实体词项', entity_overlap: '重合实体', shared_entities: '共同实体', terms: '命中词项', keywords: '关键词', matched_terms: '命中词项', title_terms: '标题词项', tokens: '标题特征', actions: '进展词', shared_actions: '共同进展词', locations: '地点', date: '时间', time: '时间', window: '时间窗', title_similarity: '标题相似度', similarity: '相似度', url: '原文地址', same_url: '原文地址一致', score: '关联排序分', note: '说明', reason: '依据', description: '说明', method: '方式'};
   function reasons(value) {
@@ -274,13 +276,13 @@
       card.append(actions, message); matches.append(card);
     }
     if (!list(data.events).length) matches.append(node('p', '暂无候选事件关联。尚未匹配不代表全球没有相关事件。', 'attention-detail-note'));
-    const watches = section('专题词项召回');
-    watches.append(node('p', '这里只说明议题命中了哪些专题词项，不表示已经加入专题材料或完成研究。', 'attention-detail-note'));
+    const watches = section('焦点关键词匹配');
     for (const watch of list(data.watches)) {
-      const card = node('article', undefined, 'attention-watch'), heading = node('h4'); heading.append(link(watch.name || '查看专题', '/focus/' + encodeURIComponent(watch.key))); card.append(heading);
-      card.append(node('p', '关键词召回' + (watch.scope_version ? ' · 专题范围版本 ' + watch.scope_version : ''), 'attention-detail-note')); appendReasons(card, watch.reasons); watches.append(card);
+      const card = node('article', undefined, 'attention-watch'), heading = node('h4'); heading.append(link(watch.name || '查看焦点', '/focus/' + encodeURIComponent(watch.key))); card.append(heading);
+      if (watch.scope_version) card.append(node('p', '范围版本 ' + watch.scope_version, 'attention-detail-note'));
+      appendReasons(card, watch.reasons); watches.append(card);
     }
-    if (!list(data.watches).length) watches.append(node('p', '暂无专题词项命中。可以调整已有专题的关注范围。', 'attention-detail-note'));
+    if (!list(data.watches).length) watches.append(node('p', '未命中焦点关键词。', 'attention-detail-note'));
   }
   async function loadDetail(key, generation) {
     try { const data = await request('/api/attention/topics/' + encodeURIComponent(key)); if (generation === detailGeneration && detailDialog.open) renderDetail(data, generation); }

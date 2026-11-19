@@ -1,0 +1,74 @@
+{
+  "command": "python tools/benchmark_daily_radar.py --stage archive --rows 500000 --watches 100 --locale en_US.utf8",
+  "workload": "192 synthetic DuckDB archives with deterministic skew. Measures archived summaries through frozen PostgreSQL edition. Fresh isolated loopback PostgreSQL 16.2 per run; v0.32 and v0.33 measured sequentially, selection in balanced mode. Bootstrap, seed creation, initial payload extraction, network downloads, graph processing and HTTP are outside timing. Peak RSS is the Python process and excludes the database servers.",
+  "scope": "The fixture contains no adjudicated real news. The reference and measured fresh runs may differ due to machine load or temporary storage. Single samples are not stable latency percentiles. Other QA processes can change host load between runs.",
+  "reference_version": "0.32.0",
+  "reference_same_session": {
+    "seconds": 40.884,
+    "peak_process_rss_mib": 147.0,
+    "selected": 100,
+    "groups": 62400,
+    "pg_read_ms": 4.334
+  },
+  "comparison_version": "0.33.0",
+  "rank_source_sha256": "a4512bdd95268dc601c82a0b41b3ac0ea3df60d8f120f5f65514fc8f65dcb2fe",
+  "measured": {
+    "synthetic": true,
+    "stage": "archived_summaries_to_frozen_edition",
+    "rows": 500000,
+    "distribution": "skewed",
+    "enabled_watches": 100,
+    "selected_hints": 5,
+    "database": "PostgreSQL 16.2 on x86_64-pc-linux-gnu, compiled by gcc (GCC) 10.2.1 20210130 (Red Hat 10.2.1-11), 64-bit",
+    "archives": 192,
+    "seconds": 39.161,
+    "peak_process_rss_mib": 146.8,
+    "selected": 100,
+    "stats": {
+      "scanned": 490000,
+      "invalid": 0,
+      "groups": 62400,
+      "scanned_by_source": {
+        "gkg": 490000
+      },
+      "prior_excluded": 0,
+      "eligible": 62400,
+      "selected": 100,
+      "mode": "balanced",
+      "sources": {
+        "literal_focus_hints": 3500,
+        "official_seen": 0,
+        "official_no_readable": 0,
+        "official_emitted": 0,
+        "local_seen": 0,
+        "local_no_readable": 0,
+        "local_emitted": 0,
+        "newsnow_seen": 0,
+        "newsnow_no_readable": 0,
+        "newsnow_emitted": 0,
+        "official_reconstructed": 0,
+        "official_augmented": 0,
+        "reconstruction_source_available": true,
+        "gkg_archives": 192,
+        "gkg_seen": 500000,
+        "gkg_invalid": 5000,
+        "gkg_no_readable": 5000,
+        "gkg_emitted": 490000,
+        "gkg_archive_present": true
+      }
+    },
+    "pg_build_statements": 11,
+    "pg_read_statements": 1,
+    "pg_read_ms": 4.022
+  },
+  "timing_started_utc": "2026-11-15T06:53:22+00:00",
+  "digest_module_sha256": {
+    "headline_identity.py": "4f21482edeb98019199d6a6c2f05daaca8445e2ee9cde8d2e60b42abb382aa4f",
+    "ranking.py": "a4512bdd95268dc601c82a0b41b3ac0ea3df60d8f120f5f65514fc8f65dcb2fe",
+    "sources.py": "a0f24ef275874a41daee7971aca8bbedec6d422cf0875e6b67f9dd85088b772b",
+    "service.py": "ca16c678dc02b7bf0b16dea883dcfe01aa9c51f0d75b87bd1e5b24f98bfe0b45",
+    "signals.py": "8447a40bfa26da39c4331437ceb9a3bc429d8f6d825896ff75514cddd9d26e5d",
+    "focus_hints.py": "f5616273bf6ea5aec4d6393e8adbec699a34b1ced34f1ca66ceea27ef2ca2790",
+    "archive.py": "fffcc4e60cb1519771c063d56509c9f129c1c92c449a09073192cfa479bc5781"
+  }
+}

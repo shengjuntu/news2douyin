@@ -1,0 +1,222 @@
+{
+  "schema": "news2douyin.shortlist-audit.v1",
+  "release_policy": "v0.36.0 balanced, also used in v0.36.1",
+  "issue": {
+    "day": "2026-11-15",
+    "revision": 2,
+    "cutoff_exclusive_utc": "2026-11-15T08:41:06Z",
+    "batches": [
+      {
+        "stamp": "20261115001500",
+        "sha256": "d55ec47547e034155ae71214e030a01bcabcb1e4d6e1648c23e6e1cdc8238bcc"
+      },
+      {
+        "stamp": "20261115073000",
+        "sha256": "0f435f83eb547b9be9c4b84079ad7d421fa45355241678b2c78a2ac903b3627d"
+      }
+    ],
+    "feeds": [
+      "English GKG only"
+    ],
+    "upstream_rows": 888,
+    "readable_observations": 866,
+    "eligible_groups": 740,
+    "selected": 100,
+    "matched_published_in_exact_order": true,
+    "ordered_selected_keys_sha256_newline_utf8": "8a6df3aa754b6892215e36a92ccf279dd7067f2456e42263c884f4beaa598aa3"
+  },
+  "selection": {
+    "lanes": 740,
+    "rows_getting_within_lane_penalty": 0,
+    "selected_with_empty_excerpt": 100,
+    "boundary_score": 4.361277,
+    "boundary_score_group_range": [
+      83,
+      740
+    ],
+    "boundary_tie_candidates": 658,
+    "boundary_tie_selected": 18,
+    "boundary_tie_received_at_same_time_as_rank_100": 351,
+    "boundary_clock": "2026-11-15T08:35:25.000000+00:00"
+  },
+  "examples": {
+    "one_development_across_multiple_seats": {
+      "examples": [
+        {
+          "rank": 35,
+          "key": "progress_3eaaed90847ed98a6c1986d9164e3deec765ed52",
+          "title": "SpaceX successfully catches Starship and makes history",
+          "source_url": "https://www.kzyx.org/npr-news/2026-11-14/spacex-successfully-catches-starship-and-makes-history",
+          "observations": 8,
+          "score": 13.824921
+        },
+        {
+          "rank": 44,
+          "key": "progress_100ab01563a8b3a66b3ac0a288cfdc3bba74074e",
+          "title": "SpaceX's Starship returns from orbit and is caught by giant mechanical arms",
+          "source_url": "https://www.leaderlive.co.uk/news/national/26729978.spacexs-starship-returns-orbit-caught-giant-mechanical-arms/",
+          "observations": 4,
+          "score": 10.126572
+        },
+        {
+          "rank": 57,
+          "key": "progress_c1751290b5777901899afff320ca8228c5a8f0ee",
+          "title": "SpaceX catches Starship after orbit in historic first as booster explodes over Gulf",
+          "source_url": "https://cbs12.com/news/nation-world/spacex-catches-starship-after-orbit-in-historic-first-as-booster-explodes-over-gulf",
+          "observations": 3,
+          "score": 8.722554
+        },
+        {
+          "rank": 80,
+          "key": "progress_dfd3f0c4e1bc1048374e37753d1cebd23a0ca8f8",
+          "title": "SpaceX's Starship returns from orbit and is captured by launch pad arms in a dramatic first",
+          "source_url": "https://6abc.com/post/spacexs-starship-returns-orbit-is-captured-launch-pad-arms-dramatic-first/20040779/",
+          "observations": 2,
+          "score": 6.91246
+        }
+      ],
+      "review_note": "四条标题均指向本次星舰返回和接收。第57条也提到助推器；若归并应保留材料中的不同细节。第35条标题已归并八个域名，八家独立采访不能由此推定。"
+    },
+    "selected_examples_for_editor_review": {
+      "examples": [
+        {
+          "rank": 39,
+          "key": "progress_0c9d098b27ef52f6ec332ee141a7369cac24c875",
+          "title": "Strictly spoiler as Week 8 elimination leaked online",
+          "source_url": "https://www.chelmsfordcitynews.co.uk/news/national/uk-today/26730033.strictly-spoiler-week-8-elimination-leaked-online/",
+          "observations": 4,
+          "score": 10.126572
+        },
+        {
+          "rank": 74,
+          "key": "progress_d4b923db6eb476c37d46d8ccaf3a80713b13b239",
+          "title": "Roman's 'stunning' £35 maxi skirt shoppers 'pair with anything' drops to £26",
+          "source_url": "https://www.walesonline.co.uk/whats-on/shopping/romans-stunning-35-maxi-skirt-34900814",
+          "observations": 2,
+          "score": 6.91246
+        },
+        {
+          "rank": 93,
+          "key": "progress_081fcc4fdc38c7bca6fe365975b24ed3cfd02174",
+          "title": "Gardeners urged to spray roses with milk once a week in November",
+          "source_url": "https://www.gazettelive.co.uk/whats-on/whats-on-news/stop-black-spot-roses-disease-34903254",
+          "observations": 1,
+          "score": 4.361277
+        }
+      ],
+      "review_note": "节目剧透、具体商品折扣、日常养护建议可以复核是否值得占用综合时事席位。此处不推断娱乐、消费和本地新闻整体价值。"
+    },
+    "outside_examples_for_editor_review": {
+      "examples": [
+        {
+          "rank": 104,
+          "key": "progress_0d77709c61af705b15244b5ac34385bd5c7809d5",
+          "title": "Francophonie Summit opens in Cambodia with focus on peace, multilateralism, development-Xinhua",
+          "source_url": "https://english.news.cn/20261115/328ed2473acd45b8ac02ca02de739d41/c.html",
+          "observations": 1,
+          "score": 4.361277
+        },
+        {
+          "rank": 111,
+          "key": "progress_156bc30b790eb3a11fbb5b940436723ff01aa113",
+          "title": "ASEAN leaders open annual summit with major conflicts and their impact topping the agenda",
+          "source_url": "https://www.asiaone.com:443/asia/asean-leaders-open-annual-summit-major-conflicts-and-their-impact-topping-agenda",
+          "observations": 1,
+          "score": 4.361277
+        },
+        {
+          "rank": 236,
+          "key": "progress_725c61b5bb5d61b12766028735e275d8e664f466",
+          "title": "49th ASEAN Summit kicks off in Philippines-Xinhua",
+          "source_url": "https://english.news.cn/asiapacific/20261115/4397106077094fe5bd669e9099ec1c96/c.html",
+          "observations": 1,
+          "score": 4.361277
+        }
+      ],
+      "review_note": "落榜组标题含法语国家峰会开幕、东盟峰会开幕。第111和236条均指向东盟开幕。榜内第23条是东盟峰会期间的澳菲协议，议题相关而行动不同。以上是对可选线索的检查，未独立评价事件重要性或真伪。"
+    }
+  },
+  "additional_check": {
+    "archive_manifest": "../0.34.0/public-archives.json",
+    "scope": "Three English GKG batches per Beijing day on seven dates, replayed with simulated archive receipt times and real prior-pick exclusions. These are sparse samples, not representative of all production feeds.",
+    "days": {
+      "2025-03-15": {
+        "eligible": 2507,
+        "lanes": 2507,
+        "matched_published": true,
+        "boundary_score": 17.69461,
+        "boundary_tie_all": 82,
+        "boundary_tie_selected": 29,
+        "tie_on_score_base_and_observation_all": 21,
+        "tie_on_score_base_and_observation_selected": 7
+      },
+      "2025-03-16": {
+        "eligible": 1764,
+        "lanes": 1764,
+        "matched_published": true,
+        "boundary_score": 13.083831,
+        "boundary_tie_all": 3,
+        "boundary_tie_selected": 2,
+        "tie_on_score_base_and_observation_all": 3,
+        "tie_on_score_base_and_observation_selected": 2
+      },
+      "2025-03-17": {
+        "eligible": 2526,
+        "lanes": 2526,
+        "matched_published": true,
+        "boundary_score": 17.69461,
+        "boundary_tie_all": 70,
+        "boundary_tie_selected": 33,
+        "tie_on_score_base_and_observation_all": 33,
+        "tie_on_score_base_and_observation_selected": 33
+      },
+      "2025-03-18": {
+        "eligible": 3563,
+        "lanes": 3563,
+        "matched_published": true,
+        "boundary_score": 23.459905,
+        "boundary_tie_all": 1,
+        "boundary_tie_selected": 1,
+        "tie_on_score_base_and_observation_all": 1,
+        "tie_on_score_base_and_observation_selected": 1
+      },
+      "2025-03-19": {
+        "eligible": 3618,
+        "lanes": 3618,
+        "matched_published": true,
+        "boundary_score": 17.69461,
+        "boundary_tie_all": 145,
+        "boundary_tie_selected": 10,
+        "tie_on_score_base_and_observation_all": 81,
+        "tie_on_score_base_and_observation_selected": 10
+      },
+      "2025-03-20": {
+        "eligible": 3534,
+        "lanes": 3534,
+        "matched_published": true,
+        "boundary_score": 17.69461,
+        "boundary_tie_all": 112,
+        "boundary_tie_selected": 23,
+        "tie_on_score_base_and_observation_all": 39,
+        "tie_on_score_base_and_observation_selected": 23
+      },
+      "2025-03-21": {
+        "eligible": 3313,
+        "lanes": 3313,
+        "matched_published": true,
+        "boundary_score": 17.69461,
+        "boundary_tie_all": 143,
+        "boundary_tie_selected": 32,
+        "tie_on_score_base_and_observation_all": 47,
+        "tie_on_score_base_and_observation_selected": 32
+      }
+    },
+    "days_partial_boundary_score_tie": 6,
+    "days_partial_ties_after_score_and_observation": 5
+  },
+  "reproduction": [
+    "For the November sample use the two upstream GKG ZIPs identified by SHA-256 above. Set local GKG archive receipt times in batch order to 2026-11-15T08:35:23Z and 2026-11-15T08:35:25Z; use a work database with no earlier published picks, topics or other feeds.",
+    "Call digest.archive.iter_gkg(storage_root, day, cutoff=issue cutoff, read_only=True) and digest.ranking.grouped_candidates. Call pool.select(mode=\"balanced\", limit=100); assert the ordered progress key hash above. To audit excluded ranks, use the same current-policy SQL from GroupedDay._select without its LIMIT. Count ranks sharing the score of the 100th candidate, then those also sharing its base score and receipt timestamp.",
+    "For the additional check read prior_keys and published_window for the seven previously published dates, use the observed_candidates read-only replay and run the same policy; confirm every published key in order before extending the window query beyond 100."
+  ]
+}

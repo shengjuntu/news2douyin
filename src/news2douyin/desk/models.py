@@ -54,6 +54,12 @@ class DeskMeta(SQLModel, table=True):
     value: str = ''
 
 
+class OfficialGraphDocument(SQLModel, table=True):
+    """Bounded lookup of roots to refresh when GKG arrives after a mention."""
+    graph_key: str = Field(primary_key=True)
+    document_hash: str = Field(primary_key=True,index=True)
+
+
 class GraphPending(SQLModel, table=True):
     __table_args__ = (Index('ix_graphpending_pending_key','key',
         sqlite_where=text('token <> written'),postgresql_where=text('token <> written')),)

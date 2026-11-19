@@ -3,7 +3,6 @@ from datetime import datetime, timezone
 import pytest
 
 from news2douyin.collect import llm_filter
-from news2douyin.dedup import service as dedup
 from news2douyin.storage.db import init_db, make_engine
 
 
@@ -13,8 +12,6 @@ def offline(monkeypatch):
     monkeypatch.setenv('NEWS2DOUYIN_GKG_PROJECTION_ENABLED', '0')
     monkeypatch.setenv('NEWS2DOUYIN_SOURCE_CONTENT_ENABLED', '0')
     monkeypatch.setattr(llm_filter, 'endpoint_alive', lambda: False)
-    monkeypatch.setattr(dedup, 'DEDUP_LLM_ENABLED', False)
-    monkeypatch.setenv('DEDUP_LLM_ENABLED', '0')
     from news2douyin.server import webui
     monkeypatch.setattr(webui, '_llm_alive', lambda: False)
 

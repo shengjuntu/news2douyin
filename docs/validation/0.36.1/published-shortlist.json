@@ -1,0 +1,49 @@
+{
+  "schema": "news2douyin.shortlist-public-replay.v1",
+  "verification_utc": "2026-11-15T09:02:08+00:00",
+  "input": {
+    "coverage": "Two public English GKG batches, no Events, Mentions, NewsNow or model calls. Archives ingested at actual replay time. Independent SQLite work database and DuckDB archive; original source ZIPs from the previous release’s public validation.",
+    "source_batches": [
+      {
+        "stamp": "20261115001500",
+        "sha256": "d55ec47547e034155ae71214e030a01bcabcb1e4d6e1648c23e6e1cdc8238bcc"
+      },
+      {
+        "stamp": "20261115073000",
+        "sha256": "0f435f83eb547b9be9c4b84079ad7d421fa45355241678b2c78a2ac903b3627d"
+      }
+    ],
+    "rows": 888,
+    "readable": 866,
+    "groups": 740
+  },
+  "edition": {
+    "day": "2026-11-15",
+    "revision": 2,
+    "cutoff_at": "2026-11-15T08:41:06Z",
+    "cards": 100
+  },
+  "checks": {
+    "frozen_titles_keys_primary_urls_match_in_score_order": 100,
+    "saved_source_links_checked": 208,
+    "saved_source_links_present": 208,
+    "exact_utf8_http_cli_match": true,
+    "read_only_selects_per_http": 2,
+    "export_write_commits": 0,
+    "stale_link_http": 409,
+    "missing_issue_http": 404,
+    "content_type": "text/markdown; charset=utf-8",
+    "download_sha256": "1d68856a5f2c7aa62b12e7dc0c57784c468bd0ce7bb8603e6f34d6d5e3a18ad3",
+    "bytes": 102423,
+    "consecutive_local_sqlite_get_ms": [
+      30.6,
+      30.7,
+      29.62,
+      29.06,
+      30.5
+    ],
+    "local_sqlite_median_get_ms": 30.5,
+    "no_live_upstream": true
+  },
+  "sample_file": "news2douyin-daily-100-2026-11-15.md"
+}

@@ -115,7 +115,7 @@ def build(s,w,cutoff,point_key=''):
         ordered=sorted(groups,key=lambda k:(-len({items[i]['title'].casefold() for i in groups[k]}),k))
         for tag in ordered[:5]:
             sections.append(dict(key='',parent=w.key,title=tag,origin='材料分组建议',pool=groups[tag],evidence=[]))
-        sections.append(dict(key='',parent=w.key,title='专题资料池',origin='专题范围命中',pool=list(range(len(items))),evidence=[]))
+        sections.append(dict(key='',parent=w.key,title='焦点资料',origin='命中关注范围',pool=list(range(len(items))),evidence=[]))
     chosen={}
     def attach(section, i, reason):
         r=items[i]
@@ -132,7 +132,7 @@ def build(s,w,cutoff,point_key=''):
     for passes in range(2):
         for section in sections:
             for i in section['pool']:
-                reason={'长期问题':'问题与原文词项重合','材料分组建议':'相同动作类型与状态','专题范围命中':'已归入专题'}[section['origin']]
+                reason={'长期问题':'问题与原文词项重合','材料分组建议':'相同动作类型与状态','命中关注范围':'已收录'}[section['origin']]
                 if attach(section,i,reason):
                     break
     # One typed hop, restricted to current topic membership and the same cutoff.

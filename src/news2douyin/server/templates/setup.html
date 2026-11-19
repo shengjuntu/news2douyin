@@ -2,48 +2,39 @@
 {% block title %}首次运行检查 · news2douyin{% endblock %}
 {% block content %}
 <style>
-.setup-head{display:flex;align-items:center;justify-content:space-between;gap:14px}.setup-intro{line-height:1.85;max-width:850px}.setup-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:20px 0}.setup-grid h2{margin-top:0}.setup-card{min-width:0;line-height:1.75}.setup-card p{margin:10px 0}.setup-card li{margin:8px 0}.setup-card ul{padding-left:20px}.setup-detail{border-top:1px solid #293040;padding:12px 0;overflow-wrap:anywhere}.setup-detail:first-child{border:0}.setup-row{display:flex;justify-content:space-between;align-items:start;gap:12px}.setup-card code{overflow-wrap:anywhere}.setup-card pre{white-space:pre-wrap;overflow-wrap:anywhere}.setup-result{padding:10px 12px;background:#10141c;border-radius:7px;overflow-wrap:anywhere}.setup-error{color:#fbbf24;white-space:pre-wrap}.setup-time{font-size:12px;color:#9aa3b8}.setup-actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-top:14px}.setup-steps{line-height:1.9;padding-left:22px}.setup-steps li{padding:3px 0}@media(max-width:750px){.setup-grid{grid-template-columns:1fr}.setup-head{align-items:start}.setup-head button{flex-shrink:0}}
+.setup-head{display:flex;align-items:center;justify-content:space-between;gap:14px}.setup-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:20px 0}.setup-grid h2{margin-top:0}.setup-card{min-width:0;line-height:1.75}.setup-card p{margin:10px 0}.setup-card li{margin:8px 0}.setup-card ul{padding-left:20px}.setup-detail{border-top:1px solid #293040;padding:12px 0;overflow-wrap:anywhere}.setup-detail:first-child{border:0}.setup-row{display:flex;justify-content:space-between;align-items:start;gap:12px}.setup-card code{overflow-wrap:anywhere}.setup-card pre{white-space:pre-wrap;overflow-wrap:anywhere}.setup-result{padding:10px 12px;background:#10141c;border-radius:7px;overflow-wrap:anywhere}.setup-error{color:#fbbf24;white-space:pre-wrap}.setup-time{font-size:12px;color:#9aa3b8}.setup-actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-top:14px}@media(max-width:750px){.setup-grid{grid-template-columns:1fr}.setup-head{align-items:start}.setup-head button{flex-shrink:0}}
 </style>
 <div class="setup-head"><h1>首次运行检查</h1><button type="button" id="refresh-config" class="ghost">刷新配置检查</button></div>
-<p class="setup-intro muted">从采集一条新闻开始，确认脚本与视频能在这台服务机器上完成。下方先检查本地配置；新闻源需要试跑，模型需要主动检查，视频还需实际制作一次。</p>
 <p id="setup-status" role="status" aria-live="polite">正在读取配置…</p>
 <div class="setup-grid">
- <section class="card setup-card" id="news-card"><h2>1 · 新闻与自动采集</h2>
+ <section class="card setup-card" id="news-card"><h2>新闻与自动采集</h2>
   <div id="news-summary" class="muted">正在检查…</div><div id="news-profiles"></div>
   <details><summary>如何接入真实新闻</summary><p>GDELT 无需密钥。到采集策略选择 GDELT，填写英文关键词，保存后试跑。</p><p>在运行服务的目录复制 <code>.env.example</code> 为 <code>.env</code>，填写 <code>API_KEY</code>，重启服务。在策略中选择 WorldNewsAPI，并设置国家、语言和关注词。自定义密钥变量沿用策略配置。</p><p>保存后到采集策略点击“试跑”，核对抓取数、过滤原因和样本。密钥存在不代表账户权限或额度已经验证。</p></details>
-  <div class="setup-actions"><a href="/profiles">新增策略 / 试跑 →</a><a href="/profiles">采集配置 →</a></div>
+  <div class="setup-actions"><a href="/profiles">设置采集策略 →</a></div>
   <h3>自动采集计划</h3><p id="schedule-summary" class="muted">正在检查…</p><div id="setup-schedules"></div>
   <p><a href="/profiles#schedules">管理计划与时区 →</a></p>
  </section>
- <section class="card setup-card" id="model-card"><h2>2 · 译读与脚本模型</h2>
-  <p>按需中文译读和多语言 AI 初稿共用这里的兼容模型服务。“基础摘录稿”和事件“证据提纲”不需要模型；补材与深研究使用研究助手中的 RunDesk 配置。</p>
+ <section class="card setup-card" id="model-card"><h2>译读与脚本模型</h2>
+  <p>译读与 AI 初稿共用此模型。深度研究请到<a href="/research/settings">研究助手设置</a>。</p>
   <div id="model-config" class="setup-result">正在检查…</div>
   <details><summary>配置模型服务</summary><p>在 <code>.env</code> 设置以下三项，并重启服务：</p><pre>OPENAI_BASE_URL=http://127.0.0.1:19993/v1
 OPENAI_API_KEY=你的服务密钥
 MODEL=实际模型名称</pre><p><code>127.0.0.1</code> 指 news2douyin 服务所在机器。模型部署在另一台机器时，应填写服务端能访问的地址。系统环境变量优先于 <code>.env</code>。</p></details>
   <div class="setup-actions"><button id="probe-model" type="button" disabled>检查模型连接</button><a href="/daily">选新闻生成初稿 →</a></div>
-  <p class="muted small">点击后向已配置地址请求 <code>/models</code>，携带配置的鉴权信息；不发送新闻正文，不生成稿件。列表检查通过仍需提交一条 AI 初稿验证。</p>
+  <p class="muted small">检查用配置的凭据请求 <code>/models</code>。</p>
   <div id="model-result" role="status" aria-live="polite" class="setup-result">尚未检查连接。</div>
  </section>
- <section class="card setup-card" id="video-card"><h2>3 · 视频与配音</h2>
-  <p>审核通过脚本后，可选模板、配音和分段图片，制作竖屏视频并保存到作品库。</p>
+ <section class="card setup-card" id="video-card"><h2>视频与配音</h2>
   <button id="check-video" type="button">检查视频环境</button>
-  <p class="muted small">检查当前服务机器的编码程序、中文字体及可选配音依赖。不会渲染视频或调用在线配音。</p>
   <div id="video-result" role="status" aria-live="polite" class="setup-result">尚未检查视频环境。</div>
   <div class="setup-actions"><a href="/scripts">打开脚本并审核 →</a><a href="/videos">查看已完成作品 →</a></div>
  </section>
  <section class="card setup-card" id="service-card"><h2>服务与存储</h2><div id="service-config">正在检查…</div>
-  <p class="muted small">这里显示当前服务实例的状态。当前知识图部署使用单个应用服务进程。目录权限仅做预检；磁盘空间、实际写入及媒体编码需在完整流程中验证。</p>
+  <p class="muted small">知识图部署请使用单个应用进程。</p>
   <details><summary>启动与数据保存</summary><p>关闭网页后，后台任务继续执行；关闭服务则暂停处理。从同一目录启动，或用 <code>--db-url</code> 与 <code>--storage-root</code> 指向原位置，才能继续使用原新闻、稿件和视频。</p><p>每日默认时区由 <code>NEWS2DOUYIN_TIMEZONE</code> 设置。自动采集计划各自使用计划中保存的时区。</p></details>
   <p><a href="/tasks">查看任务与排队 →</a></p>
  </section>
 </div>
-<section class="card setup-card"><h2>跑通核心流程</h2><ol class="setup-steps">
- <li>到<a href="/profiles">采集配置</a>保存策略，试跑后点击“正式采集入库”。</li>
- <li>在<a href="/knowledge">知识处理状态</a>确认抽取和图连接，在<a href="/radar">事件雷达</a>发现变化，或建立长期专题。</li>
- <li>点击“形成选题”，在<a href="/workbench">内容工作台</a>确定角度和资料，补充研究后生成带引用的可编辑初稿。</li>
- <li>核对、编辑、审核、导出；需要视频时再进入制作。报告、稿件和视频保存在同一任务的“作品”阶段。</li>
-</ol><p class="muted">演示资料用于验证操作；配置自己的模型和研究助手后，再核对实际抽取与研究结果。</p></section>
 <script>
 const el=id=>document.getElementById(id),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const badge=(text,kind='')=>`<span class="badge ${kind}">${esc(text)}</span>`;
@@ -63,10 +54,10 @@ function renderConfig(d){
  el('service-config').insertAdjacentHTML('afterbegin',`<p>当前事务库：<strong>${esc(db.label||db.dialect||'未知')}</strong> / ${esc(db.driver||'未知驱动')} ${db.mode==='lightweight'?'（轻量兼容模式）':db.mode==='formal'?'（正式架构）':''}</p><p>原始接收库：DuckDB · 关系图：FalkorDB · <a href="/intake">查看接收与投影状态</a></p>${intake.receiver?.last_error?`<p class="setup-error">接收后台：${esc(intake.receiver.last_error)}</p>`:''}${intake.projection?.last_error?`<p class="setup-error">投影后台：${esc(intake.projection.last_error)}</p>`:''}`);
 }
 let hasConfig=false,modelBusy=false,modelValid=false;
-async function refresh(){el('refresh-config').disabled=true;el('setup-status').className='muted';el('setup-status').textContent='正在读取配置…';try{const d=await api('/api/setup/check');renderConfig(d);hasConfig=true;el('setup-status').textContent='配置检查于 '+checked(d.checked_at)+'。新闻、模型与配音的实际效果尚需验证。';}catch(e){el('setup-status').className='setup-error';el('setup-status').textContent=e.message+(hasConfig?' 下方保留上次记录，状态可能已过时。':' 尚未取得配置，修复后可重新检查。');}finally{el('refresh-config').disabled=false;}}
+async function refresh(){el('refresh-config').disabled=true;el('setup-status').className='muted';el('setup-status').textContent='正在读取配置…';try{const d=await api('/api/setup/check');renderConfig(d);hasConfig=true;el('setup-status').textContent='配置检查于 '+checked(d.checked_at)+'。';}catch(e){el('setup-status').className='setup-error';el('setup-status').textContent=e.message+(hasConfig?' 下方保留上次记录，状态可能已过时。':' 尚未取得配置，修复后可重新检查。');}finally{el('refresh-config').disabled=false;}}
 el('refresh-config').onclick=refresh;
 el('probe-model').onclick=async()=>{modelBusy=true;el('probe-model').disabled=true;el('model-result').textContent='正在请求模型列表…';try{const d=await api('/api/setup/model-probe','POST');el('model-result').innerHTML=badge(d.state==='listed'?'模型已列出 · 生成待验证':'需要核对',d.state==='listed'?'ok':'warn')+`<p>${esc(d.message)}</p><p class="setup-time">${esc(d.configuration.origin)} · ${esc(d.configuration.model)}<br>${esc(checked(d.checked_at))}</p>`;}catch(e){el('model-result').textContent=e.message;}finally{modelBusy=false;el('probe-model').disabled=!modelValid;}};
-el('check-video').onclick=async()=>{el('check-video').disabled=true;el('video-result').textContent='正在检查编码程序、字体与配音依赖…';try{const d=await api('/api/setup/video-check','POST');el('video-result').innerHTML=d.ok?badge(d.ready?'基础环境检查通过 · 尚未制作':'视频基础环境有缺项',d.ready?'ok':'bad')+d.checks.map(c=>`<div class="setup-detail">${badge(c.ok?(c.key==='espeak'||c.key==='edge'?'依赖已安装':'通过'):'未满足',c.ok?'ok':c.key==='espeak'||c.key==='edge'?'warn':'bad')} ${esc(c.label)}${!c.ok?`<p class="small">${esc(c.fix)}</p>`:''}</div>`).join('')+`<p class="muted small">配音依赖已安装不代表合成成功；也可上传录好的配音。实际制作以审核稿的预检结果为准。</p><p class="setup-time">${esc(checked(d.checked_at))}</p>`:esc(d.message);}catch(e){el('video-result').textContent=e.message;}finally{el('check-video').disabled=false;}};
+el('check-video').onclick=async()=>{el('check-video').disabled=true;el('video-result').textContent='正在检查编码程序、字体与配音依赖…';try{const d=await api('/api/setup/video-check','POST');el('video-result').innerHTML=d.ok?badge(d.ready?'基础环境检查通过 · 尚未制作':'视频基础环境有缺项',d.ready?'ok':'bad')+d.checks.map(c=>`<div class="setup-detail">${badge(c.ok?(c.key==='espeak'||c.key==='edge'?'依赖已安装':'通过'):'未满足',c.ok?'ok':c.key==='espeak'||c.key==='edge'?'warn':'bad')} ${esc(c.label)}${!c.ok?`<p class="small">${esc(c.fix)}</p>`:''}</div>`).join('')+`<p class="muted small">制作前请在审核稿中预检。</p><p class="setup-time">${esc(checked(d.checked_at))}</p>`:esc(d.message);}catch(e){el('video-result').textContent=e.message;}finally{el('check-video').disabled=false;}};
 refresh();
 </script>
 {% endblock %}

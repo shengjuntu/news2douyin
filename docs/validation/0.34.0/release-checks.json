@@ -1,0 +1,29 @@
+{
+  "version": "0.34.0",
+  "regression_passed": 1256,
+  "regression_skipped": 287,
+  "separate_postgres_suite": 109,
+  "postgres_version": "16.2",
+  "upgrade_from": "0.33.0",
+  "upgrade_backends": [
+    "PostgreSQL",
+    "SQLite"
+  ],
+  "upgraded_twice": true,
+  "wheel_checks": [
+    "core",
+    "daily_radar",
+    "evidence",
+    "newsnow",
+    "stability",
+    "intelligence",
+    "event_content"
+  ],
+  "browser_widths": [
+    390,
+    1440
+  ],
+  "public_validation": "public-validation.md",
+  "benchmark": "scale-500k.json",
+  "live_user_data_used": false
+}

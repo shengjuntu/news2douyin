@@ -15,7 +15,7 @@ def add(s, watch, parent, text):
     if parent != watch:
         node = s.get(FocusPoint,parent)
         if not node or node.watch != watch:
-            raise ValueError('父问题不属于这个专题')
+            raise ValueError('上级问题不属于此焦点')
     label = ' '.join(text.split())
     if not 1 <= len(label) <= 400:
         raise ValueError('子问题长度须为 1–400 字')

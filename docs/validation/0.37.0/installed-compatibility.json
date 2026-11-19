@@ -1,0 +1,48 @@
+{
+  "version": "0.37.0",
+  "installed_wheel_sha256": "3b4a902741b2421dd4010d6aadc29f5525cc98659a9614baf51068651e1a6598",
+  "smoke_test_exit_codes": {
+    "live_daily": 0,
+    "core": 0,
+    "daily_radar": 0,
+    "evidence": 0,
+    "newsnow": 0,
+    "event_content": 0,
+    "intelligence": 0,
+    "stability": 0
+  },
+  "upgrade": {
+    "from": "0.36.1",
+    "backends": [
+      "sqlite",
+      "postgresql"
+    ],
+    "bootstrap_runs": 2
+  },
+  "trial_export": {
+    "development_sample_sha256": "e741893debbc5fb29ff1d79f808dabdcd1cf65ece81db4cf9fca7b5e2546fb7d",
+    "seats": 100,
+    "published_baseline_md_identical_to_0361": true,
+    "combined_entrants": 25
+  },
+  "offline_worksheet": {
+    "chromium": [
+      {
+        "width": 390,
+        "visible_original_link": true,
+        "saved_and_reloaded": true,
+        "downloaded": "ratings.csv",
+        "js_errors": []
+      },
+      {
+        "width": 1440,
+        "visible_original_link": true,
+        "saved_and_reloaded": true,
+        "downloaded": "ratings.csv",
+        "js_errors": []
+      }
+    ],
+    "edited_ratings_imported": true,
+    "rating_demo": "Single artificial test click; no editorial ratings from this UI smoke enter the evaluation."
+  }
+}

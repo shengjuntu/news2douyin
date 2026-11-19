@@ -217,7 +217,7 @@ class DeskWorker:
             w=s.get(Watch,item.watch)
             from .focus_lifecycle import is_deleted
             if not w or is_deleted(s,item.watch) or (item.automatic and (not w.enabled or not w.auto_research or w.version!=item.scope_version)):
-                item.status='cancelled';item.message='专题设置已改变';s.add(item);s.commit();return
+                item.status='cancelled';item.message='焦点设置已更新';s.add(item);s.commit();return
             keys=[]
             frozen=None
             plan=None
@@ -244,6 +244,6 @@ class DeskWorker:
             current=s.get(Watch,w.key)
             from .focus_lifecycle import is_deleted
             if not current or is_deleted(s,w.key) or (row.automatic and (not current.enabled or not current.auto_research or current.version!=row.scope_version)):
-                state,message='cancelled','专题设置已改变'
+                state,message='cancelled','焦点设置已更新'
             row.status,row.message=state,message
             s.add(row);desk.enqueue_graph(s,'watch/'+w.key);s.commit()

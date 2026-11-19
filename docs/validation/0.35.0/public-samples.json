@@ -1,0 +1,363 @@
+{
+  "schema": "news2douyin.daily-public-sample.v1",
+  "tested_at_utc": "2026-11-15T07:37:52+00:00",
+  "scope": "Two public English GKG batches only, no other feeds or production volumes. A new isolated SQLite work DB and DuckDB lake received batch 1, then batch 2, on the actual current Beijing date. Each version was queued over the app HTTP endpoint. The real DigestWorker.step was invoked explicitly; ASGI HTTP requests used TestClient, without background threads.",
+  "group_method": "Official country uses action location; GKG countries are document mentions from the exact displayed source row and URL. More distinct mention offsets ranks first, ties use earliest offset. Unresolved ties go to multi-country, missing data to unknown. Exact theme families use distinct positions/earliest mention; unresolved categories are unknown. Assignment is post-selection.",
+  "archives": [
+    {
+      "url": "https://data.gdeltproject.org/gdeltv2/20261115001500.gkg.csv.zip",
+      "bytes": 1854821,
+      "sha256": "d55ec47547e034155ae71214e030a01bcabcb1e4d6e1648c23e6e1cdc8238bcc",
+      "rows": 438,
+      "valid_rows": 438,
+      "received_at_utc": "2026-11-15T07:37:53Z",
+      "ingestion_seconds": 1.845
+    },
+    {
+      "url": "https://data.gdeltproject.org/gdeltv2/20261115073000.gkg.csv.zip",
+      "bytes": 1921215,
+      "sha256": "0f435f83eb547b9be9c4b84079ad7d421fa45355241678b2c78a2ac903b3627d",
+      "rows": 450,
+      "valid_rows": 450,
+      "received_at_utc": "2026-11-15T07:37:56Z",
+      "ingestion_seconds": 1.833
+    }
+  ],
+  "intraday_editions": [
+    {
+      "beijing_day": "2026-11-15",
+      "revision": 1,
+      "generated_at": "2026-11-15T07:37:55Z",
+      "cutoff_at": "2026-11-15T07:37:55Z",
+      "queue_http": 202,
+      "while_queued_previous_edition_preserved": true,
+      "completed_worker_step_seconds": 0.375,
+      "before": 0,
+      "retained_from_previous": 0,
+      "ranking": {
+        "scanned": 416,
+        "invalid": 0,
+        "groups": 349,
+        "prior_excluded": 0,
+        "selected": 100
+      },
+      "inputs": {
+        "official_seen": 0,
+        "local_seen": 0,
+        "newsnow_seen": 0,
+        "gkg_archives": 1,
+        "gkg_seen": 438,
+        "gkg_invalid": 0,
+        "gkg_no_readable": 22,
+        "gkg_emitted": 416
+      },
+      "cards": {
+        "selected": 100,
+        "with_country_evidence": 80,
+        "with_primary_country": 80,
+        "mentioning_multiple_countries": 21,
+        "distinct_primary_countries": 14,
+        "category_assigned": 62,
+        "distinct_assigned_categories": 8,
+        "source_kinds": {
+          "gkg": 100
+        }
+      },
+      "http_reading_views": {
+        "none": {
+          "sort": "recommended",
+          "http": 200,
+          "response_seconds": 0.061,
+          "ordinals": 100,
+          "unique_reading_cards": 100,
+          "translate_buttons": 100,
+          "original_gkg_record_links": 100,
+          "groups": {}
+        },
+        "country": {
+          "sort": "recommended",
+          "http": 200,
+          "response_seconds": 0.026,
+          "ordinals": 100,
+          "unique_reading_cards": 100,
+          "translate_buttons": 100,
+          "original_gkg_record_links": 100,
+          "groups": {
+            "中国": 1,
+            "以色列": 1,
+            "利比里亚": 1,
+            "加拿大": 2,
+            "南非": 1,
+            "德国": 1,
+            "日本": 2,
+            "法国": 1,
+            "澳大利亚": 6,
+            "瑞士": 1,
+            "科威特": 2,
+            "美国": 53,
+            "英国": 7,
+            "菲律宾": 1,
+            "国家或地区未标注": 20
+          }
+        },
+        "category": {
+          "sort": "recommended",
+          "http": 200,
+          "response_seconds": 0.034,
+          "ordinals": 100,
+          "unique_reading_cards": 100,
+          "translate_buttons": 100,
+          "original_gkg_record_links": 100,
+          "groups": {
+            "健康与医疗": 17,
+            "公共安全与司法": 10,
+            "外交与冲突": 5,
+            "政治与治理": 8,
+            "教育与科技": 10,
+            "环境与灾害": 1,
+            "经济与贸易": 6,
+            "能源与农业": 5,
+            "未分类": 38
+          }
+        },
+        "source": {
+          "sort": "recent",
+          "http": 200,
+          "response_seconds": 0.036,
+          "ordinals": 100,
+          "unique_reading_cards": 100,
+          "translate_buttons": 100,
+          "original_gkg_record_links": 100,
+          "groups": {
+            "GDELT GKG": 100
+          }
+        }
+      }
+    },
+    {
+      "beijing_day": "2026-11-15",
+      "revision": 2,
+      "generated_at": "2026-11-15T07:37:58Z",
+      "cutoff_at": "2026-11-15T07:37:57Z",
+      "queue_http": 202,
+      "while_queued_previous_edition_preserved": true,
+      "completed_worker_step_seconds": 0.361,
+      "before": 100,
+      "retained_from_previous": 40,
+      "ranking": {
+        "scanned": 866,
+        "invalid": 0,
+        "groups": 740,
+        "prior_excluded": 0,
+        "selected": 100
+      },
+      "inputs": {
+        "official_seen": 0,
+        "local_seen": 0,
+        "newsnow_seen": 0,
+        "gkg_archives": 2,
+        "gkg_seen": 888,
+        "gkg_invalid": 0,
+        "gkg_no_readable": 22,
+        "gkg_emitted": 866
+      },
+      "cards": {
+        "selected": 100,
+        "with_country_evidence": 86,
+        "with_primary_country": 86,
+        "mentioning_multiple_countries": 37,
+        "distinct_primary_countries": 18,
+        "category_assigned": 67,
+        "distinct_assigned_categories": 8,
+        "source_kinds": {
+          "gkg": 100
+        }
+      },
+      "http_reading_views": {
+        "none": {
+          "sort": "recommended",
+          "http": 200,
+          "response_seconds": 0.028,
+          "ordinals": 100,
+          "unique_reading_cards": 100,
+          "translate_buttons": 100,
+          "original_gkg_record_links": 100,
+          "groups": {}
+        },
+        "country": {
+          "sort": "recommended",
+          "http": 200,
+          "response_seconds": 0.161,
+          "ordinals": 100,
+          "unique_reading_cards": 100,
+          "translate_buttons": 100,
+          "original_gkg_record_links": 100,
+          "groups": {
+            "中国": 2,
+            "乌克兰": 1,
+            "以色列": 3,
+            "利比里亚": 1,
+            "加拿大": 2,
+            "印度": 5,
+            "巴基斯坦": 1,
+            "巴林": 1,
+            "德国": 1,
+            "法国": 1,
+            "澳大利亚": 12,
+            "瑞典": 1,
+            "科威特": 1,
+            "秘鲁": 1,
+            "美国": 36,
+            "英国": 13,
+            "菲律宾": 3,
+            "越南": 1,
+            "国家或地区未标注": 14
+          }
+        },
+        "category": {
+          "sort": "recommended",
+          "http": 200,
+          "response_seconds": 0.025,
+          "ordinals": 100,
+          "unique_reading_cards": 100,
+          "translate_buttons": 100,
+          "original_gkg_record_links": 100,
+          "groups": {
+            "健康与医疗": 17,
+            "公共安全与司法": 12,
+            "外交与冲突": 11,
+            "政治与治理": 10,
+            "教育与科技": 2,
+            "环境与灾害": 2,
+            "经济与贸易": 8,
+            "能源与农业": 5,
+            "未分类": 33
+          }
+        },
+        "source": {
+          "sort": "recent",
+          "http": 200,
+          "response_seconds": 0.03,
+          "ordinals": 100,
+          "unique_reading_cards": 100,
+          "translate_buttons": 100,
+          "original_gkg_record_links": 100,
+          "groups": {
+            "GDELT GKG": 100
+          }
+        }
+      }
+    }
+  ],
+  "prior_public_replay": {
+    "manifest": "../0.34.0/public-archives.json",
+    "scope": "Seven frozen daily lists from March 2025, three sampled English GKG batches per day. Applied enrichment in memory from the corresponding read-only archive to measure metadata coverage; no old edition was changed. Counts measure available metadata, not editorial accuracy.",
+    "days": [
+      {
+        "beijing_day": "2025-03-15",
+        "enrichment_seconds": 0.366,
+        "selected": 100,
+        "with_country_evidence": 82,
+        "with_primary_country": 82,
+        "mentioning_multiple_countries": 49,
+        "distinct_primary_countries": 23,
+        "category_assigned": 80,
+        "distinct_assigned_categories": 8,
+        "source_kinds": {
+          "gkg": 100
+        }
+      },
+      {
+        "beijing_day": "2025-03-16",
+        "enrichment_seconds": 0.286,
+        "selected": 100,
+        "with_country_evidence": 88,
+        "with_primary_country": 88,
+        "mentioning_multiple_countries": 61,
+        "distinct_primary_countries": 23,
+        "category_assigned": 84,
+        "distinct_assigned_categories": 8,
+        "source_kinds": {
+          "gkg": 100
+        }
+      },
+      {
+        "beijing_day": "2025-03-17",
+        "enrichment_seconds": 0.28,
+        "selected": 100,
+        "with_country_evidence": 92,
+        "with_primary_country": 92,
+        "mentioning_multiple_countries": 61,
+        "distinct_primary_countries": 28,
+        "category_assigned": 85,
+        "distinct_assigned_categories": 7,
+        "source_kinds": {
+          "gkg": 100
+        }
+      },
+      {
+        "beijing_day": "2025-03-18",
+        "enrichment_seconds": 0.345,
+        "selected": 100,
+        "with_country_evidence": 93,
+        "with_primary_country": 93,
+        "mentioning_multiple_countries": 76,
+        "distinct_primary_countries": 20,
+        "category_assigned": 87,
+        "distinct_assigned_categories": 8,
+        "source_kinds": {
+          "gkg": 100
+        }
+      },
+      {
+        "beijing_day": "2025-03-19",
+        "enrichment_seconds": 0.355,
+        "selected": 100,
+        "with_country_evidence": 92,
+        "with_primary_country": 92,
+        "mentioning_multiple_countries": 56,
+        "distinct_primary_countries": 20,
+        "category_assigned": 80,
+        "distinct_assigned_categories": 8,
+        "source_kinds": {
+          "gkg": 100
+        }
+      },
+      {
+        "beijing_day": "2025-03-20",
+        "enrichment_seconds": 0.323,
+        "selected": 100,
+        "with_country_evidence": 87,
+        "with_primary_country": 87,
+        "mentioning_multiple_countries": 47,
+        "distinct_primary_countries": 20,
+        "category_assigned": 82,
+        "distinct_assigned_categories": 8,
+        "source_kinds": {
+          "gkg": 100
+        }
+      },
+      {
+        "beijing_day": "2025-03-21",
+        "enrichment_seconds": 0.298,
+        "selected": 100,
+        "with_country_evidence": 89,
+        "with_primary_country": 89,
+        "mentioning_multiple_countries": 51,
+        "distinct_primary_countries": 23,
+        "category_assigned": 79,
+        "distinct_assigned_categories": 8,
+        "source_kinds": {
+          "gkg": 100
+        }
+      }
+    ],
+    "totals": {
+      "selected": 700,
+      "with_country_evidence": 623,
+      "with_primary_country": 623,
+      "mentioning_multiple_countries": 401,
+      "category_assigned": 577
+    }
+  }
+}

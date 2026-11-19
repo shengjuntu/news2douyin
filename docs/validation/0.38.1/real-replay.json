@@ -1,0 +1,36 @@
+{
+  "baseline": "0.38.0",
+  "checked": "0.38.1",
+  "source": "Previously verified local public GKG, Events and Mentions archives",
+  "gkg": {
+    "dates": [
+      "2025-03-15",
+      "2025-03-16",
+      "2025-03-17",
+      "2025-03-18",
+      "2025-03-19",
+      "2025-03-20",
+      "2025-03-21",
+      "2026-11-15"
+    ],
+    "scanned": 25559,
+    "published_slots": 800,
+    "four_arm_slots": 3200,
+    "identical_comparison_files": 56,
+    "results_sha256": "2b67bd9cdf90db0a5b8b1ad7f78e98d2c58c70d9d3cf50a27a118cd621cfb34f",
+    "default_full_cards_order_scores_and_markdown_identical": true,
+    "all_retained_comparison_outputs_byte_identical": true
+  },
+  "events_mentions_gkg": {
+    "date": "2025-03-16",
+    "scanned": 1933,
+    "selected": 100,
+    "selected_by_source": {
+      "gdelt": 93,
+      "gkg": 7
+    },
+    "all_verified_values_identical": true,
+    "default_markdown_sha256": "089811adfaf5567b1a5dd60faaabf6353e4aa7acf9d6fecbf3050dfc01ebfd09",
+    "result_sha256": "6374ed360ca2d77af300c4759b69f7df62521d6b500538f205047061c4f535ae"
+  }
+}

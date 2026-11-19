@@ -1,12 +1,11 @@
 {% extends 'base.html' %}{% block title %}图数据库浏览器 · news2douyin{% endblock %}{% block content %}
 <style>main{overflow-wrap:anywhere}main pre{max-width:100%;white-space:pre-wrap}main .card{min-width:0}</style>
 <div class="row"><h1>图数据库浏览器</h1><a href="/knowledge">知识处理状态</a><a href="/radar?view=network">事件分析图</a></div>
-<p>FalkorDB 自带 Browser，可以选择图、查询节点与边、查看属性。这里配置它的网页入口。</p>
 <section class="card"><h2 style="margin-top:0">浏览器地址</h2>
 <form id="browser-setting"><label for="browser-url">从当前电脑能访问的地址</label><input id="browser-url" type="url" value="{{ browser_url }}" placeholder="http://服务器地址:13000" style="display:block;width:100%;margin:12px 0" maxlength="2000"><div class="row"><button>保存地址</button><a id="browser-open" {% if browser_url %}href="{{ browser_url|safe_url }}"{% else %}hidden{% endif %} target="_blank" rel="noopener noreferrer">打开 FalkorDB Browser ↗</a></div></form>
-<p id="browser-message" role="status"></p><p class="muted small">保存只修改入口，不会测试连通性或更改图数据库连接。远程使用时填写服务器的可访问地址，并在 Compose 环境中设置相同的 NEWS2DOUYIN_FALKOR_BROWSER_URL，重新创建容器以同步登录跳转地址。</p></section>
+<p id="browser-message" role="status"></p><p class="muted small">远程部署时，在 Compose 中同步设置 NEWS2DOUYIN_FALKOR_BROWSER_URL。</p></section>
 <section class="card" style="margin-top:16px"><h2 style="margin-top:0">本系统的图</h2>{% for graph in graphs %}<p>{{ graph.label }} · <code>{{ graph.name }}</code></p>{% endfor %}
-<p>进入 Browser 后选择相应图。可以先用以下只读查询查看结构：</p><pre>MATCH (n)-[r]-&gt;(m) RETURN n,r,m LIMIT 100</pre>
-<p class="muted">这里展示的是数据库管理工具。系统会从保存的证据重建投影图，直接在 Browser 修改的内容可能被下一次同步覆盖；正式事实和原文请在应用内整理。</p></section>
-<details class="card" style="margin-top:16px"><summary>如何启动 Browser</summary><p>配套 Compose 在同一 FalkorDB 容器上提供 Browser 端口：本机默认 13000，对应容器 3000。更新配置后在源码包根目录执行：</p><pre>docker compose -f deploy/falkordb.compose.yaml up -d</pre><p>默认仅本机可访问。需要远程访问时，按部署说明设置 Browser 监听地址并配置访问控制。网页地址与数据库的 redis:// 连接地址分别配置。</p><a href="https://docs.falkordb.com/operations/docker" target="_blank" rel="noopener noreferrer">官方部署文档 ↗</a></details>
+<p>查看所选图的示例查询</p><pre>MATCH (n)-[r]-&gt;(m) RETURN n,r,m LIMIT 100</pre>
+<p class="muted">直接修改投影图可能被同步覆盖。</p></section>
+<details class="card" style="margin-top:16px"><summary>如何启动 Browser</summary><p>默认端口 13000，映射到容器 3000。</p><pre>docker compose -f deploy/falkordb.compose.yaml up -d</pre><p>默认仅本机访问。远程使用请配置访问控制。</p><a href="https://docs.falkordb.com/operations/docker" target="_blank" rel="noopener noreferrer">官方部署文档 ↗</a></details>
 <script>document.getElementById('browser-setting').onsubmit=async e=>{e.preventDefault();const button=e.target.querySelector('button'),message=document.getElementById('browser-message');button.disabled=true;try{const r=await fetch('/api/knowledge/browser-setting',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:document.getElementById('browser-url').value})});const d=await r.json();if(!r.ok)throw Error(typeof d.detail==='string'?d.detail:'地址格式无效');const a=document.getElementById('browser-open');a.hidden=!d.url;if(d.url)a.href=d.url;else a.removeAttribute('href');message.textContent='地址已保存。';}catch(e){message.textContent=e.message;}finally{button.disabled=false;}};</script>{% endblock %}

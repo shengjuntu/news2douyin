@@ -256,16 +256,16 @@ def save_watch(s,scope:Scope,key=None,expected=None,seed=''):
     ident=key or 'w_'+uuid4().hex
     lock_news(s,'watch:'+ident,'watch-name:'+scope.name)
     w=get_watch(s,key) if key else Watch(key=ident,**scope.model_dump())
-    if key and expected!=w.version:raise TaskConflict('专题已被修改，请刷新后重试')
+    if key and expected!=w.version:raise TaskConflict('焦点已更新，请刷新后重试')
     from .focus_models import FocusDefinition
     definition=s.get(FocusDefinition,w.key) if key else None
     if definition and any(getattr(scope,field)!=getattr(w,field)
                           for field in ('name','scope','dimensions','exclude','question','kind')):
-        raise TaskConflict('请通过文字描述调整此专题的关注范围')
+        raise TaskConflict('请用文字调整关注范围')
     duplicate=s.exec(select(Watch.key).where(Watch.name==scope.name, Watch.key!=w.key)).first()
     if duplicate:
         from .focus_lifecycle import is_deleted
-        raise ValueError('同名专题在回收站中，请先恢复或使用其他名称' if is_deleted(s,duplicate) else '名称已存在')
+        raise ValueError('同名焦点在回收站中，请恢复或改名' if is_deleted(s,duplicate) else '名称已存在')
     if seed and not s.exec(select(Event.id).where(Event.event_key==seed)).first():raise KeyError('事件不存在')
     rescope=(not key or (scope.scope,scope.dimensions,scope.exclude,scope.kind,scope.enabled)!=(w.scope,w.dimensions,w.exclude,w.kind,w.enabled))
     if key:w.version+=1

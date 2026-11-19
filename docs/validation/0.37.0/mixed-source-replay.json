@@ -1,0 +1,55 @@
+{
+  "day": "2025-03-16",
+  "revision": 1,
+  "sample": "One matched public 15-minute English GKG, Events and Mentions update. Historical local receipt simulated at 00:20 UTC for offline replay only. Readable source previews seeded only from same-URL archived GKG titles, with empty excerpts.",
+  "inputs": {
+    "events_english": {
+      "records": 1197,
+      "sha256": "c11b7ae255d7e7b63b4770d9ad19a59aeb8fb34961b3b1422f0758a061384e2d"
+    },
+    "mentions_english": {
+      "records": 1736,
+      "sha256": "46a605a0bc6454834f96de6043206dca2027db4ba30737936aa8307ab32193a1"
+    },
+    "gkg_english": {
+      "records": 736,
+      "sha256": "4ed18e9e2473e6fcf0a5b6b1a12ee68df68d9ffcdfbda06af4bbef44c9a1606e"
+    }
+  },
+  "linked_titles": 295,
+  "scanned": {
+    "gdelt": 1197,
+    "gkg": 736
+  },
+  "selected_by_source": {
+    "gdelt": 93,
+    "gkg": 7
+  },
+  "eligible_groups": 615,
+  "arms": {
+    "baseline": {
+      "same_representatives": 100,
+      "same_position": 100,
+      "new_representatives": 0,
+      "merged_encounters": 0
+    },
+    "classification": {
+      "same_representatives": 100,
+      "same_position": 18,
+      "new_representatives": 0,
+      "merged_encounters": 0
+    },
+    "merge": {
+      "same_representatives": 100,
+      "same_position": 100,
+      "new_representatives": 0,
+      "merged_encounters": 0
+    },
+    "combined": {
+      "same_representatives": 100,
+      "same_position": 18,
+      "new_representatives": 0,
+      "merged_encounters": 0
+    }
+  }
+}

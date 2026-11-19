@@ -1,0 +1,150 @@
+{
+  "scope": "Prewritten independent synthetic guard cases for the optional action matcher. No estimate of production precision/recall.",
+  "module_sha256": "ccad3b1090dc13b73742cbd63cd1cc70ba235c03c398c6ea0162eda3da9d3808",
+  "cases": 20,
+  "expected_merges": 2,
+  "matched_positives": 2,
+  "false_merges": 0,
+  "findings": [
+    {
+      "case": "voice and tense",
+      "expected": true,
+      "detected": true,
+      "a": "Northgate Council approves the coastal transit plan",
+      "b": "The coastal transit plan was approved by Northgate Council"
+    },
+    {
+      "case": "policy sequence",
+      "expected": false,
+      "detected": false,
+      "a": "Andorra signs the river agreement",
+      "b": "Andorra ratifies the river agreement"
+    },
+    {
+      "case": "order vs completion",
+      "expected": false,
+      "detected": false,
+      "a": "Eastvale Council orders Lake Road evacuations",
+      "b": "Eastvale Council lifts Lake Road evacuations"
+    },
+    {
+      "case": "proposal vs decision",
+      "expected": false,
+      "detected": false,
+      "a": "Northgate Council plans to approve the coastal transit plan",
+      "b": "Northgate Council approved the coastal transit plan"
+    },
+    {
+      "case": "reversal",
+      "expected": false,
+      "detected": false,
+      "a": "Brighton officials close Wilton Bridge",
+      "b": "Brighton officials reopen Wilton Bridge"
+    },
+    {
+      "case": "parties reversed",
+      "expected": false,
+      "detected": false,
+      "a": "Arden arrests Brook during inspections",
+      "b": "Brook arrests Arden during inspections"
+    },
+    {
+      "case": "numerical change",
+      "expected": false,
+      "detected": false,
+      "a": "Acme recalls 12 generators in Osaka",
+      "b": "Acme recalled 120 generators in Osaka"
+    },
+    {
+      "case": "amendment qualifier",
+      "expected": false,
+      "detected": false,
+      "a": "Northgate Council approves city budget",
+      "b": "Northgate Council approves amendment to city budget"
+    },
+    {
+      "case": "opposite polarity",
+      "expected": false,
+      "detected": false,
+      "a": "Summit Bank signs Westbridge pact",
+      "b": "Summit Bank denies signing Westbridge pact"
+    },
+    {
+      "case": "different place",
+      "expected": false,
+      "detected": false,
+      "a": "Summit Bank signs Westbridge pact in Bristol",
+      "b": "Summit Bank signed Westbridge pact in Brussels"
+    },
+    {
+      "case": "attributed report",
+      "expected": false,
+      "detected": false,
+      "a": "Northgate Council approves the coastal transit plan",
+      "b": "Ottawa official claims Northgate Council approved the coastal transit plan"
+    },
+    {
+      "case": "currency",
+      "expected": false,
+      "detected": false,
+      "a": "Delta allocates \u20ac40 million for rail agreement",
+      "b": "Delta allocates $40 million for rail agreement"
+    },
+    {
+      "case": "different offices",
+      "expected": false,
+      "detected": false,
+      "a": "Port Arden signs the labor contract",
+      "b": "Port Arlen signed the labor contract"
+    },
+    {
+      "case": "different asset",
+      "expected": false,
+      "detected": false,
+      "a": "Helios catches Zenith",
+      "b": "Helios catches Horizon"
+    },
+    {
+      "case": "opposite stages",
+      "expected": false,
+      "detected": false,
+      "a": "Ground crew captures Artemis after orbit",
+      "b": "Ground crew launches Artemis into orbit"
+    },
+    {
+      "case": "different day",
+      "expected": false,
+      "detected": false,
+      "a": "Northgate Council approves the transit plan on Monday",
+      "b": "Northgate Council approved the transit plan on Tuesday"
+    },
+    {
+      "case": "spelled outcome",
+      "expected": true,
+      "detected": true,
+      "a": "Arcadia Commission signed the river treaty",
+      "b": "Arcadia Commission signs the river treaty"
+    },
+    {
+      "case": "who made the claim",
+      "expected": false,
+      "detected": false,
+      "a": "Bristol signs a treaty with Ottawa",
+      "b": "Ottawa signs a treaty with Bristol"
+    },
+    {
+      "case": "similarly named bills",
+      "expected": false,
+      "detected": false,
+      "a": "Brighton Council approves the river permit",
+      "b": "Brighton Council approved the riverside permit"
+    },
+    {
+      "case": "same article two distinct milestones",
+      "expected": false,
+      "detected": false,
+      "a": "Eastvale officials evacuated Oak Harbor residents",
+      "b": "Eastvale officials release Oak Harbor residents"
+    }
+  ]
+}

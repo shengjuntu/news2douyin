@@ -73,7 +73,13 @@ def test_prefetch_failure_does_not_blame_the_first_requested_row(isolated,monkey
         assert s.get(IntakeBatch,key).projected_offset==0
     assert not projection.project_step(engine,root,now=101)
     projection.retry_projection(engine,key)
-    assert projection.project_step(engine,root,now=101)
+    # A successful worker tick can stop early when its time budget expires.
+    # Every tick must advance until the complete four-row range is recovered.
+    for _ in range(4):
+        assert projection.project_step(engine,root,now=101)
+        with Session(engine) as s:
+            if s.get(IntakeBatch,key).projected_offset == 4:
+                break
     assert projection.projection_status(engine)['blocked_batches']==0
 
 

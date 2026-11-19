@@ -15,6 +15,11 @@ shared_relationships:
   DESCRIBES: {from: Article, to: EventMention, cardinality: "1:N per graph", source: "one immutable source revision, unique original passage"}
   HAS_ARGUMENT: {from: EventMention, to: Argument, cardinality: "1:N per graph", source: "same-revision passage; may cite a second passage for coreference"}
 global_nodes:
+  SourceEvent: {key: "gdelt/<GlobalEventID>", event_date: string, event_code: string, feed: string, stamp: string, row_index: integer, projected_documents: integer, has_more_documents: boolean}
+  GkgSubject: {key: string, name: string, kind: string}
+  GdeltDocument: {key: string, identifier: string, gkg_record_id: string, gkg_feed: string, gkg_stamp: string, gkg_row: integer}
+  GdeltActor: {key: string, name: string, country_code: string, iso2: string}
+  GdeltPlace: {key: string, name: string, country_code: string, iso2: string, latitude: number, longitude: number}
   GraphMeta: {id: string, owner: string, schema: string}
   Entity: {id: string, optional_labels: [Person, Organization]}
   Place: {iso: string}
@@ -23,6 +28,11 @@ global_extensions:
   Event: {seen: string, score: float, community: string, analysis_generation: string}
   Article: {title: string, domain: string, duplicate_root: string}
 global_relationships:
+  GKG_MENTIONS: {from: GdeltDocument, to: GkgSubject, meaning: "GKG document-level name; event roles require separate evidence"}
+  MENTIONED_IN: {from: SourceEvent, to: GdeltDocument, attributes: [mention_key, first_seen, last_seen, first_feed, first_stamp, first_row, last_feed, last_stamp, last_row, confidence, sentence_id, actor1_offset, actor2_offset, action_offset], meaning: "Distinct source event/document pair; first and last archive rows preserve observation provenance"}
+  CODED_ACTOR1: {from: SourceEvent, to: GdeltActor, meaning: "Actor1 from GDELT Events"}
+  CODED_ACTOR2: {from: SourceEvent, to: GdeltActor, meaning: "Actor2 from GDELT Events"}
+  CODED_ACTION_AT: {from: SourceEvent, to: GdeltPlace, meaning: "ActionGeo from GDELT Events"}
   RELATED_EVENT: {from: Event, to: Event, attributes: [weight, evidence, generation], meaning: "shared participant within 30 days or strict action-match candidate; not causality or event identity"}
   HAS_SOURCE: {from: Event, to: Article}
   MENTIONS: {from: Article, to: Entity}

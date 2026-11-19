@@ -18,11 +18,6 @@ POSITIVE = ['surge', 'beat', 'record high', 'rally', 'gain', 'rise', 'jump', '�
 NEGATIVE = ['fall', 'drop', 'miss', 'cut', 'warning', 'slump', '跌', '下滑', '利空', '裁员']
 
 
-def _contains_any(text: str, keywords: list[str]) -> bool:
-    t = text.lower()
-    return any(k.lower() in t for k in keywords)
-
-
 def classify_categories(text: str, requested: list[str]) -> list[str]:
     out = []
     lt = text.lower()

@@ -24,11 +24,12 @@ POSTGRES_INDEX_NAME = 'ix_graphpending_pending_key_c_v2'
 INDEX_PREDICATE = 'token <> written'
 _INDEX_LOCK = 627854931492017
 _PREFIXES = {'event': ('event/', 'event0'), 'watch': ('watch/', 'watch0'),
-             'attention': ('attention/', 'attention0')}
+             'attention': ('attention/', 'attention0'), 'official': ('official/', 'official0')}
 
 
 def pick(session, prefer_watch=False, *, after_event='', after_watch='',
-         include_attention=False, prefer_attention=False, after_attention=''):
+         include_attention=False, prefer_attention=False, after_attention='',
+         include_official=False, prefer_official=False, after_official=''):
     """Prefer one bounded key range, then the other; never load the outbox.
 
     Optional per-kind cursors make attempts round-robin even when an early key
@@ -39,19 +40,23 @@ def pick(session, prefer_watch=False, *, after_event='', after_watch='',
     GraphMirror opts into the third attention range (at most six empty reads),
     with its own cursor and reserved priority turn. Legacy two-range callers
     keep their query contract and never consume another subsystem's updates.
+    The same opt-in applies to the selected official event evidence range.
     """
-    if any(not isinstance(value, str) for value in (after_event, after_watch, after_attention)):
+    if any(not isinstance(value, str) for value in (after_event, after_watch, after_attention, after_official)):
         raise ValueError('Graph queue cursors must be strings')
     kinds = ('watch', 'event') if prefer_watch else ('event', 'watch')
     if include_attention:
         kinds = ('attention', 'event', 'watch') if prefer_attention else (*kinds, 'attention')
+    if include_official:
+        kinds = ('official', *kinds) if prefer_official else (*kinds, 'official')
     key = (GraphPending.key.collate('C') if session.get_bind().dialect.name == 'postgresql'
            else GraphPending.key)
     for kind in kinds:
         lower, upper = _PREFIXES[kind]
         query = select(GraphPending).where(GraphPending.token != GraphPending.written,
             key >= lower, key < upper).order_by(key).limit(1)
-        cursor = {'event': after_event, 'watch': after_watch, 'attention': after_attention}[kind]
+        cursor = {'event': after_event, 'watch': after_watch, 'attention': after_attention,
+                  'official': after_official}[kind]
         # Old/restored cursors outside the kind's range do not suppress work.
         if cursor.startswith(lower):
             row = session.exec(query.where(key > cursor).execution_options(

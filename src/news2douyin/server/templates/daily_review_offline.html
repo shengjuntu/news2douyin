@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>日报盲评 · news2douyin</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f3f4f1;color:#182422;font:16px/1.6 system-ui,"Microsoft YaHei",sans-serif}
+main{max-width:760px;margin:auto;padding:24px 16px 48px}header,nav,.bar,.choices{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+header,nav{justify-content:space-between}h1{font-size:1.2rem;margin:0}h2{font-size:clamp(1.35rem,4vw,2rem);line-height:1.28;margin:.4em 0}
+article{background:#fff;padding:clamp(16px,4vw,30px);border:1px solid #d1dad4;border-radius:10px;margin:12px 0}
+fieldset{padding:0;border:none;margin:18px 0 4px}legend,.lbl{font-weight:650}input,textarea,button,select{font:inherit}
+button,select,.choices label{padding:6px 12px;border:1px solid #84968d;border-radius:6px;background:white;color:#182422}
+button,.choices label{cursor:pointer}button:disabled{opacity:.48;cursor:default}button.primary{background:#1d5749;border-color:#1d5749;color:white}
+a{color:#135c4e}.muted,small{color:#4b5d55;font-size:.9rem}.bar{margin:14px 0 0}.bar select{max-width:100%}
+textarea,input[type=text]{display:block;width:100%;margin:4px 0 10px;padding:6px 9px;border:1px solid #84968d;border-radius:5px}
+.choices label{white-space:nowrap}.choices input{accent-color:#1d5749}#excerpt,#title,.meta{overflow-wrap:anywhere}#excerpt{white-space:pre-line}
+[hidden]{display:none!important}#notice{margin:8px 0}#lookup input{width:100%;padding:6px 9px}#matches{max-height:14rem;overflow:auto;margin:6px 0 0;padding:0;list-style:none}#matches button{width:100%;text-align:left;border:0;border-bottom:1px solid #dce3dc;border-radius:0}#source{display:inline-block;max-width:100%;overflow-wrap:anywhere}p{margin:8px 0}details{margin:12px 0}
+@media(max-width:450px){main{padding:16px 10px}article{padding:15px}.choices{gap:6px}.choices label{padding:5px 8px}}
+</style>
+</head>
+<body><main>
+<header><h1>日报盲评</h1><button id="download" type="button">导出评分 CSV</button></header>
+<p class="muted">按当天掌握的信息判断这条进展值不值得读。完成后导出评分，用于对照实际日报。</p>
+<div class="bar"><label>日期 <select id="day"></select></label><span id="progress" aria-live="polite"></span></div>
+<p id="notice" role="status"></p>
+<p id="empty" hidden>这些日期没有可供评审的卡片。</p>
+<article id="card" hidden>
+<div class="meta muted" id="meta"></div><h2 id="title"></h2><p id="excerpt"></p><a id="source" target="_blank" rel="noopener noreferrer" hidden>查看关联来源 ↗</a>
+<fieldset><legend>这条进展当天值得读吗？</legend>
+<div class="choices"><label><input name="rating" type="radio" value="1">值得读</label><label><input name="rating" type="radio" value="0">不值得读</label><label><input name="rating" type="radio" value="">暂未判断</label></div></fieldset>
+<fieldset><legend>与同日其他卡片重复吗？</legend>
+<div class="choices"><label><input name="groupMode" type="radio" value="solo">核对同日后确认独有</label><label><input name="groupMode" type="radio" value="group">同一进展</label><label><input name="groupMode" type="radio" value="">暂未核对</label></div></fieldset>
+<details id="lookup"><summary>查找同日其他标题</summary>
+<label><span class="muted">查重时可用人名、地点或关键词查找</span><input id="search" type="search" aria-label="查找同日其他标题"></label><small id="matchCount"></small><ul id="matches"></ul></details>
+<button id="returnCard" type="button" hidden>返回刚才的卡片</button>
+<label id="groupField" hidden><span class="lbl">同一进展的卡片填写相同名称</span><input id="fact" type="text" list="groups" maxlength="150" placeholder="如：港口罢工正式结束"><datalist id="groups"></datalist></label>
+<details id="noteBox"><summary>评审笔记</summary><textarea id="note" rows="2" aria-label="评审笔记"></textarea></details>
+<nav aria-label="切换卡片"><button id="prev" type="button">上一条</button><span id="position"></span><button id="next" type="button" class="primary">下一条</button></nav>
+</article>
+<small id="saveState"></small>
+</main><script id="blind-data" type="application/json">__BLIND_JSON__</script>
+<script>
+'use strict';
+const rows = JSON.parse(document.querySelector('#blind-data').textContent);
+const byId = new Map(rows.map(row => [row.id, row]));
+const key = 'news2douyin-daily-review-__BUNDLE_ID__';
+const el = id => document.getElementById(id);
+let current = 0, visible = rows, localOK = true, activeDay = '', returnTo = '';
+function ratingsOf(row) { return {important:row.important, fact_group:row.fact_group, note:row.note}; }
+try {
+  const saved = JSON.parse(localStorage.getItem(key) || '{}');
+  for (const [id, values] of Object.entries(saved)) {
+    const row = byId.get(id);
+    if (row && values && ['', '0', '1'].includes(values.important)
+        && typeof values.fact_group === 'string' && typeof values.note === 'string') Object.assign(row, ratingsOf(values));
+  }
+} catch { localOK = false; }
+function save() {
+  try {
+    const changed = rows.filter(row => row.important || row.fact_group || row.note);
+    localStorage.setItem(key, JSON.stringify(Object.fromEntries(changed.map(row => [row.id,ratingsOf(row)]))));
+  } catch { localOK = false; }
+  status();
+}
+function status() {
+  const n = visible.filter(row => row.important !== '').length;
+  el('progress').textContent = '已评 ' + n + ' / ' + visible.length;
+  el('saveState').textContent = localOK ? '评分暂存在当前浏览器。导出 CSV 可保存及计分。' : '浏览器无法暂存评分。请在关闭页面前导出 CSV。';
+}
+function listTitles() {
+  const row = visible[current]; if (!row || !el('lookup').open) return;
+  const words=el('search').value.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
+  const matches=visible.filter(other=>other.day===row.day && other.id!==row.id &&
+    words.every(word=>other.title.toLocaleLowerCase().includes(word)));
+  el('matchCount').textContent='同日找到 '+matches.length+' 条其他标题';
+  const fragment=document.createDocumentFragment();
+  for (const other of matches) {
+    const li=document.createElement('li'), button=document.createElement('button');
+    button.type='button';button.textContent=other.title || '标题缺失';
+    button.onclick=()=>{if(validateGroup()){returnTo=row.id;openCard(other.id);}};
+    li.append(button);fragment.append(li);
+  }
+  el('matches').replaceChildren(fragment);
+}
+function openCard(id) {
+  const target=visible.findIndex(row=>row.id===id);
+  if(target>=0){current=target;el('notice').textContent='';show();rememberCard();}
+}
+el('lookup').ontoggle=listTitles;el('search').oninput=listTitles;
+el('returnCard').onclick=()=>{if(validateGroup()){const id=returnTo;returnTo='';openCard(id);}};
+function show() {
+  const row = visible[current];
+  el('empty').hidden = !!row; el('card').hidden = !row; el('download').disabled = !rows.length;
+  status(); if (!row) return;
+  el('lookup').open=false;el('search').value='';el('returnCard').hidden=!returnTo || returnTo===row.id;
+  el('meta').textContent = [row.day,row.observed_at && '观测 '+row.observed_at,row.material_origin].filter(Boolean).join(' · ');
+  el('title').textContent = row.title || '标题缺失'; el('excerpt').textContent = row.excerpt;
+  const link = el('source'); link.hidden = true; link.removeAttribute('href');
+  try { const url = new URL(row.source_url); if (['https:', 'http:'].includes(url.protocol)) {link.href=url.href;link.hidden=false;} } catch {}
+  const mode = row.fact_group === '-' ? 'solo' : row.fact_group ? 'group' : '';
+  for (const radio of document.querySelectorAll('[name=rating]')) radio.checked = radio.value === row.important;
+  for (const radio of document.querySelectorAll('[name=groupMode]')) radio.checked = radio.value === mode;
+  el('fact').value = mode === 'group' ? row.fact_group : ''; el('groupField').hidden = mode !== 'group';
+  const tags = [...new Set(rows.filter(other => other.day === row.day && other.fact_group && other.fact_group !== '-').map(other=>other.fact_group))];
+  el('groups').replaceChildren(...tags.map(tag=>new Option(tag,tag)));
+  el('note').value = row.note; el('noteBox').open = !!row.note;
+  el('position').textContent = (current+1) + ' / ' + visible.length;
+  el('prev').disabled = current === 0; el('next').disabled = current === visible.length-1;
+}
+function validateGroup() {
+  const mode = document.querySelector('[name=groupMode]:checked');
+  if (!visible.length || !mode || mode.value !== 'group' || (el('fact').value.trim() && el('fact').value.trim() !== '-')) return true;
+  el('notice').textContent = '请填写这项进展的名称，或选择「暂未核对」。';
+  el('fact').focus(); return false;
+}
+for (const radio of document.querySelectorAll('[name=rating]')) radio.onchange = () => {visible[current].important=radio.value;save();};
+for (const radio of document.querySelectorAll('[name=groupMode]')) radio.onchange = () => {
+  const group = radio.value === 'group'; el('groupField').hidden = !group;
+  const value = group ? el('fact').value.trim() : radio.value === 'solo' ? '-' : '';
+  visible[current].fact_group = value; el('notice').textContent=''; if (group) el('fact').focus(); save();
+};
+el('fact').oninput = () => {const val=el('fact').value.trim(); visible[current].fact_group = val === '-' ? '' : val; el('notice').textContent='';save();};
+el('note').oninput = () => {visible[current].note=el('note').value;save();};
+el('day').add(new Option('全部日期',''));
+for (const value of [...new Set(rows.map(row=>row.day))].sort()) el('day').add(new Option(value,value));
+function rememberCard() {
+  try { localStorage.setItem(key + '-cursor', JSON.stringify({day:activeDay, id:visible[current]?.id || ''})); }
+  catch { localOK=false; status(); }
+}
+try {
+  const cursor=JSON.parse(localStorage.getItem(key + '-cursor') || 'null');
+  if(cursor && byId.has(cursor.id)) {
+    activeDay=cursor.day === byId.get(cursor.id).day ? cursor.day : '';
+    el('day').value=activeDay;visible=activeDay ? rows.filter(row=>row.day===activeDay) : rows;
+    current=visible.findIndex(row=>row.id===cursor.id);
+  }
+} catch { localOK=false; }
+el('day').onchange = () => {
+  if (!validateGroup()) {el('day').value=activeDay;return;}
+  activeDay=el('day').value;returnTo='';visible=activeDay ? rows.filter(row=>row.day===activeDay) : rows;
+  current=0;el('notice').textContent='';show();rememberCard();
+};
+function move(step) { if (validateGroup()) {returnTo='';current+=step;el('notice').textContent='';show();rememberCard();} }
+el('prev').onclick = () => move(-1); el('next').onclick = () => move(1);
+function cell(value) {
+  let text = String(value);
+  if(text!=='-' && (/^[\s]*[=+@-]/.test(text)||/^[\t\r\n]/.test(text))) text="'"+text;
+  return '"'+text.replaceAll('"','""')+'"';
+}
+el('download').onclick=()=>{
+  if(!validateGroup()) return;
+  const cols=['id','day','important','fact_group','note'];
+  const csv=[cols.join(','),...rows.map(r=>cols.map(k=>cell(r[k])).join(','))].join('\r\n');
+  const url=URL.createObjectURL(new Blob(['\uFEFF',csv],{type:'text/csv;charset=utf-8'}));
+  const a=document.createElement('a');a.href=url;a.download='ratings.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),5000);
+  el('notice').textContent='已导出全部日期的评分。空白项保留为未评。';
+};
+show();
+</script></body></html>

@@ -128,7 +128,12 @@ def test_content_refresh_is_bounded_readonly_and_preserves_requested_order(repor
     assert 'order by officialmention.last_seen desc' in source_queries[0]
     assert 'order by officialmention.confidence' not in source_queries[0]
     assert not any('canonical_url =' in sql or 'article.url =' in sql for sql in statements)
-    assert len(statements)<=6,statements
+    # The optional reconstructed context adds one bounded batch lookup across
+    # all visible event IDs. Keep the existing six-query publisher-preview budget.
+    ngram_queries=[sql for sql in statements if 'from ngramtarget' in sql]
+    assert len(ngram_queries)<=1
+    assert all('limit' in sql and 'ngramtarget.event_id = officialevent.event_id' in sql for sql in ngram_queries)
+    assert len(statements)-len(ngram_queries)<=6,statements
     with Session(reports_case) as s:
         assert service.content_cards(s,[])['items']==[]
         with pytest.raises(ValueError):service.content_cards(s,['1']*31)

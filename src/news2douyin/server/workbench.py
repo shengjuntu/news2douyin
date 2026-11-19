@@ -5,7 +5,7 @@ from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 from ..workbench import service as work
-from ..workbench.models import ContentTask, ContentBinding
+from ..workbench.models import ContentTask, ContentBinding, ContentTaskTrash
 from ..topics.models import TopicWorkspace
 from ..research.models import ResearchCase, ShortScriptBrief
 from ..extraction.models import SurveyPacket
@@ -41,7 +41,13 @@ def register(app,engine,storage,render):
 
     @app.get('/workbench')
     def listing(view:str='',q:str='',offset:int=Query(0,ge=0),s=Depends(db)):
-        stmt=select(ContentTask,TopicWorkspace).join(TopicWorkspace,TopicWorkspace.workspace_id==ContentTask.key)
+        stmt=(select(ContentTask,TopicWorkspace,ContentTaskTrash)
+            .join(TopicWorkspace,TopicWorkspace.workspace_id==ContentTask.key)
+            .outerjoin(ContentTaskTrash,ContentTaskTrash.task==ContentTask.key))
+        if view=='trash':
+            stmt=stmt.where(ContentTaskTrash.deleted_at!='').order_by(ContentTaskTrash.deleted_at.desc())
+        else:
+            stmt=stmt.where((ContentTaskTrash.task==None) | (ContentTaskTrash.deleted_at==''))
         if view in work.PHASES:stmt=stmt.where(ContentTask.phase==view)
         if q:stmt=stmt.where(TopicWorkspace.title.contains(q[:200]))
         rows=s.exec(stmt.order_by(ContentTask.updated.desc(),ContentTask.key).offset(offset).limit(40)).all()
@@ -60,14 +66,32 @@ def register(app,engine,storage,render):
             offset=offset,historical=historical)
 
     @app.get('/workbench/new')
-    def new(event:str='',watch:str='',article:str='',s=Depends(db)):
+    def new(event:str='',watch:str='',article:str='',digest_day:str=Query('',max_length=10),
+            progress:str=Query('',max_length=160),digest_token:str=Query('',pattern=r'^(?:[a-f0-9]{64})?$'),s=Depends(db)):
+        if digest_day or progress or digest_token:
+            if event or watch or article:
+                raise HTTPException(422, '请单独选择日报中的进展')
+            from ..digest.handoff import card_token, selected_card
+            from ..tasks.control import TaskConflict
+            try:
+                card = selected_card(s, digest_day, progress, digest_token)
+            except TaskConflict as exc:
+                response = render('workbench_daily_changed.html', active='radar', day=digest_day, message=str(exc))
+                response.status_code = 409
+                return response
+            except KeyError as exc:
+                raise HTTPException(404, '这期日报没有这条进展') from exc
+            except ValueError as exc:
+                raise HTTPException(422, str(exc)) from exc
+            return render('workbench_new.html',active='workbench',event='',watch='',article='',
+                title=card['title'][:250],watch_name='',digest_day=digest_day,progress=progress,digest_token=card_token(card))
         evt=s.exec(select(Event).where(Event.event_key==event)).first() if event else None
         topic=s.get(Watch,watch) if watch else None
         if watch:
             from ..desk.focus_lifecycle import require_active
             topic=task_call(require_active,s,watch)
         if event and not evt:raise HTTPException(404,'事件不存在')
-        if watch and not topic:raise HTTPException(404,'专题不存在')
+        if watch and not topic:raise HTTPException(404,'焦点不存在')
         return render('workbench_new.html',active='workbench',event=event,watch=watch,article=article,
             title=evt.event_title if evt else topic.name+' · 新选题' if topic else '',watch_name=topic.name if topic else '')
 
@@ -83,6 +107,14 @@ def register(app,engine,storage,render):
     def detail(key:str,s=Depends(db)):
         data=task_call(work.detail,s,key);s.commit();return data
 
+    @app.delete('/api/workbench/{key}',dependencies=[Depends(same_origin)])
+    def remove(key:str,version:int=Query(ge=0)):
+        return task_call(work.set_trashed,engine,key,version,trashed=True)
+
+    @app.post('/api/workbench/{key}/restore',dependencies=[Depends(same_origin)])
+    def restore(key:str,version:int=Query(ge=0)):
+        return task_call(work.set_trashed,engine,key,version,trashed=False)
+
     @app.post('/api/workbench/{key}/phase',dependencies=[Depends(same_origin)])
     def phase(key:str,p:Phase):
         return task_call(work.move,engine,key,p.phase,p.version)
@@ -93,12 +125,16 @@ def register(app,engine,storage,render):
 
     @app.get('/workbench/{key}')
     def resume(key:str,s=Depends(db)):
+        if work.is_trashed(s,key):
+            return RedirectResponse('/workbench?view=trash',303)
         t,w=task_call(work.require,s,key);s.commit()
         return RedirectResponse(f'/workbench/{key}/{t.phase}',303)
 
     @app.get('/workbench/{key}/{stage}')
     def workspace(key:str,stage:str,case:str='',script:str='',video:str='',mode:str='',s=Depends(db)):
         if stage not in work.PHASES:raise HTTPException(404,'阶段不存在')
+        if work.is_trashed(s,key):
+            return RedirectResponse('/workbench?view=trash',303)
         data=task_call(work.detail,s,key);s.commit()
         context=dict(active='workbench',work=data,work_stage=stage,phases=work.PHASES)
         if stage=='selection':

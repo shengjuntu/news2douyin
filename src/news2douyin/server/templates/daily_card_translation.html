@@ -1,0 +1,17 @@
+{% set tr = entry.translation %}
+{% if tr %}
+<div class="daily-translation" data-daily-translation data-day="{{ tr.day }}" data-key="{{ tr.key }}" data-fingerprint="{{ tr.fingerprint }}">
+  {% if tr.already_chinese %}
+    <span class="small">原文为中文</span>
+  {% else %}
+    <button type="button" class="ghost" data-translate-start>译成中文</button>
+    <small data-translate-status role="status">{% if tr.likely_chinese %}原文可能已是中文{% endif %}</small>
+    <a href="/setup#model-card" class="small" data-translate-settings hidden>检查翻译模型设置</a>
+    <div data-translate-result hidden>
+      <strong data-translate-label>中文译文</strong>
+      <p data-translate-text style="white-space:pre-wrap;overflow-wrap:anywhere"></p>
+      <small data-translate-note></small>
+    </div>
+  {% endif %}
+</div>
+{% endif %}

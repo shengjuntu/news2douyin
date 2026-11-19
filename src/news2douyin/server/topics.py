@@ -1,16 +1,14 @@
 import json
-from pathlib import Path
 from fastapi import Request, Query
 from fastapi.responses import HTMLResponse, RedirectResponse
-from jinja2 import Environment, FileSystemLoader, select_autoescape
 from sqlmodel import Session, select
 from ..topics import service as ts
-from ..topics.models import TopicWorkspace, TopicCandidate
+from ..topics.models import TopicWorkspace
+from ..workbench.service import visible_task
 from .research import call, same_origin
 
 
 def register_topic_routes(app,engine):
-    env=Environment(loader=FileSystemLoader(str(Path(__file__).parent/'templates')),autoescape=select_autoescape(['html']))
     @app.get('/topics',response_class=HTMLResponse)
     def page(workspace:str=''):
         if workspace:
@@ -23,7 +21,8 @@ def register_topic_routes(app,engine):
     def listing():
         with Session(engine) as s:
             return [dict(workspace_id=w.workspace_id,title=w.title,updated_at=w.updated_at,revision=w.revision)
-                for w in s.exec(select(TopicWorkspace).order_by(TopicWorkspace.updated_at.desc()).limit(100))]
+                for w in s.exec(select(TopicWorkspace).where(visible_task(TopicWorkspace.workspace_id))
+                    .order_by(TopicWorkspace.updated_at.desc()).limit(100))]
 
     @app.post('/api/topics',status_code=201)
     def create(payload:ts.Create,request:Request):

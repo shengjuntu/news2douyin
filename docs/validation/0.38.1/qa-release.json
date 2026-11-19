@@ -1,0 +1,33 @@
+{
+  "checked_utc": "2026-11-19T05:58:55.699754+00:00",
+  "tested_release": "0.38.1",
+  "scope": "Full pytest suite, split by file into four shards with independent disposable PostgreSQL 16.2 en_US.utf8 instances. The test suite also exercises SQLite, DuckDB, and local FalkorDB fixtures.",
+  "total": 1661,
+  "passed": 1660,
+  "skipped": 1,
+  "failed": 0,
+  "errors": 0,
+  "skip_reasons": {
+    "tests/test_postgres_search_triggers.py::test_pg_trigram_search_matches_literal_wildcards_chinese_and_offset_dates": "pg_trgm not installed in this PostgreSQL QA distribution"
+  },
+  "dependencies": {
+    "pytest": "9.2.0",
+    "pgserver": "0.1.4",
+    "psycopg": "3.3.9",
+    "duckdb": "1.4.5",
+    "SQLAlchemy": "2.1.8",
+    "sqlmodel": "0.0.50",
+    "falkordb": "1.4.0",
+    "falkordblite": "0.11.0",
+    "gdeltnews": "1.1.0"
+  },
+  "additional_graph_queue_c_collation_passed": 41,
+  "additional_cli_check_without_pythonpath_passed": 15,
+  "web_api_comparison": {
+    "base_version": "0.38.0",
+    "http_routes_preserved": 272,
+    "openapi_paths_preserved": 239,
+    "route_methods_equal": true,
+    "openapi_path_objects_equal": true
+  }
+}

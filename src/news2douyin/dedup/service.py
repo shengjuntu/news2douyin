@@ -13,8 +13,6 @@ from ..storage.models import Article
 CANDIDATE_LIMIT = 1000
 CONTENT_MATCH_TITLE_GATE = 0.40
 MAX_CHAIN_DEPTH = 10
-# Kept for older integrations; semantic LLM verdicts no longer classify copies.
-DEDUP_LLM_ENABLED = False
 
 
 @dataclass
@@ -106,7 +104,6 @@ def decide_duplicate(session: Session, item: dict[str, Any], before_id: int | No
     if best:
         return DedupDecision(norm, True, best.article_key, _resolve_root_group_id(session, best),
                              'near_copied_text', round(best_score, 3), best.title_signature)
-    # The legacy same-event LLM verdict is deliberately not a duplicate verdict.
     event_seed = norm.content_signature or norm.title_signature or short_hash(norm.normalized_title, length=18)
     gid = short_hash(norm.canonical_url or norm.title_hash or event_seed, length=18)
     return DedupDecision(norm, False, None, gid, 'unique', 0.0, event_seed)

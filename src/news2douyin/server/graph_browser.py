@@ -41,7 +41,7 @@ def register(app,engine,render):
         graphs=[dict(name=prefix+'_active_global',label='全局活动知识图')]
         from ..desk.focus_lifecycle import is_deleted
         graphs.extend(dict(name=prefix+'_focus_'+w.key,
-            label=w.name+(' · 已删除专题的存档图' if is_deleted(s,w.key) else ''))
+            label=w.name+(' · 已删除焦点的存档图' if is_deleted(s,w.key) else ''))
             for w in s.exec(select(Watch).order_by(Watch.name)))
         return render('graph_browser.html',active='knowledge',browser_url=url,graphs=graphs)
 

@@ -13,7 +13,6 @@ import sys
 import tempfile
 from unittest.mock import patch
 
-os.environ['DEDUP_LLM_ENABLED'] = '0'
 os.environ['NEWS2DOUYIN_GKG_STREAM_ENABLED'] = '0'
 os.environ['NEWS2DOUYIN_GKG_PROJECTION_ENABLED'] = '0'
 os.environ['NEWS2DOUYIN_SOURCE_CONTENT_ENABLED'] = '0'

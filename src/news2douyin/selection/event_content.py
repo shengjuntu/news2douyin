@@ -135,4 +135,14 @@ def enrich_cards(session, events, cards, safe_url, *, source_mentions=None, reso
     previews = resolved_previews if resolved_previews is not None else (resolve_previews(session, urls) if urls else {})
     for event, card in zip(events, cards):
         attach(card, selected[event.event_id], previews)
+    missing = [card for card in cards if not (card.get('report_preview') or {}).get('excerpt')]
+    if missing:
+        from .ngram_enrichment import qualified_for_events
+        leads = qualified_for_events(session, [str(card['event_id']) for card in missing])
+        for card in missing:
+            lead = leads.get(str(card['event_id']))
+            if lead and safe_url(lead.get('url')):
+                card['reconstruction'] = lead
+                if not card.get('report_preview'):
+                    card['display_title'] = '片段重建中的行动线索'
     return cards

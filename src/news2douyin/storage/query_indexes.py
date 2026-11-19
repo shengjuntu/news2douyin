@@ -8,6 +8,7 @@ NAME = 'ix_articleversion_article_latest_id'
 COLUMNS = ['article_key', 'id']
 READ_INDEXES = (
     ('articleversion', NAME, COLUMNS),
+    ('articleversion', 'ix_articleversion_observed_id', ['observed_at', 'id']),
     ('article', 'ix_article_read_provider', ['article_key', 'provider']),
     ('articleeventlink', 'ix_articleeventlink_read_sources', ['event_key', 'article_key']),
     ('radarentry', 'ix_radarentry_read_scope', ['key', 'seen', 'priority', 'band']),

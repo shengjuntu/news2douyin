@@ -225,6 +225,10 @@ def create_case(engine, payload, *, preparation=None, frozen_sources=None, fixed
                 provenance.update(source_kind='newsnow_metadata', provider='newsnow',
                                   newsnow=doc.get('newsnow',{}), content_kind=doc.get('content_kind',''),
                                   requires_original_text=True)
+            elif doc.get('reconstruction'):
+                provenance.update(provider='gdelt_web_ngrams', source_kind='search_snippet',
+                                  reconstruction=doc['reconstruction'], official_event_id=doc.get('official_event_id',''),
+                                  material_kind=doc.get('material_kind',''), requires_original_text=True)
             add_source(s, case, title=article.title, url=article.url, text=evidence_text,
                        kind=source_kind, published_at=article.published_at, provenance=provenance)
         if prior_watch:

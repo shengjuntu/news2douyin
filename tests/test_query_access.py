@@ -77,8 +77,8 @@ def test_managed_covering_indexes_can_be_explicitly_built_and_analyzed(engine):
         for _,name,_ in READ_INDEXES:
             c.execute(text('DROP INDEX '+name))
     result=ensure_read_indexes(engine,analyze=True)
-    assert len(result['indexes'])==4 and all(row['created'] for row in result['indexes'])
-    assert len(result['analyzed'])==4
+    assert len(result['indexes'])==len(READ_INDEXES) and all(row['created'] for row in result['indexes'])
+    assert len(result['analyzed'])==len(READ_INDEXES)
     assert not any(row['created'] for row in ensure_read_indexes(engine)['indexes'])
     with engine.begin() as c:
         c.execute(text('DROP INDEX '+NAME))

@@ -1,0 +1,94 @@
+{
+  "day": "2026-11-15",
+  "cutoff": "2026-11-15T08:41:06Z",
+  "two_public_english_batches": true,
+  "trials": {
+    "baseline_then_trial_wall_seconds": [
+      0.133,
+      0.361
+    ],
+    "notes": "One warm-host local run; no remote access. Timings are sensitive to cache and concurrent tests."
+  },
+  "stats": {
+    "gkg_archives": 2,
+    "gkg_seen": 888,
+    "gkg_invalid": 0,
+    "gkg_no_readable": 22,
+    "gkg_emitted": 866,
+    "gkg_archive_present": true,
+    "gkg_coarse_metadata_read": 866,
+    "gkg_coarse_metadata_unavailable": 0,
+    "gkg_coarse_genre": 25,
+    "gkg_coarse_category": 532,
+    "gkg_coarse_mention_country": 688
+  },
+  "genres": {
+    "unmarked": 841,
+    "service": 5,
+    "forecast": 1,
+    "reported_action": 9,
+    "promotion": 3,
+    "review": 7
+  },
+  "baseline100_geo_and_category_agree": 100,
+  "examples": {
+    "service": [
+      {
+        "headline": "3 Signs You're More Financially Secure Than You Think (Yes, in This Economy)",
+        "basis": "3 Signs You",
+        "url": "https://www.aol.com/articles/3-signs-youre-more-financially-223017000.html"
+      },
+      {
+        "headline": "How to Watch UFC 334: Gane vs. Hokit & Where to Stream for Free",
+        "basis": "How to Watch",
+        "url": "https://www.rollingstone.com/tv-movies/tv-movie-news/how-to-watch-ufc-334-gane-vs-hokit-stream-free-1235658431/"
+      }
+    ],
+    "forecast": [
+      {
+        "headline": "Chinese Competition May Cause EV Tariff Delays In The EU And UK",
+        "basis": "May Cause",
+        "url": "https://www.carscoops.com/2315845/uk-eu-to-delay-ev-tariffs/"
+      }
+    ],
+    "reported_action": [
+      {
+        "headline": "Evacuation order lifted after bomb found at Illinois ethanol plant",
+        "basis": "Evacuation order lifted",
+        "url": "https://www.mysuncoast.com/2026/11/14/evacuation-order-lifted-after-bomb-found-illinois-ethanol-plant/"
+      },
+      {
+        "headline": "Police lift evacuation after bomb found near Illinois ethanol plant",
+        "basis": "lift evacuation",
+        "url": "https://www.ksbw.com/article/peoria-ethanol-plant-bomb-evacuation-lifted/74431436"
+      }
+    ],
+    "promotion": [
+      {
+        "headline": "Roman's 'stunning' £35 maxi skirt shoppers 'pair with anything' drops to £26",
+        "basis": "skirt shoppers 'pair with anything' drops to £26",
+        "url": "https://www.walesonline.co.uk/whats-on/shopping/romans-stunning-35-maxi-skirt-34900814"
+      },
+      {
+        "headline": "Luvme Announces Black Friday Early Access: $140 Off + Price Protection",
+        "basis": "Black Friday Early Access: $140 Off",
+        "url": "https://www.chathamdailynews.ca/press-releases/business-wire/luvme-announces-black-friday-early-access-140-off-price-protection/"
+      }
+    ],
+    "review": [
+      {
+        "headline": "Strictly spoiler as Week 8 elimination leaked online | Braintree and Witham Times",
+        "basis": "spoiler as Week 8 elimination leaked",
+        "url": "https://www.braintreeandwithamtimes.co.uk/news/national/uk-today/26730033.strictly-spoiler-week-8-elimination-leaked-online/"
+      },
+      {
+        "headline": "Strictly spoiler as Week 8 elimination leaked online",
+        "basis": "spoiler as Week 8 elimination leaked",
+        "url": "https://www.falmouthpacket.co.uk/news/national/uk-today/26730033.strictly-spoiler-week-8-elimination-leaked-online/"
+      }
+    ]
+  },
+  "scope": "Development sample; validation of extraction and attribution, not a measure of news importance or generalization.",
+  "read_path": "Opt-in bounded source read. No rebuild or write to the DuckDB archive. Legacy reads JSON metadata; v2 validates parser version, raw length, checksum, and migration overlay before using GKG themes, location mentions and named people/organisations. Payloads larger than 256 KiB, malformed rows, or unsupported versions remain eligible by headline. A country is inferred from document mentions, not publisher country or action location. Unknown facets are allowed.",
+  "genre_limits": "A positive genre cue is evidence about the wording of a title. It is not verification of an action, and unmarked headlines retain unknown/neutral genre. Rules cover limited English and Chinese wording."
+}

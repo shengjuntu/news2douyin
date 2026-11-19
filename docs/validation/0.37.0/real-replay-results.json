@@ -1,0 +1,1614 @@
+{
+  "schema": "news2douyin.shortlist-real-replay.v1",
+  "cutoff_rules": "Historical chosen days: compare only materials included in the previously published dated edition, at its exclusive cutoff; baseline ranks always match every key. November intraday edition cutoff inclusive 16:41:06 Beijing, exclusive 16:41:07; March three English batches per day with simulated local arrivals. No external network, graph, or language-model calls in selection.",
+  "reference_sha256": "e7bbee3c77d81ea9bd7abd684e83bf316c8770091b8f499f67da179946ebde7d",
+  "days": {
+    "2025-03-15": {
+      "baseline": {
+        "selected": 100,
+        "old_seats_retained": 100,
+        "seats_changed": 0,
+        "moved_old_seats_appearing_as_evidence": 0,
+        "merged_observations": 0,
+        "reference_covered": [
+          "欧盟延长对俄制裁",
+          "墨西哥瓦哈卡地震",
+          "泰米尔纳德邦农业预算公布油籽与小米生产计划"
+        ],
+        "reference_covered_as_primary": [
+          "欧盟延长对俄制裁",
+          "墨西哥瓦哈卡地震",
+          "泰米尔纳德邦农业预算公布油籽与小米生产计划"
+        ],
+        "low_priority_leads": 2,
+        "distinct_stages_erroneously_collapsed": []
+      },
+      "classification": {
+        "selected": 100,
+        "old_seats_retained": 84,
+        "seats_changed": 16,
+        "moved_old_seats_appearing_as_evidence": 0,
+        "merged_observations": 0,
+        "reference_covered": [
+          "欧盟延长对俄制裁",
+          "墨西哥瓦哈卡地震",
+          "肯塔基州参议院通过调整警方公开记录的法案",
+          "泰米尔纳德邦农业预算公布油籽与小米生产计划"
+        ],
+        "reference_covered_as_primary": [
+          "欧盟延长对俄制裁",
+          "墨西哥瓦哈卡地震",
+          "肯塔基州参议院通过调整警方公开记录的法案",
+          "泰米尔纳德邦农业预算公布油籽与小米生产计划"
+        ],
+        "low_priority_leads": 2,
+        "distinct_stages_erroneously_collapsed": []
+      },
+      "merge": {
+        "selected": 100,
+        "old_seats_retained": 100,
+        "seats_changed": 0,
+        "moved_old_seats_appearing_as_evidence": 0,
+        "merged_observations": 0,
+        "reference_covered": [
+          "欧盟延长对俄制裁",
+          "墨西哥瓦哈卡地震",
+          "泰米尔纳德邦农业预算公布油籽与小米生产计划"
+        ],
+        "reference_covered_as_primary": [
+          "欧盟延长对俄制裁",
+          "墨西哥瓦哈卡地震",
+          "泰米尔纳德邦农业预算公布油籽与小米生产计划"
+        ],
+        "low_priority_leads": 2,
+        "distinct_stages_erroneously_collapsed": []
+      },
+      "combined": {
+        "selected": 100,
+        "old_seats_retained": 84,
+        "seats_changed": 16,
+        "moved_old_seats_appearing_as_evidence": 0,
+        "merged_observations": 0,
+        "reference_covered": [
+          "欧盟延长对俄制裁",
+          "墨西哥瓦哈卡地震",
+          "肯塔基州参议院通过调整警方公开记录的法案",
+          "泰米尔纳德邦农业预算公布油籽与小米生产计划"
+        ],
+        "reference_covered_as_primary": [
+          "欧盟延长对俄制裁",
+          "墨西哥瓦哈卡地震",
+          "肯塔基州参议院通过调整警方公开记录的法案",
+          "泰米尔纳德邦农业预算公布油籽与小米生产计划"
+        ],
+        "low_priority_leads": 2,
+        "distinct_stages_erroneously_collapsed": []
+      },
+      "published_receipt": {
+        "baseline_hash": "cfdee05d175017581576226d159ed91ff037350c8a6636186fd0a0109c919a93",
+        "cutoff_exclusive": "2025-03-15T16:00:00+00:00",
+        "published_revision": 1,
+        "eligible": 2507,
+        "all_merges_in_jsonl": 0,
+        "combined_md_sha256": "aaa91b74f603454adb275e21fe3fb57424970cf158caf7abc82c606976c4cc04"
+      }
+    },
+    "2025-03-16": {
+      "baseline": {
+        "selected": 100,
+        "old_seats_retained": 100,
+        "seats_changed": 0,
+        "moved_old_seats_appearing_as_evidence": 0,
+        "merged_observations": 0,
+        "reference_covered": [
+          "法官限制依据旧法实施驱逐",
+          "接替宇航员的飞船抵达国际空间站"
+        ],
+        "reference_covered_as_primary": [
+          "法官限制依据旧法实施驱逐",
+          "接替宇航员的飞船抵达国际空间站"
+        ],
+        "low_priority_leads": 0,
+        "distinct_stages_erroneously_collapsed": []
+      },
+      "classification": {
+        "selected": 100,
+        "old_seats_retained": 99,
+        "seats_changed": 1,
+        "moved_old_seats_appearing_as_evidence": 0,
+        "merged_observations": 0,
+        "reference_covered": [
+          "法官限制依据旧法实施驱逐",
+          "接替宇航员的飞船抵达国际空间站"
+        ],
+        "reference_covered_as_primary": [
+          "法官限制依据旧法实施驱逐",
+          "接替宇航员的飞船抵达国际空间站"
+        ],
+        "low_priority_leads": 0,
+        "distinct_stages_erroneously_collapsed": []
+      },
+      "merge": {
+        "selected": 100,
+        "old_seats_retained": 100,
+        "seats_changed": 0,
+        "moved_old_seats_appearing_as_evidence": 0,
+        "merged_observations": 0,
+        "reference_covered": [
+          "法官限制依据旧法实施驱逐",
+          "接替宇航员的飞船抵达国际空间站"
+        ],
+        "reference_covered_as_primary": [
+          "法官限制依据旧法实施驱逐",
+          "接替宇航员的飞船抵达国际空间站"
+        ],
+        "low_priority_leads": 0,
+        "distinct_stages_erroneously_collapsed": []
+      },
+      "combined": {
+        "selected": 100,
+        "old_seats_retained": 99,
+        "seats_changed": 1,
+        "moved_old_seats_appearing_as_evidence": 0,
+        "merged_observations": 0,
+        "reference_covered": [
+          "法官限制依据旧法实施驱逐",
+          "接替宇航员的飞船抵达国际空间站"
+        ],
+        "reference_covered_as_primary": [
+          "法官限制依据旧法实施驱逐",
+          "接替宇航员的飞船抵达国际空间站"
+        ],
+        "low_priority_leads": 0,
+        "distinct_stages_erroneously_collapsed": []
+      },
+      "published_receipt": {
+        "baseline_hash": "31491225fd435911743e71c304c4e8fa744112e4fc7f77a9d4b9c4391521f6f7",
+        "cutoff_exclusive": "2025-03-16T16:00:00+00:00",
+        "published_revision": 1,
+        "eligible": 1764,
+        "all_merges_in_jsonl": 0,
+        "combined_md_sha256": "6cffa9b81368f1bc6a3980853352cba168f5070d4fbeb953246e97923e9b2a8a"
+      }
+    },
+    "2025-03-17": {
+      "baseline": {
+        "selected": 100,
+        "old_seats_retained": 100,
+        "seats_changed": 0,
+        "moved_old_seats_appearing_as_evidence": 0,
+        "merged_observations": 0,
+        "reference_covered": [
+          "风暴后美国80号州际公路恢复通行",
+          "美方声称将持续行动直至航运袭击停止"
+        ],
+        "reference_covered_as_primary": [
+          "风暴后美国80号州际公路恢复通行",
+          "美方声称将持续行动直至航运袭击停止"
+        ],
+        "low_priority_leads": 0,
+        "distinct_stages_erroneously_collapsed": []
+      },
+      "classification": {
+        "selected": 100,
+        "old_seats_retained": 82,
+        "seats_changed": 18,
+        "moved_old_seats_appearing_as_evidence": 0,
+        "merged_observations": 0,
+        "reference_covered": [
+          "利比里亚暂停种植园外包并签署劳资协议",
+          "美方声称将持续行动直至航运袭击停止"
+        ],
+        "reference_covered_as_primary": [
+          "利比里亚暂停种植园外包并签署劳资协议",
+          "美方声称将持续行动直至航运袭击停止"
+        ],
+        "low_priority_leads": 2,
+        "distinct_stages_erroneously_collapsed": []
+      },
+      "merge": {
+        "selected": 100,
+        "old_seats_retained": 100,
+        "seats_changed": 0,
+        "moved_old_seats_appearing_as_evidence": 0,
+        "merged_observations": 0,
+        "reference_covered": [
+          "风暴后美国80号州际公路恢复通行",
+          "美方声称将持续行动直至航运袭击停止"
+        ],
+        "reference_covered_as_primary": [
+          "风暴后美国80号州际公路恢复通行",
+          "美方声称将持续行动直至航运袭击停止"
+        ],
+        "low_priority_leads": 0,
+        "distinct_stages_erroneously_collapsed": []
+      },
+      "combined": {
+        "selected": 100,
+        "old_seats_retained": 82,
+        "seats_changed": 18,
+        "moved_old_seats_appearing_as_evidence": 0,
+        "merged_observations": 0,
+        "reference_covered": [
+          "利比里亚暂停种植园外包并签署劳资协议",
+          "美方声称将持续行动直至航运袭击停止"
+        ],
+        "reference_covered_as_primary": [
+          "利比里亚暂停种植园外包并签署劳资协议",
+          "美方声称将持续行动直至航运袭击停止"
+        ],
+        "low_priority_leads": 2,
+        "distinct_stages_erroneously_collapsed": []
+      },
+      "published_receipt": {
+        "baseline_hash": "a9118c54990f32da31006986969eecdc79c7b6223eec803267d41a0e1dcfb455",
+        "cutoff_exclusive": "2025-03-17T16:00:00+00:00",
+        "published_revision": 1,
+        "eligible": 2526,
+        "all_merges_in_jsonl": 0,
+        "combined_md_sha256": "52bc68e6f53ed266a521fe4671614b5a0128f0ed81d8cfa0b57fdf87da7085bf"
+      }
+    },
+    "2025-03-18": {
+      "baseline": {
+        "selected": 100,
+        "old_seats_retained": 100,
+        "seats_changed": 0,
+        "moved_old_seats_appearing_as_evidence": 0,
+        "merged_observations": 0,
+        "reference_covered": [],
+        "reference_covered_as_primary": [],
+        "low_priority_leads": 0,
+        "distinct_stages_erroneously_collapsed": []
+      },
+      "classification": {
+        "selected": 100,
+        "old_seats_retained": 99,
+        "seats_changed": 1,
+        "moved_old_seats_appearing_as_evidence": 0,
+        "merged_observations": 0,
+        "reference_covered": [],
+        "reference_covered_as_primary": [],
+        "low_priority_leads": 0,
+        "distinct_stages_erroneously_collapsed": []
+      },
+      "merge": {
+        "selected": 100,
+        "old_seats_retained": 100,
+        "seats_changed": 0,
+        "moved_old_seats_appearing_as_evidence": 0,
+        "merged_observations": 0,
+        "reference_covered": [],
+        "reference_covered_as_primary": [],
+        "low_priority_leads": 0,
+        "distinct_stages_erroneously_collapsed": []
+      },
+      "combined": {
+        "selected": 100,
+        "old_seats_retained": 99,
+        "seats_changed": 1,
+        "moved_old_seats_appearing_as_evidence": 0,
+        "merged_observations": 0,
+        "reference_covered": [],
+        "reference_covered_as_primary": [],
+        "low_priority_leads": 0,
+        "distinct_stages_erroneously_collapsed": []
+      },
+      "published_receipt": {
+        "baseline_hash": "85ba1e7a5b40920527520bd8b7d5349f88bf6fb83c5b05c0eb48ab9bcdfa34cb",
+        "cutoff_exclusive": "2025-03-18T16:00:00+00:00",
+        "published_revision": 1,
+        "eligible": 3563,
+        "all_merges_in_jsonl": 0,
+        "combined_md_sha256": "bda7a8cdd917950358cf5b27290c4637f09569c977a43ab3680bf6d6d6a9288e"
+      }
+    },
+    "2025-03-19": {
+      "baseline": {
+        "selected": 100,
+        "old_seats_retained": 100,
+        "seats_changed": 0,
+        "moved_old_seats_appearing_as_evidence": 0,
+        "merged_observations": 0,
+        "reference_covered": [
+          "印度内阁批准低额UPI支付激励"
+        ],
+        "reference_covered_as_primary": [
+          "印度内阁批准低额UPI支付激励"
+        ],
+        "low_priority_leads": 0,
+        "distinct_stages_erroneously_collapsed": []
+      },
+      "classification": {
+        "selected": 100,
+        "old_seats_retained": 89,
+        "seats_changed": 11,
+        "moved_old_seats_appearing_as_evidence": 0,
+        "merged_observations": 0,
+        "reference_covered": [
+          "印度内阁批准低额UPI支付激励"
+        ],
+        "reference_covered_as_primary": [
+          "印度内阁批准低额UPI支付激励"
+        ],
+        "low_priority_leads": 0,
+        "distinct_stages_erroneously_collapsed": []
+      },
+      "merge": {
+        "selected": 100,
+        "old_seats_retained": 100,
+        "seats_changed": 0,
+        "moved_old_seats_appearing_as_evidence": 0,
+        "merged_observations": 0,
+        "reference_covered": [
+          "印度内阁批准低额UPI支付激励"
+        ],
+        "reference_covered_as_primary": [
+          "印度内阁批准低额UPI支付激励"
+        ],
+        "low_priority_leads": 0,
+        "distinct_stages_erroneously_collapsed": []
+      },
+      "combined": {
+        "selected": 100,
+        "old_seats_retained": 89,
+        "seats_changed": 11,
+        "moved_old_seats_appearing_as_evidence": 0,
+        "merged_observations": 0,
+        "reference_covered": [
+          "印度内阁批准低额UPI支付激励"
+        ],
+        "reference_covered_as_primary": [
+          "印度内阁批准低额UPI支付激励"
+        ],
+        "low_priority_leads": 0,
+        "distinct_stages_erroneously_collapsed": []
+      },
+      "published_receipt": {
+        "baseline_hash": "1ba534dc8334b82e7c463fc44bd4c87f66c2a5f2d79c5ce6109ec4eaa70b7d8d",
+        "cutoff_exclusive": "2025-03-19T16:00:00+00:00",
+        "published_revision": 1,
+        "eligible": 3618,
+        "all_merges_in_jsonl": 0,
+        "combined_md_sha256": "53a725097eca0c812d0a745178f1f634a24e12a578980c157f540fedbfac417b"
+      }
+    },
+    "2025-03-20": {
+      "baseline": {
+        "selected": 100,
+        "old_seats_retained": 100,
+        "seats_changed": 0,
+        "moved_old_seats_appearing_as_evidence": 0,
+        "merged_observations": 0,
+        "reference_covered": [
+          "美国教育部相关行政令已签署",
+          "美联储维持利率"
+        ],
+        "reference_covered_as_primary": [
+          "美国教育部相关行政令已签署",
+          "美联储维持利率"
+        ],
+        "low_priority_leads": 1,
+        "distinct_stages_erroneously_collapsed": []
+      },
+      "classification": {
+        "selected": 100,
+        "old_seats_retained": 84,
+        "seats_changed": 16,
+        "moved_old_seats_appearing_as_evidence": 0,
+        "merged_observations": 0,
+        "reference_covered": [
+          "进出口银行批准莫桑比克天然气项目贷款",
+          "美联储维持利率"
+        ],
+        "reference_covered_as_primary": [
+          "进出口银行批准莫桑比克天然气项目贷款",
+          "美联储维持利率"
+        ],
+        "low_priority_leads": 1,
+        "distinct_stages_erroneously_collapsed": []
+      },
+      "merge": {
+        "selected": 100,
+        "old_seats_retained": 100,
+        "seats_changed": 0,
+        "moved_old_seats_appearing_as_evidence": 0,
+        "merged_observations": 0,
+        "reference_covered": [
+          "美国教育部相关行政令已签署",
+          "美联储维持利率"
+        ],
+        "reference_covered_as_primary": [
+          "美国教育部相关行政令已签署",
+          "美联储维持利率"
+        ],
+        "low_priority_leads": 1,
+        "distinct_stages_erroneously_collapsed": []
+      },
+      "combined": {
+        "selected": 100,
+        "old_seats_retained": 84,
+        "seats_changed": 16,
+        "moved_old_seats_appearing_as_evidence": 0,
+        "merged_observations": 0,
+        "reference_covered": [
+          "进出口银行批准莫桑比克天然气项目贷款",
+          "美联储维持利率"
+        ],
+        "reference_covered_as_primary": [
+          "进出口银行批准莫桑比克天然气项目贷款",
+          "美联储维持利率"
+        ],
+        "low_priority_leads": 1,
+        "distinct_stages_erroneously_collapsed": []
+      },
+      "published_receipt": {
+        "baseline_hash": "1aed54951d2e001322a744fda1e208fee584bc3b581aa688e83c96140efb0626",
+        "cutoff_exclusive": "2025-03-20T16:00:00+00:00",
+        "published_revision": 1,
+        "eligible": 3534,
+        "all_merges_in_jsonl": 0,
+        "combined_md_sha256": "e2dce3a09b5922a139ac9caeeb84dd85c45b8c3c2d40d20851d40f7a23f58b5c"
+      }
+    },
+    "2025-03-21": {
+      "baseline": {
+        "selected": 100,
+        "old_seats_retained": 100,
+        "seats_changed": 0,
+        "moved_old_seats_appearing_as_evidence": 0,
+        "merged_observations": 0,
+        "reference_covered": [
+          "欧盟未能就50亿欧元对乌援助达成一致",
+          "卡纳塔克邦议会18名反对党议员被停职"
+        ],
+        "reference_covered_as_primary": [
+          "欧盟未能就50亿欧元对乌援助达成一致",
+          "卡纳塔克邦议会18名反对党议员被停职"
+        ],
+        "low_priority_leads": 1,
+        "distinct_stages_erroneously_collapsed": []
+      },
+      "classification": {
+        "selected": 100,
+        "old_seats_retained": 79,
+        "seats_changed": 21,
+        "moved_old_seats_appearing_as_evidence": 0,
+        "merged_observations": 0,
+        "reference_covered": [
+          "卡纳塔克邦议会18名反对党议员被停职"
+        ],
+        "reference_covered_as_primary": [
+          "卡纳塔克邦议会18名反对党议员被停职"
+        ],
+        "low_priority_leads": 2,
+        "distinct_stages_erroneously_collapsed": []
+      },
+      "merge": {
+        "selected": 100,
+        "old_seats_retained": 100,
+        "seats_changed": 0,
+        "moved_old_seats_appearing_as_evidence": 0,
+        "merged_observations": 0,
+        "reference_covered": [
+          "欧盟未能就50亿欧元对乌援助达成一致",
+          "卡纳塔克邦议会18名反对党议员被停职"
+        ],
+        "reference_covered_as_primary": [
+          "欧盟未能就50亿欧元对乌援助达成一致",
+          "卡纳塔克邦议会18名反对党议员被停职"
+        ],
+        "low_priority_leads": 1,
+        "distinct_stages_erroneously_collapsed": []
+      },
+      "combined": {
+        "selected": 100,
+        "old_seats_retained": 79,
+        "seats_changed": 21,
+        "moved_old_seats_appearing_as_evidence": 0,
+        "merged_observations": 0,
+        "reference_covered": [
+          "卡纳塔克邦议会18名反对党议员被停职"
+        ],
+        "reference_covered_as_primary": [
+          "卡纳塔克邦议会18名反对党议员被停职"
+        ],
+        "low_priority_leads": 2,
+        "distinct_stages_erroneously_collapsed": []
+      },
+      "published_receipt": {
+        "baseline_hash": "29c1a62e98a60cd109df260ecc96ac0070d5ef470344232220cc2a571ec80b28",
+        "cutoff_exclusive": "2025-03-21T16:00:00+00:00",
+        "published_revision": 1,
+        "eligible": 3313,
+        "all_merges_in_jsonl": 0,
+        "combined_md_sha256": "f716e615066a04398b59d813237626ee4fa9264fafba48d7f127b64cfc7a2b8f"
+      }
+    },
+    "2026-11-15": {
+      "baseline": {
+        "selected": 100,
+        "old_seats_retained": 100,
+        "seats_changed": 0,
+        "moved_old_seats_appearing_as_evidence": 0,
+        "merged_observations": 0,
+        "reference_covered": [
+          "中美贸易理事会会谈",
+          "星舰上面级回收",
+          "澳菲签署防务协议",
+          "美国停飞解除后的航班中断",
+          "加拿大承诺出资保护热带森林",
+          "英国青年就业计划扩大范围",
+          "美国撞船事故调查取得航行数据记录器",
+          "英格兰部分地区将启动寒冷健康预警",
+          "教宗访问秘鲁萨尼亚",
+          "洛杉矶摇滚名人堂典礼",
+          "伊利诺伊乙醇厂附近爆炸物导致疏散",
+          "伊利诺伊乙醇厂附近解除疏散"
+        ],
+        "reference_covered_as_primary": [
+          "中美贸易理事会会谈",
+          "星舰上面级回收",
+          "澳菲签署防务协议",
+          "美国停飞解除后的航班中断",
+          "加拿大承诺出资保护热带森林",
+          "英国青年就业计划扩大范围",
+          "美国撞船事故调查取得航行数据记录器",
+          "英格兰部分地区将启动寒冷健康预警",
+          "教宗访问秘鲁萨尼亚",
+          "洛杉矶摇滚名人堂典礼",
+          "伊利诺伊乙醇厂附近爆炸物导致疏散",
+          "伊利诺伊乙醇厂附近解除疏散"
+        ],
+        "low_priority_leads": 5,
+        "distinct_stages_erroneously_collapsed": []
+      },
+      "classification": {
+        "selected": 100,
+        "old_seats_retained": 78,
+        "seats_changed": 22,
+        "moved_old_seats_appearing_as_evidence": 0,
+        "merged_observations": 0,
+        "reference_covered": [
+          "中美贸易理事会会谈",
+          "星舰上面级回收",
+          "澳菲签署防务协议",
+          "美国停飞解除后的航班中断",
+          "加拿大承诺出资保护热带森林",
+          "英国青年就业计划扩大范围",
+          "美国撞船事故调查取得航行数据记录器",
+          "英格兰部分地区将启动寒冷健康预警",
+          "教宗访问秘鲁萨尼亚",
+          "洛杉矶摇滚名人堂典礼",
+          "法语国家峰会开幕",
+          "东盟峰会开幕",
+          "伊利诺伊乙醇厂附近爆炸物导致疏散",
+          "伊利诺伊乙醇厂附近解除疏散"
+        ],
+        "reference_covered_as_primary": [
+          "中美贸易理事会会谈",
+          "星舰上面级回收",
+          "澳菲签署防务协议",
+          "美国停飞解除后的航班中断",
+          "加拿大承诺出资保护热带森林",
+          "英国青年就业计划扩大范围",
+          "美国撞船事故调查取得航行数据记录器",
+          "英格兰部分地区将启动寒冷健康预警",
+          "教宗访问秘鲁萨尼亚",
+          "洛杉矶摇滚名人堂典礼",
+          "法语国家峰会开幕",
+          "东盟峰会开幕",
+          "伊利诺伊乙醇厂附近爆炸物导致疏散",
+          "伊利诺伊乙醇厂附近解除疏散"
+        ],
+        "low_priority_leads": 0,
+        "distinct_stages_erroneously_collapsed": []
+      },
+      "merge": {
+        "selected": 100,
+        "old_seats_retained": 97,
+        "seats_changed": 3,
+        "moved_old_seats_appearing_as_evidence": 3,
+        "merged_observations": 3,
+        "reference_covered": [
+          "中美贸易理事会会谈",
+          "星舰上面级回收",
+          "澳菲签署防务协议",
+          "美国停飞解除后的航班中断",
+          "加拿大承诺出资保护热带森林",
+          "英国青年就业计划扩大范围",
+          "美国撞船事故调查取得航行数据记录器",
+          "英格兰部分地区将启动寒冷健康预警",
+          "教宗访问秘鲁萨尼亚",
+          "洛杉矶摇滚名人堂典礼",
+          "伊利诺伊乙醇厂附近爆炸物导致疏散",
+          "伊利诺伊乙醇厂附近解除疏散"
+        ],
+        "reference_covered_as_primary": [
+          "中美贸易理事会会谈",
+          "星舰上面级回收",
+          "澳菲签署防务协议",
+          "美国停飞解除后的航班中断",
+          "加拿大承诺出资保护热带森林",
+          "英国青年就业计划扩大范围",
+          "美国撞船事故调查取得航行数据记录器",
+          "英格兰部分地区将启动寒冷健康预警",
+          "教宗访问秘鲁萨尼亚",
+          "洛杉矶摇滚名人堂典礼",
+          "伊利诺伊乙醇厂附近爆炸物导致疏散",
+          "伊利诺伊乙醇厂附近解除疏散"
+        ],
+        "low_priority_leads": 5,
+        "distinct_stages_erroneously_collapsed": []
+      },
+      "combined": {
+        "selected": 100,
+        "old_seats_retained": 75,
+        "seats_changed": 25,
+        "moved_old_seats_appearing_as_evidence": 3,
+        "merged_observations": 3,
+        "reference_covered": [
+          "中美贸易理事会会谈",
+          "星舰上面级回收",
+          "澳菲签署防务协议",
+          "美国停飞解除后的航班中断",
+          "加拿大承诺出资保护热带森林",
+          "英国青年就业计划扩大范围",
+          "美国撞船事故调查取得航行数据记录器",
+          "英格兰部分地区将启动寒冷健康预警",
+          "教宗访问秘鲁萨尼亚",
+          "洛杉矶摇滚名人堂典礼",
+          "法语国家峰会开幕",
+          "东盟峰会开幕",
+          "伊利诺伊乙醇厂附近爆炸物导致疏散",
+          "伊利诺伊乙醇厂附近解除疏散"
+        ],
+        "reference_covered_as_primary": [
+          "中美贸易理事会会谈",
+          "星舰上面级回收",
+          "澳菲签署防务协议",
+          "美国停飞解除后的航班中断",
+          "加拿大承诺出资保护热带森林",
+          "英国青年就业计划扩大范围",
+          "美国撞船事故调查取得航行数据记录器",
+          "英格兰部分地区将启动寒冷健康预警",
+          "教宗访问秘鲁萨尼亚",
+          "洛杉矶摇滚名人堂典礼",
+          "法语国家峰会开幕",
+          "东盟峰会开幕",
+          "伊利诺伊乙醇厂附近爆炸物导致疏散",
+          "伊利诺伊乙醇厂附近解除疏散"
+        ],
+        "low_priority_leads": 0,
+        "distinct_stages_erroneously_collapsed": []
+      },
+      "published_receipt": {
+        "baseline_hash": "6fe3bef3eccbe0e8e17b711e213b4748e6a6fa9d85467fb93bb77b0ff5995baa",
+        "cutoff_exclusive": "2026-11-15T08:41:07+00:00",
+        "published_revision": 2,
+        "eligible": 740,
+        "all_merges_in_jsonl": 6,
+        "combined_md_sha256": "e741893debbc5fb29ff1d79f808dabdcd1cf65ece81db4cf9fca7b5e2546fb7d"
+      }
+    }
+  },
+  "blinded_headline_sample": [
+    {
+      "day": "2025-03-21",
+      "arm": "baseline",
+      "title": "Tesco announces 'never before seen' update to supermarket's £3.60 meal deal",
+      "key": "progress_090eca1e4774430d8c3a429a5ef103d2254c5744",
+      "source_url": "https://www.mirror.co.uk/money/shopping-deals/tesco-announces-never-before-seen-34906164",
+      "label": "low"
+    },
+    {
+      "day": "2025-03-19",
+      "arm": "combined",
+      "title": "Cabinet approves Rs 1,500 crore UPI incentive, fintechs express disappointment",
+      "key": "progress_857b537862ae4bc517e21ceb7ab6d85cd54be0db",
+      "source_url": "https://www.moneycontrol.com/news/business/cabinet-approves-rs-1-500-crore-incentive-for-upi-12969490.html",
+      "label": "specific"
+    },
+    {
+      "day": "2025-03-15",
+      "arm": "baseline",
+      "title": "NASA astronauts return home after major delay. Their extended stay could have health consequences",
+      "key": "progress_2d6ce7509defe110ada4394efeb536d98f676a3b",
+      "source_url": "https://www.salon.com/2025/03/15/nasa-astronauts-to-return-home-after-major-delay-heres-what-that-time-in-space-does-to-the-body/",
+      "label": "specific"
+    },
+    {
+      "day": "2025-03-19",
+      "arm": "baseline",
+      "title": "Strict zoning and noise limits imposed on data centers in Forsyth County following approval of Bitcoin operation",
+      "key": "progress_10a77e2de07fae14492222b144e294b184080236",
+      "source_url": "https://www.forsythnews.com/news/government/strict-zoning-and-noise-limits-imposed-on-data-centers-in-forsyth-county-following-approval-of-bitcoin-operation/",
+      "label": "specific"
+    },
+    {
+      "day": "2026-11-15",
+      "arm": "combined",
+      "title": "Francophonie Summit opens in Cambodia with focus on peace, multilateralism, development-Xinhua",
+      "key": "progress_0d77709c61af705b15244b5ac34385bd5c7809d5",
+      "source_url": "https://english.news.cn/20261115/328ed2473acd45b8ac02ca02de739d41/c.html",
+      "label": "specific"
+    },
+    {
+      "day": "2025-03-21",
+      "arm": "baseline",
+      "title": "Completion of off-market purchase and Total Voting | Company Announcement",
+      "key": "progress_8ee54be72badcbb313647b278c66190d062f05d3",
+      "source_url": "https://www.investegate.co.uk:443/announcement/rns/haleon--hln/completion-of-off-market-purchase-and-total-voting/8791589",
+      "label": "low"
+    },
+    {
+      "day": "2025-03-19",
+      "arm": "combined",
+      "title": "Hunter on trial for shooting bear dead as it broke his legs in brutal attack",
+      "key": "progress_3ead028c1077f2faf2af31a5c35e355c781ce986",
+      "source_url": "https://www.mirror.co.uk/news/world-news/hunter-trial-shooting-bear-dead-34890336",
+      "label": "unclear"
+    },
+    {
+      "day": "2025-03-19",
+      "arm": "combined",
+      "title": "Senate approves property tax relief bill, bringing tax cuts to $400 million this year",
+      "key": "progress_5a92fea30a571065cec9c32fd18abb3a319bfbd4",
+      "source_url": "https://www.postregister.com/news/government/senate-approves-property-tax-relief-bill-bringing-tax-cuts-to-400-million-this-year/article_aa04da16-b9d1-5b48-b07a-f9ccef8a3d0b.html",
+      "label": "specific"
+    },
+    {
+      "day": "2025-03-20",
+      "arm": "baseline",
+      "title": "Trump signs executive order to abolish the Department of Education and more top headlines",
+      "key": "progress_813575fc596fc58030d9b4a4fda1611a4e7fa2db",
+      "source_url": "https://www.foxnews.com/us/trump-signs-executive-order-abolish-department-education-more-top-headlines",
+      "label": "specific"
+    },
+    {
+      "day": "2025-03-20",
+      "arm": "combined",
+      "title": "No more finger-pointing; DCEs to take full responsibility for mining license approvals - Lands Minister",
+      "key": "progress_8eca772e7bb110269a1246d39a689522f3b38454",
+      "source_url": "https://www.myjoyonline.com/no-more-finger-pointing-dces-to-take-full-responsibility-for-mining-license-approvals-lands-minister/",
+      "label": "specific"
+    },
+    {
+      "day": "2025-03-20",
+      "arm": "combined",
+      "title": "TechRepublic Exclusive: New Ransomware Attacks are Getting More Personal as Hackers 'Apply Psychological Pressure'",
+      "key": "progress_5645f9742398b5c3136cac5b1bb9cafb91c060b4",
+      "source_url": "https://www.techrepublic.com/article/news-ransomware-attackers-call-phones-sygnia/",
+      "label": "unclear"
+    },
+    {
+      "day": "2025-03-17",
+      "arm": "combined",
+      "title": "Velvet Bloom Announces National Tour Ahead Of Self-Titled Debut Album",
+      "key": "progress_e82ec0d51861a2af50537b826cc75ce68d60735d",
+      "source_url": "https://themusic.com.au/news/velvet-bloom-announces-national-tour-ahead-of-self-titled-debut-album/-O5G6u3s7-4/17-03-25",
+      "label": "low"
+    },
+    {
+      "day": "2025-03-17",
+      "arm": "combined",
+      "title": "Weekly Chinese Zodiac Horoscope (March 17-23): Predictions for All Animal Signs",
+      "key": "progress_1847690a91462d1ea90b5a8211a2d31eb7683bb7",
+      "source_url": "https://timesofindia.indiatimes.com/astrology/vastu-feng-shui/weekly-chinese-zodiac-horoscope-march-17-23-predictions-for-all-animal-signs/articleshow/118893828.cms",
+      "label": "low"
+    },
+    {
+      "day": "2025-03-17",
+      "arm": "baseline",
+      "title": "Freepoint Eco-Systems Announces Project Finance Facility with ING",
+      "key": "progress_7d4060caa7739b9bffc86207bcdd906a2f5b3e67",
+      "source_url": "https://www.marketscreener.com/quote/stock/ING-GROEP-N-V-13089/news/Freepoint-Eco-Systems-Announces-Project-Finance-Facility-with-ING-49350285/",
+      "label": "unclear"
+    },
+    {
+      "day": "2025-03-17",
+      "arm": "baseline",
+      "title": "Thames Water wins court approval in London for emergency funding deal – Winnipeg Free Press",
+      "key": "progress_604704b0e1a509e298033a5dc33dc428987a282d",
+      "source_url": "https://www.winnipegfreepress.com/business/2025/03/17/thames-water-wins-court-approval-in-london-for-emergency-funding-deal",
+      "label": "specific"
+    },
+    {
+      "day": "2025-03-17",
+      "arm": "baseline",
+      "title": "Stevie Wonder announced as Lytham Festival headliner",
+      "key": "progress_286ae1ba323b22211496847658ee5edb01d2f9c6",
+      "source_url": "https://www.burytimes.co.uk/news/25012460.stevie-wonder-announced-lytham-festival-headliner/",
+      "label": "low"
+    },
+    {
+      "day": "2025-03-21",
+      "arm": "combined",
+      "title": "Clare council approves planning permission for Aillwee staff accommodation",
+      "key": "progress_5480129862773438c3f5ede266c4c2f669b9ad72",
+      "source_url": "https://www.travelextra.ie/clare-council-approves-planning-permission-for-aillwee-staff-accommodation/",
+      "label": "low"
+    },
+    {
+      "day": "2026-11-15",
+      "arm": "combined",
+      "title": "4 children found living among feces, animal blood in Greenacres home, deputies say",
+      "key": "progress_3a66f8eb7336fb35543fd8ddba9f2ce41c60fb00",
+      "source_url": "https://cbs12.com/news/local/4-children-found-living-among-feces-animal-blood-in-greenacres-home-deputies-say",
+      "label": "unclear"
+    },
+    {
+      "day": "2025-03-20",
+      "arm": "baseline",
+      "title": "Shamir Announces Final Album, 'Ten,' Shares Lead Single, \"Neverwannago\" – KHXS-FM",
+      "key": "progress_68ffba2b53f87c54e1c2aa2e07d44070870ef806",
+      "source_url": "https://www.102thebear.com/news/shamir-announces-final-album-ten-shares-lead-single-neverwannago/",
+      "label": "low"
+    },
+    {
+      "day": "2026-11-15",
+      "arm": "baseline",
+      "title": "Strictly spoiler as Week 8 elimination leaked online",
+      "key": "progress_0c9d098b27ef52f6ec332ee141a7369cac24c875",
+      "source_url": "https://www.chelmsfordcitynews.co.uk/news/national/uk-today/26730033.strictly-spoiler-week-8-elimination-leaked-online/",
+      "label": "low"
+    },
+    {
+      "day": "2026-11-15",
+      "arm": "combined",
+      "title": "Saudi-led coalition intercepts missiles towards Riyadh, drones in Eastern Province",
+      "key": "progress_9443fece23f899c583d0bdf908eea32480513b25",
+      "source_url": "https://dunyanews.tv/en/World/982996-saudiled-coalition-intercepts-missiles-towards-riyadh-drones-in-east",
+      "label": "specific"
+    },
+    {
+      "day": "2025-03-21",
+      "arm": "baseline",
+      "title": "Director/PDMR Shareholding | Company Announcement",
+      "key": "progress_541c970d618f85f14e22a36f717531bcbf13155f",
+      "source_url": "https://www.investegate.co.uk:443/announcement/rns/direct-line-insurance-group--dlg/director-pdmr-shareholding/8791670",
+      "label": "low"
+    },
+    {
+      "day": "2025-03-15",
+      "arm": "baseline",
+      "title": "Sam's Bar & Grill raises $47,735, announces next community benefit | News",
+      "key": "progress_d5df5db197c08f6de84760950dea30ca82981815",
+      "source_url": "https://www.morning-times.com/news/article_29b0ad1c-0114-11f0-a910-7bd4414b22ff.html",
+      "label": "unclear"
+    },
+    {
+      "day": "2026-11-15",
+      "arm": "combined",
+      "title": "2026 Rock and Roll Hall of Fame Red Carpet Photo Gallery",
+      "key": "progress_db06c5a13585f0410e75f2947409fb34a4174541",
+      "source_url": "https://991thewhale.com/ixp/295/p/2026-rock-and-roll-hall-of-fame-red-carpet-photos/",
+      "label": "low"
+    },
+    {
+      "day": "2025-03-17",
+      "arm": "combined",
+      "title": "Liberia: Suspended NaFAA Director General Emma Glassco Bids Farewell, Highlights Achievements and Calls for Continuity",
+      "key": "progress_8470f9659d5828df150283bed04eec2e3abade85",
+      "source_url": "https://frontpageafricaonline.com/news/liberia-suspended-nafaa-director-general-emma-glassco-bids-farewell-highlights-achievements-and-calls-for-continuity/",
+      "label": "low"
+    },
+    {
+      "day": "2025-03-19",
+      "arm": "combined",
+      "title": "Cabinet Approves Incentive Scheme For Small BHIM-UPI Transactions",
+      "key": "progress_85a13f7dd5b289518a1ae2e80891fb68790ec5e5",
+      "source_url": "https://www.freepressjournal.in/business/cabinet-approves-incentive-scheme-for-small-bhim-upi-transactions",
+      "label": "specific"
+    },
+    {
+      "day": "2025-03-17",
+      "arm": "baseline",
+      "title": "About Town Redondo: Retail cannabis ordinances approved, final election count coming, Springfest next weekend",
+      "key": "progress_6ab6d445eb6c17ce5e98b14aca8338b40be2c4e7",
+      "source_url": "https://easyreadernews.com/about-town-redondo-retail-cannabis-ordinances-approved-final-election-count-coming-springfest-next-weekend/",
+      "label": "specific"
+    },
+    {
+      "day": "2025-03-21",
+      "arm": "combined",
+      "title": "Pakistani judge's resignation sparks calls for blasphemy law reform",
+      "key": "progress_7ece477475d22451c5d8e324fda8672800a33041",
+      "source_url": "https://www.mnnonline.org/news/pakistani-judges-resignation-sparks-calls-for-blasphemy-law-reform/",
+      "label": "specific"
+    },
+    {
+      "day": "2025-03-20",
+      "arm": "baseline",
+      "title": "Assam Board Postpones Class XI Mathematics Exam Scheduled For March 21",
+      "key": "progress_2430aad42f713ccb96a43c8dfdee4960a23b9644",
+      "source_url": "https://www.sentinelassam.com/north-east-india-news/assam-news/assam-board-postpones-class-xi-mathematics-exam-scheduled-for-march-21",
+      "label": "specific"
+    },
+    {
+      "day": "2026-11-15",
+      "arm": "baseline",
+      "title": "\"Does not mention statehood movement\": BRS leader B Vinod Kumar questions absence of Telangana formation in Sonia Gandhi's memoir",
+      "key": "progress_0b51493d65b3ee00c43d23bd639dafdd027d14e0",
+      "source_url": "http://www.bignewsnetwork.com/news/279433729/does-not-mention-statehood-movement-brs-leader-b-vinod-kumar-questions-absence-of-telangana-formation-in-sonia-gandhi-memoir",
+      "label": "low"
+    },
+    {
+      "day": "2025-03-21",
+      "arm": "combined",
+      "title": "Dunolly heart attack survivor reunites with his saviours | Gloucester Advocate",
+      "key": "progress_6616dbb3610b1d842c5e159a404f02e533f5972a",
+      "source_url": "https://www.gloucesteradvocate.com.au/story/8922428/dunolly-heart-attack-survivor-reunites-with-his-saviours/?cs=2835",
+      "label": "low"
+    },
+    {
+      "day": "2026-11-15",
+      "arm": "baseline",
+      "title": "Bloke keeps huge 17ft prop from iconic UK TV show on his drive for fans to come and visit",
+      "key": "progress_0644f2f09a1f6d2eda3d72991a0e4cbf08e22aa9",
+      "source_url": "https://www.dailystar.co.uk/news/latest-news/bloke-keeps-huge-17ft-prop-37874423",
+      "label": "low"
+    },
+    {
+      "day": "2025-03-17",
+      "arm": "baseline",
+      "title": "Altera announces that Agilex 3 FPGAs are in production and are ready for ordering, immediately",
+      "key": "progress_181d8469578bdbeef2786df56555cde537fd8f13",
+      "source_url": "https://www.eejournal.com/article/altera-announces-that-agilex-3-fpgas-are-in-production-and-are-ready-for-ordering-immediately/",
+      "label": "specific"
+    },
+    {
+      "day": "2026-11-15",
+      "arm": "combined",
+      "title": "Beirut falafel shop keeps 112-year family tradition alive",
+      "key": "progress_743d764e5163d761efa34a9a7dd4b6cc6169b2f1",
+      "source_url": "http://www.bignewsnetwork.com/news/279429101/beirut-falafel-shop-keeps-112-year-family-tradition-alive",
+      "label": "low"
+    },
+    {
+      "day": "2025-03-21",
+      "arm": "combined",
+      "title": "Guns N' Roses announce AWOLNATION's Isaac Carpenter as their new drummer",
+      "key": "progress_0a8125e288de0e16be5f8255e4bb03f52ed8b818",
+      "source_url": "https://www.nme.com/news/music/guns-n-roses-announce-awolnations-isaac-carpenter-as-their-new-drummer-3848017",
+      "label": "low"
+    },
+    {
+      "day": "2025-03-20",
+      "arm": "combined",
+      "title": "EXIM approves $4.7B loan for Mozambique gas project tied to atrocity",
+      "key": "progress_e56a8d213deec1ea79dd373f2a6eee43504e0e21",
+      "source_url": "https://www.eenews.net/articles/exim-approves-4-7b-loan-for-mozambique-gas-project-tied-to-atrocity/",
+      "label": "specific"
+    },
+    {
+      "day": "2025-03-20",
+      "arm": "combined",
+      "title": "Maharashtra, Baden-Württemberg Sign Pact To Create Jobs, Train Skilled Workers For Global Opportunities",
+      "key": "progress_7dbdd83f94c46a4636087dc6bf89afb957effcb6",
+      "source_url": "https://www.freepressjournal.in/education/maharashtra-baden-wrttemberg-sign-pact-to-create-jobs-train-skilled-workers-for-global-opportunities",
+      "label": "specific"
+    },
+    {
+      "day": "2025-03-19",
+      "arm": "baseline",
+      "title": "Violent attacks on Tesla dealerships spike as Musk takes prominent role in Trump White House",
+      "key": "progress_6d862eac4cb2b4d6f2f79661ddfc298ca64a1c9f",
+      "source_url": "https://www.wsls.com/news/politics/2025/03/19/violent-attacks-on-tesla-dealerships-spike-as-musk-takes-prominent-role-in-trump-white-house/",
+      "label": "unclear"
+    },
+    {
+      "day": "2025-03-15",
+      "arm": "baseline",
+      "title": "Grenade attack on temple in India's Punjab damages walls, shatters window panes",
+      "key": "progress_77e54a6f5a5eab38f5e4e60c6df110b6cb7c046e",
+      "source_url": "https://www.bignewsnetwork.com/news/278090813/grenade-attack-on-temple-in-india-punjab-damages-walls-shatters-window-panes",
+      "label": "specific"
+    },
+    {
+      "day": "2025-03-21",
+      "arm": "combined",
+      "title": "Results of the Annual General Meeting, Change of Directors, Decision of the Board meeting after the AGM | Company Announcement",
+      "key": "progress_f46ba356836d30c70b332e7cfec8c3fcae8b246d",
+      "source_url": "https://www.investegate.co.uk:443/announcement/mfn/faron-pharmaceuticals-oy-di---farn/results-of-the-annual-general-meeting-change-/8791702",
+      "label": "low"
+    },
+    {
+      "day": "2025-03-19",
+      "arm": "combined",
+      "title": "Mitsubishi Corporation & Alt Carbon Sign agreement to scale carbon removal in South Asia",
+      "key": "progress_98c2544410f8e837db7b531a0ee6a8bb39381d65",
+      "source_url": "https://news.webindia123.com/news/Articles/Business/20250319/4298367.html",
+      "label": "specific"
+    },
+    {
+      "day": "2025-03-15",
+      "arm": "combined",
+      "title": "Unity call to end hate attacks on Muslim Australians",
+      "key": "progress_f5485efe5786236fb57aa2bfe34417843f14644c",
+      "source_url": "https://www.westernadvocate.com.au/story/8917573/unity-call-to-end-hate-attacks-on-muslim-australians/",
+      "label": "unclear"
+    },
+    {
+      "day": "2025-03-20",
+      "arm": "baseline",
+      "title": "Alarum Technologies Announces Fourth Quarter and Annual 2024 Results",
+      "key": "progress_0d7c0fb152f2a72ff72e400513af60ec67962407",
+      "source_url": "https://www.manilatimes.net/2025/03/20/tmt-newswire/globenewswire/alarum-technologies-announces-fourth-quarter-and-annual-2024-results/2076931",
+      "label": "low"
+    },
+    {
+      "day": "2025-03-21",
+      "arm": "combined",
+      "title": "A Texas robotics company gets approval to search for MH370 in a new part of the Indian Ocean",
+      "key": "progress_6fa1909ba18f9843d231ccb3c7bebdd11d6f9515",
+      "source_url": "https://www.whittierdailynews.com/2025/03/20/malaysia-missing-plane-search/",
+      "label": "specific"
+    },
+    {
+      "day": "2025-03-19",
+      "arm": "combined",
+      "title": "Brentwood, Calif., Council Approves License Plate Cameras",
+      "key": "progress_cd5b5c54433bf6a356e3260248df7643a70dd2ad",
+      "source_url": "https://www.govtech.com/public-safety/brentwood-calif-council-approves-license-plate-cameras",
+      "label": "specific"
+    },
+    {
+      "day": "2026-11-15",
+      "arm": "combined",
+      "title": "Christmas day lunch 2026 in Singapore: Festive buffets and brunches to book",
+      "key": "progress_64e63ed3a5f3ccdc810eb5015f7cf8d384c881cb",
+      "source_url": "https://www.asiaone.com:443/lifestyle/christmas-day-lunch-2026-singapore",
+      "label": "low"
+    },
+    {
+      "day": "2025-03-15",
+      "arm": "combined",
+      "title": "Myles Garrett signs record pact, wants to win with Browns",
+      "key": "progress_8c1384cf496bc583bcc91c342bcc50edd351aae3",
+      "source_url": "https://www.titansradio.com/news/myles-garrett-signs-record-pact-wants-to-win-with-browns/",
+      "label": "unclear"
+    },
+    {
+      "day": "2025-03-15",
+      "arm": "combined",
+      "title": "KonoSuba Anime Sequel Officially Announced",
+      "key": "progress_da9e2461fc37822328ac6fc71a5c024071f25c91",
+      "source_url": "https://gamerant.com/konosuba-anime-sequel-officially-announced/",
+      "label": "low"
+    },
+    {
+      "day": "2025-03-21",
+      "arm": "baseline",
+      "title": "Cian Ducrot announces sophomore album Little Dreaming",
+      "key": "progress_97e584a4b24a206a92e45d461ad699212d8a947e",
+      "source_url": "https://www.hotpress.com/music/cian-ducrot-announces-sophomore-album-little-dreaming-23076943",
+      "label": "low"
+    },
+    {
+      "day": "2025-03-21",
+      "arm": "baseline",
+      "title": "Form 8 (DD) - John Wood Group PLC | Company Announcement",
+      "key": "progress_16ca3f4278d30a45c7283ef3e1d0d5c637a68835",
+      "source_url": "https://www.investegate.co.uk:443/announcement/prn/wood-group-john---wg./form-8-dd-john-wood-group-plc/8791724",
+      "label": "low"
+    },
+    {
+      "day": "2025-03-20",
+      "arm": "baseline",
+      "title": "Social Security Announces Big Changes: New Direct Deposit Process Explained – Smithville Herald",
+      "key": "progress_457034f557a6b5f79a22146c6a45338c978bceae",
+      "source_url": "https://smithvilleherald.com/social-security-announces-big-changes-new-direct-deposit-process-explained/",
+      "label": "unclear"
+    },
+    {
+      "day": "2025-03-15",
+      "arm": "combined",
+      "title": "Star Copper Announces Execution of Arrangement Agreement For Spin-Out ...",
+      "key": "progress_f36d2bde0a26a31666d904271799a05b63ce60a4",
+      "source_url": "https://www.pr-inside.com/star-copper-announces-execution-of-arrangement-agreement-for-spin-out-r5082311.htm",
+      "label": "unclear"
+    },
+    {
+      "day": "2026-11-15",
+      "arm": "baseline",
+      "title": "'I Hope You Die': Ex-Nvidia CEO Jensen Huang Told Senior Executive Jay Puri, Repeatedly Berated Other Employees",
+      "key": "progress_059e947afe367323b015b6bb04d20f656b35f4bf",
+      "source_url": "https://www.outlookindia.com/international/i-hope-you-die-ex-nvidia-ceo-jensen-huang-told-senior-executive-jay-puri-repeatedly-berated-other-employees",
+      "label": "unclear"
+    },
+    {
+      "day": "2025-03-15",
+      "arm": "combined",
+      "title": "Hamas agrees to release US-Israeli hostage, bodies of 4 other dual nationals",
+      "key": "progress_182f2b52f8b28eb95d07660aa17da6c224e05fa2",
+      "source_url": "https://kashmirreader.com/2025/03/15/hamas-agrees-to-release-us-israeli-hostage-bodies-of-4-other-dual-nationals/",
+      "label": "specific"
+    },
+    {
+      "day": "2025-03-17",
+      "arm": "baseline",
+      "title": "New Canada PM Mark Carney to visit Paris and London amid attacks from Trump",
+      "key": "progress_4dcfbf6c65e931d7ab057892b46f9b7d05ff1064",
+      "source_url": "https://tribune.com.pk/story/2534781/new-canada-pm-mark-carney-to-visit-paris-and-london-amid-attacks-from-trump",
+      "label": "unclear"
+    },
+    {
+      "day": "2025-03-21",
+      "arm": "baseline",
+      "title": "Ukraine suspends VAT refunds on two Ferrexpo subsidiaries",
+      "key": "progress_87d53e53e33f491eab85514797739b9f627b520c",
+      "source_url": "https://www.sharecast.com/news/news-and-announcements/ukraine-suspends-vat-refunds-on-two-ferrexpo-subsidiaries--19187242.html",
+      "label": "specific"
+    },
+    {
+      "day": "2025-03-19",
+      "arm": "baseline",
+      "title": "Bengaluru Techie Alleges Wife Tried To Kill Him By Attacking Private Parts, Files Police Complaint",
+      "key": "progress_1ca71814045b02c4406fc5b0a2b9cfe3528953ec",
+      "source_url": "https://www.freepressjournal.in/india/bengaluru-techie-alleges-wife-tried-to-kill-him-by-attacking-private-parts-files-police-complaint",
+      "label": "unclear"
+    },
+    {
+      "day": "2026-11-15",
+      "arm": "baseline",
+      "title": "SpaceX's Starship returns from orbit and is caught by giant mechanical arms",
+      "key": "progress_100ab01563a8b3a66b3ac0a288cfdc3bba74074e",
+      "source_url": "https://www.leaderlive.co.uk/news/national/26729978.spacexs-starship-returns-orbit-caught-giant-mechanical-arms/",
+      "label": "specific"
+    },
+    {
+      "day": "2026-11-15",
+      "arm": "combined",
+      "title": "ASEAN leaders open annual summit with major conflicts and their impact topping the agenda",
+      "key": "progress_156bc30b790eb3a11fbb5b940436723ff01aa113",
+      "source_url": "https://www.asiaone.com:443/asia/asean-leaders-open-annual-summit-major-conflicts-and-their-impact-topping-agenda",
+      "label": "specific"
+    },
+    {
+      "day": "2025-03-15",
+      "arm": "baseline",
+      "title": "\"I'm as serious as a heart attack with Mastodon. I'm not ready to give it up yet. So, we're going to keep looking\": Bill Kelliher is searching far and wide for Mastodon's next guitarist – here's what the band is looking for",
+      "key": "progress_f55b50fdfe8d631ed7ff5329fea7569d4806c5ba",
+      "source_url": "https://www.guitarworld.com/artists/bands/bill-kelliher-what-mastodon-are-looking-for-in-new-guitarist",
+      "label": "low"
+    },
+    {
+      "day": "2025-03-21",
+      "arm": "baseline",
+      "title": "Brompton Announces the Launch of Canada's First Split Corp. Class A Share ETF",
+      "key": "progress_07c80cadd0bb1285e652df9d1e53570d41182372",
+      "source_url": "https://www.manilatimes.net/2025/03/21/tmt-newswire/globenewswire/brompton-announces-the-launch-of-canadas-first-split-corp-class-a-share-etf/2077680",
+      "label": "unclear"
+    },
+    {
+      "day": "2025-03-17",
+      "arm": "baseline",
+      "title": "Des Moines traffic: Long delays Monday morning on Highway 5",
+      "key": "progress_dbe793fdaf81a75801293649fbcdcd0400fd1ed1",
+      "source_url": "https://www.kcci.com/article/iowa-traffic-highway-5-crash-monday-morning-injury-delays/64204605",
+      "label": "unclear"
+    },
+    {
+      "day": "2025-03-15",
+      "arm": "combined",
+      "title": "Kuya Silver Announces Closing of First Tranche of Non-Brokered Private Placement",
+      "key": "progress_14e28c5a111a4e099a20e6bb6f9c4f636d5230eb",
+      "source_url": "https://www.goldseiten.de/artikel/650810--Kuya-Silver-Announces-Closing-of-First-Tranche-of-Non-Brokered-Private-Placement.html",
+      "label": "low"
+    },
+    {
+      "day": "2026-11-15",
+      "arm": "baseline",
+      "title": "Roman's 'stunning' £35 maxi skirt shoppers 'pair with anything' drops to £26",
+      "key": "progress_d4b923db6eb476c37d46d8ccaf3a80713b13b239",
+      "source_url": "https://www.walesonline.co.uk/whats-on/shopping/romans-stunning-35-maxi-skirt-34900814",
+      "label": "low"
+    },
+    {
+      "day": "2025-03-17",
+      "arm": "combined",
+      "title": "David Pocock announces 2025 election running mate, Hannah Vardy | Southern Cross",
+      "key": "progress_d7953abdcc0032b0f6788a6fe756e62c20fcfadf",
+      "source_url": "https://www.juneesoutherncross.com.au/story/8916907/david-pocock-announces-2025-election-running-mate-hannah-vardy/?cs=1757",
+      "label": "specific"
+    },
+    {
+      "day": "2025-03-15",
+      "arm": "combined",
+      "title": "Urgent: U.S. Senate approves six-month funding bill hours before shutdown deadline",
+      "key": "progress_b2a1541c3e99798d4555e738f03033c6b2f92a8f",
+      "source_url": "https://www.thestar.com.my/news/world/2025/03/15/urgent-us-senate-approves-six-month-funding-bill-hours-before-shutdown-deadline",
+      "label": "specific"
+    },
+    {
+      "day": "2025-03-18",
+      "arm": "combined",
+      "title": "Fear at isolated Antarctica base as a man is accused of attacking a colleague and making threats",
+      "key": "progress_b8f426efdfb265a6d911be894e599251d4b6f567",
+      "source_url": "https://isp.netscape.com/news/world/story/0001/20250318/b418c718060ed93dc3554c0fa827fa83",
+      "label": "unclear"
+    },
+    {
+      "day": "2025-03-20",
+      "arm": "baseline",
+      "title": "XPLR Infrastructure, LP announces the offering of $1,400 million in aggregate principal amount of senior unsecured notes",
+      "key": "progress_488707d2004db2ea945a5252d741bca2556ce59d",
+      "source_url": "https://www.prnewswire.com/news-releases/xplr-infrastructure-lp-announces-the-offering-of-1-400-million-in-aggregate-principal-amount-of-senior-unsecured-notes-302406963.html",
+      "label": "specific"
+    },
+    {
+      "day": "2026-11-15",
+      "arm": "baseline",
+      "title": "San Antonio travelers scramble to rebook Saturday after Friday's FAA ground stop",
+      "key": "progress_0615db3c35b8518c757295f82731c29023894e80",
+      "source_url": "https://foxsanantonio.com/newsletter-daily/san-antonio-travelers-scramble-to-rebook-saturday-after-fridays-faa-ground-stop",
+      "label": "specific"
+    },
+    {
+      "day": "2025-03-17",
+      "arm": "combined",
+      "title": "I'm sorry for Salah - Carragher tells Liverpool two players to sign",
+      "key": "progress_00b41601163f4ad1d090fde2c06b0488128dcf6d",
+      "source_url": "https://dailypost.ng/2025/03/17/im-sorry-for-salah-carragher-tells-liverpool-two-players-to-sign/",
+      "label": "low"
+    },
+    {
+      "day": "2025-03-19",
+      "arm": "baseline",
+      "title": "The baton attack on teen Stuart",
+      "key": "progress_00d49db5020aadd4a011180ce61d2da7bc51ce14",
+      "source_url": "https://trinidadexpress.com/news/local/the-baton-attack-on-teen-stuart/article_624f202e-0473-11f0-b0f5-0b2640508047.html",
+      "label": "unclear"
+    },
+    {
+      "day": "2025-03-20",
+      "arm": "combined",
+      "title": "Council approves organic waste diversion program | The West Elgin Chronicle",
+      "key": "progress_069bffb955ab8acdcc2ee1b50d0fdde7ba6261a8",
+      "source_url": "https://www.thechronicle-online.com:443/news/council-approves-organic-waste-diversion-program",
+      "label": "specific"
+    },
+    {
+      "day": "2025-03-21",
+      "arm": "combined",
+      "title": "Dunolly heart attack survivor reunites with his saviours | Redland City Bulletin",
+      "key": "progress_a7741df4927056ffb8e61e4f4779cc932c1e950c",
+      "source_url": "https://www.redlandcitybulletin.com.au/story/8922428/dunolly-heart-attack-survivor-reunites-with-his-saviours/?cs=2678",
+      "label": "low"
+    },
+    {
+      "day": "2025-03-15",
+      "arm": "combined",
+      "title": "1st LD Writethru: U.S. Senate approves six-month funding bill hours before shutdown deadline",
+      "key": "progress_bcfd517b99a9da3a3ac79b8b326a11c45538e933",
+      "source_url": "https://www.thestar.com.my/news/world/2025/03/15/1st-ld-writethru-us-senate-approves-six-month-funding-bill-hours-before-shutdown-deadline",
+      "label": "specific"
+    },
+    {
+      "day": "2025-03-15",
+      "arm": "baseline",
+      "title": "The 3D Urology and Prostate Clinics Announce Breakthroughs in 3D",
+      "key": "progress_9f2abff289f9583d8208205a14770e73a1de7096",
+      "source_url": "https://www.openpr.com/news/3916607/the-3d-urology-and-prostate-clinics-announce-breakthroughs-in-3d",
+      "label": "low"
+    },
+    {
+      "day": "2025-03-15",
+      "arm": "baseline",
+      "title": "Exploring the Connection Between Zodiac Signs and Past Life Experiences",
+      "key": "progress_fb5081f4cea4ffd43dc1c6f77845256b8d5af926",
+      "source_url": "https://timesofindia.indiatimes.com/astrology/zodiacs-astrology/exploring-the-connection-between-zodiac-signs-and-past-life-experiences/articleshow/119044071.cms",
+      "label": "low"
+    },
+    {
+      "day": "2025-03-20",
+      "arm": "combined",
+      "title": "Al Porter announces Mayo dates for new stand-up show 'ALGORITHM'",
+      "key": "progress_2f486f2eaa1a941f2f45b808ba403d312aa1cf25",
+      "source_url": "https://www.mayonews.ie/news/local-news/1757434/al-porter-announces-mayo-dates-for-new-stand-up-show-algorithm.html",
+      "label": "low"
+    },
+    {
+      "day": "2026-11-15",
+      "arm": "combined",
+      "title": "49th ASEAN Summit kicks off in Philippines-Xinhua",
+      "key": "progress_725c61b5bb5d61b12766028735e275d8e664f466",
+      "source_url": "https://english.news.cn/asiapacific/20261115/4397106077094fe5bd669e9099ec1c96/c.html",
+      "label": "specific"
+    },
+    {
+      "day": "2026-11-15",
+      "arm": "baseline",
+      "title": "Randy Travis' More Life Tour brings an emotional celebration to Branson | Entertainment",
+      "key": "progress_09d27187056d30d9181bf835fba3cc71d38f2219",
+      "source_url": "https://www.bransontrilakesnews.com/entertainment/article_7d5d0291-f13a-42ee-a26f-378bc6483ad1.html",
+      "label": "low"
+    },
+    {
+      "day": "2025-03-20",
+      "arm": "baseline",
+      "title": "Strengthening North Carolina's Resilience: Mold Inspection Sciences Announces State Expansion | Nation",
+      "key": "progress_76ab97c22080f4477902fbfe86e1c9cf318446b4",
+      "source_url": "https://www.somdnews.com/ap/nation/strengthening-north-carolina-s-resilience-mold-inspection-sciences-announces-state-expansion/article_7d458439-6067-54d2-aad5-2e8ce2b6a2c2.html",
+      "label": "low"
+    },
+    {
+      "day": "2026-11-15",
+      "arm": "baseline",
+      "title": "WW3 fears surge as former PM comes up with different idea to UK conscription",
+      "key": "progress_01253c351555db0e7f21b3c06a54e3f2e8ac7885",
+      "source_url": "https://www.aol.co.uk/articles/ww3-fears-surge-former-pm-065900000.html",
+      "label": "low"
+    },
+    {
+      "day": "2025-03-19",
+      "arm": "baseline",
+      "title": "Definitive Proxy Statement & Notice of AGM | Company Announcement",
+      "key": "progress_135f56a79bb9cd2452ad49f2833aa78b8dd60900",
+      "source_url": "https://www.investegate.co.uk:443/announcement/bzw/smurfit-westrock-di---swr/definitive-proxy-statement-notice-of-agm/8787054",
+      "label": "low"
+    },
+    {
+      "day": "2025-03-17",
+      "arm": "combined",
+      "title": "World news: Crocodile attacks in Indonesia are on the rise. It's left residents on edge",
+      "key": "progress_8204cbaa4727b4f8a9d1a9b10d210f70d9e7d0ab",
+      "source_url": "https://www.9news.com.au/world/crocodile-attacks-in-indonesia-are-on-the-rise-its-left-residents-on-edge/219c32e8-a096-444b-8d29-b56ec41c79eb",
+      "label": "unclear"
+    },
+    {
+      "day": "2025-03-17",
+      "arm": "combined",
+      "title": "BTS 7 Moments announced: RM, Jin, SUGA, J-Hope, Jimin, V, and Jungkook's solo work teased; check out pre-order and release dates",
+      "key": "progress_5abdd71fc7dc382ebace1bdb5e3ea5af1a440b31",
+      "source_url": "https://www.pinkvilla.com/entertainment/bts-7-moments-announced-rm-jin-suga-j-hope-jimin-v-and-jungkooks-solo-work-teased-check-out-pre-order-and-release-dates-1377744",
+      "label": "low"
+    },
+    {
+      "day": "2025-03-21",
+      "arm": "baseline",
+      "title": "Annual Financial Report | Company Announcement",
+      "key": "progress_14c64c2a8b07b8012fdb1c071a65542ae04fc5fc",
+      "source_url": "https://www.investegate.co.uk:443/announcement/rns/coca-cola-europacific-partners-di---ccep/annual-financial-report/8791588",
+      "label": "low"
+    },
+    {
+      "day": "2026-11-15",
+      "arm": "baseline",
+      "title": "War film 'feels like you're there' with near-perfect Rotten Tomatoes score",
+      "key": "progress_6a51940874dcb61c998fe101a236c22581b5ebb4",
+      "source_url": "https://www.walesonline.co.uk/lifestyle/tv/war-film-feels-like-youre-34891151",
+      "label": "low"
+    },
+    {
+      "day": "2025-03-15",
+      "arm": "baseline",
+      "title": "Dine Brands Global, Inc. Announces Quarterly Dividend of $0.51 (NYSE:DIN)",
+      "key": "progress_e1f0ed45760be9bf10d357019846c56058268747",
+      "source_url": "https://www.modernreaders.com/news/2025/03/15/dine-brands-global-inc-announces-quarterly-dividend-of-0-51-nysedin.html",
+      "label": "low"
+    },
+    {
+      "day": "2026-11-15",
+      "arm": "baseline",
+      "title": "'I was nervous before my solo stay in a remote Scottish Highlands cabin – but the solitude is glorious'",
+      "key": "progress_04b896965d5b913016fe121ae30d4b5bd020b850",
+      "source_url": "https://www.aol.co.uk/articles/nervous-solo-stay-remote-scottish-070006000.html",
+      "label": "low"
+    },
+    {
+      "day": "2025-03-17",
+      "arm": "combined",
+      "title": "360 Announces 'Out Of The Blue' 2025 Australian Tour",
+      "key": "progress_4a78903e71a7b1268b7beda7ed0a435438d45a4b",
+      "source_url": "https://themusic.com.au/news/360-announces-out-of-the-blue-2025-australian-tour/FQGrCQgLCg0/17-03-25",
+      "label": "low"
+    },
+    {
+      "day": "2026-11-15",
+      "arm": "combined",
+      "title": "Scholars talk new directions for Kurds",
+      "key": "progress_856a12e2a1c923870b38ca99b03ad53880201e67",
+      "source_url": "https://westerngazette.ca/culture/scholars-talk-new-directions-for-kurds/article_80459c9d-aac6-4107-b814-69cf3d49fe7a.html",
+      "label": "low"
+    },
+    {
+      "day": "2026-11-15",
+      "arm": "combined",
+      "title": "HONGQI EHS4 Set for Global Debut in Venice: Eastern Elegance Arrives in Europe",
+      "key": "progress_8634b4aa8a8fe700754cfe7a4c7e6dd82dcf8735",
+      "source_url": "https://www.manilatimes.net/2026/11/15/tmt-newswire/pr-newswire/hongqi-ehs4-set-for-global-debut-in-venice-eastern-elegance-arrives-in-europe/2470170",
+      "label": "low"
+    },
+    {
+      "day": "2025-03-18",
+      "arm": "baseline",
+      "title": "Indiana cop charged after forcing daughter, 6, to stand in freezing cold with threatening sign",
+      "key": "progress_7e950a2c79280e56bb006ddee72e742f688fcc1e",
+      "source_url": "https://www.fox26houston.com/news/indiana-cop-charged-daughter-freezing-cold",
+      "label": "specific"
+    },
+    {
+      "day": "2026-11-15",
+      "arm": "combined",
+      "title": "Avalanche kills 2 gold miners, injures 6 in Afghanistan's Badakhshan-Xinhua",
+      "key": "progress_df8aeb3f05e928f2a49b9bfc546cd4a9db16f5bd",
+      "source_url": "https://english.news.cn/asiapacific/20261115/e5063c2aaeda4e36981a9f99f6284f20/c.html",
+      "label": "specific"
+    },
+    {
+      "day": "2026-11-15",
+      "arm": "combined",
+      "title": "Swiss men lead protest to reduce violence against women",
+      "key": "progress_0ccf5af3859f17eb3dda4ea26a5966ee2e1e1875",
+      "source_url": "https://www.thecourier.com.au/story/9391698/swiss-men-lead-protest-to-reduce-violence-against-women/",
+      "label": "specific"
+    },
+    {
+      "day": "2025-03-19",
+      "arm": "combined",
+      "title": "Cabinet approves revised national program for dairy development",
+      "key": "progress_ae39102fe81190f17703fe66445fbbf4f366e211",
+      "source_url": "https://aninews.in/news/national/general-news/cabinet-approves-revised-national-program-for-dairy-development20250319172438/",
+      "label": "specific"
+    },
+    {
+      "day": "2025-03-19",
+      "arm": "baseline",
+      "title": "Court Yet to Announce Pres. Yoon's Impeachment Ruling Date, Ruling Unlikely to be Made This Week",
+      "key": "progress_0b1a2c71a880bafaea378506443ba66ea80fbd61",
+      "source_url": "http://world.kbs.co.kr/service/news_view.htm?lang=e&Seq_Code=191742",
+      "label": "unclear"
+    },
+    {
+      "day": "2025-03-16",
+      "arm": "baseline",
+      "title": "Iran denies aiding Houthi rebels as US air strikes on Yemen kill 31",
+      "key": "progress_3dc08792317128a2a54001ef915009de27595cd1",
+      "source_url": "https://www.bridportnews.co.uk/news/national/25011619.iran-denies-aiding-houthi-rebels-us-air-strikes-yemen-kill-31/",
+      "label": "specific"
+    },
+    {
+      "day": "2025-03-15",
+      "arm": "baseline",
+      "title": "Duluth (NASDAQ:DLTH) Announces Earnings Results, Misses Estimates By $0.32 EPS",
+      "key": "progress_45e96ba482a1001f1c930ebb9901a86d999c5499",
+      "source_url": "https://theenterpriseleader.com/2025/03/15/duluth-nasdaqdlth-announces-earnings-results-misses-estimates-by-0-32-eps.html",
+      "label": "low"
+    },
+    {
+      "day": "2025-03-21",
+      "arm": "combined",
+      "title": "Eric Church Announces New Album, 'Evangeline Vs. The Machine,' Shares New Single, \"Hands Of Time\"",
+      "key": "progress_aade22cea7eb2dc1ca415003f68b1ddbc0a50a1a",
+      "source_url": "https://www.kbew98country.com/2025/03/20/eric-church-announces-new-album-evangeline-vs-the-machine-shares-new-single-hands-of-time/",
+      "label": "low"
+    },
+    {
+      "day": "2025-03-20",
+      "arm": "baseline",
+      "title": "LISTEN: Eric Church releases new single \"Hands Of Time\", announces new album – K92.3",
+      "key": "progress_0910e3a6a46817b33b332cd7a46cb1bc045774e3",
+      "source_url": "https://www.k923orlando.com/entertainment/listen-eric-church-releases-new-single-hands-time-announces-new-album/IX6VEZFJV5F33NLE4DF27BBEMM/",
+      "label": "low"
+    },
+    {
+      "day": "2025-03-20",
+      "arm": "combined",
+      "title": "BX Digital receives FINMA approval - Asset Servicing Times",
+      "key": "progress_cddaea938b57f089ea6d07aac389e6aab1dcb5d4",
+      "source_url": "https://www.assetservicingtimes.com/assetservicesnews/industryarticle.php?article_id=16553",
+      "label": "unclear"
+    },
+    {
+      "day": "2025-03-19",
+      "arm": "combined",
+      "title": "Cabinet approves setting up of new Rs 10,000 crore Brownfield Ammonia-Urea complex in Assam",
+      "key": "progress_3c7e9f7a7972f381c791afd7c12c805872f16045",
+      "source_url": "https://www.moneycontrol.com/news/business/cabinet-approves-setting-up-of-new-rs-10-000-crore-brownfield-ammonia-urea-complex-in-assam-12969499.html",
+      "label": "specific"
+    },
+    {
+      "day": "2026-11-15",
+      "arm": "baseline",
+      "title": "New Cwmbran sweet shop offers more than 400 varieties",
+      "key": "progress_07d889a8488bd7b2236b390b1693ef7fb7ab63f0",
+      "source_url": "https://www.southwalesargus.co.uk/news/26723735.new-cwmbran-sweet-shop-offers-400-varieties/",
+      "label": "low"
+    },
+    {
+      "day": "2025-03-20",
+      "arm": "combined",
+      "title": "Delay in Yoon's impeachment ruling prolongs South Korea's 'suffering' as uncertainty deepens",
+      "key": "progress_a79e81d16df64dbdaa0a667b8a93bbac1918da6d",
+      "source_url": "https://www.scmp.com/week-asia/politics/article/3303123/delay-yoons-impeachment-ruling-prolongs-south-koreas-suffering-uncertainty-deepens",
+      "label": "unclear"
+    },
+    {
+      "day": "2025-03-19",
+      "arm": "baseline",
+      "title": "Results of Court Meeting and General Meeting | Company Announcement",
+      "key": "progress_0226766b89f14930500bfd7bfd1db0992650221b",
+      "source_url": "https://www.investegate.co.uk:443/announcement/rns/crimson-tide--tide/results-of-court-meeting-and-general-meeting/8787175",
+      "label": "low"
+    },
+    {
+      "day": "2025-03-19",
+      "arm": "baseline",
+      "title": "John Legend Announces 'Get Lifted' 20th Anniversary World Tour",
+      "key": "progress_6e169aec464b951a581cdabe64f4dc3a884e9bea",
+      "source_url": "https://www.krrq.com/news/john-legend-announces-get-lifted-20th-anniversary-world-tour/",
+      "label": "low"
+    },
+    {
+      "day": "2025-03-17",
+      "arm": "baseline",
+      "title": "Local DJ, GRiZ, announces 3-day music festival in Virginia",
+      "key": "progress_712e87dd239d5f7ed235a534a007980a5e5958e3",
+      "source_url": "https://www.clickondetroit.com/news/local/2025/03/17/local-dj-griz-announces-3-day-music-festival-in-virginia/",
+      "label": "low"
+    },
+    {
+      "day": "2025-03-16",
+      "arm": "combined",
+      "title": "India, New Zealand resume talks on free trade agreement after nearly a decade",
+      "key": "progress_1424ffb0daec39c9c633a956cf5c6dfdeafd989e",
+      "source_url": "https://www.cnbctv18.com/economy/india-new-zealand-resume-talks-on-free-trade-agreement-after-nearly-a-decade-19574019.htm",
+      "label": "specific"
+    }
+  ],
+  "merged_pairs_read": [
+    {
+      "day": "2026-11-15",
+      "parent": "SpaceX successfully catches Starship and makes history",
+      "parent_key": "progress_3eaaed90847ed98a6c1986d9164e3deec765ed52",
+      "child": "SpaceX's Starship returns from orbit and is captured by launch pad arms in a dramatic first",
+      "child_key": "progress_dfd3f0c4e1bc1048374e37753d1cebd23a0ca8f8",
+      "arms": [
+        "merge",
+        "combined"
+      ],
+      "id": 1,
+      "judgement": "same_action"
+    },
+    {
+      "day": "2026-11-15",
+      "parent": "Police lift evacuation after bomb found near ethanol plant in central Illinois",
+      "parent_key": "progress_ab53d0e3c11a510683b4334c112f29df7619646c",
+      "child": "Police lift evacuation after bomb found near Illinois ethanol plant",
+      "child_key": "progress_3f92734126251526b08a0812d34322aca00988de",
+      "arms": [
+        "merge",
+        "combined"
+      ],
+      "id": 2,
+      "judgement": "same_action"
+    },
+    {
+      "day": "2026-11-15",
+      "parent": "SpaceX successfully catches Starship and makes history",
+      "parent_key": "progress_3eaaed90847ed98a6c1986d9164e3deec765ed52",
+      "child": "SpaceX's Starship returns from orbit and is caught by giant mechanical arms",
+      "child_key": "progress_100ab01563a8b3a66b3ac0a288cfdc3bba74074e",
+      "arms": [
+        "merge",
+        "combined"
+      ],
+      "id": 3,
+      "judgement": "same_action"
+    }
+  ],
+  "baseline_hashes_algorithm": "SHA-256 UTF-8 newline-joined ordered representative keys, without trailing newline.",
+  "source_archive_manifests": {
+    "march": "../0.34.0/public-archives.json",
+    "november": "../0.36.0/public-replay.json"
+  },
+  "issued_by_actual_readonly_cli": "news2douyin-review compare-shortlist --day YYYY-MM-DD --out EMPTY-PATH (each corresponding archived work database and intake storage root, no operational writes).",
+  "which_policy_files": {
+    "action_groups.py": "ccad3b1090dc13b73742cbd63cd1cc70ba235c03c398c6ea0162eda3da9d3808",
+    "coarse.py": "2bb4adba89a3e2ee27283da1fb22ed882398f159d607d260d9b46e197b345c70",
+    "shortlist_trial.py": "67868ca2a07d8431a74e5fbcd9329de9039504048d8bed7e2dd0c041584eda51",
+    "ranking.py": "0b2f7708f67e4af74cd08d70768366331a114dc91e78e2db24f6ce586c75e7b8"
+  }
+}

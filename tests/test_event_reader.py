@@ -173,7 +173,7 @@ def test_survey_hybrid_missing_evidence_citations_and_one_hop(tmp_path):
             src=s.get(ResearchSource,x['source_id'])
             paragraphs=json.loads(src.paragraphs_json)
             assert any(p['id']==x['paragraph_id'] and x['quote'] in p['text'] for p in paragraphs)
-        assert '本轮冻结' in c.get('/research/'+case).text
+        assert '<summary>本轮取证快照</summary>' in c.get('/research/'+case).text
 
 
 def test_http_model_protocol_recovery_and_expired_lease(tmp_path,monkeypatch):

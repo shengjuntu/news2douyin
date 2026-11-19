@@ -80,23 +80,34 @@ def register_desk(app,engine,render):
     def old_list(request:Request):
         return RedirectResponse('/radar'+('?' + request.url.query if request.url.query else ''),307)
 
+    @app.get('/api/radar/daily')
+    def daily_issue(day: str | None = None, summary: bool = False, s=Depends(db)):
+        from .daily_radar import issue_data
+        return issue_data(s, day, summary=summary)
+
+    @app.post('/api/radar/daily', status_code=202, dependencies=[Depends(same_origin)])
+    def request_daily_issue(day: str = Query(..., max_length=10)):
+        from ..digest.service import request_issue
+        from .daily_radar import resolve_day
+        selected_day, _ = resolve_day(day)
+        try:
+            return task_call(request_issue, engine, selected_day)
+        except RuntimeError as exc:
+            raise HTTPException(503, '日报后台任务已停用。启用后可生成或更新日报。') from exc
+
     @app.get('/radar')
     def radar(request:Request,q:str='',country:str='',topic:str='',mode:str='contains',band:str='',
               period:str='auto',channel:str='all',provider:str='all',view:str='list',
-              source:str='',cameo:str='',min_sources:int=Query(0,ge=0,le=1000),watch:str='',preset:str='',order:str='recent',
+              group_by:str='none',sort_by:str='recommended',source:str='',day:str | None=None,cameo:str='',min_sources:int=Query(0,ge=0,le=1000),watch:str='',preset:str='',order:str='recent',
               event:str=Query('',pattern=r'^\d{0,30}$'),
               attention_topic:str=Query('',max_length=128),
               limit:int=Query(30,ge=1,le=500),offset:int=Query(0,ge=0),s=Depends(db)):
         if not source:
-            source='local'
-            if not request.query_params:
-                from ..intake.official_models import OfficialEvent
-                if s.exec(select(OfficialEvent.event_id).limit(1).execution_options(
-                        n2d_query_name='selection.landing.source')).first() is not None:
-                    source='gdelt'
-                else:
-                    from ..attention.models import AttentionTopic
-                    if s.exec(select(AttentionTopic.key).limit(1)).first() is not None:source='attention'
+            # Existing source-less search, filter and network bookmarks target the local radar.
+            source = 'daily' if set(request.query_params).issubset({'day', 'source', 'group_by', 'sort_by'}) else 'local'
+        if source == 'daily':
+            from .daily_radar import page_context
+            return remember(render('daily_radar.html', active='radar', **page_context(s, day, group_by, sort_by)), 'radar')
         if source=='attention':
             from .attention import page_context
             result=page_context(s,q=q,period='72h' if period=='auto' else period,
@@ -224,7 +235,7 @@ def register_desk(app,engine,render):
         lock_news(s,'watch:'+key)
         w=task_call(desk.get_watch,s,key)
         member=s.get(WatchEvent,(key,p.event))
-        if p.event and (not member or member.choice=='exclude'):raise HTTPException(409,'请先将事件归入专题')
+        if p.event and (not member or member.choice=='exclude'):raise HTTPException(409,'请先将事件加入焦点')
         now = datetime.now(timezone.utc)
         day = p.cutoff or now.date().isoformat()
         try:
@@ -232,7 +243,7 @@ def register_desk(app,engine,render):
         except ValueError:
             raise HTTPException(422, '截止日期格式无效')
         if end.date() > now.date() or (p.event and p.cutoff):
-            raise HTTPException(422, '请选择不晚于今天的专题综述截止日期')
+            raise HTTPException(422, '截止日期不能晚于今天')
         cutoff = min(now,end).isoformat(timespec='seconds').replace('+00:00','Z')
         row=desk.make_review(s,w,p.event,('manual-' if p.event else 'summary-')+day,cutoff=cutoff)
         if row.status=='blocked':row.status='pending';s.add(row)

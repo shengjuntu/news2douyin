@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Optional, Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -96,11 +96,6 @@ class JobPayload(BaseModel):
     auto_editorial: bool = False
     auto_video: bool = False
     auto_tts: bool = False
-
-
-class RunNowPayload(BaseModel):
-    profile_name: str
-    override: dict[str, Any] = Field(default_factory=dict)
 
 
 class ScriptBuildPayload(BaseModel):

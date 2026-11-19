@@ -1,0 +1,82 @@
+{
+  "synthetic": true,
+  "input_documents": 5147,
+  "distinct_titles": 150,
+  "archived_urls": 5147,
+  "baseline_top100": {
+    "network": 50,
+    "mixed": 9,
+    "overflow": 1,
+    "two_families": 15,
+    "two_hosts": 25
+  },
+  "current_top100": {
+    "overflow": 1,
+    "mixed": 9,
+    "two_hosts": 75,
+    "two_families": 15
+  },
+  "source_link_checks": {
+    "two_hosts": {
+      "archived_urls": 2,
+      "displayed_domain_count": 2,
+      "domains_capped": false,
+      "units": 2,
+      "units_capped": false,
+      "folded": false,
+      "shown_links": 2
+    },
+    "network": {
+      "archived_urls": 80,
+      "displayed_domain_count": 64,
+      "domains_capped": true,
+      "units": 1,
+      "units_capped": false,
+      "folded": true,
+      "shown_links": 8
+    },
+    "two_families": {
+      "archived_urls": 6,
+      "displayed_domain_count": 6,
+      "domains_capped": false,
+      "units": 2,
+      "units_capped": false,
+      "folded": true,
+      "shown_links": 6
+    },
+    "mixed": {
+      "archived_urls": 83,
+      "displayed_domain_count": 64,
+      "domains_capped": true,
+      "units": 4,
+      "units_capped": false,
+      "folded": true,
+      "shown_links": 8
+    },
+    "overflow": {
+      "archived_urls": 160,
+      "displayed_domain_count": 64,
+      "domains_capped": true,
+      "units": 64,
+      "units_capped": true,
+      "folded": true,
+      "shown_links": 8
+    }
+  },
+  "candidate_order_reversed_checks": [
+    "all group evidence",
+    "ordered top 100"
+  ],
+  "single_candidate_domain_overflow": {
+    "input_hosts": 83,
+    "effective_units": 4
+  },
+  "frozen_backends": [
+    "SQLite",
+    "PostgreSQL 16.2 on x86_64-pc-linux-gnu, compiled by gcc (GCC) 10.2.1 20210130 (Red Hat 10.2.1-11), 64-bit"
+  ],
+  "ordered_card_sha256": "47c2a31838d1be2da9269342b9b8d8df28116d41024dbad35556a329bbf8fd76",
+  "command": "python tools/check_publisher_volume.py --postgres",
+  "scope": "Synthetic titles and URLs only. 80 catalogued station hosts are used to exercise attribution; made-up pages were never fetched. Other hosts are unmapped stand-ins, not verified independent organizations. Displayed link counts are bounded samples; complete URLs were independently counted in the local archive.",
+  "schema": "daily-publisher-stress.v1"
+}

@@ -14,7 +14,7 @@ from ..storage.articles import lock_news
 from ..desk.models import Watch, WatchEvent
 from ..extraction.schema import stable_id
 from ..tasks.control import TaskConflict
-from .models import ContentTask, ContentBinding, ContentRequest
+from .models import ContentTask, ContentBinding, ContentRequest, ContentTaskTrash
 
 PHASES={'selection':'选题','research':'研究','creation':'创作','works':'作品'}
 
@@ -26,6 +26,9 @@ class Start(BaseModel):
     angle: str=Field(default='',max_length=1500)
     event: str=Field(default='',max_length=160)
     watch: str=Field(default='',max_length=80)
+    digest_day: str=Field(default='',max_length=10)
+    progress: str=Field(default='',max_length=160)
+    digest_token: str=Field(default='',pattern=r'^(?:[a-f0-9]{64})?$')
     articles: list[str]=Field(default_factory=list,max_length=12)
     date_from: str=''
     date_to: str=''
@@ -77,17 +80,69 @@ def require(s,key):
     return task,w
 
 
+def visible_task(key):
+    return ~select(ContentTaskTrash.task).where(
+        ContentTaskTrash.task == key, ContentTaskTrash.deleted_at != ''
+    ).correlate_except(ContentTaskTrash).exists()
+
+
+def is_trashed(s, key):
+    state = s.get(ContentTaskTrash, key)
+    return bool(state and state.deleted_at)
+
+
+def require_visible(s, key):
+    if is_trashed(s, key):
+        raise TaskConflict('选题已移入回收站，请先恢复')
+
+
+def set_trashed(engine, key, version, *, trashed):
+    with Session(engine) as s:
+        lock_news(s, 'content:' + key)
+        # Serialize with topic edits and durable handoff submission.
+        research.locked(s)
+        task, _ = require(s, key)
+        state = s.get(ContentTaskTrash, key) or ContentTaskTrash(task=key)
+        if state.version != version:
+            raise TaskConflict('选题的回收状态已更新，请刷新后重试')
+        if bool(state.deleted_at) == trashed:
+            return dict(key=key, trashed=trashed)
+        if trashed:
+            pending_handoff = s.exec(select(TopicHandoff.handoff_id).where(
+                TopicHandoff.workspace_id == key, TopicHandoff.run_id == ''
+            ).limit(1)).first()
+            if task.phase != 'selection' or pending_handoff:
+                raise TaskConflict('只能删除处于选题阶段且没有待提交研究的任务')
+        state.deleted_at = utc_now_iso() if trashed else ''
+        state.version += 1
+        s.add(state)
+        s.commit()
+        return dict(key=key, trashed=trashed)
+
+
 def start(engine,payload):
     value=Start.model_validate(payload)
     scope=topics.Scope(period='custom' if value.date_from or value.date_to else 'all',
                        date_from=value.date_from,date_to=value.date_to,event_key=value.event).checked()
     key='topic_'+research.digest(['create',value.request_id])[:24]
-    fingerprint=research.digest(value.model_dump())
+    fields = value.model_dump()
+    if not value.digest_token:
+        fields.pop('digest_token')  # Preserve creation request hashes from earlier releases.
+    from_digest = bool(value.digest_day or value.progress or value.digest_token)
+    if from_digest:
+        if not value.digest_day or not value.progress or value.event or value.watch or value.articles or value.date_from or value.date_to:
+            raise ValueError('请单独选择一期日报中的进展')
+    else:
+        # Existing creation requests keep their pre-digest idempotency fingerprint.
+        fields.pop('digest_day')
+        fields.pop('progress')
+    fingerprint=research.digest(fields)
     with Session(engine,expire_on_commit=False) as s:
         lock_news(s, 'content:' + key)
         old=s.get(ContentTask,key)
         if old:
             if old.origin_hash!=fingerprint:raise TaskConflict('创建编号已经用于不同内容')
+            require_visible(s,key)
             return detail(s,key)
         if s.get(TopicWorkspace,key):raise TaskConflict('创建编号已存在，请使用新的编号')
         event=s.exec(select(Event).where(Event.event_key==value.event)).first() if value.event else None
@@ -96,11 +151,15 @@ def start(engine,payload):
             watch=require_active(s,value.watch)
         else:watch=None
         if value.event and not event:raise KeyError('事件不存在')
-        if value.watch and not watch:raise KeyError('专题不存在')
+        if value.watch and not watch:raise KeyError('焦点不存在')
         if event and watch:
             member=s.get(WatchEvent,(watch.key,event.event_key))
-            if not member or member.choice=='exclude':raise ValueError('事件不属于所选专题')
-        title=value.title.strip() or (event.event_title if event else watch.name+' · 新选题' if watch else '未命名选题')
+            if not member or member.choice=='exclude':raise ValueError('事件不属于所选焦点')
+        card = None
+        if from_digest:
+            from ..digest.handoff import selected_card
+            card = selected_card(s, value.digest_day, value.progress, value.digest_token)
+        title=value.title.strip() or (card['title'][:250] if card else event.event_title if event else watch.name+' · 新选题' if watch else '未命名选题')
         cid='topiccase_'+research.digest(key)[:24]
         w=TopicWorkspace(workspace_id=key,request_hash=fingerprint,case_id=cid,title=title,
             angle=value.angle,scope_json=research.dump(scope))
@@ -118,7 +177,13 @@ def start(engine,payload):
             begin,end=date_range(scope['period'],scope['date_from'],scope['date_to'],scope['timezone'])
             if begin or end:query=query.where(_time_predicate(Article.published_at,begin,end))
             selected=[a.article_key for a in s.exec(query.order_by(Article.published_at.desc(),Article.id.desc()).distinct().limit(6))]
-        w.selected_json=research.dump([topics.freeze(s,key,a).source_id for a in selected])
+        if card:
+            from ..digest.handoff import freeze_sources
+            source_ids = freeze_sources(s, key, value.digest_day, card)
+            bind(s, key, 'radar_daily', value.digest_day + '/' + value.progress)
+        else:
+            source_ids = [topics.freeze(s,key,a).source_id for a in selected]
+        w.selected_json=research.dump(source_ids)
         s.add(w)
         s.add(ContentTask(key=key,origin_hash=fingerprint,event=value.event,watch=value.watch))
         s.commit()
@@ -159,7 +224,9 @@ def detail(s,key):
         materials.update(stage='report',label='已有研究报告',next_step='选择报告形成可编辑初稿，核对引用后继续创作。')
     elif materials['research_readable']:
         materials.update(stage='readable',label='研究中已读取原文',next_step='在研究页核对已读来源与判断，整理研究报告。')
+    trash=s.get(ContentTaskTrash,key)
     result=dict(key=key,title=w.title,angle=w.angle,phase=task.phase,version=task.version,topic_revision=w.revision,
+        trash_version=trash.version if trash else 0,
         event=task.event,watch=task.watch,watch_name=watch.name if watch else '',watch_deleted=watch_deleted,
         sources=selection['sources'],materials=materials,
         pending_handoffs=[t for t in selection['tasks'] if not t['started']],
@@ -176,6 +243,7 @@ def move(engine,key,phase,version):
     with Session(engine) as s:
         lock_news(s, 'content:' + key)
         task,w=require(s,key)
+        require_visible(s,key)
         if task.version!=version:raise TaskConflict('任务已更新，请刷新')
         if phase=='works':
             data=detail(s,key)
@@ -191,6 +259,7 @@ def from_report(engine,storage,key,report_id,request_id,version):
     with Session(engine,expire_on_commit=False) as s:
         lock_news(s, 'content:' + key)
         task,w=require(s,key)
+        require_visible(s,key)
         receipt=s.get(ContentRequest,ident)
         if receipt:
             if receipt.fingerprint!=fingerprint:raise TaskConflict('请求编号已用于其他内容')
@@ -234,6 +303,7 @@ def from_report(engine,storage,key,report_id,request_id,version):
 
 def related(s,*,event='',watch=''):
     stmt=select(ContentTask,TopicWorkspace).join(TopicWorkspace,TopicWorkspace.workspace_id==ContentTask.key)
+    stmt=stmt.where(visible_task(ContentTask.key))
     if event:stmt=stmt.where(ContentTask.event==event)
     if watch:stmt=stmt.where(ContentTask.watch==watch)
     return [dict(key=t.key,title=w.title,phase=PHASES[t.phase]) for t,w in s.exec(stmt.order_by(ContentTask.updated.desc()).limit(20))]
@@ -257,6 +327,7 @@ def adopt(engine,kind,ref):
     with Session(engine) as s:
         lock_news(s, 'content:' + data['key'])
         task,w=require(s,data['key'])
+        require_visible(s,task.key)
         bind(s,task.key,kind,ref)
         task.event=event
         task.phase='research' if kind=='case' else 'creation'

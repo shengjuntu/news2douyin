@@ -304,8 +304,7 @@ def prepare_match(session, topic_key, now=None):
                 continue
             watch_matches.append(dict(watch=key, scope_version=version, reasons=[
                 '仅关键词范围召回：' + '、'.join(anchor + dims),
-                '当前专题版本：' + str(version),
-                '专题已暂停；此处仅供范围查询，不表示持续跟踪' if not enabled else '候选关联；尚未归集到专题，不触发研究']))
+                '焦点已暂停' if not enabled else '尚未收录']))
             break
     reasons = []
     if not matches:

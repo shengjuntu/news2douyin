@@ -1,0 +1,221 @@
+{
+  "schema": "news2douyin.selection-real-parity.v1",
+  "purpose": "Verify full-day TopN refactoring against the independently executed v0.37.0 source with the same isolated archive, work DB seeds, cutoff times and version history. This measures behavioral parity on sampled public batches, not a 500k-row load run or an estimate of news selection quality.",
+  "calls": [
+    "Lake.ingest_archive",
+    "build_issue",
+    "read_issue",
+    "markdown_for_shortlist",
+    "shortlist_comparison.compare_local"
+  ],
+  "environment": {
+    "work_db": "fresh SQLite database per version",
+    "archive": "same DuckDB records read by both versions",
+    "selection_default": "balanced, N=100",
+    "dependencies": "same Python interpreter and dependency environment",
+    "side_effects": "offline ranking after fetching and checksum-verifying public GDELT ZIP archives"
+  },
+  "inputs": {
+    "gkg_manifests": [
+      "../0.34.0/public-archives.json",
+      "../0.36.0/public-replay.json"
+    ],
+    "official_events_mentions_manifest": "../0.37.0/mixed-source-replay.json",
+    "gkg_zip_count": 23,
+    "gkg_raw_rows": 25636,
+    "coverage": "Three English batches on each Beijing date March 15–21, 2025 and two English batches on November 15, 2026. Historical March local arrivals simulated at batch time +15 min. November arrivals replayed at 08:35:23Z / 08:35:25Z; generated an initial edition then rebuilt at 08:41:06Z.",
+    "all_zips_sha256_verified_against_prior_manifests": true
+  },
+  "gkg_only": {
+    "days": 8,
+    "scanned": 25559,
+    "groups_across_days": 21570,
+    "published_seats": 800,
+    "four_arm_seats_including_baseline": 3200,
+    "previous_release_receipt_order_sha256_matches": 8,
+    "fresh_v037_and_v038_ordered_complete_cards_scores_and_markdown_equal": true,
+    "byte_equal_review_files_per_day": [
+      "answer-key.json",
+      "comparison.json",
+      "merge-review.csv",
+      "merges.jsonl",
+      "review.csv",
+      "review.html",
+      "shortlist.md"
+    ],
+    "byte_equal_review_files_total": 56,
+    "archived_trial_markdown_comparison": "Fresh v0.37.0 vs v0.38.0 trial Markdown is byte-identical for all eight days. Separately, the older stored v0.37.0 published-edition trial Markdown hash matches on November 15 only. March comparisons here use freshly generated editions rather than the older stored editions used in the prior release report.",
+    "daily_receipts": {
+      "2025-03-15": {
+        "scanned": 3038,
+        "groups": 2507,
+        "revision": 1,
+        "cutoff_utc": "2025-03-15T16:00:00Z",
+        "ordered_formal_keys_sha256": "cfdee05d175017581576226d159ed91ff037350c8a6636186fd0a0109c919a93",
+        "formal_markdown_sha256": "fecbe60fe4d4049c8e8ce09bcc0b62b80e3c6a4ffad83c5ee08b41155ead1717",
+        "ordered_full_cards_sha256_by_arm": {
+          "baseline": "6897517d5e74f9c334def6e27eaccbad19934bd6c14499f0c2fe12222e4271ee",
+          "classification": "ef7743ac6213f0ef45173daa4cd8ccc60fa069a1cd8c3d58a097e500d17ac1c6",
+          "merge": "0427445d8e78c1c1985c613a73a3ba8146f9e859bfc5e0d9fb0184438e59ca07",
+          "combined": "202539e48462005b9cf7a21908e238019ffeef1ba19fcefc6bbd1fe34ffe648c"
+        },
+        "complete_comparison_json_sha256": "8a5f579510f00b66c9243770036b1f632c8f7238a92b50f56069472a3635ac49"
+      },
+      "2025-03-16": {
+        "scanned": 2073,
+        "groups": 1764,
+        "revision": 1,
+        "cutoff_utc": "2025-03-16T16:00:00Z",
+        "ordered_formal_keys_sha256": "31491225fd435911743e71c304c4e8fa744112e4fc7f77a9d4b9c4391521f6f7",
+        "formal_markdown_sha256": "d043462b6e84a536bc234dff581395a252bd5e96230e9422dfa92e56418e3cac",
+        "ordered_full_cards_sha256_by_arm": {
+          "baseline": "ef22cfe0388f57068923cad6db509640b15345efff0a3af62d10505892227c0a",
+          "classification": "712e6c9e16b50b20020cdeab3e13c6b01e8972670bacdf03867996e8216cba60",
+          "merge": "3a1b1f2f5f6b69ce3f9839cb669457237bb882fa6a3202357c790c2fd8c81977",
+          "combined": "0d5b88b030e33abb552bd27878c344d65035a7ecad055a138753713096fb043b"
+        },
+        "complete_comparison_json_sha256": "b6722d533f889aa21b58ef35983c37ac689c2256965ee84331a4cbdcfbd57b38"
+      },
+      "2025-03-17": {
+        "scanned": 2962,
+        "groups": 2528,
+        "revision": 1,
+        "cutoff_utc": "2025-03-17T16:00:00Z",
+        "ordered_formal_keys_sha256": "a9118c54990f32da31006986969eecdc79c7b6223eec803267d41a0e1dcfb455",
+        "formal_markdown_sha256": "5d1b3d6d13ed9e58102e410d09ac343b2cab17ccb5b4fa790b70cc77e50a7c88",
+        "ordered_full_cards_sha256_by_arm": {
+          "baseline": "b93bfdf7957bb1d4e0fe807aa2ab5e383587c3cc2be7567a34a68bcce540d43e",
+          "classification": "524c406de5f50d9364a7ae63b93f3ee5a283db10e647033f9cee3914638f7ce3",
+          "merge": "26a658c9a39d7cfd4ea69e7daead1fd0c271a7646dd31c304bb5b6817a68a039",
+          "combined": "888429752e3e70ba2a435d0a03c687fbca7aafc8886f948b3c641db524956dcc"
+        },
+        "complete_comparison_json_sha256": "cd040ef3d49801f3aba7d533eb02618dff1b39df46cb1134c86be8f1f859e9b6"
+      },
+      "2025-03-18": {
+        "scanned": 4257,
+        "groups": 3565,
+        "revision": 1,
+        "cutoff_utc": "2025-03-18T16:00:00Z",
+        "ordered_formal_keys_sha256": "85ba1e7a5b40920527520bd8b7d5349f88bf6fb83c5b05c0eb48ab9bcdfa34cb",
+        "formal_markdown_sha256": "1ef56ad357dc9886bf7c3459d69de9dd3ce0c675bbfded07299a6ec8186333e6",
+        "ordered_full_cards_sha256_by_arm": {
+          "baseline": "b092bfa0fa9f5a07e8a6746b0b5a7abddedb4784078b17bbc161eeb9ee4c81c8",
+          "classification": "b3c532307e0fb8ee44349201d0c2b9903466ceaedff3362e59c9411065461675",
+          "merge": "e9acacbca0269d66d6b1e2be7aa1dc091a384d5c1d7148eaf45fa38a52552c97",
+          "combined": "233708030481b66e48c505e1cc10271bad534cc13473ce2e88ca410784e8584f"
+        },
+        "complete_comparison_json_sha256": "f7ce7ec3e3d070f734a193e42906a2e9745799607930dd084b7e173f343a4160"
+      },
+      "2025-03-19": {
+        "scanned": 4284,
+        "groups": 3618,
+        "revision": 1,
+        "cutoff_utc": "2025-03-19T16:00:00Z",
+        "ordered_formal_keys_sha256": "1ba534dc8334b82e7c463fc44bd4c87f66c2a5f2d79c5ce6109ec4eaa70b7d8d",
+        "formal_markdown_sha256": "d25b942044a0df22f4e92c996ed560a01a47deca7cc8a74722c435bc7cab2410",
+        "ordered_full_cards_sha256_by_arm": {
+          "baseline": "6bf16b82aa62c4312564cec53881acff1da63742fc92dc450dcb805697b7b0ea",
+          "classification": "057b6a9ecf6f274671249c212bf65528e0f16c72f17ead34b3d316b6d107f5a7",
+          "merge": "b9a96461c4e6168e931d2ccb08b7ff0e6f2a42c3c935c82e684a1cc2959f7c46",
+          "combined": "5e5de708d9adf5a06de585cac95f94cff9e77b50ae0c4de1821554ede03a2b9d"
+        },
+        "complete_comparison_json_sha256": "6866e01e1c5cca2c9f7cfd2fe90c49f541d629f7591396a001efcf6ddaf7b9a8"
+      },
+      "2025-03-20": {
+        "scanned": 4225,
+        "groups": 3534,
+        "revision": 1,
+        "cutoff_utc": "2025-03-20T16:00:00Z",
+        "ordered_formal_keys_sha256": "1aed54951d2e001322a744fda1e208fee584bc3b581aa688e83c96140efb0626",
+        "formal_markdown_sha256": "0073bdd1b9f3cd8136732f643a7bbd957e751c28b3646576e08e4412dcd570da",
+        "ordered_full_cards_sha256_by_arm": {
+          "baseline": "c1c6f0d2be89b7c2e47cc70d89ee320e65eb651f8c68ed50b22914072a1344c4",
+          "classification": "d3fbfb34f4bcd95f65ecd51b7777009e305a51e68069129f1ddde40c45c680dc",
+          "merge": "240cfc682835e0c05bda062f6d2d5303030acab66a22b23205351b6459160adb",
+          "combined": "d8663c241b948e2338724b7914818de2ed689977fc4492df378e475efd69f5dc"
+        },
+        "complete_comparison_json_sha256": "897e40ad32e21b25d3a58b18c0ae7604e3701f44db292bb0c5e07af4da19e053"
+      },
+      "2025-03-21": {
+        "scanned": 3854,
+        "groups": 3314,
+        "revision": 1,
+        "cutoff_utc": "2025-03-21T16:00:00Z",
+        "ordered_formal_keys_sha256": "29c1a62e98a60cd109df260ecc96ac0070d5ef470344232220cc2a571ec80b28",
+        "formal_markdown_sha256": "6b45084f2fb916495be976723c7f3473c3972c9c70e7817f12bdc9de78617799",
+        "ordered_full_cards_sha256_by_arm": {
+          "baseline": "45ae408cbc7a537694be247e8c7e71f8f505af8e6e4ceacd614523eda759384e",
+          "classification": "0d1d5f81f136088bbf1434da19f17a031c1e1c6d31c3d02eda41d0b0dc506be0",
+          "merge": "d003a4bf789aa87286b3a817e475c6e8ca0a57f1fea01208eeb5892cfaec0bbf",
+          "combined": "f64bfb9ff97c9a43816d89f96f7b352ed1461a739b4e7a7fed860543be09ec18"
+        },
+        "complete_comparison_json_sha256": "33735633a35028b18e6b4eba04c8f64463f8780cb0cf5a4bdc3fa81b91dd473d"
+      },
+      "2026-11-15": {
+        "scanned": 866,
+        "groups": 740,
+        "revision": 2,
+        "cutoff_utc": "2026-11-15T08:41:06Z",
+        "ordered_formal_keys_sha256": "6fe3bef3eccbe0e8e17b711e213b4748e6a6fa9d85467fb93bb77b0ff5995baa",
+        "formal_markdown_sha256": "5d870ab1e1d32d5cd53526a7594a504e03d1c24e80002e38be42e3b3f0de409b",
+        "ordered_full_cards_sha256_by_arm": {
+          "baseline": "a7584801c5e722c0854b7073e21ed64ddcc625e4b2b8f16ac61c468606fb81fe",
+          "classification": "ec36c137adc87af782caabab240b152a4af9c937f4aaa8eeaceee7be5ebfb66a",
+          "merge": "2dd03b51892f54257bdbd0bd7768fef1547c68be6bc5e098cf3c6f34aa4544f9",
+          "combined": "cad2389f17b64fc63e009b0e71382c27fe7a045e108862424851057fad801918"
+        },
+        "complete_comparison_json_sha256": "669c5a75d5f7630e57a31c7d5ce95c2ba788cba1ee281957d0e1bdf75f473f59"
+      }
+    }
+  },
+  "real_mixed": {
+    "day": "2025-03-16",
+    "stamp": "20250316001500",
+    "is_separate_from_eight_day_run": true,
+    "row_counts": {
+      "gkg": 736,
+      "events": 1197,
+      "mentions": 1736
+    },
+    "local_receipt_simulated": "2025-03-16T00:20:00Z",
+    "preview_inputs": "295 same-URL archived GKG headlines; empty excerpts, no external article fetch.",
+    "comparable_candidates": 1933,
+    "groups": 615,
+    "source_selected": {
+      "gdelt": 93,
+      "gkg": 7
+    },
+    "formal_markdown_sha256": "089811adfaf5567b1a5dd60faaabf6353e4aa7acf9d6fecbf3050dfc01ebfd09",
+    "four_arm_cards_sha256": {
+      "baseline": "aaca4afe1556f3e7a80c3acadf9e26d712306fb05e3d4c3ee37a4283a7948b1a",
+      "classification": "296b2321a32c9e97b324d543ffe301dce17a5b9a2c5b48a92d55228b085ea1be",
+      "merge": "bfc33db2176e8c9b3dc7ff26fa8b613ae47ea891636e83e3203fac60b85acf06",
+      "combined": "47ab210edf5031b432bed5fbb8c7b254feee45037da2893048a3f606aca19f68"
+    },
+    "trial_markdown_sha256": "aaa5338b06a01968dd81e74756400351761203fdbea57394c511d3e50efe5361",
+    "fresh_v037_and_v038_smoke_outputs_equal": true
+  },
+  "external_strategy_on_mixed": {
+    "method": "Installed the external package from examples/topn_plugin, supplied a TOML config and called the normal publication and saved Markdown entry points on a copy of the mixed seed database.",
+    "provenance": {
+      "api_version": 1,
+      "strategy": "latest-diverse",
+      "version": "1.0.0",
+      "limit": 150,
+      "options": {
+        "max_per_domain": 4
+      }
+    },
+    "scanned_before_grouping": 1933,
+    "selected": 150,
+    "source_selected": {
+      "gkg": 150
+    },
+    "distinct_normalized_keys": 150,
+    "distinct_source_urls": 150,
+    "distinct_hosts": 98,
+    "max_actual_per_host": 4,
+    "markdown_card_count": 150,
+    "markdown_sha256": "42edd8ad3c3344874c1533c30f9d230d97f263e5bbd6b7ee894477b92072ab26"
+  }
+}

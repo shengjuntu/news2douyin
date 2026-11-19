@@ -1,41 +1,234 @@
 {% extends 'base.html' %}
-{% block title %}我的专题 · 新闻研究台{% endblock %}
+{% block title %}焦点 · 新闻研究台{% endblock %}
 {% block content %}
 <link rel="stylesheet" href="/research-assets/focus.css">
 {% set definition = intent_definition|default(none) %}
-<div class="focus-page-head"><div><h1>我的专题</h1><p class="muted">说清你关心什么，让材料持续汇聚。</p></div><a class="focus-new-link" href="/focus?new=1">＋ 新建专题</a></div>
+<header class="focus-page-head"><h1>焦点</h1><a class="focus-new-link" href="/focus?new=1">＋ 新建焦点</a></header>
 <div class="desk-grid focus-layout">
-<aside class="card focus-sidebar" aria-label="专题列表"><strong>长期关注</strong><div class="focus-topic-list">{% for t in watches %}<a class="desk-topic" href="/focus/{{ t.key }}" {% if w and t.key==w.key %}aria-current="page"{% endif %}><span>{{ t.name }}</span><small>{{ counts.get(t.key,0) }} 项{% if not t.enabled %} · 已暂停{% endif %}</small></a>{% else %}<p class="muted">建立第一个专题后，它会出现在这里。</p>{% endfor %}</div><a class="focus-radar-link" href="/radar">去事件雷达发现线索 →</a>{% if trashed|default([]) %}<details id="focus-trash" class="focus-trash"{% if trash_open|default(false) %} open{% endif %}><summary>已删除专题 · {{ trashed|length }}</summary><p class="desk-meta small">恢复后保持暂停，已有材料与成果可继续查看；启用跟踪后重新检查新进展。</p>{% for removed in trashed %}<div class="focus-trash-item"><span>{{ removed.name }}</span><button type="button" class="ghost" data-focus-restore="{{ removed.key }}" data-focus-version="{{ removed.version }}">恢复为暂停</button></div>{% endfor %}<p id="focus-trash-message" class="desk-error" role="status"></p></details>{% endif %}<details class="focus-system"><summary>后台状态</summary>{% if indexing %}<p class="desk-alert">{{ indexing }} 个事件待建立索引。</p>{% endif %}{% include 'graph_status.html' %}<a href="/api/desk/status">查看运行状态</a></details></aside>
-<section class="focus-main">
+  <aside class="card focus-sidebar" aria-label="焦点列表">
+    <div class="focus-topic-list">
+      {% for t in watches %}
+      <a class="desk-topic" href="/focus/{{ t.key }}" {% if w and t.key==w.key %}aria-current="page"{% endif %}>
+        <span>{{ t.name }}</span><small>{{ counts.get(t.key,0) }} 项{% if not t.enabled %} · 已暂停{% endif %}</small>
+      </a>
+      {% else %}<p class="muted">暂无焦点</p>{% endfor %}
+    </div>
+    <a class="focus-radar-link" href="/radar">事件雷达 →</a>
+    {% if trashed|default([]) %}
+    <details id="focus-trash" class="focus-trash"{% if trash_open|default(false) %} open{% endif %}>
+      <summary>已删除焦点 · {{ trashed|length }}</summary>
+      {% for removed in trashed %}
+      <div class="focus-trash-item"><span>{{ removed.name }}</span><button type="button" class="ghost" data-focus-restore="{{ removed.key }}" data-focus-version="{{ removed.version }}">恢复为暂停</button></div>
+      {% endfor %}
+      <p id="focus-trash-message" class="desk-error" role="status"></p>
+    </details>
+    {% endif %}
+    <details class="focus-system">
+      <summary>后台状态</summary>
+      {% if indexing %}<p class="desk-alert">{{ indexing }} 个事件待建立索引。</p>{% endif %}
+      {% include 'graph_status.html' %}
+      <a href="/api/desk/status">查看运行状态</a>
+    </details>
+  </aside>
+  <section class="focus-main">
+    {% if w %}
+    <header class="focus-topic-head">
+      <div class="desk-row"><span class="badge">{{ w.kind }}</span><span class="focus-state">{{ '跟踪中' if w.enabled else '已暂停' }}</span></div>
+      <h2>{{ w.name }}</h2>
+      {% if definition or w.question or w.scope %}<p class="focus-description">{{ definition.description if definition else w.question or w.scope }}</p>{% endif %}
+      <div class="focus-head-actions">
+        <a class="action-link" href="/workbench/new?watch={{ w.key }}">形成选题</a>
+        <button id="focus-delete" type="button" class="ghost focus-delete">删除焦点</button>
+      </div>
+    </header>
+    <section class="card focus-tracking" id="focus-tracking" aria-label="跟踪进度">
+      <div class="focus-tracking-line">
+        <strong id="tracking-title">正在读取跟踪进度…</strong>
+        <span id="tracking-counts" class="desk-meta"></span>
+        <button type="button" class="ghost" id="tracking-refresh" hidden>查看新材料</button>
+      </div>
+      <p id="tracking-error" class="desk-error" role="status" hidden></p>
+      <details id="tracking-pending-box" hidden>
+        <summary id="tracking-pending-summary">待核材料</summary>
+        <div id="tracking-pending-list"></div>
+        <button type="button" class="ghost" id="tracking-retry">重试筛选</button>
+      </details>
+    </section>
+    {% if changes %}
+    <section class="focus-changes">
+      <div class="desk-row"><strong>未读进展</strong><button class="ghost" type="button" id="mark-seen">标记已读</button></div>
+      {% for change in changes[:5] %}<p><a href="/events/{{ change.event|urlencode }}?back={{ back|urlencode }}">{{ change.text }}</a></p>{% endfor %}
+    </section>
+    {% endif %}
+    <details class="card focus-settings"><summary>关注范围与跟踪设置</summary>
+    {% endif %}
+
+    <section class="card focus-composer{% if w %} focus-composer-edit{% endif %}" id="topic-composer">
+      <h2 class="focus-composer-title">{{ '调整关注范围' if w else '新建焦点' }}</h2>
+      <form id="topic-description-form">
+        <label class="focus-label" for="topic-description">关注描述</label>
+        <textarea id="topic-description" name="description" rows="5" maxlength="4000" required placeholder="例如：跟踪特朗普政府对俄乌战争的政策变化，重点看军援、制裁与停火谈判。">{{ definition.description if definition else w.question or w.scope if w else '' }}</textarea>
+        {% if not w %}
+        <div class="focus-examples" aria-label="描述示例">
+          <button type="button" class="ghost" data-topic-example="持续跟踪特朗普本人的公开活动、会见、表态和政策决定，区分实际行动与传闻，少看商业品牌和私人生活。">人物活动</button>
+          <button type="button" class="ghost" data-topic-example="持续跟踪俄乌战争，重点关注战场变化、对乌军援、制裁和停火谈判，希望了解历史背景和实际影响。">俄乌战争</button>
+          <button type="button" class="ghost" data-topic-example="持续关注中国周边态势，重点看台海、南海和朝鲜半岛的军事行动、外交协调及实质政策变化。">周边态势</button>
+          <button type="button" class="ghost" data-topic-example="核查波兰有关政变或宪制危机的线索，追溯最早出处，同时收集支持、否认和更正，不把传闻当成事实。">线索核查</button>
+        </div>
+        {% endif %}
+        <div class="desk-row focus-primary-row">
+          <button type="submit" id="topic-generate">生成关注范围</button>
+          <button type="button" class="ghost" id="topic-cancel" hidden>取消等待</button>
+        </div>
+        <p id="topic-build-status" role="status" aria-live="polite" class="focus-status"></p>
+      </form>
+      <section class="focus-preview" id="topic-preview" hidden aria-label="焦点预览">
+        <div class="desk-row"><strong>关注范围</strong><span class="badge" id="topic-method"></span></div>
+        <p id="topic-method-message" class="focus-status"></p>
+        <label class="focus-label" for="topic-name">焦点名称</label><input id="topic-name" maxlength="80" required>
+        <label class="focus-label" for="topic-questions">长期问题 <span class="muted small">每行一个</span></label>
+        <textarea id="topic-questions" rows="4" maxlength="4800"></textarea>
+        <details class="focus-preview-detail">
+          <summary>查看关注图与范围</summary>
+          <p class="desk-meta small">连线表示关注关系。</p>
+          <div data-intent-graph="preview"></div>
+          <div id="topic-boundaries" class="desk-meta"></div>
+          <label class="focus-label" for="topic-exclude">排除内容 <span class="muted small">每行一项</span></label>
+          <textarea id="topic-exclude" rows="2" maxlength="2400"></textarea>
+        </details>
+        <div class="desk-row focus-primary-row">
+          <button type="button" id="topic-start">{{ '保存并重新匹配' if w else '开始跟踪' }}</button>
+          <button type="button" class="ghost" id="topic-back">修改描述</button>
+        </div>
+        <p id="topic-save-status" class="focus-status" role="status" aria-live="polite"></p>
+      </section>
+      <noscript><p class="desk-alert">请启用 JavaScript 生成或编辑焦点。</p></noscript>
+    </section>
+
+    {% if w and definition %}
+    <details class="focus-detail"><summary>当前关注图与问题</summary><div data-intent-graph="saved"></div></details>
+    {% endif %}
+    {% if not definition %}
+    <details id="desk-editor" class="card focus-manual">
+      <summary>手动设置{{ '规则' if w else '焦点' }}</summary>
+      <form id="focus-form" class="desk-form">
+        <label>预设<select id="preset"><option value="">自定义</option>{% for p in presets %}<option value="{{ loop.index0 }}">{{ p.name }}</option>{% endfor %}</select></label>
+        <label>名称<input name="name" maxlength="80" required value="{{ w.name if w else seed_title[:80] }}"></label>
+        <label>类型<select name="kind">{% for k in ['人物','长期事件','区域态势','线索核查'] %}<option {% if (w and k==w.kind) or (not w and k=='长期事件') %}selected{% endif %}>{{ k }}</option>{% endfor %}</select></label>
+        <label>关注对象、别名或地区<input name="scope" maxlength="600" required value="{{ w.scope if w else '' }}" placeholder="例如 特朗普，Donald Trump"></label>
+        <label>至少匹配一个议题（可空）<input name="dimensions" maxlength="600" value="{{ w.dimensions if w else '' }}"></label>
+        <label>排除词（可空）<input name="exclude" maxlength="600" value="{{ w.exclude if w else '' }}"></label>
+        <label>长期问题<textarea name="question" maxlength="600" rows="2">{{ w.question if w else '' }}</textarea></label>
+        <label><input type="checkbox" name="enabled" {{ 'checked' if not w or w.enabled }}> 启用跟踪</label>
+        <label><input type="checkbox" name="auto_research" {{ 'checked' if w and w.auto_research }}> 自动定向补查（RunDesk）</label>
+        <label>复查间隔（天）<input name="review_days" type="number" min="1" max="90" value="{{ w.review_days if w else 7 }}"></label>
+        <div class="desk-row">
+          <button type="submit" id="manual-save">保存{{ '规则' if w else '焦点' }}</button>
+          <button type="button" class="ghost" id="preview">预览规则匹配</button>
+        </div>
+        <pre id="preview-result" hidden></pre>
+      </form>
+    </details>
+    {% endif %}
+    {% if seed %}<p class="desk-meta">起始事件：{{ seed_title }}</p>{% endif %}
+    {% if w and definition %}
+    <form id="focus-options" class="desk-form focus-options">
+      <label><input type="checkbox" name="enabled" {{ 'checked' if w.enabled }}> 启用跟踪</label>
+      <label><input type="checkbox" name="auto_research" {{ 'checked' if w.auto_research }}> 自动定向补查（RunDesk）</label>
+      <label>复查间隔（天）<input name="review_days" type="number" min="1" max="90" value="{{ w.review_days }}"></label>
+      <button type="submit">保存跟踪设置</button>
+    </form>
+    {% endif %}
+    {% if w %}</details>{% endif %}
+    <p id="focus-msg" class="desk-error" role="status" aria-live="polite"></p>
+
+    {% if w %}
+    <section class="focus-materials" aria-label="焦点材料">
+      <div class="focus-section-head"><h2>近期进展与来源</h2><span class="desk-meta">{{ total }} 项</span></div>
+      <form class="desk-row focus-filters">
+        <label>排序 <select name="order"><option value="recent">最新材料</option><option value="relevance" {{ 'selected' if order=='relevance' }}>相关度</option></select></label>
+        <label>分支 <select name="branch"><option value="">全部分支</option>{% for label in branches if label %}<option value="{{ label }}" {{ 'selected' if label==branch }}>{{ label }}</option>{% endfor %}</select></label>
+        <button class="ghost">查看</button>
+      </form>
+      {% for e,why in items %}
+      {% set label = tags.get(e.key) %}
+      <article class="desk-pane">
+        <a class="desk-title" href="/events/{{ e.key|urlencode }}?back={{ back|urlencode }}">{{ e.title }}</a>
+        {% if label or e.seen %}
+        <p class="desk-meta small">{% if label %}{{ label }}{% endif %}{% if label and e.seen %} · {% endif %}{% if e.seen %}<time datetime="{{ e.seen }}">{{ e.seen[:10] }}</time>{% endif %}</p>
+        {% endif %}
+        {% if definition or why %}
+        <details class="focus-decision"{% if definition %} data-focus-decision="{{ e.key }}"{% endif %}>
+          <summary>查看收录依据</summary>
+          {% if definition %}<div data-decision-body data-fallback-reason="{{ why }}"></div>{% else %}<div><p>{{ why }}</p></div>{% endif %}
+        </details>
+        {% endif %}
+        <div class="desk-row focus-material-actions">
+          <a href="/workbench/new?event={{ e.key|urlencode }}&watch={{ w.key }}">形成选题</a>
+          <button class="ghost" type="button" data-check="{{ e.key }}">核查此事</button>
+          <button class="ghost" type="button" data-hide="{{ e.key }}">排除此项</button>
+        </div>
+      </article>
+      {% else %}
+      <div class="card focus-empty"><strong>暂无匹配材料</strong> · <a href="/radar">添加事件线索 →</a></div>
+      {% endfor %}
+      <nav class="desk-row focus-pagination" aria-label="材料分页">
+        {% if offset %}<a href="?{{ paging }}&offset={{ [0,offset-30]|max }}">← 上一页</a>{% endif %}
+        {% if offset+30<total %}<a href="?{{ paging }}&offset={{ offset+30 }}">下一页 →</a>{% endif %}
+      </nav>
+    </section>
+    <details class="card focus-detail">
+      <summary>时间线与关系图</summary>
+      <h2>焦点关系图</h2><div data-knowledge-graph data-watch="{{ w.key }}"></div>
+      <h2>发生或生效日期</h2>
+      {% for m in timeline %}
+      <p><time>{{ m.date_start }}</time>{% if m.date_end %} 至 {{ m.date_end }}{% endif %} · <a href="/events/{{ m.event_key|urlencode }}?back={{ back|urlencode }}">{{ m.title }}</a> · {{ '已核对' if m.reviewed else '待核' }}{% if m.time_note %} · {{ m.time_note }}{% endif %}</p>
+      {% else %}<p class="desk-meta">暂无已标注日期的进展。</p>{% endfor %}
+      <details>
+        <summary>报道陈述中的日期</summary>
+        {% for m in candidate_dates %}
+        <p>{{ m.date }} · {{ action_labels[m.kind] }} · {{ action_labels[m.status] }} · <a href="/articles/{{ m.article|urlencode }}?revision={{ m.revision }}#m-{{ m.id }}">{{ m.quote }}</a></p>
+        {% else %}<p class="desk-meta">暂无带日期的陈述。</p>{% endfor %}
+      </details>
+    </details>
+    <details class="card focus-detail">
+      <summary>长期问题与深度研究</summary>
+      {% include 'focus_outline.html' %}
+      <h2>研究记录</h2>
+      {% for q in questions %}<p><a href="/research/{{ q.case_id }}">{{ q.text }}</a> · {{ q.status }}</p>{% endfor %}
+      {% for r in summaries %}<p><a href="/research/{{ r.case_id }}">{{ r.title }}</a> · v{{ r.version }} · 截至 {{ r.cutoff }}</p>{% endfor %}
+      {% for r,case,run in reviews %}
+      <p>{{ r.created }} · {{ r.question }} · {{ run.status if run else r.status }} {% if case %}<a href="/research/{{ r.case_key }}">查看证据与报告</a>{% endif %} {{ r.message }} {% if r.status=='blocked' %}<button class="ghost" type="button" data-retry="{{ r.key }}">重试此项</button>{% endif %}</p>
+      {% else %}<p class="desk-meta">暂无补查任务。</p>{% endfor %}
+      <p class="desk-meta">{% if w.enabled and w.auto_research %}下次复查 {{ w.next_review }} · {% endif %}<a href="/research/settings">研究助手设置</a></p>
+    </details>
+    <details class="card focus-detail">
+      <summary>生成焦点综述{% if content_tasks %}与相关作品{% endif %}</summary>
+      <label class="focus-label" for="summary-cutoff">截止日期（UTC，留空为现在）</label>
+      <input type="date" id="summary-cutoff">
+      <div class="desk-row focus-primary-row">
+        <button class="ghost" type="button" id="summary-run">生成综述</button>
+        <a href="/focus/{{ w.key }}/survey">预览大纲与证据</a>
+      </div>
+      {% for t in content_tasks %}<p><a href="/workbench/{{ t.key }}">{{ t.title }}</a> · {{ t.phase }}</p>{% endfor %}
+    </details>
+    {% if excluded %}
+    <details class="card focus-detail"><summary>已排除材料</summary>
+      {% for e in excluded %}<p><a href="/events/{{ e.key|urlencode }}?back={{ back|urlencode }}">{{ e.title }}</a> <button class="ghost" type="button" data-restore="{{ e.key }}">恢复自动匹配</button></p>{% endfor %}
+    </details>
+    {% endif %}
+    {% endif %}
+  </section>
+</div>
 {% if w %}
-<section class="focus-topic-head"><div class="desk-row"><span class="badge">{{ w.kind }}</span><span class="focus-state">{{ '持续跟踪中' if w.enabled else '已暂停归集' }}</span></div><h2>{{ w.name }}</h2><p class="focus-description">{{ definition.description if definition else w.question or w.scope }}</p><div class="focus-head-actions"><span class="desk-meta">已归集 {{ counts.get(w.key,0) }} 项材料</span><a class="action-link" href="/workbench/new?watch={{ w.key }}">从专题形成选题</a><button id="focus-delete" type="button" class="ghost focus-delete">删除专题</button></div></section>
-<section class="card focus-tracking" id="focus-tracking" aria-label="专题处理进度"><div class="focus-tracking-line"><strong id="tracking-title">正在读取跟踪进度…</strong><span id="tracking-counts" class="desk-meta"></span><button type="button" class="ghost" id="tracking-refresh" hidden>查看新材料</button></div><p id="tracking-detail" class="desk-meta">历史材料由后台分批检查，关闭页面也会继续。</p><p id="tracking-error" class="desk-error" role="status" hidden></p><details id="tracking-pending-box" hidden><summary id="tracking-pending-summary">需要核对的材料</summary><div id="tracking-pending-list"></div><button type="button" class="ghost" id="tracking-retry">重试待核材料</button><p class="desk-meta small">待核材料尚未自动纳入；可以打开原文查看，或在事件详情中手动关联。</p></details></section>
-{% if changes %}<section class="focus-changes"><div class="desk-row"><strong>尚未读过的变化</strong><button class="ghost" type="button" id="mark-seen">标记已读</button></div>{% for change in changes[:5] %}<p><a href="/events/{{ change.event|urlencode }}?back={{ back|urlencode }}">{{ change.text }}</a></p>{% endfor %}{% if changes|length>5 %}<p class="muted small">其余变化可在下面的近期进展中查看。</p>{% endif %}</section>{% endif %}
-<details class="card focus-settings"><summary>关注范围与跟踪设置</summary>
+<dialog id="focus-delete-dialog" class="focus-delete-dialog" aria-labelledby="focus-delete-title">
+  <h2 id="focus-delete-title">删除焦点“{{ w.name }}”？</h2>
+  <p>移入回收站后停止跟踪并取消未提交的补查。原始报道、事件、内容任务和已提交的独立研究任务会保留。</p>
+  <p class="desk-meta">可从「已删除焦点」恢复为暂停状态。</p>
+  <p id="focus-delete-message" class="desk-error" role="status"></p>
+  <div class="desk-row"><button id="focus-delete-cancel" type="button" class="ghost">取消</button><button id="focus-delete-confirm" type="button">移入回收站</button></div>
+</dialog>
 {% endif %}
-<section class="card focus-composer{% if w %} focus-composer-edit{% endif %}" id="topic-composer">
-<div class="focus-composer-title"><h2>{{ '用文字调整关注范围' if definition else '用文字升级这个专题' if w else '你想持续关注什么？' }}</h2><p class="desk-meta">{{ '重新生成后可预览修改，保存前原专题继续按现有范围运行。' if w else '描述人物、事件或地区，也可以说清重点和不想看的内容。' }}</p></div>
-<form id="topic-description-form"><label class="focus-label" for="topic-description">关注描述</label><textarea id="topic-description" name="description" rows="5" maxlength="4000" required placeholder="例如：持续跟踪特朗普政府对俄乌战争的政策变化，重点看军援、制裁和停火谈判，少看私人生活。">{{ definition.description if definition else w.question or w.scope if w else '' }}</textarea>
-{% if not w %}<div class="focus-examples" aria-label="描述示例"><span class="muted small">试试：</span><button type="button" class="ghost" data-topic-example="持续跟踪特朗普本人的公开活动、会见、表态和政策决定，区分实际行动与传闻，少看商业品牌和私人生活。">人物活动</button><button type="button" class="ghost" data-topic-example="持续跟踪俄乌战争，重点关注战场变化、对乌军援、制裁和停火谈判，希望了解历史背景和实际影响。">俄乌战争</button><button type="button" class="ghost" data-topic-example="持续关注中国周边态势，重点看台海、南海和朝鲜半岛的军事行动、外交协调及实质政策变化。">周边态势</button><button type="button" class="ghost" data-topic-example="核查波兰有关政变或宪制危机的线索，追溯最早出处，同时收集支持、否认和更正，不把传闻当成事实。">线索核查</button></div>{% endif %}
-<div class="desk-row focus-primary-row"><button type="submit" id="topic-generate">{{ '重新理解范围' if w else '生成专题' }}</button><button type="button" class="ghost" id="topic-cancel" hidden>取消等待</button><span class="desk-meta small">生成后可以调整，再开始跟踪。</span></div><p id="topic-build-status" role="status" aria-live="polite" class="focus-status"></p></form>
-<section class="focus-preview" id="topic-preview" hidden aria-label="专题预览"><div class="desk-row"><strong>系统理解的关注范围</strong><span class="badge" id="topic-method"></span></div><p id="topic-method-message" class="desk-meta"></p><label class="focus-label" for="topic-name">专题名称</label><input id="topic-name" maxlength="80" required><p id="topic-scope" class="focus-scope"></p><label class="focus-label" for="topic-questions">希望长期弄清的问题 <span class="muted small">每行一个，可修改</span></label><textarea id="topic-questions" rows="4" maxlength="4800"></textarea>
-<details class="focus-preview-detail"><summary>查看关注图与范围</summary><p class="desk-meta small">图中的连线表达关注模式，不代表这些事情已经发生。</p><div data-intent-graph="preview"></div><div id="topic-boundaries" class="desk-meta"></div><label class="focus-label" for="topic-exclude">较少关注的内容 <span class="muted small">每行一项</span></label><textarea id="topic-exclude" rows="2" maxlength="2400"></textarea></details><div class="desk-row focus-primary-row"><button type="button" id="topic-start">{{ '保存并重新匹配' if w else '开始跟踪' }}</button><button type="button" class="ghost" id="topic-back">返回修改描述</button></div><p id="topic-save-status" class="focus-status" role="status" aria-live="polite"></p></section>
-<noscript><p class="desk-alert">文字生成需要启用 JavaScript。也可以通过 API 创建专题。</p></noscript>
-</section>
-{% if w and definition %}<details class="focus-detail"><summary>当前关注图与问题</summary><p class="desk-meta small">表达当前关注范围；报道事实和来源请查看事件关系图。</p><div data-intent-graph="saved"></div></details>{% endif %}
-{% if not definition %}<details id="desk-editor" class="card focus-manual"><summary>手动设置{{ '当前规则' if w else '专题' }}</summary><p class="desk-meta">熟悉关键词规则时可直接填写。自然语言方式可以生成更完整的关注范围。</p><form id="focus-form" class="desk-form"><label>选择预设<select id="preset"><option value="">自定义</option>{% for p in presets %}<option value="{{ loop.index0 }}">{{ p.name }}</option>{% endfor %}</select></label><label>名称<input name="name" maxlength="80" required value="{{ w.name if w else seed_title[:80] }}"></label><label>类型<select name="kind">{% for k in ['人物','长期事件','区域态势','线索核查'] %}<option {% if (w and k==w.kind) or (not w and k=='长期事件') %}selected{% endif %}>{{ k }}</option>{% endfor %}</select></label><label>关注对象、别名或地区<input name="scope" maxlength="600" required value="{{ w.scope if w else '' }}" placeholder="例如 特朗普，Donald Trump"></label><label>还需命中至少一个议题（可空）<input name="dimensions" maxlength="600" value="{{ w.dimensions if w else '' }}"></label><label>排除词（可空）<input name="exclude" maxlength="600" value="{{ w.exclude if w else '' }}"></label><label>希望长期弄清什么？<textarea name="question" maxlength="600" rows="2">{{ w.question if w else '' }}</textarea></label><label><input type="checkbox" name="enabled" {{ 'checked' if not w or w.enabled }}> 启用跟踪</label><label><input type="checkbox" name="auto_research" {{ 'checked' if w and w.auto_research }}> 自动定向补查（需连接 RunDesk）</label><label>定期复查间隔（天）<input name="review_days" type="number" min="1" max="90" value="{{ w.review_days if w else 7 }}"></label><div class="desk-row"><button type="submit" id="manual-save">保存{{ '规则' if w else '专题' }}</button><button type="button" class="ghost" id="preview">预览规则匹配</button></div><pre id="preview-result" hidden></pre></form></details>{% endif %}
-{% if seed %}<p class="desk-meta">起始事件将保留为手动关联：{{ seed_title }}</p>{% endif %}{% if not w %}<p id="focus-msg" class="desk-error" role="status"></p>{% endif %}
-{% if w and definition %}<form id="focus-options" class="desk-form focus-options"><label><input type="checkbox" name="enabled" {{ 'checked' if w.enabled }}> 启用持续跟踪</label><label><input type="checkbox" name="auto_research" {{ 'checked' if w.auto_research }}> 自动定向补查</label><p class="desk-meta small">自动补查使用已连接的 RunDesk，可能调用搜索与模型。</p><label>定期复查间隔（天）<input name="review_days" type="number" min="1" max="90" value="{{ w.review_days }}"></label><button type="submit">保存跟踪设置</button></form>{% endif %}
-{% if w %}</details><p id="focus-msg" class="desk-error" role="status" aria-live="polite"></p>
-<section class="focus-materials" aria-label="专题材料"><div class="focus-section-head"><h2>近期进展与来源</h2><span class="desk-meta">{{ total }} 项</span></div><form class="desk-row focus-filters"><label>排序 <select name="order"><option value="recent">最新材料</option><option value="relevance" {{ 'selected' if order=='relevance' }}>专题相关度</option></select></label><label>分支 <select name="branch"><option value="">全部分支</option>{% for label in branches if label %}<option value="{{ label }}" {{ 'selected' if label==branch }}>{{ label }}</option>{% endfor %}</select></label><button class="ghost">查看</button></form>
-{% for e,why in items %}<article class="desk-pane"><a class="desk-title" href="/events/{{ e.key|urlencode }}?back={{ back|urlencode }}">{{ e.title }}</a><p class="desk-meta">{{ tags[e.key] }} · {{ why }}</p><p class="desk-meta small">{{ e.evidence }} · {{ e.seen }} · 全局{{ e.band }}</p>{% if definition %}<details class="focus-decision" data-focus-decision="{{ e.key }}"><summary>查看收录依据</summary><div data-decision-body></div></details>{% endif %}<div class="desk-row focus-material-actions"><a href="/workbench/new?event={{ e.key|urlencode }}&watch={{ w.key }}">形成选题</a><button class="ghost" type="button" data-check="{{ e.key }}">核查此事</button><button class="ghost" type="button" data-hide="{{ e.key }}">排除此项</button></div></article>{% else %}<div class="card focus-empty"><strong>暂无匹配，专题已保留。</strong><p class="desk-meta">后台会检查历史材料，并持续接收新进展。模型尚未完成判断的材料会列在上面的待核区域。</p><a href="/radar">去事件雷达手动加入线索 →</a></div>{% endfor %}<nav class="desk-row focus-pagination" aria-label="材料分页">{% if offset %}<a href="?{{ paging }}&offset={{ [0,offset-30]|max }}">← 上一页</a>{% endif %}{% if offset+30<total %}<a href="?{{ paging }}&offset={{ offset+30 }}">下一页 →</a>{% endif %}</nav></section>
-<details class="card focus-detail"><summary>时间线与关系图</summary><h2>专题事件关系图</h2><div data-knowledge-graph data-watch="{{ w.key }}"></div><h2>历史时间线 · 发生或生效日期</h2>{% for m in timeline %}<p><time>{{ m.date_start }}</time>{% if m.date_end %} 至 {{ m.date_end }}{% endif %} · <a href="/events/{{ m.event_key|urlencode }}?back={{ back|urlencode }}">{{ m.title }}</a> · {{ '已核对' if m.reviewed else '待核' }}{% if m.time_note %} · {{ m.time_note }}{% endif %}</p>{% else %}<p class="desk-meta">还没有标注发生日期的进展。在事件详情添加有出处的节点后，会出现在这里。</p>{% endfor %}<p class="desk-meta small">最多显示最近 100 个有发生日期的节点。</p><details><summary>报道陈述中的日期</summary><p class="desk-meta small">区分计划、否认和已报道行动；最近 60 条有日期且未排除的陈述。</p>{% for m in candidate_dates %}<p>{{ m.date }} · {{ action_labels[m.kind] }} · {{ action_labels[m.status] }} · <a href="/articles/{{ m.article|urlencode }}?revision={{ m.revision }}#m-{{ m.id }}">{{ m.quote }}</a></p>{% else %}<p class="desk-meta">暂无带可解析日期的陈述。</p>{% endfor %}</details></details>
-<details class="card focus-detail"><summary>长期问题与深度研究</summary>{% include 'focus_outline.html' %}<h2>研究记录</h2>{% for q in questions %}<p><a href="/research/{{ q.case_id }}">{{ q.text }}</a> · {{ q.status }}</p>{% endfor %}{% for r in summaries %}<p>研究报告 · <a href="/research/{{ r.case_id }}">{{ r.title }}</a> · v{{ r.version }} · 截至 {{ r.cutoff }}</p>{% endfor %}{% for r,case,run in reviews %}<p>{{ r.created }} · {{ r.question }} · {{ run.status if run else r.status }} {% if case %}<a href="/research/{{ r.case_key }}">查看证据与报告</a>{% endif %} {{ r.message }} {% if r.status=='blocked' %}<button class="ghost" type="button" data-retry="{{ r.key }}">重试此项</button>{% endif %}</p>{% else %}<p class="desk-meta">尚无补查任务。</p>{% endfor %}<p class="desk-meta">自动补查{{ ('已启用 · 下次复查 '+w.next_review) if w.enabled and w.auto_research else '已关闭' }} · <a href="/research/settings">研究助手设置</a></p></details>
-<details class="card focus-detail"><summary>生成专题综述{% if content_tasks %}与相关作品{% endif %}</summary><p class="desk-meta">按知识大纲组织进展、历史和争议，引用已保存的来源。</p><label class="focus-label" for="summary-cutoff">综述截止日期（UTC，留空为现在）</label><input type="date" id="summary-cutoff"><div class="desk-row focus-primary-row"><button class="ghost" type="button" id="summary-run">生成带来源的综述</button><a href="/focus/{{ w.key }}/survey">预览大纲与证据</a></div>{% for t in content_tasks %}<p><a href="/workbench/{{ t.key }}">{{ t.title }}</a> · {{ t.phase }}</p>{% endfor %}</details>
-{% if excluded %}<details class="card focus-detail"><summary>手动排除的材料</summary>{% for e in excluded %}<p><a href="/events/{{ e.key|urlencode }}?back={{ back|urlencode }}">{{ e.title }}</a> <button class="ghost" type="button" data-restore="{{ e.key }}">恢复自动匹配</button></p>{% endfor %}</details>{% endif %}
-{% endif %}
-</section></div>
-{% if w %}<dialog id="focus-delete-dialog" class="focus-delete-dialog" aria-labelledby="focus-delete-title"><h2 id="focus-delete-title">删除专题“{{ w.name }}”？</h2><p>移入回收站后停止跟踪，并从专题列表移除。</p><p class="desk-meta">原始报道、事件、已建立的内容任务和研究成果保留。未提交的自动补查会取消；已提交的独立研究任务仍可在运行管理中查看。</p><p class="desk-meta">可以从“已删除专题”恢复为暂停状态。</p><p id="focus-delete-message" class="desk-error" role="status"></p><div class="desk-row"><button id="focus-delete-cancel" type="button" class="ghost">取消</button><button id="focus-delete-confirm" type="button">移入回收站</button></div></dialog>{% endif %}
 <script id="focus-config" type="application/json">{{ {'watch':data,'presets':presets,'seed':seed,'definition':definition,'tracking':tracking|default({})}|tojson }}</script>
 <script src="/research-assets/focus.js" defer></script><script src="/research-assets/knowledge.js" defer></script>
 {% endblock %}

@@ -1,0 +1,994 @@
+{
+  "schema": "editor-diagnostic-v1",
+  "frozen_utc": "2026-11-15T09:12:54+00:00",
+  "selection": "Nonrandom diagnostic cases chosen by Codex from original 0.36.1 candidate pool before the new scores existed. November includes 10 prior editorial selections (in-list-biased), 2 old misses, and 2 stages. March 7 dates: 23 material updates near decision boundaries and a few strong reference actions. More aliases may exist. Same action deemed covered if ANY specified card key occurs as a lead or attached source. Does not estimate population precision or recall, independent full-day news coverage, or factual verification from headline alone.",
+  "days": {
+    "2025-03-15": {
+      "cutoff": "2025-03-15T16:00:00+00:00",
+      "reference": [
+        {
+          "label": "欧盟延长对俄制裁",
+          "examples": [
+            {
+              "key": "progress_a2c57e9b8ed1883c495cd483a0cf70eff09e8d3f",
+              "title": "EU Extends Sanctions Against Russian Oligarchs, Breaking Resistance Of Two Countries",
+              "source_url": "https://charter97.org/en/news/2025/3/14/633138/",
+              "rank": 55
+            }
+          ]
+        },
+        {
+          "label": "墨西哥瓦哈卡地震",
+          "examples": [
+            {
+              "key": "progress_344d021b463ea5203620ff760f5a17765272648d",
+              "title": "Magnitude 5.5 earthquake strikes Oaxaca, alarms sound",
+              "source_url": "https://thesun.my/world-news/magnitude-55-earthquake-hits-southern-mexico-alarms-sound-in-capital-JK13804915",
+              "rank": 25
+            }
+          ]
+        },
+        {
+          "label": "肯塔基州参议院通过调整警方公开记录的法案",
+          "examples": [
+            {
+              "key": "progress_cb15544a887f69dc30626607f6e50767fab7c429",
+              "title": "KY Senate approves bill to weaken open records law for police, other public agencies",
+              "source_url": "https://www.yahoo.com/news/ky-senate-approves-bill-weaken-233259021.html",
+              "rank": 108
+            }
+          ]
+        },
+        {
+          "label": "泰米尔纳德邦农业预算公布油籽与小米生产计划",
+          "examples": [
+            {
+              "key": "progress_401947fb39c6e4fe3a71ea61514eac401c4f1147",
+              "title": "Agriculture Budget: T.N. announces missions to increase oil seed and millet production",
+              "source_url": "https://www.thehindu.com/news/national/tamil-nadu/agriculture-budget-tn-announces-missions-to-increase-oil-seed-and-millet-production/article69332954.ece",
+              "rank": 98
+            }
+          ]
+        }
+      ],
+      "low_public_information": [
+        {
+          "key": "progress_735f72c11cbff347cb34faa1bab2badb4aab53c0",
+          "title": "Strange Horizons - A War of Words By Marie Brennan",
+          "source_url": "http://strangehorizons.com/wordpress/poetry/a-war-of-words/",
+          "rank": 30
+        },
+        {
+          "key": "progress_2bde70096eb3da2710a43dab106d63809a407e6e",
+          "title": "One Piece: Oda Officially Starts The Biggest War In The New World",
+          "source_url": "https://gamerant.com/one-piece-oda-starts-biggest-war-new-world/",
+          "rank": 39
+        }
+      ],
+      "distinguish": [
+        [
+          {
+            "key": "progress_344d021b463ea5203620ff760f5a17765272648d",
+            "title": "Magnitude 5.5 earthquake strikes Oaxaca, alarms sound",
+            "source_url": "https://thesun.my/world-news/magnitude-55-earthquake-hits-southern-mexico-alarms-sound-in-capital-JK13804915",
+            "rank": 25
+          },
+          {
+            "key": "progress_800d31c05e3943057951bc0e4b9669e5a521a9b4",
+            "title": "Earthquake strikes Kargil",
+            "source_url": "https://kashmirreader.com/2025/03/15/earthquake-strikes-kargil/",
+            "rank": 48
+          }
+        ],
+        [
+          {
+            "key": "progress_5e6628f0d197879b4bf2f033bf8f878338a3bc6a",
+            "title": "Evacuations Ordered: Downed powerlines spark grass fires near Clinton Lake",
+            "source_url": "https://www.kctv5.com/2025/03/14/evacuations-ordered-downed-powerlines-spark-grass-fires-near-clinton-lake/",
+            "rank": 46
+          },
+          {
+            "key": "progress_71f8e6fb5c6b0f6fc7535213f70337ff47b13f42",
+            "title": "Wabaunsee County issues evacuation order due to heavy winds, fires",
+            "source_url": "https://www.wibw.com/2025/03/14/wabaunsee-county-issues-evacuation-order-due-heavy-winds-fires/",
+            "rank": 47
+          }
+        ]
+      ]
+    },
+    "2025-03-16": {
+      "cutoff": "2025-03-16T16:00:00+00:00",
+      "reference": [
+        {
+          "label": "法官限制依据旧法实施驱逐",
+          "examples": [
+            {
+              "key": "progress_24951cd35ce85ad480f1b23f28e5154d3287ecc6",
+              "title": "President Donald Trump invokes Alien Enemies Act to declare invasion by gangs, speed up deportations; judge stalls it hours later",
+              "source_url": "https://abc7chicago.com/post/president-donald-trump-invokes-wartime-alien-enemies-act-1798-declare-invasion-gangs-speed-deportations/16028956/",
+              "rank": 39
+            },
+            {
+              "key": "progress_d854ff6266f9306bc88de57c806229b4689ddc3b",
+              "title": "Federal judge blocks Trump's plan to target 'alien enemies' for deportation",
+              "source_url": "https://www.waer.org/2025-03-15/federal-judge-blocks-trumps-plan-to-target-alien-enemies-for-deportation",
+              "rank": 98
+            },
+            {
+              "key": "progress_28fc6c7f1a48abc4af45c962402af9e0afac3d1e",
+              "title": "Judge blocks Trump attempt to speed up deportations",
+              "source_url": "https://www.bordertelegraph.com/news/national/25011470.judge-blocks-trump-attempt-speed-deportations/",
+              "rank": 111
+            },
+            {
+              "key": "progress_dc5fff8813b4cff03a23da9e9236f33d8664748d",
+              "title": "Judge limits Trump's ability to deport people under the 1798 Act",
+              "source_url": "https://www.whas11.com/article/news/nation-world/judge-limits-trumps-deport-people-under-alien-enemies-act/507-11894e2b-e26c-4121-965a-0d38c250227e",
+              "rank": 118
+            }
+          ]
+        },
+        {
+          "label": "接替宇航员的飞船抵达国际空间站",
+          "examples": [
+            {
+              "key": "progress_c20adbd067b24829ccfb026ff0125e49d86d5ca3",
+              "title": "NASA's stuck astronauts welcome their newly arrived replacements to the space station",
+              "source_url": "https://www.wyff4.com/article/nasa-stuck-astronauts-welcome-to-the-space-station/64196852",
+              "rank": 100
+            },
+            {
+              "key": "progress_c45e0828767863acbe1a95fa8ce87fc3c3c662fa",
+              "title": "Replacement astronauts arrive at International Space Station",
+              "source_url": "https://www.salisburyjournal.co.uk/news/national/25011499.replacement-astronauts-arrive-international-space-station/",
+              "rank": 103
+            },
+            {
+              "key": "progress_764c9a10037058086fbe8257edb8a3f68ec2df38",
+              "title": "Replacement crew arrives at ISS where two stuck astronauts remain",
+              "source_url": "https://biztoc.com/x/5f765dddc28acdac",
+              "rank": 447
+            },
+            {
+              "key": "progress_12a246cdf63640ee5b46cdec5c7d1d0c0694f915",
+              "title": "NASA-SpaceX Crew-10 Successfully Docks with ISS; Sunita Williams Set to Return After 9 Months in Space",
+              "source_url": "https://udaipurkiran.com/nasa-spacex-crew-10-successful-docks-with-iss-sunita-williams-set-to-return-after-9-months-in-space/",
+              "rank": 817
+            }
+          ]
+        },
+        {
+          "label": "美国宣布南非大使为不受欢迎的人",
+          "examples": [
+            {
+              "key": "progress_b0bda06302c5135386721291da821b7ab3ac6cab",
+              "title": "Trump Administration say South Africa's Ambassador to U.S. 'persona non grata'",
+              "source_url": "https://www.kwit.org/2025-03-15/trump-administration-say-south-africas-ambassador-to-u-s-persona-non-grata",
+              "rank": 116
+            }
+          ]
+        }
+      ],
+      "low_public_information": [
+        {
+          "key": "progress_678ef0efd2c28302f7900d23c1f77a171413e745",
+          "title": "What the papers say – March 16",
+          "source_url": "https://www.watfordobserver.co.uk/news/national/25011476.papers-say---march-16/",
+          "rank": 102
+        }
+      ],
+      "distinguish": [
+        [
+          {
+            "key": "progress_24951cd35ce85ad480f1b23f28e5154d3287ecc6",
+            "title": "President Donald Trump invokes Alien Enemies Act to declare invasion by gangs, speed up deportations; judge stalls it hours later",
+            "source_url": "https://abc7chicago.com/post/president-donald-trump-invokes-wartime-alien-enemies-act-1798-declare-invasion-gangs-speed-deportations/16028956/",
+            "rank": 39
+          },
+          {
+            "key": "progress_68d4669c77ad8e29b591ceb78d3488aaab57263d",
+            "title": "Trump enacts a 1790s law to target 'alien enemies' for detention and deportation",
+            "source_url": "https://news.wgcu.org/2025-03-15/trump-enacts-a-1790s-law-to-target-alien-enemies-for-detention-and-deportation",
+            "rank": 172
+          }
+        ]
+      ]
+    },
+    "2025-03-17": {
+      "cutoff": "2025-03-17T16:00:00+00:00",
+      "reference": [
+        {
+          "label": "利比里亚暂停种植园外包并签署劳资协议",
+          "examples": [
+            {
+              "key": "progress_245923bba3684a6c075f53745b31759564929609",
+              "title": "Liberia: Labour Ministry Halts Firestone Plantation Outsourcing, Signs New CBA with Workers",
+              "source_url": "https://frontpageafricaonline.com/news/liberia-labour-ministry-halts-firestone-plantation-outsourcing-signs-new-cba-with-workers/",
+              "rank": 108
+            }
+          ]
+        },
+        {
+          "label": "风暴后美国80号州际公路恢复通行",
+          "examples": [
+            {
+              "key": "progress_f6916bb50cfe896797e4bd2f75ca5da7f31e7c1e",
+              "title": "Traffic moving again in Interstate 80 after two delays on Sunday due to storm damage",
+              "source_url": "https://www.wfmj.com/story/52568283/traffic-moving-again-in-interstate-80-after-two-delays-on-sunday-due-to-storm-damage",
+              "rank": 100
+            }
+          ]
+        },
+        {
+          "label": "美方声称将持续行动直至航运袭击停止",
+          "examples": [
+            {
+              "key": "progress_cf57657e9c21c3922509d192958e2fb032529cb2",
+              "title": "US vows to keep hitting Houthis until shipping attacks stop | Hellenic Shipping News Worldwide",
+              "source_url": "https://www.hellenicshippingnews.com/us-vows-to-keep-hitting-houthis-until-shipping-attacks-stop/",
+              "rank": 95
+            },
+            {
+              "key": "progress_ddccb39e4d8cead16a3d354092b0d2e719b2f9b9",
+              "title": "US Vows 'Unrelenting' Campaign To Halt Huthi Ship Attacks",
+              "source_url": "https://www.ibtimes.com.au/us-vows-unrelenting-campaign-halt-huthi-ship-attacks-1856942",
+              "rank": 97
+            },
+            {
+              "key": "progress_189ec6555a2780649682efc30a7cc58dc3df1ad6",
+              "title": "US vows to keep hitting Houthis until shipping attacks stop",
+              "source_url": "https://www.timeslive.co.za/news/world/2025-03-17-us-vows-to-keep-hitting-houthis-until-shipping-attacks-stop/",
+              "rank": 107
+            }
+          ]
+        }
+      ],
+      "low_public_information": [
+        {
+          "key": "progress_1847690a91462d1ea90b5a8211a2d31eb7683bb7",
+          "title": "Weekly Chinese Zodiac Horoscope (March 17-23): Predictions for All Animal Signs",
+          "source_url": "https://timesofindia.indiatimes.com/astrology/vastu-feng-shui/weekly-chinese-zodiac-horoscope-march-17-23-predictions-for-all-animal-signs/articleshow/118893828.cms",
+          "rank": 106
+        },
+        {
+          "key": "progress_708a55e7e46d6911789a98e1188c0377bebd1ef0",
+          "title": "The toxic trait of each zodiac sign",
+          "source_url": "https://economictimes.indiatimes.com/news/web-stories/the-toxic-trait-of-each-zodiac-sign/slideshow/119100934.cms",
+          "rank": 113
+        },
+        {
+          "key": "progress_82b990ecd1af306ce9f34a05736700d1c744345f",
+          "title": "Weekly Chinese Horoscope (March 17-23): Predictions for Rabbit Zodiac Sign",
+          "source_url": "https://timesofindia.indiatimes.com/astrology/vastu-feng-shui/weekly-chinese-horoscope-march-17-23-predictions-for-rabbit-zodiac-sign/articleshow/119040080.cms",
+          "rank": 115
+        }
+      ],
+      "distinguish": []
+    },
+    "2025-03-18": {
+      "cutoff": "2025-03-18T16:00:00+00:00",
+      "reference": [
+        {
+          "label": "哈佛公布家庭收入20万美元的学费门槛",
+          "examples": [
+            {
+              "key": "progress_3ebfa57670cc1f2f3e48b76dc5dc8621d07472c0",
+              "title": "Harvard announces free tuition for students whose families make less than $200K",
+              "source_url": "https://www.wqad.com/article/news/nation-world/harvard-free-tuition-families-under-200k-annually-announcement/507-4ce82afb-45b0-43f3-8ca7-78fb066b421a",
+              "rank": 102
+            },
+            {
+              "key": "progress_46c4cabcd5648d36a1baf200928b3fd4cbcb3835",
+              "title": "Harvard announces it will go tuition-free for students from families making $200,000 or less",
+              "source_url": "https://krdo.com/news/2025/03/17/harvard-announces-it-will-go-tuition-free-for-students-from-families-making-200000-or-less/",
+              "rank": 149
+            },
+            {
+              "key": "progress_1f199731b188a98e6183f359b56790f4b97b9e5d",
+              "title": "Harvard announces free tuition for families earning under $200,000",
+              "source_url": "https://www.geo.tv/latest/595896-harvard-announces-free-tuition-for-families-earning-under-200000",
+              "rank": 174
+            },
+            {
+              "key": "progress_a61196837ac7db85c2ee1726a2b203e43f31a54a",
+              "title": "Harvard to offer free tuition for families earning less than $200K",
+              "source_url": "https://www.fox10phoenix.com/money/harvard-free-tuition-education",
+              "rank": 389
+            },
+            {
+              "key": "progress_c5448304d5c3da4a8d62063e7eee3b54b38299d7",
+              "title": "Harvard to offer free tuition for students from families earning $200,000 or less",
+              "source_url": "https://www.valleynewslive.com/2025/03/18/harvard-offer-free-tuition-students-families-earning-200000-or-less/",
+              "rank": 1285
+            }
+          ]
+        },
+        {
+          "label": "哈萨克斯坦发布成立原子能机构的法令",
+          "examples": [
+            {
+              "key": "progress_649077a5f5e31a20d3e154982596d495e694379d",
+              "title": "Kazakhstan's Tokayev signs decree on establishing Atomic Energy Agency",
+              "source_url": "https://en.trend.az/business/4020239.html",
+              "rank": 116
+            }
+          ]
+        },
+        {
+          "label": "RWE与Telehouse签十年购电合同",
+          "examples": [
+            {
+              "key": "progress_290c07191d8ab2095c5540a892fcabdfececba76",
+              "title": "RWE And Telehouse Agree 10-Year Power Purchase Agreement",
+              "source_url": "https://www.poweronline.com/doc/rwe-and-telehouse-agree-10-year-power-purchase-agreement-0001",
+              "rank": 113
+            }
+          ]
+        }
+      ],
+      "low_public_information": [],
+      "distinguish": [
+        [
+          {
+            "key": "progress_3ebfa57670cc1f2f3e48b76dc5dc8621d07472c0",
+            "title": "Harvard announces free tuition for students whose families make less than $200K",
+            "source_url": "https://www.wqad.com/article/news/nation-world/harvard-free-tuition-families-under-200k-annually-announcement/507-4ce82afb-45b0-43f3-8ca7-78fb066b421a",
+            "rank": 102
+          },
+          {
+            "key": "progress_c6846b50f3c9acad9c7b495f975b1e44b93adb2f",
+            "title": "Harvard will be free for students whose families make $100,000 or less",
+            "source_url": "https://www.kvpr.org/npr-news/2025-03-17/harvard-will-be-free-for-students-whose-families-make-100-000-or-less",
+            "rank": 251
+          }
+        ]
+      ]
+    },
+    "2025-03-19": {
+      "cutoff": "2025-03-19T16:00:00+00:00",
+      "reference": [
+        {
+          "label": "马方同意重启MH370搜寻的条款",
+          "examples": [
+            {
+              "key": "progress_337d8617ce552d787c26230bf7a87cc5f1e1937e",
+              "title": "Malaysia agrees terms for restarting MH370 wreckage search",
+              "source_url": "https://www.aol.com/news/malaysia-agrees-terms-restarting-mh370-105216137.html",
+              "rank": 107
+            },
+            {
+              "key": "progress_404c25166ac07cc3cb78930eb3c64db857d03070",
+              "title": "Malaysia agrees on terms for restarting MH370 search",
+              "source_url": "https://www.juneesoutherncross.com.au/story/8921417/malaysia-agrees-on-terms-for-restarting-mh370-search/?cs=6409",
+              "rank": 114
+            }
+          ]
+        },
+        {
+          "label": "桑坦德计划关闭95个网点",
+          "examples": [
+            {
+              "key": "progress_233583a18dc1e766fafc94ad99055aaf2884b682",
+              "title": "750 jobs at risk as Santander announced 95 branch closures",
+              "source_url": "https://www.clydebankpost.co.uk/news/25019117.750-jobs-risk-santander-announced-95-branch-closures/",
+              "rank": 104
+            },
+            {
+              "key": "progress_71d898e0cdaa4f017bd9e70dc876ea47dd1b74c5",
+              "title": "Santander UK to close 95 branches with 750 jobs at risk",
+              "source_url": "https://www.thetimes.com/business-money/companies/article/santander-uk-to-close-95-branches-with-750-jobs-at-risk-9mzvwdbv7",
+              "rank": 997
+            },
+            {
+              "key": "progress_f0512f09634fa47a2e6d139583a9279d1bd60d21",
+              "title": "Santander to close 95 branches leaving 750 jobs at risk",
+              "source_url": "https://www.itv.com/news/2025-03-19/santander-to-close-95-branches-leaving-750-jobs-at-risk",
+              "rank": 1682
+            }
+          ]
+        },
+        {
+          "label": "印度内阁批准低额UPI支付激励",
+          "examples": [
+            {
+              "key": "progress_1c213063a78f035dcaba21a1a3757d84463ce730",
+              "title": "Cabinet approves ₹1,500 crore to incentivise low-value UPI transactions",
+              "source_url": "https://www.thehindu.com/business/cabinet-approves-1500-crore-to-incentivise-low-value-upi-transactions/article69348872.ece",
+              "rank": 99
+            },
+            {
+              "key": "progress_857b537862ae4bc517e21ceb7ab6d85cd54be0db",
+              "title": "Cabinet approves Rs 1,500 crore UPI incentive, fintechs express disappointment",
+              "source_url": "https://www.moneycontrol.com/news/business/cabinet-approves-rs-1-500-crore-incentive-for-upi-12969490.html",
+              "rank": 137
+            },
+            {
+              "key": "progress_85a13f7dd5b289518a1ae2e80891fb68790ec5e5",
+              "title": "Cabinet Approves Incentive Scheme For Small BHIM-UPI Transactions",
+              "source_url": "https://www.freepressjournal.in/business/cabinet-approves-incentive-scheme-for-small-bhim-upi-transactions",
+              "rank": 139
+            },
+            {
+              "key": "progress_c49a40d031387afbf93604b372088f5d2d223efe",
+              "title": "Cabinet okays Rs 1,500 crore incentive scheme to boost low value BHIM-UPI transactions",
+              "source_url": "https://www.orissapost.com/cabinet-okays-rs-1500-crore-incentive-scheme-to-boost-low-value-bhim-upi-transactions/",
+              "rank": 1438
+            }
+          ]
+        }
+      ],
+      "low_public_information": [
+        {
+          "key": "progress_2021fdc6a74deff4f754d35c889ace88af285d95",
+          "title": "Today in History: March 19, televangelist Jim Bakker resigns in wake of scandal",
+          "source_url": "https://www.thetimes-tribune.com/2025/03/19/today-in-history-march-19-televangelist-jim-bakker-resigns-in-wake-of-scandal/",
+          "rank": 102
+        }
+      ],
+      "distinguish": []
+    },
+    "2025-03-20": {
+      "cutoff": "2025-03-20T16:00:00+00:00",
+      "reference": [
+        {
+          "label": "美国教育部相关行政令已签署",
+          "examples": [
+            {
+              "key": "progress_813575fc596fc58030d9b4a4fda1611a4e7fa2db",
+              "title": "Trump signs executive order to abolish the Department of Education and more top headlines",
+              "source_url": "https://www.foxnews.com/us/trump-signs-executive-order-abolish-department-education-more-top-headlines",
+              "rank": 100
+            }
+          ]
+        },
+        {
+          "label": "美国有条件批准路易斯安那LNG项目出口",
+          "examples": [
+            {
+              "key": "progress_de2bcfcb271f8dfa1496ecd92b83bf51ca89ee1d",
+              "title": "DOE gives conditional export approval to Louisiana LNG project",
+              "source_url": "https://www.eenews.net/articles/doe-gives-conditional-export-approval-to-louisiana-lng-project/",
+              "rank": 109
+            }
+          ]
+        },
+        {
+          "label": "进出口银行批准莫桑比克天然气项目贷款",
+          "examples": [
+            {
+              "key": "progress_e56a8d213deec1ea79dd373f2a6eee43504e0e21",
+              "title": "EXIM approves $4.7B loan for Mozambique gas project tied to atrocity",
+              "source_url": "https://www.eenews.net/articles/exim-approves-4-7b-loan-for-mozambique-gas-project-tied-to-atrocity/",
+              "rank": 113
+            }
+          ]
+        },
+        {
+          "label": "美联储维持利率",
+          "examples": [
+            {
+              "key": "progress_617b7af84baa9dbb0f33e5c6e495876697b6125f",
+              "title": "Fed holds interest rates steady, citing uncertainty over effect of tariffs on economy",
+              "source_url": "https://www.kasu.org/business-economy/2025-03-20/fed-holds-interest-rates-steady-citing-uncertainty-over-effect-of-tariffs-on-economy",
+              "rank": 20
+            },
+            {
+              "key": "progress_75381615520ff829fad030454972fc7887c00ad6",
+              "title": "Fed holds rates as Trump's tariffs downgrade US growth forecasts",
+              "source_url": "https://portfolio-adviser.com/fed-holds-rates-as-trumps-tariffs-downgrade-us-growth-forecasts/",
+              "rank": 21
+            }
+          ]
+        }
+      ],
+      "low_public_information": [
+        {
+          "key": "progress_7ed1559ae63360724dc0cb778484d31dbaa20711",
+          "title": "Surprise royal engagement announced - details",
+          "source_url": "https://www.hellomagazine.com/royalty/821288/princess-helene-orleans-announces-engagement/",
+          "rank": 99
+        }
+      ],
+      "distinguish": [
+        [
+          {
+            "key": "progress_813575fc596fc58030d9b4a4fda1611a4e7fa2db",
+            "title": "Trump signs executive order to abolish the Department of Education and more top headlines",
+            "source_url": "https://www.foxnews.com/us/trump-signs-executive-order-abolish-department-education-more-top-headlines",
+            "rank": 100
+          },
+          {
+            "key": "progress_8b11875847a4590c8f0f4e989a6b0599ea25b09d",
+            "title": "Trump to sign executive order to begin shuttering the Education Department",
+            "source_url": "https://biztoc.com/x/470605b53eb0043f",
+            "rank": 102
+          }
+        ],
+        [
+          {
+            "key": "progress_2eb30a9473a736e324503d9a9cf0b61ac6276499",
+            "title": "Israel launches new ground invasion into Gaza after breaking ceasefire",
+            "source_url": "https://www.kasu.org/2025-03-20/israel-launches-new-ground-invasion-into-gaza-after-breaking-ceasefire",
+            "rank": 4
+          },
+          {
+            "key": "progress_14b6fb1fe6eea6aa97bb8ca78770eacaaf8eb1fb",
+            "title": "Israel closes main route from northern Gaza to south despite ceasefire",
+            "source_url": "https://www.aa.com.tr/en/middle-east/israel-closes-main-route-from-northern-gaza-to-south-despite-ceasefire/3514460",
+            "rank": 9
+          }
+        ]
+      ]
+    },
+    "2025-03-21": {
+      "cutoff": "2025-03-21T16:00:00+00:00",
+      "reference": [
+        {
+          "label": "欧盟未能就50亿欧元对乌援助达成一致",
+          "examples": [
+            {
+              "key": "progress_b5316dbb4f7df7b3a7cb2d4e8616b7e56c963b6b",
+              "title": "EU leaders fail to agree €5 billion military aid package for Ukraine",
+              "source_url": "https://www.yahoo.com/news/eu-leaders-fail-agree-5-113709752.html",
+              "rank": 100
+            }
+          ]
+        },
+        {
+          "label": "明尼苏达州参议员被捕后辞职",
+          "examples": [
+            {
+              "key": "progress_f24521500b4545306423c214148ac1d6bfcf9246",
+              "title": "Minnesota senator resigns after arrest | The Arkansas Democrat-Gazette",
+              "source_url": "https://www.arkansasonline.com/news/2025/mar/21/minnesota-senator-resigns-after-arrest/",
+              "rank": 113
+            }
+          ]
+        },
+        {
+          "label": "卡纳塔克邦议会18名反对党议员被停职",
+          "examples": [
+            {
+              "key": "progress_b44e710738739faa2ada55d23ddd77adfba7ec71",
+              "title": "Watch: 18 suspended BJP MLAs carried out of Karnataka assembly | India News",
+              "source_url": "https://timesofindia.indiatimes.com/india/watch-18-suspended-bjp-mlas-carried-out-of-karnataka-assembly/articleshow/119301695.cms",
+              "rank": 99
+            }
+          ]
+        }
+      ],
+      "low_public_information": [
+        {
+          "key": "progress_ab68b96ee557879a59c77b99d91d12645967b052",
+          "title": "Investegate | RNS | Company Announcements | Home | FTSE 100, 250, AIM, techMARK",
+          "source_url": "https://www.investegate.co.uk:443/source/MFN",
+          "rank": 97
+        },
+        {
+          "key": "progress_d7d0543c447e3eee3408b955f4b8bdf42203c1f2",
+          "title": "Director Disclosure Update | Company Announcement",
+          "source_url": "https://www.investegate.co.uk:443/announcement/rns/valirx--val/director-disclosure-update/8791577",
+          "rank": 105
+        },
+        {
+          "key": "progress_e875804c85ac62a0900c2beb306e074e478b8ca7",
+          "title": "Form 38.5 - (EPT/RI) - Dalata Hotel Grp | Company Announcement",
+          "source_url": "https://www.investegate.co.uk:443/announcement/rns/dalata-hotel-group-cdi---dal/form-38-5-ept-ri-dalata-hotel-grp/8791682",
+          "rank": 111
+        },
+        {
+          "key": "progress_fe299c916d3bf4001a71286c986384a56bdede2a",
+          "title": "4 tips to gracefully resign from a job you just joined",
+          "source_url": "https://economictimes.indiatimes.com/jobs/fresher/4-tips-to-gracefully-resign-from-a-job-you-just-joined/articleshow/119302237.cms",
+          "rank": 115
+        }
+      ],
+      "distinguish": []
+    },
+    "2026-11-15": {
+      "cutoff": "2026-11-15T08:41:07+00:00",
+      "reference": [
+        {
+          "label": "中美贸易理事会会谈",
+          "examples": [
+            {
+              "key": "progress_5c361ff4becc2753cff0dce3cbca09e0d7c91c11",
+              "title": "China, US discuss tariffs, farm trade ahead of Xi-Trump meeting",
+              "source_url": "https://dunyanews.tv/en/Business/982937-china-us-discuss-tariffs-farm-trade-ahead-of-xitrump-meeting",
+              "rank": 3
+            }
+          ]
+        },
+        {
+          "label": "星舰上面级回收",
+          "examples": [
+            {
+              "key": "progress_3eaaed90847ed98a6c1986d9164e3deec765ed52",
+              "title": "SpaceX successfully catches Starship and makes history",
+              "source_url": "https://www.kzyx.org/npr-news/2026-11-14/spacex-successfully-catches-starship-and-makes-history",
+              "rank": 35
+            },
+            {
+              "key": "progress_100ab01563a8b3a66b3ac0a288cfdc3bba74074e",
+              "title": "SpaceX's Starship returns from orbit and is caught by giant mechanical arms",
+              "source_url": "https://www.leaderlive.co.uk/news/national/26729978.spacexs-starship-returns-orbit-caught-giant-mechanical-arms/",
+              "rank": 44
+            },
+            {
+              "key": "progress_c1751290b5777901899afff320ca8228c5a8f0ee",
+              "title": "SpaceX catches Starship after orbit in historic first as booster explodes over Gulf",
+              "source_url": "https://cbs12.com/news/nation-world/spacex-catches-starship-after-orbit-in-historic-first-as-booster-explodes-over-gulf",
+              "rank": 57
+            },
+            {
+              "key": "progress_dfd3f0c4e1bc1048374e37753d1cebd23a0ca8f8",
+              "title": "SpaceX's Starship returns from orbit and is captured by launch pad arms in a dramatic first",
+              "source_url": "https://6abc.com/post/spacexs-starship-returns-orbit-is-captured-launch-pad-arms-dramatic-first/20040779/",
+              "rank": 80
+            },
+            {
+              "key": "progress_466e1672b866130fab436c3f05092d915255ce6a",
+              "title": "SpaceX Starship Upper Stage Lands Successfully | Talk Radio 98.3 WLAC",
+              "source_url": "https://wlac.iheart.com/content/2026-11-15-spacex-starship-upper-stage-lands-successfully/",
+              "rank": 176
+            },
+            {
+              "key": "progress_da12d24151818a78ceca93682551efe124f2f749",
+              "title": "SpaceX Starship Upper Stage Lands Successfully | NewsRadio 1360 KKTX",
+              "source_url": "https://1360kktx.iheart.com/content/2026-11-15-spacex-starship-upper-stage-lands-successfully/",
+              "rank": 379
+            },
+            {
+              "key": "progress_04769360215c2a481ebfbc0b334d6b3236183368",
+              "title": "SpaceX pulls off first Starship recovery from orbit in spectacular fashion",
+              "source_url": "https://www.aol.com/articles/spacex-pulls-off-first-starship-230659000.html",
+              "rank": 442
+            },
+            {
+              "key": "progress_820da19019ac5978306acf420b97757de2c57218",
+              "title": "SpaceX's Starship returns from orbit and is captured by launch pad arms",
+              "source_url": "https://www.eastbaytimes.com/2026/11/14/spacexs-starship-returns-from-orbit-and-is-captured-by-launch-pad-arms-in-a-dramatic-first/",
+              "rank": 593
+            },
+            {
+              "key": "progress_ebf84b4fbbf1eb20ac0594b4cc02f9382d4fea0d",
+              "title": "SpaceX's Starship Flight 15 makes history, catching upper stage",
+              "source_url": "https://www.ksbw.com/article/starship-flight-15-historic-launch-booster-upper-stage/74431505",
+              "rank": 714
+            },
+            {
+              "key": "progress_f0782e4af922518884d0642ed76f699f1eacb0b7",
+              "title": "SpaceX Starship 15 Caught – NextBigFuture.com",
+              "source_url": "https://www.nextbigfuture.com/2026/11/spacex-starship-15-catch-attempt-in-minutes.html",
+              "rank": 721
+            },
+            {
+              "key": "progress_f6a9a621abcac5148e33b9bd6b461aabee07a378",
+              "title": "SpaceX Starship returns to Earth in dramatic catch by launch pad arms, in photos",
+              "source_url": "https://www.dailygazette.com/hv360/ap/national/spacex-starship-returns-to-earth-in-dramatic-catch-by-launch-pad-arms-in-photos/article_06cd50af-0b13-5ba7-9243-890b58cee786.html",
+              "rank": 728
+            }
+          ]
+        },
+        {
+          "label": "澳菲签署防务协议",
+          "examples": [
+            {
+              "key": "progress_6897f41b87b770200db88cccaa5b0835341c483d",
+              "title": "Philippines, Australia sign defence pact with eye on China",
+              "source_url": "https://dunyanews.tv/en/World/983018-philippines-australia-sign-defence-pact-with-eye-on-china",
+              "rank": 21
+            },
+            {
+              "key": "progress_8928cd7de43be81ebeb3d41ffcb9498806b96d9d",
+              "title": "ASEAN Summit: Australia, Philippines sign landmark Defence Cooperation Agreement",
+              "source_url": "http://www.bignewsnetwork.com/news/279433758/asean-summit-australia-philippines-sign-landmark-defence-cooperation-agreement",
+              "rank": 23
+            },
+            {
+              "key": "progress_70240ce0729209575f66fd2b2519722872095f9c",
+              "title": "Philippines and Australia upgrade defense cooperation pact",
+              "source_url": "https://news.az/news/philippines-and-australia-upgrade-defense-cooperation-pact",
+              "rank": 232
+            }
+          ]
+        },
+        {
+          "label": "美国停飞解除后的航班中断",
+          "examples": [
+            {
+              "key": "progress_335494089cc601018fd45227b692b3a8825fdf17",
+              "title": "Flight disruptions continue a day after nationwide ground stop",
+              "source_url": "https://www.ksnblocal4.com/2026/11/14/flight-disruptions-continue-day-after-nationwide-ground-stop/",
+              "rank": 55
+            }
+          ]
+        },
+        {
+          "label": "加拿大承诺出资保护热带森林",
+          "examples": [
+            {
+              "key": "progress_9a3ddc2aa76a618635ac0cf4987312c59d84a519",
+              "title": "Prime Minister Carney announces Canada's landmark contribution to protect the world's tropical forests",
+              "source_url": "https://www.chathamdailynews.ca/press-releases/pr-newswire/prime-minister-carney-announces-canadas-landmark-contribution-to-protect-the-worlds-tropical-forests/",
+              "rank": 24
+            }
+          ]
+        },
+        {
+          "label": "英国青年就业计划扩大范围",
+          "examples": [
+            {
+              "key": "progress_d11db6d6bf8a456c9d8ce4383ef3d68ee032bb30",
+              "title": "Taxpayer-funded youth jobs scheme to be expanded in bid to tackle Neets rise",
+              "source_url": "https://www.bridgwatermercury.co.uk/news/national/26729998.taxpayer-funded-youth-jobs-scheme-expanded-bid-tackle-neets-rise/",
+              "rank": 38
+            }
+          ]
+        },
+        {
+          "label": "美国撞船事故调查取得航行数据记录器",
+          "examples": [
+            {
+              "key": "progress_b02c2edf2f880d141807828e3b6abc70ff9c116d",
+              "title": "Port sues to get control of tanker that crashed into cruise ship on Mississippi",
+              "source_url": "https://www.bridgwatermercury.co.uk/news/national/26729940.port-sues-get-control-tanker-crashed-cruise-ship-mississippi/",
+              "rank": 48
+            }
+          ]
+        },
+        {
+          "label": "英格兰部分地区将启动寒冷健康预警",
+          "examples": [
+            {
+              "key": "progress_2890dd02501f0e4aa02c945b9e70ae4816219bc3",
+              "title": "Yellow cold health alerts to come into force in parts of UK amid frosty weather",
+              "source_url": "https://www.hackneygazette.co.uk/news/national/26730021.yellow-cold-health-alerts-come-force-parts-uk-amid-frosty-weather/",
+              "rank": 14
+            }
+          ]
+        },
+        {
+          "label": "教宗访问秘鲁萨尼亚",
+          "examples": [
+            {
+              "key": "progress_9e947be0ca35e1e94bb8c638b1fe106fad3ec9ad",
+              "title": "Pope denounces 'suffering and humiliation' of enslaved people",
+              "source_url": "https://www.wdsu.com/article/pope-denounces-suffering-humiliation-of-african-enslaved-people/74432118",
+              "rank": 70
+            }
+          ]
+        },
+        {
+          "label": "洛杉矶摇滚名人堂典礼",
+          "examples": [
+            {
+              "key": "progress_85a673c4768c224f0a6e79f1076cd28972830f6f",
+              "title": "A look at the Rock & Roll Hall of Fame 2026 inductees and how they were honored",
+              "source_url": "https://www.kelownadailycourier.ca/entertainment/national_entertainment/article_5dfd727f-e126-5dd1-afa1-e5bb26d4b380.html",
+              "rank": 68
+            },
+            {
+              "key": "progress_1af795cd763773b5dcfddc38bb17e31bc8b74287",
+              "title": "2026 Rock and Roll Hall of Fame Induction Ceremony: Photo Gallery",
+              "source_url": "https://991thewhale.com/ixp/295/p/rock-and-roll-hall-of-fame-ceremony-photos-2026/",
+              "rank": 122
+            },
+            {
+              "key": "progress_5f282da8de100324cb81e2d8b927f314a78e924f",
+              "title": "Phil Collins Inducted Into the Rock Hall for a Second Time",
+              "source_url": "https://991thewhale.com/ixp/295/p/phil-collins-rock-hall-induction-2026/",
+              "rank": 219
+            },
+            {
+              "key": "progress_9848ed283132ca98ec7417c63d2b25a5c597ee3f",
+              "title": "U2 Emphatically Opens 2026 Rock and Roll Hall of Fame Ceremony",
+              "source_url": "https://991thewhale.com/ixp/295/p/u2-2026-rock-and-roll-hall-of-fame/",
+              "rank": 286
+            },
+            {
+              "key": "progress_b0caf04325dd80efe47b4873888dea1fb0244bb4",
+              "title": "Phil Collins Honored by Cynthia Erivo, Travis Barker at Rock Hall",
+              "source_url": "https://991thewhale.com/ixp/295/p/phil-collins-rock-and-roll-hall-of-fame-cynthia-erivo-travis-barker/",
+              "rank": 317
+            }
+          ]
+        },
+        {
+          "label": "法语国家峰会开幕",
+          "examples": [
+            {
+              "key": "progress_0d77709c61af705b15244b5ac34385bd5c7809d5",
+              "title": "Francophonie Summit opens in Cambodia with focus on peace, multilateralism, development-Xinhua",
+              "source_url": "https://english.news.cn/20261115/328ed2473acd45b8ac02ca02de739d41/c.html",
+              "rank": 104
+            }
+          ]
+        },
+        {
+          "label": "东盟峰会开幕",
+          "examples": [
+            {
+              "key": "progress_156bc30b790eb3a11fbb5b940436723ff01aa113",
+              "title": "ASEAN leaders open annual summit with major conflicts and their impact topping the agenda",
+              "source_url": "https://www.asiaone.com:443/asia/asean-leaders-open-annual-summit-major-conflicts-and-their-impact-topping-agenda",
+              "rank": 111
+            },
+            {
+              "key": "progress_725c61b5bb5d61b12766028735e275d8e664f466",
+              "title": "49th ASEAN Summit kicks off in Philippines-Xinhua",
+              "source_url": "https://english.news.cn/asiapacific/20261115/4397106077094fe5bd669e9099ec1c96/c.html",
+              "rank": 236
+            }
+          ]
+        },
+        {
+          "label": "伊利诺伊乙醇厂附近爆炸物导致疏散",
+          "examples": [
+            {
+              "key": "progress_275fe92cabaf069c8db1ca16c132ffd84e2f0f88",
+              "title": "Bomb found near ethanol plant in central Illinois forces evacuations",
+              "source_url": "https://www.wyso.org/npr-news/2026-11-14/bomb-found-near-ethanol-plant-in-central-illinois-forces-evacuations",
+              "rank": 2
+            }
+          ]
+        },
+        {
+          "label": "伊利诺伊乙醇厂附近解除疏散",
+          "examples": [
+            {
+              "key": "progress_ab53d0e3c11a510683b4334c112f29df7619646c",
+              "title": "Police lift evacuation after bomb found near ethanol plant in central Illinois",
+              "source_url": "https://www.messenger-inquirer.com/news/national/police-lift-evacuation-after-bomb-found-near-ethanol-plant-in-central-illinois/article_9cb4aa5b-2472-5ccf-9bdd-57173468de82.html",
+              "rank": 7
+            },
+            {
+              "key": "progress_21ebafb5501dcbf64b96a57a55e22a8a2f15922a",
+              "title": "Evacuation order lifted after bomb found at Illinois ethanol plant",
+              "source_url": "https://www.mysuncoast.com/2026/11/14/evacuation-order-lifted-after-bomb-found-illinois-ethanol-plant/",
+              "rank": 10
+            },
+            {
+              "key": "progress_3f92734126251526b08a0812d34322aca00988de",
+              "title": "Police lift evacuation after bomb found near Illinois ethanol plant",
+              "source_url": "https://www.ksbw.com/article/peoria-ethanol-plant-bomb-evacuation-lifted/74431436",
+              "rank": 11
+            }
+          ]
+        }
+      ],
+      "low_public_information": [
+        {
+          "key": "progress_6a51940874dcb61c998fe101a236c22581b5ebb4",
+          "title": "War film 'feels like you're there' with near-perfect Rotten Tomatoes score",
+          "source_url": "https://www.walesonline.co.uk/lifestyle/tv/war-film-feels-like-youre-34891151",
+          "rank": 5
+        },
+        {
+          "key": "progress_416d8f0d4ec3683a99397d38a47281fc590c55e2",
+          "title": "Luvme Announces Black Friday Early Access: $140 Off + Price Protection",
+          "source_url": "https://www.chathamdailynews.ca/press-releases/business-wire/luvme-announces-black-friday-early-access-140-off-price-protection/",
+          "rank": 18
+        },
+        {
+          "key": "progress_0c9d098b27ef52f6ec332ee141a7369cac24c875",
+          "title": "Strictly spoiler as Week 8 elimination leaked online",
+          "source_url": "https://www.chelmsfordcitynews.co.uk/news/national/uk-today/26730033.strictly-spoiler-week-8-elimination-leaked-online/",
+          "rank": 39
+        },
+        {
+          "key": "progress_d4b923db6eb476c37d46d8ccaf3a80713b13b239",
+          "title": "Roman's 'stunning' £35 maxi skirt shoppers 'pair with anything' drops to £26",
+          "source_url": "https://www.walesonline.co.uk/whats-on/shopping/romans-stunning-35-maxi-skirt-34900814",
+          "rank": 74
+        },
+        {
+          "key": "progress_081fcc4fdc38c7bca6fe365975b24ed3cfd02174",
+          "title": "Gardeners urged to spray roses with milk once a week in November",
+          "source_url": "https://www.gazettelive.co.uk/whats-on/whats-on-news/stop-black-spot-roses-disease-34903254",
+          "rank": 93
+        }
+      ],
+      "distinguish": [
+        [
+          {
+            "key": "progress_275fe92cabaf069c8db1ca16c132ffd84e2f0f88",
+            "title": "Bomb found near ethanol plant in central Illinois forces evacuations",
+            "source_url": "https://www.wyso.org/npr-news/2026-11-14/bomb-found-near-ethanol-plant-in-central-illinois-forces-evacuations",
+            "rank": 2
+          },
+          {
+            "key": "progress_ab53d0e3c11a510683b4334c112f29df7619646c",
+            "title": "Police lift evacuation after bomb found near ethanol plant in central Illinois",
+            "source_url": "https://www.messenger-inquirer.com/news/national/police-lift-evacuation-after-bomb-found-near-ethanol-plant-in-central-illinois/article_9cb4aa5b-2472-5ccf-9bdd-57173468de82.html",
+            "rank": 7
+          }
+        ],
+        [
+          {
+            "key": "progress_275fe92cabaf069c8db1ca16c132ffd84e2f0f88",
+            "title": "Bomb found near ethanol plant in central Illinois forces evacuations",
+            "source_url": "https://www.wyso.org/npr-news/2026-11-14/bomb-found-near-ethanol-plant-in-central-illinois-forces-evacuations",
+            "rank": 2
+          },
+          {
+            "key": "progress_21ebafb5501dcbf64b96a57a55e22a8a2f15922a",
+            "title": "Evacuation order lifted after bomb found at Illinois ethanol plant",
+            "source_url": "https://www.mysuncoast.com/2026/11/14/evacuation-order-lifted-after-bomb-found-illinois-ethanol-plant/",
+            "rank": 10
+          }
+        ],
+        [
+          {
+            "key": "progress_275fe92cabaf069c8db1ca16c132ffd84e2f0f88",
+            "title": "Bomb found near ethanol plant in central Illinois forces evacuations",
+            "source_url": "https://www.wyso.org/npr-news/2026-11-14/bomb-found-near-ethanol-plant-in-central-illinois-forces-evacuations",
+            "rank": 2
+          },
+          {
+            "key": "progress_3f92734126251526b08a0812d34322aca00988de",
+            "title": "Police lift evacuation after bomb found near Illinois ethanol plant",
+            "source_url": "https://www.ksbw.com/article/peoria-ethanol-plant-bomb-evacuation-lifted/74431436",
+            "rank": 11
+          }
+        ],
+        [
+          {
+            "key": "progress_8928cd7de43be81ebeb3d41ffcb9498806b96d9d",
+            "title": "ASEAN Summit: Australia, Philippines sign landmark Defence Cooperation Agreement",
+            "source_url": "http://www.bignewsnetwork.com/news/279433758/asean-summit-australia-philippines-sign-landmark-defence-cooperation-agreement",
+            "rank": 23
+          },
+          {
+            "key": "progress_156bc30b790eb3a11fbb5b940436723ff01aa113",
+            "title": "ASEAN leaders open annual summit with major conflicts and their impact topping the agenda",
+            "source_url": "https://www.asiaone.com:443/asia/asean-leaders-open-annual-summit-major-conflicts-and-their-impact-topping-agenda",
+            "rank": 111
+          }
+        ],
+        [
+          {
+            "key": "progress_8928cd7de43be81ebeb3d41ffcb9498806b96d9d",
+            "title": "ASEAN Summit: Australia, Philippines sign landmark Defence Cooperation Agreement",
+            "source_url": "http://www.bignewsnetwork.com/news/279433758/asean-summit-australia-philippines-sign-landmark-defence-cooperation-agreement",
+            "rank": 23
+          },
+          {
+            "key": "progress_725c61b5bb5d61b12766028735e275d8e664f466",
+            "title": "49th ASEAN Summit kicks off in Philippines-Xinhua",
+            "source_url": "https://english.news.cn/asiapacific/20261115/4397106077094fe5bd669e9099ec1c96/c.html",
+            "rank": 236
+          }
+        ],
+        [
+          {
+            "key": "progress_85a673c4768c224f0a6e79f1076cd28972830f6f",
+            "title": "A look at the Rock & Roll Hall of Fame 2026 inductees and how they were honored",
+            "source_url": "https://www.kelownadailycourier.ca/entertainment/national_entertainment/article_5dfd727f-e126-5dd1-afa1-e5bb26d4b380.html",
+            "rank": 68
+          },
+          {
+            "key": "progress_5e2caa29e95fc250b9112f8aeb459275f7700aaf",
+            "title": "2026 Rock & Roll Hall of Fame inductees announced: See the full list",
+            "source_url": "https://www.fox4news.com/news/2026-rock-roll-hall-fame-inductees-announced-see-full-list",
+            "rank": 20
+          }
+        ],
+        [
+          {
+            "key": "progress_3eaaed90847ed98a6c1986d9164e3deec765ed52",
+            "title": "SpaceX successfully catches Starship and makes history",
+            "source_url": "https://www.kzyx.org/npr-news/2026-11-14/spacex-successfully-catches-starship-and-makes-history",
+            "rank": 35
+          },
+          {
+            "key": "progress_7270e7aa492f40682284dfe79fb85e9a03468359",
+            "title": "SpaceX Starship Put Up More Starlink Capacity Than Falcon 9 Last 6 Weeks – NextBigFuture.com",
+            "source_url": "https://www.nextbigfuture.com/2026/11/spacex-starship-put-up-more-starlink-capacity-than-falcon-9-last-6-weeks.html",
+            "rank": 569
+          }
+        ]
+      ]
+    }
+  }
+}

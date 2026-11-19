@@ -1,14 +1,18 @@
 <section class="work-header">
 <a href="/workbench">← 内容工作台</a>
-<div class="row"><h1 id="work-title">{{ work.title }}</h1><span class="badge">{{ phases[work.phase] }}</span></div>
+<div class="row"><h1 id="work-title">{{ work.title }}</h1><span class="badge">{{ phases[work.phase] }}</span>
+{% if work.phase=='selection' and work_stage=='selection' %}
+<button type="button" class="ghost" data-work-trash="remove" data-work-key="{{ work.key }}"
+  data-work-trash-version="{{ work.trash_version }}">删除选题</button>
+{% endif %}</div>
 <p id="work-angle" {% if not work.angle %}hidden{% endif %}>{{ work.angle }}</p>
 <nav class="work-stages" aria-label="内容任务阶段">
-{% for key,label in phases.items() %}<a href="/workbench/{{ work.key }}/{{ key }}" class="{{ 'on' if work_stage==key }}" {% if work_stage==key %}aria-current="page"{% endif %}>{{ loop.index }} · {{ label }}</a>{% endfor %}
+{% for key,label in phases.items() %}<a href="/workbench/{{ work.key }}/{{ key }}" class="{{ 'on' if work_stage==key }}" {% if work_stage==key %}aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
 </nav>
-<div class="work-material-state" role="status"><strong>{{ work.materials.label }}</strong><span class="muted"> · {{ work.materials.next_step }}</span></div>
-<details class="work-context"><summary>资料与来路 · {{ work.materials.total }} 份快照{% if work.watch_name %} · {{ work.watch_name }}{% if work.watch_deleted %}（专题已删除）{% endif %}{% endif %}</summary>
-<div class="row">{% if work.event %}<a href="/events/{{ work.event|urlencode }}">查看起始事件</a>{% endif %}{% if work.watch and not work.watch_deleted %}<a href="/focus/{{ work.watch }}">返回长期专题</a>{% endif %}<a href="/workbench/{{ work.key }}/selection">调整角度与材料</a></div>
-{% for a in work.sources %}<div class="work-source-row"><button type="button" class="ghost" data-work-source="{{ a.source_id }}">{{ a.title }}</button><p class="muted small">{{ a.material_label }} · {{ a.language_display }}{% if a.source_kind!='event_metadata' %} · 报道日期 {{ a.published_at or '未知' }}{% endif %} · 固定版本 {{ a.revision or '快照' }}</p><div class="row">{% if a.detail_url %}<a href="{{ a.detail_url }}">{{ '查看关注议题' if a.attention_topic|default('') else '查看事件线索与报道依据' if a.source_kind=='event_metadata' else '查看新闻详情' }}</a>{% endif %}{% if a.archive_url %}<a href="{{ a.archive_url }}" target="_blank" rel="noopener">归档依据 ↗</a>{% endif %}{% if a.url %}<a href="{{ a.url }}" target="_blank" rel="noopener noreferrer">来源网页 ↗</a>{% endif %}</div></div>{% endfor %}
+<div class="work-material-state" role="status"><strong>{{ work.materials.label }}</strong></div>
+<details class="work-context"><summary>资料与来路 · {{ work.materials.total }} 份快照{% if work.watch_name %} · {{ work.watch_name }}{% if work.watch_deleted %}（焦点已删除）{% endif %}{% endif %}</summary>
+<div class="row">{% if work.event %}<a href="/events/{{ work.event|urlencode }}">查看起始事件</a>{% endif %}{% if work.watch and not work.watch_deleted %}<a href="/focus/{{ work.watch }}">返回焦点</a>{% endif %}<a href="/workbench/{{ work.key }}/selection">调整角度与材料</a></div>
+{% for a in work.sources %}<div class="work-source-row"><button type="button" class="ghost" data-work-source="{{ a.source_id }}">{{ a.title }}</button><p class="muted small">{{ a.material_label }} · {{ a.language_display }}{% if a.source_kind!='event_metadata' %} · 报道日期 {{ a.published_at or '未知' }}{% endif %} · 固定版本 {{ a.revision or '快照' }}</p><div class="row">{% if a.detail_url %}<a href="{{ a.detail_url }}">{{ '查看关注议题' if a.attention_topic|default('') else '查看事件线索与报道依据' if a.official_event_id|default('') else '查看新闻详情' }}</a>{% endif %}{% if a.archive_url %}<a href="{{ a.archive_url }}" target="_blank" rel="noopener">归档依据 ↗</a>{% endif %}{% if a.url %}<a href="{{ a.url }}" target="_blank" rel="noopener noreferrer">来源网页 ↗</a>{% endif %}</div></div>{% endfor %}
 </details>
 {% if work_stage=='research' %}<div class="row work-actions">
 {% for h in work.pending_handoffs %}<button class="ghost" data-work-resume="{{ h.handoff_id }}">继续提交已保存的研究任务</button>{% endfor %}

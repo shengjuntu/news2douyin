@@ -1,7 +1,9 @@
-include README.md V7_IMPLEMENTATION_NOTES.md .env.example
+include CHANGELOG.md README.md .env.example
+include docs/validation/0.34.0/2025-03-18.html
 recursive-include docs *.md *.json *.png *.zip *.mp4 *.wav *.srt
 recursive-include configs *.yaml *.toml
-recursive-include tools *.py *.md *.txt *.bat *.cjs
+recursive-include tools *.py *.md *.txt *.cjs
 recursive-include tests *.py *.json
 recursive-include examples *.md *.mp4 *.srt
+recursive-include examples/topn_plugin *.py *.toml
 recursive-include deploy *.yaml Dockerfile

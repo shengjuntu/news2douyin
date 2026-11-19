@@ -1,0 +1,75 @@
+{
+  "time_utc": "2026-11-15T08:48:16+00:00",
+  "suite": {
+    "total": 1595,
+    "passed": 1594,
+    "failure": 0,
+    "error": 0,
+    "skipped": 1,
+    "skip_reasons": {
+      "tests.test_postgres_search_triggers.test_pg_trigram_search_matches_literal_wildcards_chinese_and_offset_dates": "pg_trgm not installed in this PostgreSQL QA distribution"
+    },
+    "failure_ids": [],
+    "reports": [
+      "qa-final-suite-0.xml",
+      "qa-final-suite-1.xml",
+      "qa-final-suite-2.xml",
+      "qa-final-suite-3.xml",
+      "final-targetsa.xml",
+      "final-targetsb.xml"
+    ]
+  },
+  "database": "SQLite and real PostgreSQL 16.2 en_US.utf8, DuckDB",
+  "browser_journey": [
+    {
+      "width": 390,
+      "day": "2026-11-13",
+      "source_link_visible": true,
+      "keyboard_disclosure": true,
+      "overflow": false,
+      "download": "news2douyin-brief-2026-11-13-r3.md",
+      "checked_revision": 3,
+      "stale_http": 409,
+      "updated_revision": 4
+    },
+    {
+      "width": 1440,
+      "day": "2026-11-13",
+      "source_link_visible": true,
+      "keyboard_disclosure": true,
+      "overflow": false,
+      "download": "news2douyin-brief-2026-11-13-r3.md",
+      "checked_revision": 3,
+      "stale_http": 409,
+      "updated_revision": 4
+    }
+  ],
+  "browser_scope": "Local Chromium read a frozen two-card synthetic issue, disclosure toggle via mouse and keyboard, opened source-link metadata, initiated a real Markdown attachment download, verified its bytes, followed a stale revision hyperlink after a republish and navigated back to the matching new download. No original publisher or third-party calls made.",
+  "read_path": [
+    {
+      "path": "/radar?day=2026-11-15",
+      "card_count": 100,
+      "sampled_requests": 8,
+      "sql_statements_per_request": [
+        1
+      ],
+      "median_ms": 27.84,
+      "max_ms": 162.92,
+      "response_bytes": 422427,
+      "gzip_approx": 37508
+    },
+    {
+      "path": "/api/radar/daily/2026-11-15/brief.md?revision=2",
+      "card_count": 100,
+      "sampled_requests": 8,
+      "sql_statements_per_request": [
+        2
+      ],
+      "median_ms": 30.71,
+      "max_ms": 33.82,
+      "response_bytes": 8324,
+      "gzip_approx": 2155
+    }
+  ],
+  "read_scope": "100 previously published public GKG cards loaded into a temporary SQLite database. ASGI client, eight warm requests per endpoint. Measurements do not include public network or model calls. Standalone timings reflect this host only."
+}

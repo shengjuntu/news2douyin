@@ -108,12 +108,12 @@ def test_attention_remains_inside_radar_with_three_material_views():
     assert 'href="/radar?source=gdelt">全球事件线索' in page
     assert 'href="/radar?source=local">已整理事件' in page
     assert 'href="/radar?source=attention" class="on"' in page
-    assert '专题范围为词项召回，尚未收录为专题材料' in page
+    assert '焦点筛选仅匹配词项' in page
     assert '当前范围没有可显示的议题' in page
 
 
 def test_deleted_watch_does_not_look_like_an_empty_verified_result():
     page = render(data={'items':[], 'has_more':False},
         unavailable_watch={'clear_url':'/radar?source=attention'})
-    assert '这个专题已删除或不可用，当前不能据此判断是否有相关议题' in page
-    assert '请先调整专题范围' in page
+    assert '所选焦点已删除或不可用' in page
+    assert '请先调整焦点范围' in page

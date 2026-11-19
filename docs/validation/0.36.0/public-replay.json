@@ -1,0 +1,172 @@
+{
+  "schema": "news2douyin.why-brief-public-replay.v1",
+  "tested_utc": "2026-11-15T08:44:49+00:00",
+  "edition": {
+    "day": "2026-11-15",
+    "revision": 2,
+    "cutoff_at": "2026-11-15T08:41:06Z",
+    "selected": 100
+  },
+  "input": {
+    "coverage": "Two public English GKG batches, no Events, Mentions, NewsNow or model calls. Archives ingested at actual replay time. Independent SQLite work database and DuckDB archive; original source ZIPs from the previous release’s public validation.",
+    "source_batches": [
+      {
+        "stamp": "20261115001500",
+        "sha256": "d55ec47547e034155ae71214e030a01bcabcb1e4d6e1648c23e6e1cdc8238bcc"
+      },
+      {
+        "stamp": "20261115073000",
+        "sha256": "0f435f83eb547b9be9c4b84079ad7d421fa45355241678b2c78a2ac903b3627d"
+      }
+    ],
+    "rows": 888,
+    "readable": 866,
+    "groups": 740
+  },
+  "checks": {
+    "radar_http": 200,
+    "why_labels": 100,
+    "snapshot_download_http": 200,
+    "stale_revision_http": 409,
+    "markdown_mime": "text/markdown; charset=utf-8",
+    "content_sha256": "3a87297dd20f1a44c7088a0b440cff20b6ff3bd094460b20da4b45418f8f8942",
+    "cli_bytes_match_http": true,
+    "auto_candidate": 0,
+    "auto_needs_check": 10,
+    "auto_picks": [
+      {
+        "rank": 14,
+        "key": "progress_2890dd02501f0e4aa02c945b9e70ae4816219bc3",
+        "status": "check"
+      },
+      {
+        "rank": 2,
+        "key": "progress_275fe92cabaf069c8db1ca16c132ffd84e2f0f88",
+        "status": "check"
+      },
+      {
+        "rank": 3,
+        "key": "progress_5c361ff4becc2753cff0dce3cbca09e0d7c91c11",
+        "status": "check"
+      },
+      {
+        "rank": 15,
+        "key": "progress_d01be215be99811625091cf57b31d6d6086c856d",
+        "status": "check"
+      },
+      {
+        "rank": 8,
+        "key": "progress_f43f47430ca83b1efacd80a444eacaeb2f38f565",
+        "status": "check"
+      },
+      {
+        "rank": 35,
+        "key": "progress_3eaaed90847ed98a6c1986d9164e3deec765ed52",
+        "status": "check"
+      },
+      {
+        "rank": 9,
+        "key": "progress_fa617a0f36d901b623a0883fffd5b8a297b19ae7",
+        "status": "check"
+      },
+      {
+        "rank": 16,
+        "key": "progress_24893a41c3bf021466fa6b0ba9d8ebf8f4a2e606",
+        "status": "check"
+      },
+      {
+        "rank": 37,
+        "key": "progress_8e3a9f69fe67880d3a51289a4415e19520ca40ff",
+        "status": "check"
+      },
+      {
+        "rank": 17,
+        "key": "progress_40ba8ec0ec51984ac785bacbcd5d8d9184f882bb",
+        "status": "check"
+      }
+    ],
+    "download_file": "auto-brief-2026-11-15.md"
+  },
+  "editorial_sample": {
+    "selections": [
+      {
+        "rank": 3,
+        "key": "progress_5c361ff4becc2753cff0dce3cbca09e0d7c91c11",
+        "source_url": "https://dunyanews.tv/en/Business/982937-china-us-discuss-tariffs-farm-trade-ahead-of-xitrump-meeting",
+        "headline": "中美贸易理事会首次开会，谈了关税和农产品",
+        "editor_reference": "https://www.mofcom.gov.cn/xwfb/rcxwfb/art/2026/art_c564995ff6054093a1ed039e10c89aad.html"
+      },
+      {
+        "rank": 35,
+        "key": "progress_3eaaed90847ed98a6c1986d9164e3deec765ed52",
+        "source_url": "https://www.kzyx.org/npr-news/2026-11-14/spacex-successfully-catches-starship-and-makes-history",
+        "headline": "星舰上面级从轨道返回，被发射塔接住",
+        "editor_reference": "https://apnews.com/article/df394c1b5a0f85e11194f9ff7db9ee6b"
+      },
+      {
+        "rank": 21,
+        "key": "progress_6897f41b87b770200db88cccaa5b0835341c483d",
+        "source_url": "https://dunyanews.tv/en/World/983018-philippines-australia-sign-defence-pact-with-eye-on-china",
+        "headline": "澳大利亚与菲律宾在马尼拉签署防务合作安排",
+        "editor_reference": "https://www.pm.gov.au/media/press-conference-manila-philippines"
+      },
+      {
+        "rank": 55,
+        "key": "progress_335494089cc601018fd45227b692b3a8825fdf17",
+        "source_url": "https://www.ksnblocal4.com/2026/11/14/flight-disruptions-continue-day-after-nationwide-ground-stop/",
+        "headline": "美国解除全国航班地面停飞令，取消和改签仍在继续",
+        "editor_reference": "https://apnews.com/article/1fbf4992f0ddaa4c463b0e4990b6e291"
+      },
+      {
+        "rank": 24,
+        "key": "progress_9a3ddc2aa76a618635ac0cf4987312c59d84a519",
+        "source_url": "https://www.chathamdailynews.ca/press-releases/pr-newswire/prime-minister-carney-announces-canadas-landmark-contribution-to-protect-the-worlds-tropical-forests/",
+        "headline": "加拿大宣布四年内最多投入5.6亿加元保护热带森林",
+        "editor_reference": "https://www.pm.gc.ca/en/news/news-releases/2026/11/15/prime-minister-carney-announces-canadas-landmark-contribution-protect"
+      },
+      {
+        "rank": 38,
+        "key": "progress_d11db6d6bf8a456c9d8ce4383ef3d68ee032bb30",
+        "source_url": "https://www.bridgwatermercury.co.uk/news/national/26729998.taxpayer-funded-youth-jobs-scheme-expanded-bid-tackle-neets-rise/",
+        "headline": "英国把青年就业保障计划从六个试点扩大到大不列颠",
+        "editor_reference": "https://www.gov.uk/government/news/90000-young-people-furthest-from-work-to-be-given-guaranteed-job-no-matter-where-they-live"
+      },
+      {
+        "rank": 48,
+        "key": "progress_b02c2edf2f880d141807828e3b6abc70ff9c116d",
+        "source_url": "https://www.bridgwatermercury.co.uk/news/national/26729940.port-sues-get-control-tanker-crashed-cruise-ship-mississippi/",
+        "headline": "新奥尔良撞船后，调查人员取回油轮航行数据记录器",
+        "editor_reference": "https://apnews.com/article/0c1cbee9c9b3f3103d84b8bb17b5073f"
+      },
+      {
+        "rank": 14,
+        "key": "progress_2890dd02501f0e4aa02c945b9e70ae4816219bc3",
+        "source_url": "https://www.hackneygazette.co.uk/news/national/26730021.yellow-cold-health-alerts-come-force-parts-uk-amid-frosty-weather/",
+        "headline": "英格兰北部三个地区将启用寒冷健康黄色预警",
+        "editor_reference": "https://www.gov.uk/government/news/ukhsa-issues-first-cold-health-alert-of-winter-202627"
+      },
+      {
+        "rank": 70,
+        "key": "progress_9e947be0ca35e1e94bb8c638b1fe106fad3ec9ad",
+        "source_url": "https://www.wdsu.com/article/pope-denounces-suffering-humiliation-of-african-enslaved-people/74432118",
+        "headline": "教宗在秘鲁萨尼亚追忆遭奴役的非洲人",
+        "editor_reference": "https://www.vaticannews.va/en/pope/news/2026-11/pope-leo-in-zana-continue-passing-on-the-faith-to-your-children.html"
+      },
+      {
+        "rank": 68,
+        "key": "progress_85a673c4768c224f0a6e79f1076cd28972830f6f",
+        "source_url": "https://www.kelownadailycourier.ca/entertainment/national_entertainment/article_5dfd727f-e126-5dd1-afa1-e5bb26d4b380.html",
+        "headline": "洛杉矶举行摇滚名人堂入选典礼，菲尔·柯林斯以个人身份入选",
+        "editor_reference": "https://rockhall.com/press-release/the-rock-roll-hall-of-fame-reveals-2026-inductees/"
+      }
+    ],
+    "count": 10,
+    "unique_stories_checked": 10,
+    "auto_overlap_by_same_card_key": 3,
+    "scope": "The Chinese video brief was edited from the entire same frozen list with additional reporting, government releases and press source verification. The automatic download uses only frozen records and existing translations. Difference is illustrative; no human editorial quality score is inferred.",
+    "file": "news2douyin-video-brief-sample.md",
+    "content_sha256": "766018041a509c61c87a8c2acb57b42d9a2a36b68e45ec6d08bd949b70f9ab5f",
+    "links": 25,
+    "difference_zh": "自动文件是同一版每日精选的程序下载原样，十条标题线索均有待核实。视频编辑稿另从刊内一百条选出十项，逐条查阅报道、补入机构公告并改写为中文。二者有三张相同的原始卡片。"
+  }
+}

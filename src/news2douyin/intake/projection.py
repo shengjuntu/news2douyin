@@ -295,6 +295,7 @@ def compact_gkg_metadata(metadata,pointer):
 
 
 def _upsert(s,document,*,pointer=None,discovery=False,locked=False):
+    historical = bool(discovery and pointer and pointer.get('repair_day'))
     existing,key=_article_identity(s,document,locked=locked)
     metadata=compact_gkg_metadata(document.metadata,pointer) if discovery and pointer else document.metadata
     raw=dict(provider=document.provider,record_id=document.record_id,uri=document.uri,
@@ -311,7 +312,9 @@ def _upsert(s,document,*,pointer=None,discovery=False,locked=False):
     changed=created
     if existing:
         # Preserve a baseline before attaching fresh observations to a legacy row.
-        if latest_version(s,key) is None:record_version(s,existing,origin='legacy_baseline');s.flush()
+        if latest_version(s,key) is None:
+            record_version(s,existing,origin='intake_history' if historical else 'legacy_baseline')
+            s.flush()
         protect=(not document.content.strip() and bool(existing.content.strip())) or (
             discovery and existing.provider not in ('gkg','gdelt'))
         if discovery and pointer:
@@ -338,7 +341,8 @@ def _upsert(s,document,*,pointer=None,discovery=False,locked=False):
         changed=material_changed
     if changed:
         _set_normalized(row);s.add(row);s.flush()
-        changed=record_version(s,row,origin='intake_metadata' if discovery else 'connector') or created
+        origin = 'intake_metadata' if discovery else 'connector'
+        changed=record_version(s,row,origin='intake_history' if historical else origin) or created
         s.flush()
     version=latest_version(s,key)
     if version and not row.title.strip() and not row.content.strip():
@@ -453,6 +457,7 @@ def project_step(engine,storage_root,limit=None,*,time_budget_ms=None,now=None,o
             _meter(s);counter=_counter(s,feed)
             timings['sql_lock']=round((perf_counter()-tick)*1000,3)
             phase='sql_row';tick=perf_counter();new_projected=new_skipped=replayed=0
+            changed_official=set();changed_gkg=set()
             started=time.monotonic()
             # The offset/turn locks fence all receipt writers for this batch.
             # Read at most this prepared chunk's keys once, including skipped
@@ -473,6 +478,7 @@ def project_step(engine,storage_root,limit=None,*,time_budget_ms=None,now=None,o
                     if official:
                         from .official_projection import project_row
                         result=project_row(s,raw)
+                        if result['event_id']:changed_official.add(result['event_id'])
                         s.add(IntakeProjectionReceipt(key=ident,feed=feed,stamp=stamp,row_index=index,
                             source_record_id=str(raw.get('record_id') or ''),status=result['status'],
                             error=result.get('error','')))
@@ -482,14 +488,18 @@ def project_step(engine,storage_root,limit=None,*,time_budget_ms=None,now=None,o
                         continue
                     if document is not None:
                         pointer=dict(reference,row_index=index)
+                        if raw.get('repair_day'):
+                            pointer['repair_day'] = raw['repair_day']
                         article,version=_upsert(s,document,pointer=pointer,discovery=True,locked=True)
-                        meta=dict(compact_gkg_metadata(document.metadata,pointer),record_id=document.record_id,intake_feed=feed,
+                        meta=dict(compact_gkg_metadata(document.metadata,pointer),document_identifier=document.uri,
+                            record_id=document.record_id,intake_feed=feed,
                             intake_batch=stamp,intake_row=index,title_missing=not bool(document.title.strip()))
                         previous=s.get(GkgSource,article.article_key)
                         previous_stamp=json.loads(previous.attributes or '{}').get('intake_batch',previous.record_id[:14]) if previous else ''
                         attributes=json.dumps(meta,ensure_ascii=False,sort_keys=True)
                         if not previous or (stamp>=previous_stamp and (previous.record_id!=document.record_id or previous.attributes!=attributes)):
                             s.merge(GkgSource(article_key=article.article_key,record_id=document.record_id,attributes=attributes))
+                            changed_gkg.add(document.uri)
                         existing_discovery=s.get(GdeltDiscovery,article.article_key)
                         discovery=existing_discovery or GdeltDiscovery(article_key=article.article_key)
                         when=datetime.strptime(stamp,'%Y%m%d%H%M%S').strftime('%Y-%m-%dT%H:%M:%SZ')
@@ -504,7 +514,14 @@ def project_step(engine,storage_root,limit=None,*,time_budget_ms=None,now=None,o
                 # At least one row is acknowledged; the next tick resumes exactly.
                 if (time.monotonic()-started)*1000>=budget:break
 
-            phase='sql_flush';row_index=None;s.flush()
+            phase='sql_flush';row_index=None
+            if changed_official:
+                from ..desk.official_graph import refresh_tracked
+                refresh_tracked(s,changed_official)
+            if changed_gkg:
+                from ..desk.official_graph import refresh_documents
+                refresh_documents(s,changed_gkg)
+            s.flush()
             timings['sql_apply']=round((perf_counter()-tick)*1000,3)
             chunk=dict(feed=feed,stamp=stamp,key=key,measurement_id=uuid4().hex,at=utc_now_iso(),read_rows=len(rows),
                 processed_rows=batch.projected_offset-offset,new_projected=new_projected,new_skipped=new_skipped,

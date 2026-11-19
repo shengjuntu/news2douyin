@@ -1,6 +1,5 @@
 {% extends 'base.html' %}{% block title %}综述证据预览 · {{ w.name }}{% endblock %}{% block content %}
 <a href="/focus/{{ w.key }}">← {{ w.name }}</a><h1>综述大纲与证据预览</h1>
-<p>先逐项查找长期问题的材料，再展示从报道动作与状态归纳出的分组建议。新的分组可由编辑选作长期问题。</p>
 <form class="desk-row"><label>截止日期（UTC）<input type="date" name="day" value="{{ day }}"></label><button>查看</button></form>
 {% include 'survey_evidence.html' %}
 <button id="survey-run">按此截止日期提交综述</button><p id="survey-status" role="status"></p>

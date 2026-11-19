@@ -32,12 +32,14 @@ def signature(s):
     # same SQL transaction. Never materialize a half-million-row outbox merely
     # to decide whether the graph analysis is current.
     epoch=s.get(DeskMeta,'graph_projection_epoch_1')
-    pending=s.exec(select(GraphPending.key).where(GraphPending.token!=GraphPending.written).limit(1)).first()
+    pending=s.exec(select(GraphPending.key).where(GraphPending.token!=GraphPending.written,
+        ~GraphPending.key.startswith('official/')).limit(1)).first()
     return epoch.value if epoch else 'projection-epoch-0', pending is not None
 
 
 def status(s, graph):
-    pending = s.exec(select(func.count()).select_from(GraphPending).where(GraphPending.token!=GraphPending.written)
+    pending, analysis_pending = s.exec(select(func.count(),func.count().filter(~GraphPending.key.startswith('official/')))
+        .select_from(GraphPending).where(GraphPending.token!=GraphPending.written)
         .execution_options(n2d_query_name='knowledge.status.pending_count')).one()
     stamp = s.get(DeskMeta,'graph_analysis')
     analysis = json.loads(stamp.value) if stamp else {}
@@ -55,7 +57,7 @@ def status(s, graph):
                 indexes=indexes,gc=gc,projection=graph.metrics.snapshot(pending=pending),
                 focus_projection=focus_summary(s,graph),
                 queue_index=dict(graph._queue_index_state),
-                analysis_state='waiting_for_projection' if pending else 'ready' if analysis else 'not_analyzed')
+                analysis_state='waiting_for_projection' if analysis_pending else 'ready' if analysis else 'not_analyzed')
 
 
 def note_change(s, watch, event, kind, text, version):
@@ -92,7 +94,7 @@ def reconcile(s, metrics, edges, generation):
                 if via:
                     queue_event(s,w,cards[key],recall_extra=dict(channels=['graph'],
                         paths=[dict(seed=p,event=key,weight=weight) for p,weight in via[:3]],
-                        reason='与已收录核心事件存在有出处的图关联，仍需判断专题相关性'))
+                        reason='与核心事件存在图关联，相关性待核'))
             continue
         changed=False
         for key, card in cards.items():

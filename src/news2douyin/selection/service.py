@@ -21,6 +21,7 @@ from ..storage.articles import lock_news
 from ..desk.models import Watch
 from ..desk.rules import ALIASES, terms
 from ..tasks.control import TaskConflict
+from ..workbench.service import visible_task
 from .models import SelectionFilter, SelectionOrigin
 
 CAMEO_LABELS = {
@@ -46,7 +47,7 @@ def checked(q='', country='', cameo='', period='72h', min_sources=0, watch='', p
     try: minimum=int(min_sources)
     except (ValueError, TypeError): raise ValueError('来源数须为0–1000的整数') from None
     if str(min_sources).strip()!=str(minimum) or not 0<=minimum<=1000: raise ValueError('来源数须为0–1000的整数')
-    if watch and not re.fullmatch(r'w_[0-9a-f]{32}',watch): raise ValueError('专题编号无效')
+    if watch and not re.fullmatch(r'w_[0-9a-f]{32}',watch): raise ValueError('焦点编号无效')
     if preset and not re.fullmatch(r'filter_[0-9a-f]{32}',preset): raise ValueError('筛选方案编号无效')
     if order not in ('recent','event_date'): raise ValueError('排序方式无效')
     return dict(q=q.strip(), country=country, cameo=cameo, period=period, min_sources=minimum,
@@ -168,7 +169,8 @@ def list_candidates(s, filters, offset=0, limit=30):
     events=events[:limit]
     keys=[row.event_id for row in events]
     counts=_coverage(s,keys)
-    origins=s.exec(select(SelectionOrigin.event_id,SelectionOrigin.task).where(SelectionOrigin.event_id.in_(keys))
+    origins=s.exec(select(SelectionOrigin.event_id,SelectionOrigin.task).where(
+        SelectionOrigin.event_id.in_(keys),visible_task(SelectionOrigin.task))
         .order_by(SelectionOrigin.created,SelectionOrigin.task).execution_options(n2d_query_name='selection.selected.page')).all() if keys else []
     selected={}
     for key,task in origins:selected.setdefault(key,task)
@@ -181,7 +183,7 @@ def list_candidates(s, filters, offset=0, limit=30):
         pagination=dict(page=offset//limit+1,limit=limit,max_offset=100000),
         coverage=dict(scope='本站已索引的官方来源记录；未观测到提及不代表没有报道',
             counts_are_partial=True,time_basis='最近官方事件入库/提及时间，事件发生日期单列',
-            watch_mode='专题词项召回，未执行专题LLM精筛' if filters['watch'] else '',
+            watch_mode='焦点关键词匹配，未经模型精筛' if filters['watch'] else '',
             feeds=[dict(feed=row.key,enabled=row.enabled,last_complete=row.last_complete,last_error=row.last_error) for row in feeds
                    if row.key.startswith(('events_','mentions_'))]))
 
@@ -202,7 +204,7 @@ def content_cards(s,event_ids):
     cards=[_card(row) for row in events]
     enrich_cards(s,events,cards,_url)
     fields=('event_id','title','display_title','coded_title','report_preview','reports',
-            'content_status','content_job_status','source_language','language','excerpt','content_note','content_scope')
+            'content_status','content_job_status','source_language','language','excerpt','content_note','content_scope','reconstruction')
     return dict(items=[{name:card.get(name) for name in fields} for card in cards],
         missing=[key for key in keys if key not in by_id],scope='当前可见事件的已保存报道内容')
 
@@ -227,7 +229,8 @@ def detail(s,event_id):
     manifests=dict(s.exec(select(IntakeBatch.key,IntakeBatch.sha256).where(IntakeBatch.key.in_(batch_keys))
         .execution_options(n2d_query_name='selection.source_manifests')).all())
     card=_card(event,coverage.get(event_id))
-    card['selected_task']=s.exec(select(SelectionOrigin.task).where(SelectionOrigin.event_id==event_id)
+    card['selected_task']=s.exec(select(SelectionOrigin.task).where(
+        SelectionOrigin.event_id==event_id,visible_task(SelectionOrigin.task))
         .order_by(SelectionOrigin.created,SelectionOrigin.task).limit(1)
         .execution_options(n2d_query_name='selection.selected.detail')).first() or ''
     if manifests.get(event.feed+'_'+event.stamp):
@@ -308,7 +311,9 @@ def select_candidate(engine,event_id,request_id,title='',angle=''):
         data=detail(s,event_id)
         event=data['event']
         snapshot=dict(event=event,mentions=data['mentions'])
+        reconstructed = event.get('reconstruction')
         selected_title=(title.strip() or (event.get('report_preview') or {}).get('title')
+                        or (reconstructed or {}).get('excerpt')
                         or event.get('coded_title') or event['title'])[:250]
         case_id='topiccase_'+research.digest(key)[:24]
         workspace=TopicWorkspace(workspace_id=key,request_hash=fingerprint,case_id=case_id,
@@ -326,10 +331,20 @@ def select_candidate(engine,event_id,request_id,title='',angle=''):
         s.add(TopicSource(source_id=sid,workspace_id=key,article_key='gdelt_event/'+event_id,
             document_json=research.dump(document),content_hash=research.digest(document)))
         selected_sources=[sid]
+        if reconstructed and _url(reconstructed.get('url')):
+            from ..research.materials import reconstruction_lead
+            url = _url(reconstructed['url'])
+            doc = dict(reconstruction_lead(reconstructed), title='GDELT 重建片段 · '+(event.get('coded_title') or event_id),
+                       url=url, canonical_url=url, published_at='', revision=None, country='',
+                       source_domain=urlsplit(url).hostname or '', official_event_id=event_id)
+            source_id = 'topic_source_'+research.digest([key,'ngrams',event_id,url])[:24]
+            s.add(TopicSource(source_id=source_id, workspace_id=key, article_key='gdelt_ngrams/'+event_id,
+                              document_json=research.dump(doc), content_hash=research.digest(doc)))
+            selected_sources.append(source_id)
         # Source previews remain excerpts/leads even when the local work library
         # happens to own full text. Selection freezes only what this radar showed.
         reports=[report for report in event.get('reports',[]) if report.get('title') or report.get('excerpt')]
-        for report in reports[:11]:
+        for report in reports[:12-len(selected_sources)]:
             report_key=report.get('key') or research.digest(report.get('source_url') or report)
             doc=dict(provider='gdelt_source',title=report.get('title') or '相关报道摘录',
                 content=report.get('excerpt') or '',url=_url(report.get('source_url')),
@@ -343,6 +358,8 @@ def select_candidate(engine,event_id,request_id,title='',angle=''):
                 document_json=research.dump(doc),content_hash=research.digest(doc)))
             selected_sources.append(report_sid)
         workspace.selected_json=research.dump(selected_sources);s.add(workspace)
+        from ..desk.official_graph import track
+        track(s,event_id)
         work.bind(s,key,'gdelt_event',event_id)
         s.add(SelectionOrigin(task=key,event_id=event_id,request_hash=fingerprint,snapshot_json=research.dump(snapshot)))
         s.commit()

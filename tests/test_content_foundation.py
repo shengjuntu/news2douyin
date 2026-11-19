@@ -147,7 +147,7 @@ def test_real_graph_analysis_correction_focus_and_loss_recovery(tmp_path,live_gr
         assert s.get(WatchEvent,(watch,'e_d')) is None
     view=c.get('/api/knowledge/graph').json()
     assert view['state']['state']=='ready' and len(view['nodes'])==4
-    assert '来源去重组' in c.get('/radar').text
+    assert '来源去重组' in c.get('/radar?source=local').text
     assert c.get('/focus/'+watch).status_code==200
     # Changing an article removes old statements and relation edges from current graphs.
     article(app,'b','Alice visited London yesterday.');process(app);drain_graph(app)

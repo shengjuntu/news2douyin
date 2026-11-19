@@ -13,6 +13,12 @@ class ContentTask(SQLModel, table=True):
     updated: str = Field(default_factory=utc_now_iso, index=True)
 
 
+class ContentTaskTrash(SQLModel, table=True):
+    task: str = Field(primary_key=True)
+    version: int = 0
+    deleted_at: str = ''
+
+
 class ContentBinding(SQLModel, table=True):
     key: str = Field(primary_key=True)
     task: str = Field(index=True)

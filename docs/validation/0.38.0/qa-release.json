@@ -1,0 +1,27 @@
+{
+  "checked_utc": "2026-11-19T05:32:57.376265+00:00",
+  "scope": "Full pytest suite split by test file into four workers with disposable PostgreSQL 16.2 en_US.utf8 instances; final collection reconciled against unique JUnit case IDs. Supplemental targeted runs overlap the full run.",
+  "tests_collected": 1665,
+  "passed": 1664,
+  "skipped": 1,
+  "failure": 0,
+  "error": 0,
+  "covered_ids_equal_final_collection": true,
+  "skip_reasons": {
+    "tests/test_postgres_search_triggers.py::test_pg_trigram_search_matches_literal_wildcards_chinese_and_offset_dates": "pg_trgm not installed in this PostgreSQL QA distribution"
+  },
+  "additional_c_collation_graph_queue": {
+    "passed": 22
+  },
+  "dependencies": {
+    "pytest": "9.2.0",
+    "pgserver": "0.1.4",
+    "psycopg": "3.3.9",
+    "duckdb": "1.4.5",
+    "SQLAlchemy": "2.1.8",
+    "sqlmodel": "0.0.50",
+    "falkordb": "1.4.0",
+    "falkordblite": "0.11.0"
+  },
+  "coverage_notes": "QA used loopback databases and offline test fixtures. Synthetic cross-version CLI behavior is recorded in synthetic-backend-parity.json."
+}

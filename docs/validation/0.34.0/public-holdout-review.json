@@ -1,0 +1,37 @@
+{
+  "reviewer": "Codex capped blinded headline-only review; not a human panel.",
+  "labels": [
+    {
+      "id": "512e2915b6c101ac88f7f27c",
+      "worthwhile": "0",
+      "note_zh": "名人家属被捕后的个人表态；标题未显露新的公共制度影响。",
+      "day": "2025-03-20",
+      "cohort": "previous_only",
+      "key": "progress_f456b28a43438b40ec826ad5369cb0c290d45bf9"
+    },
+    {
+      "id": "5e94877b79e02c1a4a9e515f",
+      "worthwhile": "0",
+      "note_zh": "王室成员订婚的私人动态，标题没有显示随之发生的公共事务变化。",
+      "day": "2025-03-20",
+      "cohort": "current_only",
+      "key": "progress_7ed1559ae63360724dc0cb778484d31dbaa20711"
+    },
+    {
+      "id": "a42fcf94467c3e34d1a5f294",
+      "worthwhile": "1",
+      "note_zh": "标题报告美国总统签署涉及教育部去留的行政命令，属于联邦教育政策的明确进展。标题不足以确认该部门已经撤销。",
+      "day": "2025-03-20",
+      "cohort": "current_only",
+      "key": "progress_813575fc596fc58030d9b4a4fda1611a4e7fa2db"
+    },
+    {
+      "id": "d6f0215263a9925c93c081ac",
+      "worthwhile": "0",
+      "note_zh": "娱乐界人士对富人的观点，标题未识别出新的公共事务进展。",
+      "day": "2025-03-20",
+      "cohort": "previous_only",
+      "key": "progress_184134bb73f85691bf5c9772bb6728f5d492e19f"
+    }
+  ]
+}

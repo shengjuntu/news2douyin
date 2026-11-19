@@ -20,7 +20,7 @@ _BASE_INDEXES = tuple((label, 'id') for label in (
     'GraphMeta', 'Event', 'Article', 'Entity', 'EventMention', 'Argument',
     'Referent', 'OccurrenceCandidate', 'Focus')) + (('Place', 'iso'),)
 GLOBAL_INDEXES = _BASE_INDEXES + tuple((label, 'key') for label in (
-    'AttentionTopic', 'AttentionSourceItem', 'SourceEvent'))
+    'AttentionTopic', 'AttentionSourceItem', 'SourceEvent', 'GdeltDocument', 'GdeltActor', 'GdeltPlace', 'GkgSubject'))
 FOCUS_INDEXES = _BASE_INDEXES + tuple((label, 'id') for label in (
     'Question', 'OutlinePoint', 'Investigation', 'ResearchQuestion', 'Claim',
     'EvidenceRef', 'Report', 'InterestScope', 'InterestEntity', 'InterestPattern'))

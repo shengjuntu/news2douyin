@@ -112,7 +112,7 @@ def main():
         selected = sources[0]
         quote = next((piece for piece in selected['excerpts'] if 'QA_' in piece), selected['excerpts'][0])[:600]
         return json.dumps(dict(decision='exclude' if 'QA_EXCLUDE' in text else 'core',
-            reason='演示品牌营销，与专题政策无关。' if 'QA_EXCLUDE' in text else '演示报道直接涉及对乌军援政策。',
+            reason='演示品牌营销，与焦点政策无关。' if 'QA_EXCLUDE' in text else '演示报道直接涉及对乌军援政策。',
             evidence=[dict(article=selected['article'], revision=selected['revision'], quote=quote)],
             questions=payload['topic'].get('questions', [])[:1]), ensure_ascii=False)
 
