@@ -1,4 +1,6 @@
-# news2douyin 0.40.2 · 事件雷达和选题工作台
+# news2douyin 0.41.0 · 事件雷达和选题工作台
+
+事件雷达的「视频候选」从当天材料另选最多 100 条，优先展示有当事人、具体进展和生活场景的报道。按日期生成和导出，可查看前期线索或从候选开始持续跟踪。[视频候选使用说明](docs/VIDEO-CANDIDATES.md)
 
 向量服务可单独配置和验收。应用可兼容 vLLM 的 BGE-M3 向量端点，支持批量编码和输出维度检查。[配置和验收命令](docs/EMBEDDINGS.md)
 
@@ -62,7 +64,7 @@ v0.33 使用三个连续日期的公开 GKG 归档复核了选题质量和转载
 Python 3.10+。先停止原服务，备份原数据库、运行目录与配置，然后在原环境安装：
 
 ```bash
-python -m pip install --upgrade "./release-0.40.2/news2douyin-0.40.2-py3-none-any.whl[research,ngrams]"
+python -m pip install --upgrade "./release-0.41.0/news2douyin-0.41.0-py3-none-any.whl[research,ngrams]"
 ```
 
 源码安装使用 `python -m pip install '.[research,ngrams]'`。仅使用原有正文读取时可省略 `ngrams`。CLI与服务默认读取 `NEWS2DOUYIN_DATABASE_URL`，显式 `--db-url` 优先；两者都未设置时才使用SQLite兼容默认值。`postgresql://` 自动规范为 `postgresql+psycopg://`。原SQLite用户可沿用原启动参数；迁移到PostgreSQL需要先停服务，运行迁移工具，保持原 `storage_root` 和图实例。不要通过连到空库代替迁移。

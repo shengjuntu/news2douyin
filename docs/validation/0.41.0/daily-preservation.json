@@ -1,0 +1,99 @@
+{
+  "baseline_version": "0.40.2",
+  "comparison_version": "0.41.0",
+  "scope": "Partial historical snapshots of actual public articles. Both releases read the same fixture and cutoff per date. Video is built before ordinary daily in the new release.",
+  "dates_compared": 8,
+  "underlying_candidates_scanned": 25559,
+  "same_world_items_and_order": true,
+  "same_world_markdown_bytes": true,
+  "results": {
+    "2025-03-15": {
+      "daily_issue": {
+        "cutoff": "2025-03-15T16:00:00Z",
+        "scanned": 3038,
+        "items_digest": "6897517d5e74f9c334def6e27eaccbad19934bd6c14499f0c2fe12222e4271ee",
+        "markdown_digest": "fecbe60fe4d4049c8e8ce09bcc0b62b80e3c6a4ffad83c5ee08b41155ead1717",
+        "seats": 100
+      },
+      "video_items": 48,
+      "video_items_outside_world": 47
+    },
+    "2025-03-16": {
+      "daily_issue": {
+        "cutoff": "2025-03-16T16:00:00Z",
+        "scanned": 2073,
+        "items_digest": "ef22cfe0388f57068923cad6db509640b15345efff0a3af62d10505892227c0a",
+        "markdown_digest": "d043462b6e84a536bc234dff581395a252bd5e96230e9422dfa92e56418e3cac",
+        "seats": 100
+      },
+      "video_items": 23,
+      "video_items_outside_world": 23
+    },
+    "2025-03-17": {
+      "daily_issue": {
+        "cutoff": "2025-03-17T16:00:00Z",
+        "scanned": 2962,
+        "items_digest": "b93bfdf7957bb1d4e0fe807aa2ab5e383587c3cc2be7567a34a68bcce540d43e",
+        "markdown_digest": "5d1b3d6d13ed9e58102e410d09ac343b2cab17ccb5b4fa790b70cc77e50a7c88",
+        "seats": 100
+      },
+      "video_items": 34,
+      "video_items_outside_world": 31
+    },
+    "2025-03-18": {
+      "daily_issue": {
+        "cutoff": "2025-03-18T16:00:00Z",
+        "scanned": 4257,
+        "items_digest": "b092bfa0fa9f5a07e8a6746b0b5a7abddedb4784078b17bbc161eeb9ee4c81c8",
+        "markdown_digest": "1ef56ad357dc9886bf7c3459d69de9dd3ce0c675bbfded07299a6ec8186333e6",
+        "seats": 100
+      },
+      "video_items": 65,
+      "video_items_outside_world": 65
+    },
+    "2025-03-19": {
+      "daily_issue": {
+        "cutoff": "2025-03-19T16:00:00Z",
+        "scanned": 4284,
+        "items_digest": "6bf16b82aa62c4312564cec53881acff1da63742fc92dc450dcb805697b7b0ea",
+        "markdown_digest": "d25b942044a0df22f4e92c996ed560a01a47deca7cc8a74722c435bc7cab2410",
+        "seats": 100
+      },
+      "video_items": 52,
+      "video_items_outside_world": 51
+    },
+    "2025-03-20": {
+      "daily_issue": {
+        "cutoff": "2025-03-20T16:00:00Z",
+        "scanned": 4225,
+        "items_digest": "c1c6f0d2be89b7c2e47cc70d89ee320e65eb651f8c68ed50b22914072a1344c4",
+        "markdown_digest": "0073bdd1b9f3cd8136732f643a7bbd957e751c28b3646576e08e4412dcd570da",
+        "seats": 100
+      },
+      "video_items": 54,
+      "video_items_outside_world": 54
+    },
+    "2025-03-21": {
+      "daily_issue": {
+        "cutoff": "2025-03-21T16:00:00Z",
+        "scanned": 3854,
+        "items_digest": "45ae408cbc7a537694be247e8c7e71f8f505af8e6e4ceacd614523eda759384e",
+        "markdown_digest": "6b45084f2fb916495be976723c7f3473c3972c9c70e7817f12bdc9de78617799",
+        "seats": 100
+      },
+      "video_items": 42,
+      "video_items_outside_world": 42
+    },
+    "2026-11-15": {
+      "daily_issue": {
+        "cutoff": "2026-11-15T08:41:06Z",
+        "scanned": 866,
+        "items_digest": "a7584801c5e722c0854b7073e21ed64ddcc625e4b2b8f16ac61c468606fb81fe",
+        "markdown_digest": "e181107aa3ad0d85c9ec49dbafb669c1609cf50621571e9c04f1b2a7871c75aa",
+        "seats": 100
+      },
+      "video_items": 9,
+      "video_items_outside_world": 8
+    }
+  }
+}

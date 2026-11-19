@@ -1,0 +1,29 @@
+{
+  "version": "0.41.0",
+  "browser_fixture": {
+    "chromium": "149.0.7827.54",
+    "ordinary_daily_is_default": true,
+    "real_background_build_and_grounded_card": true,
+    "prior_story_anchor_and_dates": true,
+    "story_link_prefills_unsaved_focus": true,
+    "preserves_candidate_provenance": true,
+    "separate_versioned_markdown": true,
+    "refresh_preserves_ordinary_markdown": true,
+    "mobile_390_no_horizontal_overflow": true
+  },
+  "separate_edition_storage_and_leases": {
+    "engines": [
+      "PostgreSQL 16.2",
+      "SQLite"
+    ],
+    "verified_targeted_tests": 23
+  },
+  "continuity": {
+    "previous_local_days": 14,
+    "maximum_links": 3,
+    "uses_saved_editions": true,
+    "requires_prior_observation_and_strong_shared_identity": true
+  },
+  "capacity": "Up to 100 eligible candidates. Verified a complete 100-item independent Markdown export in test fixtures; historical slices contain fewer eligible items.",
+  "scope": "Integration tests and local browser fixture. This report does not assess platform performance or a production rollout."
+}

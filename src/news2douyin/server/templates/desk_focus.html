@@ -68,7 +68,7 @@
       <h2 class="focus-composer-title">{{ '调整关注范围' if w else '新建焦点' }}</h2>
       <form id="topic-description-form">
         <label class="focus-label" for="topic-description">关注描述</label>
-        <textarea id="topic-description" name="description" rows="5" maxlength="4000" required placeholder="例如：跟踪特朗普政府对俄乌战争的政策变化，重点看军援、制裁与停火谈判。">{{ definition.description if definition else w.question or w.scope if w else '' }}</textarea>
+        <textarea id="topic-description" name="description" rows="5" maxlength="4000" required placeholder="例如：跟踪特朗普政府对俄乌战争的政策变化，重点看军援、制裁与停火谈判。">{{ definition.description if definition else (w.question or w.scope) if w else video_seed|default('') }}</textarea>
         {% if not w %}
         <div class="focus-examples" aria-label="描述示例">
           <button type="button" class="ghost" data-topic-example="持续跟踪特朗普本人的公开活动、会见、表态和政策决定，区分实际行动与传闻，少看商业品牌和私人生活。">人物活动</button>

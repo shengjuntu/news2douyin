@@ -13,11 +13,11 @@ from .service import BEIJING, FAILED, HISTORY_DAYS, QUEUED, RUNNING, build_issue
 log = logging.getLogger(__name__)
 
 
-def due_day(session: Session, now: datetime) -> date | None:
+def due_day(session: Session, now: datetime, *, model=DailyDigestIssue, automatic=True) -> date | None:
     local = now.astimezone(BEIJING)
     today = default_day(local)
     tick = now.timestamp()
-    issue = DailyDigestIssue
+    issue = model
     eligible = or_(issue.status.in_(QUEUED),
                    issue.status.in_(FAILED) & (issue.next_retry <= tick),
                    issue.status.in_(RUNNING) & (issue.lease_until <= tick))
@@ -36,6 +36,8 @@ def due_day(session: Session, now: datetime) -> date | None:
     )).order_by(issue.day).limit(1)).first()
     if close:
         return date.fromisoformat(close)
+    if not automatic:
+        return None
 
     live = session.exec(select(issue.status, issue.lease_until, issue.next_retry)
                         .where(issue.day == today.isoformat())).one_or_none()
@@ -72,37 +74,55 @@ def due_day(session: Session, now: datetime) -> date | None:
 
 
 class DigestWorker:
+    thread_name = 'daily-radar'
+
     def __init__(self, engine, storage_root):
         self.engine = engine
         self.storage_root = storage_root
         self.stop_event = Event()
+        self._wake_event = Event()
         self.thread = None
 
     def start(self):
         if not worker_enabled() or (self.thread and self.thread.is_alive()):
             return
         self.stop_event.clear()
-        self.thread = Thread(target=self._loop, name='daily-radar', daemon=True)
+        self._wake_event.clear()
+        self.thread = Thread(target=self._loop, name=self.thread_name, daemon=True)
         self.thread.start()
 
     def stop(self):
         self.stop_event.set()
+        self.wake()
         if self.thread:
             self.thread.join(timeout=5)
 
+    def wake(self):
+        self._wake_event.set()
+
+    def _due(self, session, now):
+        return due_day(session, now)
+
+    def _build(self, day):
+        return build_issue(self.engine, day, storage_root=self.storage_root, stop_event=self.stop_event, only_due=True)
+
     def step(self):
         with Session(self.engine) as session:
-            day = due_day(session, datetime.now(BEIJING))
+            day = self._due(session, datetime.now(BEIJING))
         if day is None:
             return False
-        result = build_issue(self.engine, day, storage_root=self.storage_root, stop_event=self.stop_event, only_due=True)
+        result = self._build(day)
         return result['build_status'] == 'idle'
 
     def _loop(self):
         wait_seconds = 2
-        while not self.stop_event.wait(wait_seconds):
+        while not self.stop_event.is_set():
+            self._wake_event.wait(wait_seconds)
+            self._wake_event.clear()
+            if self.stop_event.is_set():
+                break
             try:
                 wait_seconds = 1 if self.step() else 30
             except Exception:
-                log.exception('Daily radar worker deferred')
+                log.exception('%s worker deferred', self.thread_name)
                 wait_seconds = 30

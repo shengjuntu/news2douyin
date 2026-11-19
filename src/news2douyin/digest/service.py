@@ -63,8 +63,8 @@ def issue_metadata(day: date, stored_status: str | None, requested: bool, genera
                 cutoff_at=publication.get('cutoff_at', ''))
 
 
-def read_issue(session: Session, day: date) -> dict:
-    row = session.get(DailyDigestIssue, day.isoformat())
+def read_issue(session: Session, day: date, *, model=DailyDigestIssue) -> dict:
+    row = session.get(model, day.isoformat())
     if row is None:
         return dict(issue_metadata(day, None, False, '', '', {}), items=[], stats={})
     stats = json.loads(row.stats_json)
@@ -72,8 +72,8 @@ def read_issue(session: Session, day: date) -> dict:
                 items=json.loads(row.items_json), stats=stats)
 
 
-def read_issue_state(session: Session, day: date) -> dict:
-    issue = DailyDigestIssue
+def read_issue_state(session: Session, day: date, *, model=DailyDigestIssue) -> dict:
+    issue = model
     row = session.exec(select(issue.status, issue.requested, issue.generated_at, issue.error, issue.stats_json)
                        .where(issue.day == day.isoformat())).one_or_none()
     if row is None:
@@ -86,27 +86,27 @@ def worker_enabled() -> bool:
     return os.getenv('NEWS2DOUYIN_DIGEST_ENABLED', '1').strip().lower() not in {'0', 'false', 'off', 'no'}
 
 
-def request_issue(engine, day: date) -> dict:
+def request_issue(engine, day: date, *, model=DailyDigestIssue) -> dict:
     """Queue a new day, refresh today's data, or return a published historical issue."""
-    return _request(engine, day, rebuild=False)
+    return _request(engine, day, rebuild=False, model=model)
 
 
-def request_rebuild(engine, day: date, *, require_worker=True) -> dict:
+def request_rebuild(engine, day: date, *, require_worker=True, model=DailyDigestIssue) -> dict:
     """Queue an explicit replacement after additional data became available."""
-    return _request(engine, day, rebuild=True, require_worker=require_worker)
+    return _request(engine, day, rebuild=True, require_worker=require_worker, model=model)
 
 
-def _request(engine, day, *, rebuild, require_worker=True):
+def _request(engine, day, *, rebuild, require_worker=True, model=DailyDigestIssue):
     today = default_day()
     if day > today:
         raise ValueError('不能生成未来日期的日报')
     if require_worker and not worker_enabled():
         with Session(engine) as session:
-            state = read_issue(session, day)
+            state = read_issue(session, day, model=model)
         if day < today and not rebuild and state['status'] == 'ready':
             return state
         raise RuntimeError('日报生成已暂停，请启用 NEWS2DOUYIN_DIGEST_ENABLED')
-    issue = DailyDigestIssue
+    issue = model
     insert = pg_insert if engine.dialect.name == 'postgresql' else sqlite_insert
     # A user clicking an in-flight refresh joins that run. An explicit repair
     # may have supplied data after its cutoff, so keep one follow-up request.
@@ -124,16 +124,15 @@ def _request(engine, day, *, rebuild, require_worker=True):
                      set_={'status': next_status, 'requested': True, 'next_retry': 0, 'error': ''},
                      where=or_(status.in_(enqueue), status.in_(QUEUED) & issue.requested.is_(False))))
     with Session(engine) as session:
-        return read_issue(session, day)
+        return read_issue(session, day, model=model)
 
 
-def prior_keys(session: Session, day: date) -> set[str]:
+def prior_keys(session: Session, day: date, *, model=DailyDigestIssue) -> set[str]:
     from .ranking import card_progress_key
 
     first = days_before(day, HISTORY_DAYS).isoformat()
-    rows = session.exec(select(DailyDigestIssue.keys_json, DailyDigestIssue.items_json).where(
-        DailyDigestIssue.day >= first, DailyDigestIssue.day < day.isoformat(),
-        DailyDigestIssue.status.in_(PUBLISHED)))
+    rows = session.exec(select(model.keys_json, model.items_json).where(
+        model.day >= first, model.day < day.isoformat(), model.status.in_(PUBLISHED)))
     keys = set()
     for saved_keys, items in rows:
         keys.update(json.loads(saved_keys))
@@ -144,10 +143,10 @@ def prior_keys(session: Session, day: date) -> set[str]:
     return keys
 
 
-def _claim(engine, day: date, token: str, today: date, only_due: bool, now: float, cutoff: str):
+def _claim(engine, day: date, token: str, today: date, only_due: bool, now: float, cutoff: str, *, model=DailyDigestIssue):
     """Atomically acquire the job and return whether it had a snapshot and its version."""
     key = day.isoformat()
-    issue = DailyDigestIssue
+    issue = model
     insert = pg_insert if engine.dialect.name == 'postgresql' else sqlite_insert
     retry_due = issue.next_retry <= now
     eligible = or_(issue.status.in_(QUEUED),
@@ -177,11 +176,10 @@ def _claim(engine, day: date, token: str, today: date, only_due: bool, now: floa
         return published, publication.get('revision', int(published))
 
 
-def _change_owned(engine, day: date, token: str, **changes) -> bool:
+def _change_owned(engine, day: date, token: str, *, model=DailyDigestIssue, **changes) -> bool:
     with engine.begin() as conn:
-        result = conn.execute(update(DailyDigestIssue).where(
-            DailyDigestIssue.day == day.isoformat(),
-            DailyDigestIssue.lease_token == token).values(**changes))
+        result = conn.execute(update(model).where(
+            model.day == day.isoformat(), model.lease_token == token).values(**changes))
         return result.rowcount == 1
 
 
@@ -193,7 +191,8 @@ def _json(obj) -> str:
     return json.dumps(obj, ensure_ascii=False, separators=(',', ':'), allow_nan=False)
 
 
-def build_issue(engine, day: date, *, storage_root=None, stop_event=None, only_due=False, now=None) -> dict:
+def build_issue(engine, day: date, *, storage_root=None, stop_event=None, only_due=False, now=None,
+                model=DailyDigestIssue, load_plan=None, decorate=None) -> dict:
     """Claim, build outside write transactions, then atomically publish the configured shortlist.
 
     A second caller observes the durable state of the in-flight/completed edition.
@@ -216,10 +215,10 @@ def build_issue(engine, day: date, *, storage_root=None, stop_event=None, only_d
     # Source timestamps are recorded to seconds; include the current second.
     observed_at = min(instant.astimezone(timezone.utc).replace(microsecond=0), closed_at)
     cutoff = observed_at.isoformat(timespec='seconds').replace('+00:00', 'Z')
-    owned = _claim(engine, day, token, today, only_due, clock(), cutoff)
+    owned = _claim(engine, day, token, today, only_due, clock(), cutoff, model=model)
     if owned is None:
         with Session(engine) as session:
-            return read_issue(session, day)
+            return read_issue(session, day, model=model)
     published, revision = owned
     ceiling = min(observed_at + timedelta(seconds=1), closed_at) if intraday else closed_at
     renew_at = time.monotonic() + LEASE_SECONDS / 4
@@ -229,16 +228,16 @@ def build_issue(engine, day: date, *, storage_root=None, stop_event=None, only_d
         if stop_event is not None and stop_event.is_set():
             raise _Interrupted
         if time.monotonic() >= renew_at:
-            if not _change_owned(engine, day, token, lease_until=clock() + LEASE_SECONDS):
+            if not _change_owned(engine, day, token, model=model, lease_until=clock() + LEASE_SECONDS):
                 raise _Interrupted
             renew_at = time.monotonic() + LEASE_SECONDS / 4
 
     try:
         checkpoint()
-        plan = load_selection()
+        plan = (load_plan or load_selection)()
         source_stats = {}
         with Session(engine) as session:
-            history = prior_keys(session, day)
+            history = prior_keys(session, day, model=model)
             matcher = read_focus_hints(session, day, cutoff=ceiling)
             archived = {}
             if storage_root is not None:
@@ -260,6 +259,8 @@ def build_issue(engine, day: date, *, storage_root=None, stop_event=None, only_d
         with Session(engine) as session:
             attach_focus(items, session, matcher, ceiling)
             attach_actor_context(items, session, day, ceiling)
+            if decorate is not None:
+                decorate(items, session, day, ceiling)
         keys = [item['key'] for item in items]
         if len(items) > plan.limit or len(set(keys)) != len(keys):
             raise ValueError('Invalid daily edition')
@@ -268,20 +269,22 @@ def build_issue(engine, day: date, *, storage_root=None, stop_event=None, only_d
                            cutoff_at=cutoff)
         stats = dict(result['stats'], sources=source_stats, publication=publication)
         ready = 'live' if intraday else 'ready'
-        followup = DailyDigestIssue.status.in_(('building_again', 'refreshing_again'))
+        followup = model.status.in_(('building_again', 'refreshing_again'))
         next_retry = 0
         if intraday:
             next_retry = clock() + LIVE_REFRESH_SECONDS
         elif not items and day == days_before(today, 1):
             next_retry = clock() + EMPTY_RETRY_SECONDS
-        _change_owned(engine, day, token, status=case((followup, 'refresh_pending'), else_=ready),
+        _change_owned(engine, day, token, model=model, status=case((followup, 'refresh_pending'), else_=ready),
                       items_json=_json(items), keys_json=_json(keys), stats_json=_json(stats),
                       generated_at=utc_now_iso(), lease_token='', lease_until=0, next_retry=next_retry)
     except _Interrupted:
-        _change_owned(engine, day, token, status='refresh_pending' if published else 'pending', lease_token='', lease_until=0)
+        _change_owned(engine, day, token, model=model,
+                      status='refresh_pending' if published else 'pending', lease_token='', lease_until=0)
     except Exception as exc:
-        log.exception('Failed to generate daily issue for %s', day)
-        _change_owned(engine, day, token, status='refresh_failed' if published else 'failed', lease_token='', lease_until=0,
+        log.exception('Failed to generate %s for %s', model.__name__, day)
+        _change_owned(engine, day, token, model=model,
+                      status='refresh_failed' if published else 'failed', lease_token='', lease_until=0,
                       next_retry=clock() + FAILURE_RETRY_SECONDS, error=type(exc).__name__)
     with Session(engine) as session:
-        return read_issue(session, day)
+        return read_issue(session, day, model=model)

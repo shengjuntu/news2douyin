@@ -329,6 +329,8 @@ def register_webui_routes(app: FastAPI, engine, scheduler, storage_root: str) ->
     register_intake(app,engine,storage_root,render)
     from .daily_management import register as register_daily_management
     register_daily_management(app,engine,render)
+    from .video_candidates import register as register_video_candidates
+    register_video_candidates(app,engine,render)
     from .graph_browser import register as register_graph_browser
     register_graph_browser(app,engine,render)
     from .graph_explorer import register as register_graph_explorer

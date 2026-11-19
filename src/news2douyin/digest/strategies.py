@@ -102,6 +102,12 @@ def _shortlist(pool, request, *, variant):
                         limit=request.limit, on_merge=request.on_merge)
 
 
+def _video(pool, request):
+    from .video_selection import rank_video
+
+    return rank_video(pool, prior_keys=request.prior_keys, limit=request.limit)
+
+
 STRATEGIES = StrategyRegistry((
     Strategy(DEFAULT_STRATEGY, '0.37.0', '现行每日精选', 'production',
              partial(_ranked, policy='current', ranking='balanced')),
@@ -115,6 +121,7 @@ STRATEGIES = StrategyRegistry((
              partial(_ranked, policy='v032', ranking='breadth')),
     Strategy('editorial', '0.37.0', '编辑信号排序', 'comparison',
              partial(_ranked, policy='v032', ranking='editorial')),
+    Strategy('video_story', '1.0.0', '视频候选', 'video', _video),
     Strategy('shortlist_classification', '0.37.0', '前置分类实验', 'experimental',
              partial(_shortlist, variant='classification'), requires_coarse=True),
     Strategy('shortlist_merge', '0.37.0', '同行动归并实验', 'experimental',

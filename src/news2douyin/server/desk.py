@@ -140,9 +140,21 @@ def register_desk(app,engine,render):
     @app.get('/focus')
     @app.get('/focus/{key}')
     def focus(request:Request,key:str='',seed:str='',order:str='recent',branch:str='',offset:int=Query(0,ge=0),
-              lead_offset:int=Query(0,ge=0,le=100000),s=Depends(db)):
+              lead_offset:int=Query(0,ge=0,le=100000),video_day:str=Query('',max_length=10),
+              video_key:str=Query('',max_length=160),s=Depends(db)):
         from ..desk.focus_lifecycle import visible_watch, trash_items
         from ..desk.focus_leads import recent
+        video_seed = ''
+        if video_day or video_key:
+            if key or seed or not (video_day and video_key):
+                raise HTTPException(422, '视频候选只能用于新建焦点')
+            from .daily_radar import resolve_day
+            from ..digest.video_service import read_issue
+            day, _ = resolve_day(video_day)
+            card = next((item for item in read_issue(s, day)['items'] if item['key'] == video_key), None)
+            if card is None:
+                raise HTTPException(404, '该期视频候选中没有这条材料')
+            video_seed = f'持续跟踪「{card["title"]}」的后续进展，记录当事人的行动、具体变化和生活影响。'
         watches=s.exec(select(Watch).where(visible_watch()).order_by(Watch.created,Watch.key)).all()
         w=task_call(desk.get_watch,s,key) if key else None
         leads,more_leads=recent(s,w,offset=lead_offset) if w else ([],False)
@@ -195,7 +207,7 @@ def register_desk(app,engine,render):
             order=order,branch=branch,branches=branches,tags=tags,questions=questions,summaries=summaries,
             candidate_dates=focus_timeline(s,key) if w else [],action_labels=LABELS,points=outline.points(s,key) if w else [],point_history=outline.history(s,key) if w else [],
             timeline=moments,excluded=excluded,paging=urlencode(dict(order=order,branch=branch)),
-            seed_title=seed_event.event_title if seed_event else '',**context(request,s)),'focus')
+            seed_title=seed_event.event_title if seed_event else '',video_seed=video_seed,**context(request,s)),'focus')
 
     @app.get('/focus/{key}/survey')
     def survey_page(key:str,day:str='',s=Depends(db)):
