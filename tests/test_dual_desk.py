@@ -1,12 +1,13 @@
 import io
-from pathlib import Path
 from zipfile import ZipFile
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
+from news2douyin.candidates.promotion import promote
+from news2douyin.candidates.service import candidate_token, list_reports
 from news2douyin.collect import service as collect
 from news2douyin.collect.providers import gkg
 from news2douyin.desk import service as desk
-from news2douyin.desk.models import Watch, WatchReview, GkgSource
+from news2douyin.desk.models import Watch, WatchReview
 from news2douyin.desk.rules import PRESETS
 from news2douyin.server.app import create_app
 from news2douyin.storage.models import ArticleVersion, Event
@@ -37,14 +38,28 @@ def app_client(tmp_path):
 def ingest(app,tmp_path,monkeypatch):
     parsed=gkg.parse_archive(archive(),STAMP,PROFILE)
     assert len(parsed)==2 and parsed[0]['gkg']['mention_iso']==['ua']
+    # The research and place assertions use publisher text as evidence.
+    for item in parsed:
+        item.update(content='Ukraine and Donald Trump discussed a rare earth agreement for military aid.',
+                    content_kind='text')
     monkeypatch.setitem(collect.PROVIDERS,'gkg',lambda cfg:parsed)
+    storage_root=tmp_path/'runs'
     with Session(app.state.engine) as s:
-        run=collect.run_collection(s,'gkg-fixture',profile_snapshot=PROFILE,storage_root=tmp_path/'runs')
+        before=[event.event_key for event in s.exec(select(Event)).all()]
+        run=collect.run_collection(s,'gkg-fixture',profile_snapshot=PROFILE,storage_root=storage_root)
         assert run.status=='succeeded'
+        assert [event.event_key for event in s.exec(select(Event)).all()]==before
+        if before:
+            return before[0]
+        reports=list_reports(s,provider='gkg')
+        assert len(reports)==2
+        target={}
+        for index, report in enumerate(reports):
+            result=promote(s,storage_root,report.key,expected_token=candidate_token(report),
+                           request_id=f'dual-desk-fixture-{index}',**target)
+            target=dict(event_key=result['event_key'],expected_version=result['version'])
     desk.drain(app.state.engine)
-    with Session(app.state.engine) as s:
-        ev=s.exec(select(Event)).one()
-        return ev.event_key
+    return result['event_key']
 
 def test_backfill_many_to_many_exclusion_and_legacy_links(tmp_path,monkeypatch):
     app,c=app_client(tmp_path)

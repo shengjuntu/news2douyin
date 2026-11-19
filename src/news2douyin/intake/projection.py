@@ -30,8 +30,8 @@ from ..desk.models import GkgSource, DeskDirty
 from ..extraction.models import VersionReading
 from ..extraction.schema import stable_id
 from ..storage.articles import identity_key, latest_version, lock_news, record_version
-from ..storage.models import (Article, ArticleIdentity, ArticleEventLink, Event,
-    EventAssignment, GdeltDiscovery, utc_now_iso)
+from ..storage.models import Article, ArticleIdentity, ArticleEventLink, GdeltDiscovery, utc_now_iso
+from ..translations.language import language_metadata, normalize_language
 
 log=logging.getLogger(__name__)
 
@@ -255,30 +255,16 @@ def _set_normalized(row):
         setattr(row,name,getattr(n,name))
 
 
-def _ensure_event(s,row,*,create=True):
-    # A metadata-only URL is not an event. A real headline/body supplies an
-    # honest report candidate; later graph analysis can connect candidates.
-    if not row.title.strip() and not row.content.strip():return
-    linked=s.exec(select(ArticleEventLink).where(ArticleEventLink.article_key==row.article_key)).all()
-    if not linked:
-        if not create:return
-        key='evt_intake_'+stable_id(row.article_key)[:20]
-        event=s.exec(select(Event).where(Event.event_key==key)).first()
-        if not event:
-            event=Event(event_key=key,event_title=row.title or '待整理的原文报道',topic='global',
-                summary=row.content[:400],first_seen_at=row.published_at or row.fetched_at,
-                last_seen_at=row.published_at or row.fetched_at,market_scope='global',article_count=1,
-                countries_json=json.dumps([row.country] if row.country else []))
-            s.add(event)
-        s.add(ArticleEventLink(article_key=row.article_key,event_key=key))
-        s.merge(EventAssignment(article_key=row.article_key,event_key=key,reason='intake_report_candidate',score=0))
+def _refresh_linked_events(s, article_key):
+    from ..events.service import refresh_event
+
+    keys = s.exec(select(ArticleEventLink.event_key).where(ArticleEventLink.article_key == article_key)
+        .execution_options(n2d_query_name='intake.article.linked_events')).all()
+    for key in keys:
+        # This is a new version of evidence already admitted to the event.
+        refresh_event(s, key)
         s.merge(DeskDirty(key=key))
-    else:
-        for link in linked:
-            # Keep curator overrides and article counts through the existing updater.
-            from ..events.service import refresh_event
-            refresh_event(s,link.event_key)
-            s.merge(DeskDirty(key=link.event_key))
+    return bool(keys)
 
 
 # Full GKG metadata remains in the immutable archive. These are the fields
@@ -294,20 +280,27 @@ def compact_gkg_metadata(metadata,pointer):
                 archive_ref=dict(pointer))
 
 
+def _document_language(document):
+    metadata=language_metadata(document.metadata.get('source_language',document.language),provider=document.provider)
+    metadata['language']=normalize_language(document.language,provider=document.provider) or metadata['language']
+    return metadata
+
+
 def _upsert(s,document,*,pointer=None,discovery=False,locked=False):
     historical = bool(discovery and pointer and pointer.get('repair_day'))
     existing,key=_article_identity(s,document,locked=locked)
     metadata=compact_gkg_metadata(document.metadata,pointer) if discovery and pointer else document.metadata
+    language=_document_language(document)
     raw=dict(provider=document.provider,record_id=document.record_id,uri=document.uri,
         observed_at=document.observed_at,published_at=document.published_at,
-        metadata=metadata,content_sha256=document.content_sha256)
+        metadata=metadata,content_sha256=document.content_sha256,**language)
     if pointer:raw['intake']=pointer
     raw['material_kind']='discovery_metadata' if discovery else 'connector_document'
     raw['title_missing']=not bool(document.title.strip())
     created=not existing
     row=existing or Article(article_key=key,provider=document.provider,url=document.uri,
         title=document.title,content=document.content,source_domain=urlsplit(document.uri).hostname or '',
-        language=document.language,country=document.country,published_at=document.published_at,
+        language=language['language'],country=document.country,published_at=document.published_at,
         fetched_at=document.observed_at,raw_json=json.dumps(raw,ensure_ascii=False))
     changed=created
     if existing:
@@ -328,7 +321,7 @@ def _upsert(s,document,*,pointer=None,discovery=False,locked=False):
             if document.title.strip():row.title=document.title
             if not discovery:row.content=document.content
             if document.published_at:row.published_at=document.published_at
-            if document.language:row.language=document.language
+            if language['language']:row.language=language['language']
             if document.country:row.country=document.country
             if document.uri:row.url=document.uri;row.source_domain=urlsplit(document.uri).hostname or row.source_domain
             if not discovery:row.provider=document.provider
@@ -351,17 +344,23 @@ def _upsert(s,document,*,pointer=None,discovery=False,locked=False):
         if job and job.state in ('baseline','model_queued'):
             job.state='metadata_only';job.note='仅有采集元数据，等待可读标题或正文';s.add(job)
     gkg_metadata=bool(discovery and pointer)
-    auto_events=os.getenv('NEWS2DOUYIN_GKG_AUTO_EVENTS','0').strip().lower() in ('1','true','on','yes')
-    if changed:_ensure_event(s,row,create=not gkg_metadata or auto_events)
-    if gkg_metadata and not auto_events and changed and version:
-        # Raw discovery is not a chosen editorial/research event. Do not queue
-        # all GKG headlines for model work; existing selected links still update.
-        linked=s.exec(select(ArticleEventLink.id).where(ArticleEventLink.article_key==key).limit(1)
-            .execution_options(n2d_query_name='intake.gkg.has_selected_link')).first()
-        if linked is None:
-            job=s.get(VersionReading,version.id)
-            if job and job.state in ('baseline','model_queued'):
-                job.state='metadata_only';job.note='来源元数据已保存，选题后再进行事件抽取';s.add(job)
+    if changed:
+        linked = _refresh_linked_events(s, key)
+        if gkg_metadata and not linked and version:
+            auto_events = os.getenv('NEWS2DOUYIN_GKG_AUTO_EVENTS', '0').strip().lower() in ('1','true','on','yes')
+            if auto_events and row.title.strip():
+                from ..candidates.promotion import approve_collected_article
+
+                event_key='evt_intake_'+stable_id(key)[:20]
+                approve_collected_article(s, row, event_key=event_key,
+                    decision='legacy_auto', reason='intake_report_candidate', topic='global',
+                    seen_at=row.published_at or row.fetched_at)
+                s.merge(DeskDirty(key=event_key))
+            else:
+                # Discovery headlines only queue extraction after being selected.
+                job=s.get(VersionReading,version.id)
+                if job and job.state in ('baseline','model_queued'):
+                    job.state='metadata_only';job.note='来源元数据已保存，选题后再进行事件抽取';s.add(job)
     return row,version
 
 
@@ -517,7 +516,9 @@ def project_step(engine,storage_root,limit=None,*,time_budget_ms=None,now=None,o
             phase='sql_flush';row_index=None
             if changed_official:
                 from ..desk.official_graph import refresh_tracked
+                from .official_projection import track_focus_updates
                 refresh_tracked(s,changed_official)
+                track_focus_updates(s,changed_official)
             if changed_gkg:
                 from ..desk.official_graph import refresh_documents
                 refresh_documents(s,changed_gkg)
@@ -622,6 +623,16 @@ def import_document(engine,payload):
         if old:return dict(_receipt_data(old),reused=True)
         lock_news(s,'intake:projection-metrics');_meter(s);counter=_counter(s,'external')
         article,version=_upsert(s,document,locked=True)
+        from ..candidates.service import record_reports
+
+        record_reports(s, [dict(url=document.uri, title=document.title, content=document.content,
+            content_kind=document.metadata.get('content_kind','text'), country=document.country,
+            **_document_language(document),
+            fetched_at=document.observed_at, published_at=document.published_at)],
+            provider=document.provider, batch='connector/'+ident,
+            source_ref={'receipt_key': ident, 'record_id': document.record_id,
+                'article_key': article.article_key, 'revision': version.revision if version else 0,
+                'content_sha256': document.content_sha256})
         receipt=IntakeProjectionReceipt(key=ident,feed='external:'+document.provider,stamp='',
             source_record_id=document.record_id,status='projected',article_key=article.article_key,
             revision=version.revision if version else 0,

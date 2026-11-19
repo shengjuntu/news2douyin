@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}整理事件 · 新闻雷达{% endblock %}
+{% block graph_libraries %}{% endblock %}
+{% block content %}
+<div class="row"><h1>整理事件</h1> <a href="/candidates">查看采集候选</a></div>
+<div class="grid">
+  <section class="card" aria-label="候选材料">
+    <h2 dir="auto">{{ material.title }}</h2>
+    <p class="desk-meta">{{ material.provider or material.source_kind }} · {{ language.display }}</p>
+    {% if material.published_at %}<p class="desk-meta">报道时间 {{ material.published_at|local_ts('Asia/Shanghai') }}（北京时间）</p>{% endif %}
+    <p class="desk-meta">收录时间 {{ material.observed_at|local_ts('Asia/Shanghai') }}（北京时间）</p>
+    {% if material.content_kind != 'text' %}
+      <p class="desk-alert">来源线索 · 正文与事实待核</p>
+    {% endif %}
+    {% if material.content %}
+      <p dir="auto" style="overflow-wrap:anywhere;white-space:pre-wrap">{{ material.content[:4000] }}{% if material.content|length > 4000 %}…{% endif %}</p>
+    {% endif %}
+    <div class="row">
+      {% if material.url|safe_url %}<a href="{{ material.url|safe_url }}" target="_blank" rel="noopener noreferrer">打开来源 ↗</a>{% endif %}
+      <a href="/workbench/new?candidate={{ candidate_key|urlencode }}">形成选题</a>
+    </div>
+  </section>
+  <form class="card desk-form" id="organize-event" data-candidate-key="{{ candidate_key }}" data-token="{{ expected_token }}" data-request-id="{{ request_id }}">
+    <fieldset>
+      <legend>整理方式</legend>
+      <label><input type="radio" name="destination" value="new" checked> 整理为新事件</label>
+      <label><input type="radio" name="destination" value="existing"> 加入已有事件</label>
+    </fieldset>
+    <label id="event-title-field" for="event-title">事件标题
+      <input id="event-title" name="title" value="{{ material.title[:250] }}" maxlength="250" dir="auto">
+    </label>
+    <div id="existing-event-fields" hidden>
+      <label for="event-query">查找已有事件
+        <input id="event-query" type="search" maxlength="200">
+      </label>
+      <button class="ghost" type="button" id="find-events">查询</button>
+      <label for="existing-event">目标事件
+        <select id="existing-event"><option value="">请选择</option></select>
+      </label>
+    </div>
+    <label for="event-note">整理依据（可选）
+      <textarea id="event-note" maxlength="1000" rows="3"></textarea>
+    </label>
+    <p id="organize-status" role="status" aria-live="polite"></p>
+    <button type="submit" id="save-event" disabled>整理为新事件</button>
+  </form>
+</div>
+<script src="/research-assets/organize.js" defer></script>
+{% endblock %}

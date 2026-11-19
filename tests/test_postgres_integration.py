@@ -19,6 +19,7 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.engine import make_url
 from sqlmodel import Session, select
 
+from news2douyin.candidates.models import SourceReport
 from news2douyin.collect import service as collect
 from news2douyin.desk import service as desk
 from news2douyin.desk.models import DeskDirty, GkgSource, RadarEntry, WatchEvent
@@ -89,6 +90,17 @@ def post_document(client, **changes):
     return result.json()
 
 
+def adopt_report(client, receipt, title='Trump announces Ukraine aid talks'):
+    created = client.post('/api/events', json={'title': title})
+    assert created.status_code == 200, created.text
+    result = created.json()
+    adopted = client.post(f"/api/events/{result['event_key']}/sources", json={
+        'expected_version': result['version'], 'article_keys': [receipt['article_key']],
+    })
+    assert adopted.status_code == 200, adopted.text
+    return result['event_key']
+
+
 def gkg_line(stamp, index, title, *, url=None, date=None):
     columns = [''] * 27
     columns[:5] = [stamp + '-' + str(index), date or stamp, '1', 'media.example',
@@ -144,7 +156,8 @@ def test_postgres_connector_versions_search_and_repeat_startup(pg_app):
         assert page.search_backend in {'pg_trgm+literal', 'pg_sql_literal_degraded'}
         if page.search_backend.endswith('degraded'):
             assert page.search_warning
-        assert event_page(session, query='military aid').total == 1
+        assert count(session, SourceReport) == 2
+        assert event_page(session, query='military aid').total == 0
     assert client.get('/articles?q=Trump').status_code == 200
 
 
@@ -200,6 +213,7 @@ def test_postgres_gkg_projection_resume_receipts_and_provenance(pg_app,monkeypat
 def test_postgres_radar_focus_and_content_workflow(pg_app):
     app, client, _ = pg_app
     receipt = post_document(client)
+    adopt_report(client, receipt)
     watch_result = client.post('/api/focus', json=PRESETS[0])
     assert watch_result.status_code == 201, watch_result.text
     watch = watch_result.json()['key']
@@ -226,6 +240,7 @@ def test_postgres_radar_focus_and_content_workflow(pg_app):
 def test_postgres_product_gets_never_write_or_drain_pending_work(pg_app):
     app, client, _ = pg_app
     receipt = post_document(client)
+    adopt_report(client, receipt)
     watch = client.post('/api/focus', json=PRESETS[0]).json()['key']
     desk.drain(app.state.engine)
     with Session(app.state.engine) as session:
@@ -284,7 +299,8 @@ def test_postgres_concurrent_connector_retries_share_one_article_and_revision(pg
     with Session(app.state.engine) as session:
         assert count(session, Article) == 1 and count(session, ArticleVersion) == 1
         assert count(session, IntakeProjectionReceipt) == 1
-        assert count(session, Event) == 1
+        assert count(session, SourceReport) == 1
+        assert count(session, Event) == 0
 
 
 def test_postgres_overlapping_collections_preserve_counts_and_article_history(pg_app, monkeypatch):
@@ -307,8 +323,9 @@ def test_postgres_overlapping_collections_preserve_counts_and_article_history(pg
     assert results == ['succeeded', 'succeeded']
     with Session(app.state.engine) as session:
         assert count(session, RunRecord) == 2
-        assert count(session, Article) == count(session, ArticleVersion) == count(session, ArticleEventLink) == 1
-        assert session.exec(select(Event)).one().article_count == 1
+        assert count(session, Article) == count(session, ArticleVersion) == 1
+        assert count(session, SourceReport) == 2
+        assert count(session, ArticleEventLink) == count(session, Event) == 0
 
 
 def test_postgres_two_projectors_commit_receipts_and_cursor_once(pg_app, monkeypatch):
@@ -401,6 +418,8 @@ def test_postgres_aggregated_radar_facets_keep_mixed_source_and_latest_revision_
     post_document(client, content='Corrected current revision about an attack.')
     second = post_document(client, record_id='second', uri='https://industry.example/second')
     third = post_document(client, record_id='third', uri='https://industry.example/third')
+    for receipt in (first, second, third):
+        adopt_report(client, receipt)
     desk.drain(app.state.engine)
     with Session(app.state.engine) as session:
         article2 = session.exec(select(Article).where(Article.article_key == second['article_key'])).one()

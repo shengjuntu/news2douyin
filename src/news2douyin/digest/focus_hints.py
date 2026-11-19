@@ -15,7 +15,7 @@ from ..desk.models import Watch
 from ..desk.rules import ALIASES, norm, terms
 
 MAX_HINTS = 8
-GLOBAL_KINDS = frozenset({'gkg', 'gdelt', 'newsnow'})
+GLOBAL_KINDS = frozenset({'gkg', 'gdelt', 'newsnow', 'collected'})
 
 
 def _known_before(value, cutoff):

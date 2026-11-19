@@ -11,12 +11,15 @@ import requests
 
 from ...search.dates import date_range
 from ...storage.models import utc_now_iso
+from ...translations.language import language_metadata, normalize_language, provider_language_code
 
 ENDPOINT = 'https://api.worldnewsapi.com/search-news'
 
 
 def search_news(query, *, api_key_env='API_KEY'):
     from ...search.schemas import ResearchQuery
+    if isinstance(query, dict) and 'language' in query:
+        query = {**query, 'language': normalize_language(query['language'], provider='worldnewsapi', strict=True)}
     query=ResearchQuery.model_validate(query).model_dump()
     api_key=os.getenv(api_key_env,'')
     if not api_key:
@@ -24,7 +27,9 @@ def search_news(query, *, api_key_env='API_KEY'):
     start,end=date_range('custom',query.get('date_from',''),query.get('date_to',''),query.get('timezone','Asia/Shanghai'))
     params={'text':query['query'],'number':query.get('limit',20),'sort':'publish-time','sort-direction':'DESC'}
     if query.get('country'): params['source-countries']=query['country']
-    if query.get('language'): params['language']=query['language']
+    if query.get('language'):
+        params['language'] = provider_language_code(query['language'], provider='worldnewsapi')
+    requested_language = normalize_language(params.get('language'), provider='worldnewsapi')
     if start: params['earliest-publish-date']=datetime.fromisoformat(start).strftime('%Y-%m-%d %H:%M:%S')
     if end: params['latest-publish-date']=(datetime.fromisoformat(end)-timedelta(seconds=1)).strftime('%Y-%m-%d %H:%M:%S')
     try:
@@ -53,19 +58,27 @@ def search_news(query, *, api_key_env='API_KEY'):
         except ValueError: continue
         title=str(raw.get('title') or '').strip()
         if not title: continue
-        content=str(raw.get('text') or raw.get('summary') or '')
+        body = str(raw.get('text') or '')
+        content = body if body.strip() else str(raw.get('summary') or '')
+        truncated = len(content) > 50000
+        content_kind = 'metadata'
+        if content.strip():
+            content_kind = ('excerpt' if truncated else 'text') if body.strip() else 'summary'
         published=str(raw.get('publish_date') or '')
         try:
             stamp=datetime.fromisoformat(published.replace('Z','+00:00'))
             if stamp.tzinfo is None: stamp=stamp.replace(tzinfo=timezone.utc)
             published=stamp.astimezone(timezone.utc).isoformat(timespec='seconds').replace('+00:00','Z')
         except ValueError: published=''
+        language = language_metadata(raw.get('language'), provider='worldnewsapi')
+        if not language['source_language'].strip():
+            language['language'] = requested_language
         item={'title':title[:1000],'content':content[:50000],'url':url,'source':{'domain':parsed.hostname},
               'published_at':published,'fetched_at':utc_now_iso(),'provider':'worldnewsapi',
               'country':str(raw.get('source_country') or query.get('country') or ''),
-              'language':str(raw.get('language') or query.get('language') or ''),
+              **language,
               'research_meta':{'provider':'worldnewsapi','endpoint':ENDPOINT,'upstream_id':raw.get('id'),
-                    'content_kind':'text' if raw.get('text') else 'summary','content_truncated':len(content)>50000}}
+                    'content_kind':content_kind,'content_truncated':truncated}}
         items.append(item)
     available=data.get('available',len(items))
     return {'items':items,'available':available if type(available) is int and available>=0 else len(items)}

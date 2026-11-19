@@ -143,6 +143,32 @@
     <p id="focus-msg" class="desk-error" role="status" aria-live="polite"></p>
 
     {% if w %}
+    {% if leads|default([]) or lead_offset|default(0) %}
+    <section class="focus-materials" id="focus-leads" aria-label="候选报道">
+      <div class="focus-section-head"><h2>候选报道</h2></div>
+      {% for lead in leads %}
+      <article class="desk-pane">
+        <a class="desk-title" href="{{ lead.url }}" target="_blank" rel="noopener">{{ lead.title }}</a>
+        <p class="desk-meta small">{{ lead.provider }}{% if lead.language %} · {{ lead.language }}{% endif %}
+          · <time datetime="{{ lead.observed_at }}">{{ lead.observed_at[:10] }}</time>
+          · {{ {'core':'核心线索','background':'背景线索'}.get(lead.decision,'关注匹配 · 待核') }}
+        </p>
+        <details class="focus-decision">
+          <summary>查看筛选依据</summary>
+          <div><p>{{ lead.reason }}</p>{% if lead.excerpt %}<p>{{ lead.excerpt }}</p>{% endif %}</div>
+        </details>
+        <div class="desk-row focus-material-actions">
+          <a href="/workbench/new?candidate={{ lead.candidate|urlencode }}">形成选题</a>
+          <a href="/organize?candidate={{ lead.candidate|urlencode }}">整理为事件</a>
+        </div>
+      </article>
+      {% else %}<p class="desk-meta">本页暂无候选报道。</p>{% endfor %}
+      <nav class="desk-row focus-pagination" aria-label="候选报道分页">
+        {% if lead_offset %}<a href="?{{ paging }}&offset={{ offset }}&lead_offset={{ [0,lead_offset-12]|max }}#focus-leads">← 上一页</a>{% endif %}
+        {% if more_leads %}<a href="?{{ paging }}&offset={{ offset }}&lead_offset={{ lead_offset+12 }}#focus-leads">下一页 →</a>{% endif %}
+      </nav>
+    </section>
+    {% endif %}
     <section class="focus-materials" aria-label="焦点材料">
       <div class="focus-section-head"><h2>近期进展与来源</h2><span class="desk-meta">{{ total }} 项</span></div>
       <form class="desk-row focus-filters">
@@ -170,7 +196,7 @@
         </div>
       </article>
       {% else %}
-      <div class="card focus-empty"><strong>暂无匹配材料</strong> · <a href="/radar">添加事件线索 →</a></div>
+      <div class="card focus-empty"><strong>{{ '暂无已整理材料' if leads|default([]) else '暂无匹配材料' }}</strong> · <a href="/radar">添加事件线索 →</a></div>
       {% endfor %}
       <nav class="desk-row focus-pagination" aria-label="材料分页">
         {% if offset %}<a href="?{{ paging }}&offset={{ [0,offset-30]|max }}">← 上一页</a>{% endif %}

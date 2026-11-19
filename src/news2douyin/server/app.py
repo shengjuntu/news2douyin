@@ -171,7 +171,7 @@ def create_app(*, db_url: str | None = None, storage_root: str = 'runs_v7') -> F
         register_research_routes(app, engine, storage_root)
     from ..desk.runtime import DeskWorker
     with startup.phase('application.desk'):
-        app.state.desk=DeskWorker(engine,app.state.research)
+        app.state.desk=DeskWorker(engine,app.state.research,storage_root)
     register_task_routes(app, tasks, worker, _run_to_dict)
     from .readiness import register_readiness_routes
     register_readiness_routes(app)

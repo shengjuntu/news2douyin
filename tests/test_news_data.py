@@ -25,8 +25,8 @@ from news2douyin.video import workbench
 
 
 def collect_items(session, monkeypatch, tmp_path, items):
-    monkeypatch.setitem(collect.PROVIDERS, 'fixture', lambda _: items)
-    collect.create_or_update_profile(session, {'name': 'fixture', 'provider': 'fixture'})
+    monkeypatch.setitem(collect.PROVIDERS, 'mock', lambda _: items)
+    collect.create_or_update_profile(session, {'name': 'fixture', 'provider': 'mock'})
     return collect.run_collection(session, 'fixture', storage_root=tmp_path / 'runs')
 
 
@@ -137,7 +137,7 @@ def test_concurrent_updates_make_one_revision(engine, article, monkeypatch, tmp_
     def fetch(_):
         barrier.wait(timeout=5)
         return [dict(article, content='Concurrent correction')]
-    monkeypatch.setitem(collect.PROVIDERS, 'fixture', fetch)
+    monkeypatch.setitem(collect.PROVIDERS, 'mock', fetch)
     def run(_):
         with Session(engine) as session:
             return collect.run_collection(session, 'fixture', storage_root=tmp_path/'parallel').status
@@ -151,7 +151,7 @@ def test_concurrent_updates_make_one_revision(engine, article, monkeypatch, tmp_
 def test_retry_does_not_reapply_completed_update(engine, article, monkeypatch, tmp_path):
     with Session(engine) as session:
         collect_items(session, monkeypatch, tmp_path, [article])
-    monkeypatch.setitem(collect.PROVIDERS, 'fixture', lambda _: [dict(article, content='Queued correction')])
+    monkeypatch.setitem(collect.PROVIDERS, 'mock', lambda _: [dict(article, content='Queued correction')])
     tasks = TaskService(engine)
     task = tasks.submit('fixture')
     real_write = collect.write_jsonl

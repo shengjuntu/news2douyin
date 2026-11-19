@@ -1,15 +1,14 @@
 """Persist searches before network I/O; import only user-selected candidates."""
 from uuid import uuid4
-from sqlmodel import Session, select
+from sqlmodel import Session
 
+from ..candidates.promotion import attach_articles, store_article
 from ..collect.providers.search_news import search_news
-from ..dedup.service import decide_duplicate
-from ..enrich.service import enrich_item
-from ..storage.articles import lock_news, find_article, identity_key, record_version, latest_version
-from ..storage.models import Article, ArticleIdentity, EventResearch, utc_now_iso
+from ..storage.articles import lock_news, identity_key
+from ..storage.models import EventResearch, utc_now_iso
 from ..storage.utils import loads,dumps
 from ..tasks.control import TaskConflict
-from .workbench import require_event,lock_event,_add_sources,audit,finish,workspace
+from .workbench import require_event,lock_event,audit,finish,workspace
 
 
 def result(session,key,research_key):
@@ -50,55 +49,36 @@ def search(engine,key,query):
 
 
 def import_results(session,key,research_key,data):
-    state=lock_event(session,key,data['expected_version'])
     row=session.get(EventResearch,research_key)
     if not row or row.event_key != key: raise KeyError('检索记录不存在')
     if row.status != 'succeeded': raise TaskConflict('只能收录已完成检索的结果')
     items,imported=loads(row.results_json,[]),loads(row.imported_json,{})
     indexes=list(dict.fromkeys(data['indexes']))
     if any(i<0 or i>=len(items) for i in indexes): raise ValueError('检索结果编号无效')
+    # Same article-before-event lock order as the collection and promotion paths.
+    lock_news(session, *('article:' + identity_key(items[i]) for i in indexes))
+    state=lock_event(session,key,data['expected_version'])
+    imported=loads(row.imported_json,{})
     keys,changes=[],[]
+    references={}
     for index in indexes:
-        item=dict(items[index])
-        existing=find_article(session,item)
-        if not existing:
-            # Be tolerant of legacy rows created without the identity index.
-            from ..dedup.normalize import canonicalize_url
-            canonical=canonicalize_url(item['url'])
-            existing=session.exec(select(Article).where(Article.canonical_url==canonical).order_by(Article.id)).first() if canonical else None
-        if existing:
-            from .workbench import ensure_version
-            version=ensure_version(session,existing)
-            article=existing
-            disposition='existing_preserved'
-        else:
-            item=enrich_item(item,{'country':item.get('country',''),'categories':[]})
-            decision=decide_duplicate(session,item)
-            norm=decision.normalized
-            article=Article(article_key=identity_key(item)[:24],provider='worldnewsapi',url=item['url'],canonical_url=norm.canonical_url,
-                title=item['title'],content=item['content'],source_domain=item['source']['domain'],published_at=item.get('published_at',''),
-                fetched_at=item.get('fetched_at',utc_now_iso()),country=item.get('country',''),language=item.get('language',''),raw_json=dumps(item),
-                normalized_title=norm.normalized_title,normalized_content=norm.normalized_content,title_hash=norm.title_hash,
-                content_hash=norm.content_hash,title_signature=norm.title_signature,content_signature=norm.content_signature,
-                category_tags_json=dumps(item.get('category_tags',[])),sentiment=item.get('sentiment','neutral'),
-                market_relevance_score=item.get('market_relevance_score',0),is_duplicate=decision.is_duplicate,
-                duplicate_of_article_key=decision.duplicate_of_article_key,dedup_group_id=decision.dedup_group_id,
-                dedup_reason=decision.reason,dedup_score=decision.score)
-            session.add(article)
-            session.flush()
-            record_version(session,article,origin='external_research',run_key=research_key)
-            session.flush()
-            version=latest_version(session,article.article_key)
-            disposition='created'
-        identity=identity_key(item)
-        if not session.get(ArticleIdentity,identity):
-            session.add(ArticleIdentity(identity_key=identity,article_key=article.article_key))
+        item=dict(items[index], provider='worldnewsapi')
+        kind=(item.get('research_meta') or {}).get('content_kind') or 'text'
+        item['content_kind']=kind
+        source_ref=dict(research_key=research_key,result_index=index)
+        source=dict(provider='worldnewsapi', source_ref=source_ref, content_kind=kind,
+                    requires_original_text=kind != 'text')
+        if kind!='text':
+            source['excerpt']=item.get('content','')[:800]
+            item.update(content='',material_kind='candidate_lead',requires_original_text=True)
+        article,version,disposition=store_article(session,item,origin='external_research',run_key=research_key)
+        references.setdefault(article.article_key,source)
         keys.append(article.article_key)
         saved=dict(article_key=article.article_key,revision=version.revision,content_hash=version.content_hash,disposition=disposition)
         if str(index) not in imported:
             imported[str(index)]=saved
             changes.append(dict(index=index,**saved))
-    added=_add_sources(session,key,state,keys,'外部检索 '+research_key,'research')
+    added=attach_articles(session,state,keys,note='外部检索 '+research_key,origin='research',sources=references)
     row.imported_json=dumps(imported)
     session.add(row)
     if changes or added:

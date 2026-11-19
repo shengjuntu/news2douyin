@@ -232,7 +232,9 @@ def test_restart_between_report_and_raw_checkpoint_can_refetch_consistently(app,
     with Session(application.state.engine) as session:assert count(session,Article)==count(session,ArticleVersion)==3
 
 
-def test_later_real_document_can_enter_normal_event_flow_after_newsnow_discovery(app,upstream,monkeypatch):
+def test_later_real_document_is_a_candidate_after_newsnow_discovery(app,upstream,monkeypatch):
+    from news2douyin.candidates.models import SourceReport
+
     application,client,_storage=app
     item=upstream.responses['zhihu']['items'][0]
     upstream.set('zhihu',snapshot('zhihu',[item]))
@@ -252,7 +254,10 @@ def test_later_real_document_can_enter_normal_event_flow_after_newsnow_discovery
         row=session.exec(select(Article)).one()
         assert row.provider=='worldnewsapi' and row.content=='这是后续通过真实新闻源补充的完整报道正文。'
         assert count(session,ArticleVersion)==2
-        assert count(session,ArticleEventLink)==count(session,Event)==1
+        candidate=session.exec(select(SourceReport)).one()
+        assert candidate.provider=='worldnewsapi' and candidate.url==item['url']
+        assert candidate.language=='zh' and candidate.content==row.content
+        assert count(session,ArticleEventLink)==count(session,Event)==0
 
 
 def test_newsnow_model_extraction_uses_fixed_version_material_kind(app,upstream,monkeypatch):

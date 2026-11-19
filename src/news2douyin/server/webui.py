@@ -30,7 +30,7 @@ from ..storage.models import GdeltDiscovery, Article, ArticleEventLink, CollectJ
 from ..storage.utils import loads
 from ..search.dates import calendar_day, timezone_name
 from ..editorial.daily import list_picks
-from ..collect.providers.gdelt import CODES as GDELT_CODES
+from ..collect.providers.gdelt import profile_codes as gdelt_profile_codes
 from ..collect.management import profile_enabled, job_dict, save_job, set_job_enabled
 from ..collect.diagnostics import task_diagnostics, summary as diagnostic_summary, REASONS, FALLBACKS
 
@@ -165,7 +165,7 @@ def register_webui_routes(app: FastAPI, engine, scheduler, storage_root: str) ->
         with session_scope(engine) as session:
             profiles = [_profile_to_dict(p, session) for p in session.exec(select(CollectProfile).order_by(CollectProfile.name))]
             jobs = [job_dict(j) for j in session.exec(select(CollectJob).where(CollectJob.schedule_type != 'archived').order_by(CollectJob.id))]
-        return render('profiles.html', active='profiles', profiles=profiles, jobs=jobs, selected=selected, gdelt=GDELT_CODES,
+        return render('profiles.html', active='profiles', profiles=profiles, jobs=jobs, selected=selected, gdelt=gdelt_profile_codes(),
                       today=calendar_day(), timezone=timezone_name(),newsnow_catalog=SOURCE_CATALOG,newsnow_default_sources=DEFAULT_SOURCES)
 
     @app.get('/admin', response_class=HTMLResponse)
@@ -321,6 +321,8 @@ def register_webui_routes(app: FastAPI, engine, scheduler, storage_root: str) ->
     register_attention(app,engine)
     from .workbench import register as register_workbench
     register_workbench(app,engine,storage_root,render)
+    from .candidates import register as register_candidates
+    register_candidates(app,engine,storage_root,render)
     from .knowledge import register as register_knowledge
     register_knowledge(app,engine,render)
     from .intake import register as register_intake

@@ -114,6 +114,7 @@ def source_data(s, row, full=False):
     from ..translations.language import describe_language, event_language
     language = event_language() if metadata else describe_language(
         str(doc.get('title') or '')+'\n'+str(doc.get('content') or ''),declared=doc.get('language', ''))
+    candidate = doc.get('candidate_key') or ''
     data = dict(source_id=row.source_id, article_key=row.article_key, title=doc['title'],
                 url=url, published_at=doc.get('published_at',''),
                 revision=doc.get('revision'), source_kind=doc.get('source_kind', 'news_snapshot'),
@@ -121,6 +122,7 @@ def source_data(s, row, full=False):
                 attention_topic=attention_id,
                 detail_url='/radar?source=attention&attention_topic='+attention_id if attention_id else
                 '/radar?source=gdelt&event='+official_id if (metadata or lead) and official_id else
+                    '/organize?candidate='+quote(candidate, safe='') if candidate else
                     '/articles/'+quote(row.article_key, safe='')+('?revision='+str(doc['revision']) if
                         isinstance(doc.get('revision'),int) and doc['revision']>0 else '') if not metadata else '',
                 archive_url=archive_url,

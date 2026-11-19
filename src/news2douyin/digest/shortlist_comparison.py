@@ -201,5 +201,6 @@ def compare_local(engine, storage_root, day, output, *, outside=20):
     stats = {}
     candidates = observed_candidates(engine, storage_root, day, stats, cutoff=ceiling,
                                      include_recovered=inspector.has_table('ngramtarget'), restored_stamps=restored,
-                                     coarse=STRATEGIES.requirements(STRATEGY_IDS).coarse)
+                                     coarse=STRATEGIES.requirements(STRATEGY_IDS).coarse,
+                                     include_reports=bool(issue.get('stats', {}).get('sources', {}).get('candidate_layer')))
     return export_comparison(day, issue, candidates, history, output, outside=outside, source_stats=stats)

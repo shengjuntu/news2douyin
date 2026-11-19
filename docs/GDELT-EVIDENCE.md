@@ -13,7 +13,7 @@
 `gdeltnews` 是独立的可选依赖。标准 Docker 镜像已包含它，Python 安装方式如下（在源码包解压目录执行）：
 
 ```bash
-python -m pip install --upgrade "./release-0.38.2/news2douyin-0.38.2-py3-none-any.whl[research,ngrams]"
+python -m pip install --upgrade "./release-0.39.0/news2douyin-0.39.0-py3-none-any.whl[research,ngrams]"
 ```
 
 后台用官方 Mentions 中保存的报道标识，尝试在对应上游批次时刻及之前的分钟文件中精确查找同一 URL。同一分钟的多个目标共用一次扫描，依赖缺失、缓存缺档、限额和临时下载故障有各自的处理状态。服务已安装可选依赖时默认启用。可以在官方事件详情手动排队，并查看 UTC 当日预算与队列占用。自动补证先看近期有明确行动双方的有限候选，在其中优先安排匹配已启用专题范围的线索。这一优先级不会自动把线索加入专题。

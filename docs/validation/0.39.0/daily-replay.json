@@ -1,0 +1,73 @@
+{
+  "version": "0.39.0",
+  "reference": "v0.38.1 processed from the same retained GKG batch archives",
+  "scope": "Historical archived-source fixture with seven closed editions and one same-day rebuild.",
+  "ranked_ids_full_edition_cards_and_markdown_identical": true,
+  "compared_strategy_arms_and_audit_file_hashes_identical": true,
+  "dates": {
+    "2025-03-15": {
+      "observations": 3038,
+      "edition_revision": 1,
+      "cutoff_at": "2025-03-15T16:00:00Z",
+      "ordered_candidate_ids_sha256": "cfdee05d175017581576226d159ed91ff037350c8a6636186fd0a0109c919a93",
+      "edition_markdown_sha256": "fecbe60fe4d4049c8e8ce09bcc0b62b80e3c6a4ffad83c5ee08b41155ead1717",
+      "edition_cards_sha256": "6897517d5e74f9c334def6e27eaccbad19934bd6c14499f0c2fe12222e4271ee"
+    },
+    "2025-03-16": {
+      "observations": 2073,
+      "edition_revision": 1,
+      "cutoff_at": "2025-03-16T16:00:00Z",
+      "ordered_candidate_ids_sha256": "31491225fd435911743e71c304c4e8fa744112e4fc7f77a9d4b9c4391521f6f7",
+      "edition_markdown_sha256": "d043462b6e84a536bc234dff581395a252bd5e96230e9422dfa92e56418e3cac",
+      "edition_cards_sha256": "ef22cfe0388f57068923cad6db509640b15345efff0a3af62d10505892227c0a"
+    },
+    "2025-03-17": {
+      "observations": 2962,
+      "edition_revision": 1,
+      "cutoff_at": "2025-03-17T16:00:00Z",
+      "ordered_candidate_ids_sha256": "a9118c54990f32da31006986969eecdc79c7b6223eec803267d41a0e1dcfb455",
+      "edition_markdown_sha256": "5d1b3d6d13ed9e58102e410d09ac343b2cab17ccb5b4fa790b70cc77e50a7c88",
+      "edition_cards_sha256": "b93bfdf7957bb1d4e0fe807aa2ab5e383587c3cc2be7567a34a68bcce540d43e"
+    },
+    "2025-03-18": {
+      "observations": 4257,
+      "edition_revision": 1,
+      "cutoff_at": "2025-03-18T16:00:00Z",
+      "ordered_candidate_ids_sha256": "85ba1e7a5b40920527520bd8b7d5349f88bf6fb83c5b05c0eb48ab9bcdfa34cb",
+      "edition_markdown_sha256": "1ef56ad357dc9886bf7c3459d69de9dd3ce0c675bbfded07299a6ec8186333e6",
+      "edition_cards_sha256": "b092bfa0fa9f5a07e8a6746b0b5a7abddedb4784078b17bbc161eeb9ee4c81c8"
+    },
+    "2025-03-19": {
+      "observations": 4284,
+      "edition_revision": 1,
+      "cutoff_at": "2025-03-19T16:00:00Z",
+      "ordered_candidate_ids_sha256": "1ba534dc8334b82e7c463fc44bd4c87f66c2a5f2d79c5ce6109ec4eaa70b7d8d",
+      "edition_markdown_sha256": "d25b942044a0df22f4e92c996ed560a01a47deca7cc8a74722c435bc7cab2410",
+      "edition_cards_sha256": "6bf16b82aa62c4312564cec53881acff1da63742fc92dc450dcb805697b7b0ea"
+    },
+    "2025-03-20": {
+      "observations": 4225,
+      "edition_revision": 1,
+      "cutoff_at": "2025-03-20T16:00:00Z",
+      "ordered_candidate_ids_sha256": "1aed54951d2e001322a744fda1e208fee584bc3b581aa688e83c96140efb0626",
+      "edition_markdown_sha256": "0073bdd1b9f3cd8136732f643a7bbd957e751c28b3646576e08e4412dcd570da",
+      "edition_cards_sha256": "c1c6f0d2be89b7c2e47cc70d89ee320e65eb651f8c68ed50b22914072a1344c4"
+    },
+    "2025-03-21": {
+      "observations": 3854,
+      "edition_revision": 1,
+      "cutoff_at": "2025-03-21T16:00:00Z",
+      "ordered_candidate_ids_sha256": "29c1a62e98a60cd109df260ecc96ac0070d5ef470344232220cc2a571ec80b28",
+      "edition_markdown_sha256": "6b45084f2fb916495be976723c7f3473c3972c9c70e7817f12bdc9de78617799",
+      "edition_cards_sha256": "45ae408cbc7a537694be247e8c7e71f8f505af8e6e4ceacd614523eda759384e"
+    },
+    "2026-11-15": {
+      "observations": 866,
+      "edition_revision": 2,
+      "cutoff_at": "2026-11-15T08:41:06Z",
+      "ordered_candidate_ids_sha256": "6fe3bef3eccbe0e8e17b711e213b4748e6a6fa9d85467fb93bb77b0ff5995baa",
+      "edition_markdown_sha256": "5d870ab1e1d32d5cd53526a7594a504e03d1c24e80002e38be42e3b3f0de409b",
+      "edition_cards_sha256": "a7584801c5e722c0854b7073e21ed64ddcc625e4b2b8f16ac61c468606fb81fe"
+    }
+  }
+}

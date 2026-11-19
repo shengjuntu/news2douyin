@@ -134,11 +134,21 @@ def _official_attention(session, event_ids, start, end):
     return {event: _attn(score) for event, score in rows}
 
 
-def _official(session, start, end, day, stats, checkpoint, include_recovered):
+def _official(session, start, end, day, stats, checkpoint, include_recovered, receipts=False):
     from ..selection.ngram_models import NgramTarget
 
+    in_window = OfficialEvent.last_seen >= start
+    if receipts:
+        # Focus revisits records received by the SQL projector within this
+        # window, including older upstream observations that arrived late.
+        # A union keeps the upstream and receipt selection separately indexed.
+        from ..intake.official_models import OfficialFocusUpdate
+        newly_projected = select(OfficialFocusUpdate.event_id).where(
+            OfficialFocusUpdate.available_at >= start, OfficialFocusUpdate.available_at < end)
+        ids = select(OfficialEvent.event_id).where(in_window, OfficialEvent.last_seen < end).union(newly_projected)
+        in_window = OfficialEvent.event_id.in_(ids)
     visible_today = (OfficialEvent.ingested_at != '', OfficialEvent.ingested_at < end,
-                     OfficialEvent.last_seen >= start, OfficialEvent.last_seen < end)
+                     in_window, OfficialEvent.last_seen < end)
     yield from _official_batches(session, select(OfficialEvent).where(*visible_today), start, end, day, stats, checkpoint, include_recovered)
     if not include_recovered:
         return
@@ -353,7 +363,7 @@ def _newsnow(session, start, end, stats, checkpoint):
 
 
 def iter_candidates(session: Session, day: date, *, stats: dict | None = None, cutoff: datetime | None = None,
-                    checkpoint=None, include_recovered=True):
+                    checkpoint=None, include_recovered=True, since: datetime | None = None, receipts=False):
     """Emit one readable source lead per eligible projected event/topic; day in Beijing.
 
     Optional cutoff is an exclusive instant. The normal path never reads beyond now.
@@ -364,6 +374,10 @@ def iter_candidates(session: Session, day: date, *, stats: dict | None = None, c
         for suffix in ('seen', 'no_readable', 'emitted'):
             stats[name + '_' + suffix] = 0
     begin, end_day = day_bounds_utc(day)
+    if since is not None:
+        if since.tzinfo is None:
+            raise ValueError('since must have a timezone')
+        begin = max(begin, since.astimezone(timezone.utc))
     until = cutoff or datetime.now(timezone.utc)
     if until.tzinfo is None:
         raise ValueError('cutoff must have a timezone')
@@ -375,6 +389,6 @@ def iter_candidates(session: Session, day: date, *, stats: dict | None = None, c
     stats['official_reconstructed'] = 0
     stats['official_augmented'] = 0
     stats['reconstruction_source_available'] = include_recovered
-    yield from _official(session, start, end, day.isoformat(), stats, checkpoint, include_recovered)
+    yield from _official(session, start, end, day.isoformat(), stats, checkpoint, include_recovered, receipts)
     yield from _local(session, start, end, day.isoformat(), stats, checkpoint)
     yield from _newsnow(session, start, end, stats, checkpoint)

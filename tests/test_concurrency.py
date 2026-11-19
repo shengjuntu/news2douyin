@@ -3,6 +3,7 @@ from threading import Barrier
 
 from sqlmodel import Session, select
 
+from news2douyin.candidates.models import SourceReport
 from news2douyin.collect import service as collect
 from news2douyin.scheduler import service as scheduling
 from news2douyin.storage.models import Article, ArticleEventLink, CollectJob, Event, ScheduleOccurrence, TaskRecord
@@ -29,8 +30,9 @@ def test_overlapping_collectors_do_not_fail_or_duplicate_articles(engine, articl
         assert [f.result(timeout=10) for f in futures] == ['succeeded', 'succeeded']
     with Session(engine) as session:
         assert len(list(session.exec(select(Article)))) == 1
-        assert len(list(session.exec(select(ArticleEventLink)))) == 1
-        assert session.exec(select(Event)).one().article_count == 1
+        assert len(list(session.exec(select(SourceReport)))) == 2
+        assert session.exec(select(ArticleEventLink)).first() is None
+        assert session.exec(select(Event)).first() is None
 
 
 def test_two_scheduler_instances_claim_once(engine, monkeypatch):

@@ -139,10 +139,13 @@ def register_desk(app,engine,render):
 
     @app.get('/focus')
     @app.get('/focus/{key}')
-    def focus(request:Request,key:str='',seed:str='',order:str='recent',branch:str='',offset:int=Query(0,ge=0),s=Depends(db)):
+    def focus(request:Request,key:str='',seed:str='',order:str='recent',branch:str='',offset:int=Query(0,ge=0),
+              lead_offset:int=Query(0,ge=0,le=100000),s=Depends(db)):
         from ..desk.focus_lifecycle import visible_watch, trash_items
+        from ..desk.focus_leads import recent
         watches=s.exec(select(Watch).where(visible_watch()).order_by(Watch.created,Watch.key)).all()
         w=task_call(desk.get_watch,s,key) if key else None
+        leads,more_leads=recent(s,w,offset=lead_offset) if w else ([],False)
         total,items=desk.focus_entries(s,key,offset,order=order,branch=branch) if w else (0,[])
         reviews=s.exec(select(WatchReview,ResearchCase,ResearchRun).outerjoin(ResearchCase,ResearchCase.case_id==WatchReview.case_key)
               .outerjoin(ResearchRun,ResearchRun.run_id==ResearchCase.active_run_id).where(WatchReview.watch==key)
@@ -187,6 +190,7 @@ def register_desk(app,engine,render):
             intent_definition=focus_definition(s,key) if w else None,
             tracking=focus_status(s,key) if w else {},
             counts=counts,total=total,items=items,offset=offset,reviews=reviews,presets=PRESETS,seed=seed,
+            leads=leads,lead_offset=lead_offset,more_leads=more_leads,
             changes=changes,point_material=point_material,content_tasks=related(s,watch=key) if w else [],
             order=order,branch=branch,branches=branches,tags=tags,questions=questions,summaries=summaries,
             candidate_dates=focus_timeline(s,key) if w else [],action_labels=LABELS,points=outline.points(s,key) if w else [],point_history=outline.history(s,key) if w else [],

@@ -10,6 +10,7 @@ from loguru import logger
 from ..utils.disk_ttl_cache import DiskTTLCache
 from ..utils.hashing import stable_hash
 from ..utils.timeutil import utc_iso_now
+from ..translations.language import language_metadata, normalize_language, provider_language_code
 
 
 def fetch_top_news(config: dict) -> list[dict]:
@@ -29,7 +30,11 @@ def fetch_top_news(config: dict) -> list[dict]:
         raise RuntimeError(f"Missing env {api_key_env}")
 
     country = (config.get("country", "us") or "us").lower()
-    language = (config.get("language", "en") or "en").lower()
+    language = normalize_language(config.get('language') or 'en', provider='worldnewsapi', strict=True)
+    outbound_language = provider_language_code(language, provider='worldnewsapi')
+    if not outbound_language:
+        raise ValueError('热门榜单需要明确的语种')
+    requested_language = normalize_language(outbound_language, provider='worldnewsapi')
     date_str = config.get("date_str")
     max_items = int(config.get("max_items", 100))
     content_max_chars = int(config.get("content_max_chars", 6000))
@@ -63,14 +68,14 @@ def fetch_top_news(config: dict) -> list[dict]:
     cache_key = stable_hash(
         "worldnewsapi:top_news",
         f"country={country}",
-        f"language={language}",
+        f"language={outbound_language}",
         f"date={date_str or ''}",
         length=32,
     )
 
     def _call_api_and_convert() -> dict:
         t0 = time.perf_counter()
-        resp = api.top_news(source_country=country, language=language, var_date=date_str,
+        resp = api.top_news(source_country=country, language=outbound_language, var_date=date_str,
                             _request_timeout=(10.0, float(config.get('request_timeout_sec', 60))))
         dt = time.perf_counter() - t0
         logger.info(f"[INGEST] WorldNewsAPI API_CALL dt={dt:.3f}s key={cache_key}")
@@ -129,15 +134,23 @@ def fetch_top_news(config: dict) -> list[dict]:
             news_count += 1
             url = (n.get("url") or "").strip()
             title = (n.get("title") or "").strip()
-            content = (n.get("text") or n.get("summary") or "").strip()
+            body = (n.get("text") or "").strip()
+            content = body or (n.get("summary") or "").strip()
             published_at = n.get("publish_date") or n.get("published_at") or ""
             image = n.get("image") or ""
             domain = urlparse(url).netloc.lower() if url else ""
 
-            if content_max_chars and len(content) > content_max_chars:
+            truncated = bool(content_max_chars and len(content) > content_max_chars)
+            if truncated:
                 content = content[:content_max_chars]
+            content_kind = 'metadata'
+            if content:
+                content_kind = ('excerpt' if truncated else 'text') if body else 'summary'
 
             item_id = stable_hash(domain, url, title, published_at, length=24)
+            item_language = language_metadata(n.get('language'), provider='worldnewsapi')
+            if not item_language['source_language'].strip():
+                item_language['language'] = requested_language
 
             items.append(
                 {
@@ -146,9 +159,10 @@ def fetch_top_news(config: dict) -> list[dict]:
                     "url": url,
                     "title": title,
                     "content": content,
+                    "content_kind": content_kind,
                     "published_at": published_at,
                     "fetched_at": fetched_at,
-                    "language": language,
+                    **item_language,
                     "country": country,
                     "image_urls": [image] if image else [],
                     "meta": {"api_cluster_id": cluster.get("id") or cluster.get("cluster_id") or ""},

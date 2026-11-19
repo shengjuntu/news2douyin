@@ -31,6 +31,9 @@ def card_token(card):
     fields = ('key', 'title', 'excerpt', 'source_key', 'source_kind', 'source_url',
               'sources', 'reconstruction', 'official_coverage', 'action_evidence', 'country')
     material = {name: card.get(name) for name in fields}
+    for field in ('language', 'source_ref'):
+        if card.get(field):
+            material[field] = card[field]
     encoded = json.dumps(material, ensure_ascii=False, sort_keys=True, separators=(',', ':'))
     return hashlib.sha256(encoded.encode()).hexdigest()
 
@@ -60,6 +63,7 @@ def freeze_sources(session, workspace, day, card):
     """Use the same title/excerpt and evidence URLs the published edition stores."""
     representative = dict(url=card.get('source_url'), title=card['title'], excerpt=card.get('excerpt') or '',
                           source_kind=card.get('source_kind'), source_key=card.get('source_key'),
+                          language=card.get('language'), source_ref=card.get('source_ref'),
                           reconstruction=card.get('reconstruction'))
     selected = []
     seen = set()
@@ -85,6 +89,10 @@ def freeze_sources(session, workspace, day, card):
             track(session, document['official_event_id'])
         elif kind == 'gkg':
             document['source_ref'] = gkg_ref(source_key)
+        elif kind == 'collected':
+            ref = sample.get('source_ref') or {}
+            document.update(provider=ref.get('provider') or 'collected', source_ref=ref,
+                            language=sample.get('language') or '', candidate_key=source_key)
         if reconstruction:
             document.update(reconstruction_lead(reconstruction))
         if sample is representative and card.get('official_coverage'):

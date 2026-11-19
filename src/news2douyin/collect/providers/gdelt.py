@@ -11,6 +11,7 @@ import requests
 
 from ...search.dates import calendar_day, date_range
 from ...storage.models import utc_now_iso
+from ...translations.language import language_metadata, provider_language_code, provider_languages
 
 
 ENDPOINT = 'https://api.gdeltproject.org/api/v2/doc/doc'
@@ -21,6 +22,9 @@ COUNTRY_NAMES = {name.casefold(): iso for iso, (_, gdelt, english, _) in COUNTRI
                  for name in (gdelt, english)}
 LANGUAGE_NAMES = {name.casefold(): iso for iso, name in LANGUAGES.items()}
 
+
+def profile_codes():
+    return {**CODES, 'languages': provider_languages('gdelt', LANGUAGES)}
 
 
 def request_timeouts():
@@ -48,9 +52,10 @@ def query_for(config):
             raise ValueError('GDELT 未配置此来源国的代码映射，请选择列表中的国家或选择全球')
         terms.append('sourcecountry:' + COUNTRIES[country][0])
     if language:
-        if language not in LANGUAGES:
+        outbound = provider_language_code(language, provider='gdelt', defaults=LANGUAGES)
+        if not outbound:
             raise ValueError('GDELT 不支持所选报道语言')
-        terms.append('sourcelang:' + LANGUAGES[language].lower())
+        terms.append('sourcelang:' + outbound.lower())
     if not 1 <= int(config.get('max_items', 100)) <= 250:
         raise ValueError('GDELT 单次最多 250 条，至少 1 条')
     return ' '.join(terms)
@@ -69,7 +74,10 @@ def _article(data, fetched_at):
     except ValueError:
         return None
     raw_country = str(data.get('sourcecountry') or '').strip()
-    raw_language = str(data.get('language') or '').strip()
+    raw_language = str(data.get('language') or '')
+    language = language_metadata(raw_language, provider='gdelt')
+    if not language['language']:
+        language['language'] = LANGUAGE_NAMES.get(raw_language.strip().casefold(), '')
     try:
         stamp = datetime.strptime(data.get('seendate', ''), '%Y%m%dT%H%M%SZ')
         seen_at = stamp.strftime('%Y-%m-%dT%H:%M:%SZ')
@@ -78,7 +86,7 @@ def _article(data, fetched_at):
     return {'title': title.strip(), 'url': url.strip(), 'content': '', 'published_at': '',
             'fetched_at': fetched_at, 'source': {'domain': parsed.hostname.lower()},
             'country': COUNTRY_NAMES.get(raw_country.casefold(), ''),
-            'language': LANGUAGE_NAMES.get(raw_language.casefold(), ''),
+            **language,
             'gdelt': {'seen_at': seen_at, 'source_country': raw_country, 'source_language': raw_language}}
 
 

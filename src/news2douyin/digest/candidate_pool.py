@@ -50,6 +50,8 @@ class Candidate:
     publisher_units: tuple[tuple[str, str, str], ...] = ()
     source_clock: dict | None = None
     coarse: dict | None = None
+    language: str = ''
+    source_ref: dict | None = None
     _selection_receipt: str = field(default='', kw_only=True, repr=False, compare=False)
 
 
@@ -102,12 +104,14 @@ def _observation(row: Candidate, *, shortlist_trial=False):
               row.excerpt[:1000], bool((row.is_primary or original_document) and not row.reconstruction),
               row.focus_hints[:16], row.official_coverage, row.action_evidence, row.reconstruction, row.legacy_eligible, row.legacy_excerpt)
     coarse = row.coarse if shortlist_trial else None
-    if publisher_units or row.source_clock or coarse:
+    if publisher_units or row.source_clock or coarse or row.language or row.source_ref:
         record += (publisher_units,)
-    if row.source_clock or coarse:
+    if row.source_clock or coarse or row.language or row.source_ref:
         record += (row.source_clock,)
-    if coarse:
+    if coarse or row.language or row.source_ref:
         record += (coarse,)
+    if row.language or row.source_ref:
+        record += (row.language, row.source_ref)
     return key, previous_key, json.dumps(record, ensure_ascii=False, separators=(',', ':')), int(row.legacy_eligible)
 
 
@@ -185,6 +189,10 @@ def _group_record(key: str, observations: Iterator, policy: str, *, with_coarse=
         if previous is None or order > previous[0]:
             sample = dict(url=row.source_url, title=row.title, source_kind=row.source_kind,
                           source_key=row.key, evidence_key=row.evidence_key)
+            if row.language:
+                sample['language'] = row.language
+            if row.source_ref:
+                sample['source_ref'] = row.source_ref
             if row.action_evidence and not legacy:
                 sample['action_evidence'] = row.action_evidence
             if row.reconstruction and not legacy:
@@ -204,6 +212,10 @@ def _group_record(key: str, observations: Iterator, policy: str, *, with_coarse=
                   focus_hints=hint_names, domains=sorted(domains), domain_count=source_count, domains_capped=capped_domains,
                   sources=[v[1] for v in sorted(evidence.values(), key=lambda v: v[0], reverse=True)],
                   observations=observation_count, impact=impact, attention=attention, is_primary=primary)
+    if best.language:
+        record['language'] = best.language
+    if best.source_ref:
+        record['source_ref'] = best.source_ref
     if merged_headlines and variant_count > 1:
         record['headline_variants'] = variant_count
     if current:

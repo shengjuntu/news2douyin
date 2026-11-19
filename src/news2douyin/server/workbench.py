@@ -67,7 +67,15 @@ def register(app,engine,storage,render):
 
     @app.get('/workbench/new')
     def new(event:str='',watch:str='',article:str='',digest_day:str=Query('',max_length=10),
-            progress:str=Query('',max_length=160),digest_token:str=Query('',pattern=r'^(?:[a-f0-9]{64})?$'),s=Depends(db)):
+            progress:str=Query('',max_length=160),digest_token:str=Query('',pattern=r'^(?:[a-f0-9]{64})?$'),
+            candidate:str=Query('',max_length=240),s=Depends(db)):
+        if candidate:
+            if event or watch or article or digest_day or progress or digest_token:
+                raise HTTPException(422, '请单独选择一条候选材料')
+            material, token = task_call(work.candidate_material,s,storage,candidate)
+            return render('workbench_new.html',active='workbench',event='',watch='',article='',
+                title=material['title'][:250],watch_name='',candidate=candidate,candidate_token=token,
+                candidate_url=material.get('url') or '')
         if digest_day or progress or digest_token:
             if event or watch or article:
                 raise HTTPException(422, '请单独选择日报中的进展')
@@ -97,7 +105,7 @@ def register(app,engine,storage,render):
 
     @app.post('/api/workbench',dependencies=[Depends(same_origin)],status_code=201)
     def create(payload:work.Start):
-        return task_call(work.start,engine,payload.model_dump())
+        return task_call(work.start,engine,payload.model_dump(),storage_root=storage)
 
     @app.post('/api/workbench/import',dependencies=[Depends(same_origin)])
     def adopt(p:Adopt):

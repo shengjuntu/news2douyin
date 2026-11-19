@@ -3,6 +3,8 @@ from uuid import uuid4
 from sqlalchemy import func, or_
 from sqlmodel import select
 
+from ..candidates.promotion import attach_articles, stage_event
+from ..research.materials import is_lead
 from ..storage.models import (Article, ArticleVersion, ArticleEventLink, Event, EventState,
     EventMoment, EventActivity, EventAssignment, EventRelation, EventResearch, utc_now_iso)
 from ..storage.articles import lock_news, latest_version, record_version
@@ -68,11 +70,10 @@ def finish(session, key, state):
 
 def create_event(session, data):
     lock_news(session, 'event:create')
-    key = 'evt_' + uuid4().hex[:20]
-    event = Event(event_key=key, event_title=data['title'], summary=data.get('summary',''), topic=data.get('topic',''))
-    session.add(event)
-    session.add(EventState(event_key=key, title_override=event.event_title, summary_override=event.summary))
-    audit(session, key, 'create', {'event': event.model_dump()})
+    event, _ = stage_event(session, title=data['title'], summary=data.get('summary',''),
+                           topic=data.get('topic',''))
+    key = event.event_key
+    audit(session, key, 'create', {'event': event.model_dump(), 'decision': 'manual'})
     session.commit()
     return workspace(session, key)
 
@@ -103,33 +104,12 @@ def ensure_version(session, article):
 
 def add_sources(session, key, data):
     state = lock_event(session, key, data['expected_version'])
-    added = _add_sources(session, key, state, data['article_keys'], data.get('note',''))
+    added = attach_articles(session, state, data['article_keys'], note=data.get('note',''))
     if not added:
         session.commit()
         return workspace(session, key)
     audit(session, key, 'add_sources', {'articles':added,'note':data.get('note','')})
     return finish(session, key, state)
-
-
-def _add_sources(session, key, state, keys, note='', origin='manual'):
-    existing = linked_keys(session, key)
-    notes, added = loads(state.source_notes_json, {}), []
-    for article_key in dict.fromkeys(keys):
-        article = session.exec(select(Article).where(Article.article_key == article_key)).first()
-        if not article: raise KeyError('新闻不存在：' + article_key)
-        if article_key in existing: continue
-        version = ensure_version(session, article)
-        session.add(ArticleEventLink(article_key=article_key, event_key=key,
-                                   relation_type='duplicate' if article.is_duplicate else 'primary'))
-        notes[article_key] = dict(origin=origin, note=note, revision=version.revision, added_at=utc_now_iso())
-        assignment = session.get(EventAssignment, article_key)
-        if not assignment:
-            session.add(EventAssignment(article_key=article_key, event_key=key, reason=origin))
-        added.append(article_key)
-        existing.add(article_key)
-    state.source_notes_json = dumps(notes)
-    session.add(state)
-    return added
 
 
 def active_moments(session, key):
@@ -181,6 +161,8 @@ def save_moment(session, key, data, moment_key=None):
         if not version: raise ValueError('所选文章版本不存在，请重新选择来源')
         if version.content_hash != source['content_hash']: raise TaskConflict('来源版本指纹不匹配，请重新加载证据')
         document = loads(version.payload_json,{})
+        if data['reviewed'] and is_lead(document):
+            raise ValueError('标题或摘要线索不能作为已核对证据，请补原文后选择新版本')
         excerpt = source['excerpt'].strip()
         if not excerpt or not (excerpt in document.get('content','') or excerpt in document.get('title','')):
             raise ValueError('证据摘录必须是该版本原文中的连续片段：'+document.get('title',''))
@@ -238,16 +220,17 @@ def unrelate(session,key,relation_key,expected):
 
 
 def merge(session,key,data):
-    state=lock_event(session,key,data['expected_version'])
     target=data['target_event_key']
     if key==target: raise ValueError('不能合并到自身')
+    lock_news(session, 'event:' + key, 'event:' + target)
+    state=lock_event(session,key,data['expected_version'])
     require_event(session,target,active=True)
     target_state=state_for(session,target)
     if target_state.version != data['target_expected_version']:
         raise TaskConflict('目标事件已更新，请重新选择后合并')
     keys=linked_keys(session,key)
     origin_notes=loads(state.source_notes_json,{})
-    _add_sources(session,target,target_state,keys,'从 '+key+' 合并','merge')
+    attach_articles(session,target_state,keys,note='从 '+key+' 合并',origin='merge')
     target_notes=loads(target_state.source_notes_json,{})
     for article_key in keys:
         if article_key in origin_notes:
@@ -286,13 +269,12 @@ def split(session,key,data):
             if not sources <= chosen:
                 raise TaskConflict('节点“'+node.title+'”同时引用两组报道，请先拆分或修改该节点')
             moving.append(node)
-    target='evt_'+uuid4().hex[:20]
     origin=require_event(session,key)
-    session.add(Event(event_key=target,event_title=data['title'],topic=origin.topic,market_scope=origin.market_scope))
-    target_state=EventState(event_key=target,title_override=data['title'])
-    session.add(target_state)
+    event,target_state=stage_event(session,title=data['title'],topic=origin.topic,market_scope=origin.market_scope)
+    target=event.event_key
+    target_state.summary_override=None
     notes=loads(state.source_notes_json,{})
-    _add_sources(session,target,target_state,chosen,'从 '+key+' 拆分','split')
+    attach_articles(session,target_state,chosen,note='从 '+key+' 拆分',origin='split')
     new_notes=loads(target_state.source_notes_json,{})
     for a in chosen:
         if a in notes: new_notes[a]['previous_origin']=notes.pop(a)
@@ -328,9 +310,11 @@ def workspace(session,key):
     sources=[]
     for a,v in rows:
         doc=loads(v.payload_json,{}) if v else a.model_dump()
+        origin = notes.get(a.article_key,{})
         sources.append(dict(article_key=a.article_key,title=doc.get('title',''),url=doc.get('url',''),source_domain=doc.get('source_domain',''),
-            published_at=doc.get('published_at',''),excerpt=doc.get('content','')[:800],revision=v.revision if v else None,
-            content_hash=v.content_hash if v else '',is_duplicate=a.is_duplicate,origin=notes.get(a.article_key,{})))
+            published_at=doc.get('published_at',''),excerpt=(doc.get('content') or origin.get('excerpt',''))[:800],
+            revision=v.revision if v else None, content_hash=v.content_hash if v else '',is_duplicate=a.is_duplicate,
+            origin=origin, requires_original_text=is_lead(doc)))
     moments=[moment_data(m) for m in active_moments(session,key)]
     moments.sort(key=lambda m:(not bool(m['date_start']),m['date_start'],m['created_at'],m['moment_key']))
     for moment in moments:

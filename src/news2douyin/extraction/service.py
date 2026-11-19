@@ -17,18 +17,23 @@ NEW = 'baseline'
 MODEL = 'model_queued'
 
 
-def newsnow_lead(version):
-    """Judge this immutable revision, never the current Article provider/body."""
+def _lead_kind(version):
+    """Read the provenance of this immutable revision."""
     try:
         document=json.loads(version.payload_json)
-    except (ValueError,TypeError):return False
-    if not isinstance(document,dict):return False
+    except (ValueError,TypeError):return ''
+    if not isinstance(document,dict):return ''
     raw=document.get('raw') or {}
     if not isinstance(raw,dict):raw={}
-    return (document.get('provider')=='newsnow' or
-            document.get('source_kind')=='newsnow_metadata' or
-            document.get('material_kind')=='newsnow_discovery' or
-            raw.get('material_kind')=='newsnow_discovery')
+    if (document.get('provider')=='newsnow' or document.get('source_kind')=='newsnow_metadata'
+            or document.get('material_kind')=='newsnow_discovery' or raw.get('material_kind')=='newsnow_discovery'):
+        return 'newsnow'
+    if document.get('material_kind', raw.get('material_kind'))=='candidate_lead':
+        return 'candidate'
+    return ''
+
+
+LEAD_LABELS = {'newsnow':'NewsNow榜单／摘要线索', 'candidate':'标题或摘要线索'}
 
 
 def initialize(engine,*,backfill=True,checkpoint=False):
@@ -83,8 +88,9 @@ def initialize(engine,*,backfill=True,checkpoint=False):
 
 
 def schedule_model(session, version):
-    if newsnow_lead(version):
-        raise ValueError('这个NewsNow版本只有榜单标题或摘要，请先补充真实原文，再对原文新版本进行事件抽取')
+    lead = _lead_kind(version)
+    if lead:
+        raise ValueError(LEAD_LABELS[lead] + '，请先补充真实原文，再对原文新版本进行事件抽取')
     lock_news(session,'extract-version/'+str(version.id))
     job = session.exec(select(VersionReading).where(VersionReading.version_id==version.id).with_for_update()).first()
     if not job:
@@ -123,10 +129,9 @@ def pick(engine, model):
             s.delete(job)
             s.commit()
             return None
-        if newsnow_lead(version):
-            # A queue created before the metadata boundary was fixed cannot
-            # turn an aggregator excerpt into original-text assertions.
-            job.state,job.note,job.until,job.lease='metadata_only','NewsNow榜单／摘要线索，等待真实原文',0.0,''
+        lead = _lead_kind(version)
+        if lead:
+            job.state,job.note,job.until,job.lease='metadata_only',LEAD_LABELS[lead]+'，等待真实原文',0.0,''
             s.add(job);s.commit()
             return None
         job.state, job.lease, job.until = running, uuid4().hex, now+180
@@ -208,20 +213,21 @@ def mentions(s, version_id, include_rejected=False):
 
 def article_view(s, version):
     job = s.get(VersionReading, version.id)
-    lead=newsnow_lead(version)
+    lead=_lead_kind(version)
     return dict(state=job.state if job else NEW, method=job.method if job else '',
                 model=job.model if job else '',note=job.note if job and job.note!='model_after_baseline' else '',
                 items=mentions(s,version.id,True),revision=version.revision,
-                lead_only=lead,model_allowed=not lead,
-                material_note='本版本是NewsNow榜单标题或摘要，尚未取得原文；先补充真实原文后，再对原文新版本抽取。' if lead else '')
+                lead_only=bool(lead),model_allowed=not lead,
+                material_note=LEAD_LABELS[lead]+'，请先补充真实原文，再抽取。' if lead else '')
 
 
 def decide(s, mention, decision):
     candidate=s.get(TextMention,mention)
     if not candidate:raise KeyError('陈述不存在或已更新')
     version=s.get(ArticleVersion,candidate.version_id)
-    if decision=='accepted' and version and newsnow_lead(version):
-        raise ValueError('NewsNow榜单／摘要的抽取结果不能标为原文已核对，请先读取真实原文')
+    lead = _lead_kind(version) if version else ''
+    if decision=='accepted' and lead:
+        raise ValueError(LEAD_LABELS[lead]+'无法标为原文已核对，请先读取真实原文')
     lock_news(s,'extract-version/'+str(candidate.version_id))
     row = s.exec(select(TextMention).where(TextMention.id==mention)).first()
     if not row:

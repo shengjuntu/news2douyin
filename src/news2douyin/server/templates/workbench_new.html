@@ -4,12 +4,14 @@
 <label>讲述角度或核心问题<textarea name="angle" rows="3" maxlength="1500"></textarea></label>
 {% if watch %}<p>来自焦点 {{ watch_name }}</p><div class="row"><label>材料起始日期<input type="date" name="date_from"></label><label>材料结束日期<input type="date" name="date_to"></label></div>{% endif %}
 {% if digest_day %}<p class="muted"><a href="/radar?day={{ digest_day }}">来源 {{ digest_day }} 日报</a></p>{% endif %}
+{% if candidate and candidate_url|safe_url %}<p><a href="{{ candidate_url|safe_url }}" target="_blank" rel="noopener noreferrer">查看原报道 ↗</a></p>{% endif %}
 <button>创建并进入选题</button><p id="new-message" role="status" class="desk-error"></p></form>
 <script>
 (() => {
   const form = document.querySelector('#work-new');
-  const digest = {{ (dict(digest_day=digest_day,progress=progress,digest_token=digest_token) if digest_day else {})|tojson }};
-  const storageKey = ['n2d-new-content-request', ...Object.values(digest)].join('/');
+  const origin = {{ (dict(digest_day=digest_day,progress=progress,digest_token=digest_token) if digest_day else
+        dict(candidate=candidate,candidate_token=candidate_token) if candidate else {})|tojson }};
+  const storageKey = ['n2d-new-content-request', ...Object.values(origin)].join('/');
   let requestId = sessionStorage.getItem(storageKey);
   if (!requestId) {
     const nonce = crypto.getRandomValues(new Uint8Array(16));
@@ -23,7 +25,7 @@
     button.disabled = true;
     try {
       const payload = {
-        ...digest, ...Object.fromEntries(new FormData(form)), request_id: requestId,
+        ...origin, ...Object.fromEntries(new FormData(form)), request_id: requestId,
         event: {{ event|tojson }}, watch: {{ watch|tojson }}, articles: {{ ([article] if article else [])|tojson }}
       };
       const response = await fetch('/api/workbench', {

@@ -3,13 +3,14 @@ from __future__ import annotations
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
+from ...translations.language import MAX_LANGUAGE_LENGTH, normalize_language
 
 
 class ProfilePayload(BaseModel):
     name: str = Field(pattern=r'^[^/\\\x00-\x1f]{1,80}$')
     provider: Literal['worldnewsapi', 'mock', 'gdelt', 'gkg', 'newsnow'] = 'worldnewsapi'
     country: str = Field(default='us', max_length=8)
-    language: str = Field(default='en', max_length=8)
+    language: str = Field(default='en', max_length=MAX_LANGUAGE_LENGTH)
     categories: list[str] = Field(default_factory=list)
     keywords_include: list[str] = Field(default_factory=list)
     keywords_exclude: list[str] = Field(default_factory=list)
@@ -43,7 +44,7 @@ class ProfilePayload(BaseModel):
         if self.provider == 'newsnow':
             from ...collect.providers.newsnow import validate
             self.country = self.country.strip().lower() if 'country' in self.model_fields_set else ''
-            self.language = self.language.strip().lower() if 'language' in self.model_fields_set else ''
+            self.language = normalize_language(self.language, provider='newsnow', strict=True) if 'language' in self.model_fields_set else ''
             if 'max_items' not in self.model_fields_set:self.max_items=1200
             self.extra.setdefault('collection_mode','top')
             self.extra.setdefault('filter_mode','rules')
@@ -53,7 +54,7 @@ class ProfilePayload(BaseModel):
         elif self.provider in ('gdelt','gkg'):
             from ...collect.providers.gdelt import query_for
             self.country = self.country.strip().lower() if 'country' in self.model_fields_set else ''
-            self.language = self.language.strip().lower() if 'language' in self.model_fields_set else ''
+            self.language = normalize_language(self.language, provider=self.provider, strict=True) if 'language' in self.model_fields_set else ''
             self.extra.setdefault('collection_mode', 'search')
             self.extra.setdefault('filter_mode', 'rules')
             if self.provider=='gkg':
@@ -61,7 +62,8 @@ class ProfilePayload(BaseModel):
             query_for({**self.extra, 'country': self.country, 'language': self.language, 'max_items': self.max_items})
             self.extra['search_query'] = self.extra['search_query'].strip()
         else:
-            self.country, self.language = self.country.strip(), self.language.strip()
+            self.country = self.country.strip()
+            self.language = normalize_language(self.language, provider=self.provider, strict=True)
             if not self.country or not self.language:
                 raise ValueError('国家和语言不能为空')
         if self.extra.get('filter_mode', 'auto') not in ('auto', 'rules'):

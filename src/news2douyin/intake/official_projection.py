@@ -9,9 +9,11 @@ in the same transaction and owns the per-batch lock.
 import hashlib
 import json
 from sqlalchemy import func, update
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlmodel import select
 from .feeds import kind_for
-from .official_models import OfficialEvent, OfficialMention
+from .official_models import OfficialEvent, OfficialFocusUpdate, OfficialMention
 from ..storage.models import utc_now_iso
 from ..storage.articles import lock_news
 
@@ -95,3 +97,14 @@ def project_row(session, raw):
     if isinstance(meta,str):meta=json.loads(meta)
     key=_event(session,raw,meta) if kind=='events' else _mention(session,raw,meta)
     return dict(status='projected',event_id=key,error='')
+
+
+def track_focus_updates(session, event_ids):
+    """Record availability in the same commit as the compact event index."""
+    apply = pg_insert if session.get_bind().dialect.name == 'postgresql' else sqlite_insert
+    stamp = utc_now_iso()
+    statement = apply(OfficialFocusUpdate)
+    statement = statement.on_conflict_do_update(index_elements=['event_id'],
+        set_={'available_at': statement.excluded.available_at},
+        where=OfficialFocusUpdate.available_at < statement.excluded.available_at)
+    session.execute(statement, [{'event_id': key, 'available_at': stamp} for key in sorted(event_ids)])

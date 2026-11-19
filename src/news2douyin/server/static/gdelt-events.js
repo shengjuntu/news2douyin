@@ -137,7 +137,7 @@
     for(const [label,value] of [['官方首次观测',event.first_seen],['最近官方观测',event.last_seen]])list.append(node('li',label+' · '+time(value)));heading.append(list);
     const actions=node('div',undefined,'row');
     if(event.selected_task){const a=node('a','继续这项选题 →','action-link');a.href='/workbench/'+encodeURIComponent(event.selected_task)+'/selection';actions.append(a);}
-    const choose=node('button',event.selected_task?'另起一个角度':'形成选题',event.selected_task?'ghost':'');choose.type='button';choose.addEventListener('click',()=>openSelection(event.event_id,reportFor(event)?.title||event.reconstruction?.excerpt||''));actions.append(choose);heading.append(actions);
+    const choose=node('button',event.selected_task?'另起一个角度':'形成选题',event.selected_task?'ghost':'');choose.type='button';choose.addEventListener('click',()=>openSelection(event.event_id,reportFor(event)?.title||event.reconstruction?.excerpt||''));actions.append(choose);const organize=node('a','整理事件');organize.href='/organize?candidate='+encodeURIComponent('gdelt:'+event.event_id);actions.append(organize);heading.append(actions);
     const sources=section(detailHost,'更多报道与采集依据');
     sources.append(node('p','本站已观测报道 '+(event.observed_documents??'未知')+' · 媒体域名 '+(event.observed_sources??'未知')+'。数量不代表独立核实。','gdelt-detail-note'));
     const mentions=Array.isArray(data.mentions)?data.mentions:[];

@@ -186,6 +186,49 @@ def test_resume_reuses_checkpoints_and_atomic_item_ledger(tasks, engine, tmp_pat
         assert len((Path(runs[-1].storage_path) / 'articles.jsonl').read_text().splitlines()) == 2
 
 
+def test_provider_reports_survive_filter_and_task_resume(tasks, engine, tmp_path, monkeypatch, article):
+    from news2douyin.candidates.models import SourceReport
+    from news2douyin.storage.models import Event
+
+    accepted = dict(article, language='', source_language='und')
+    excluded = dict(article, url='https://rejected.example/b',
+                    source={'domain': 'rejected.example'}, title='A separate excluded report')
+    fetcher = Mock(return_value=[accepted, excluded])
+    monkeypatch.setitem(collect.PROVIDERS, 'worldnewsapi', fetcher)
+    with Session(engine) as s:
+        collect.create_or_update_profile(s, {'name': 'filtered', 'provider': 'worldnewsapi',
+            'filter_mode': 'rules', 'source_blacklist': ['rejected.example']})
+    task = tasks.submit('filtered')
+    claim = tasks.claim()
+    context = TaskContext(tasks, claim, threading.Event())
+    normal_progress = context.progress
+
+    def crash(stage, current=0, total=0):
+        if stage == 'filtering':
+            expire(engine, task['task_id'])
+            raise TaskLeaseLost('simulated loss after indexing raw reports')
+        normal_progress(stage, current, total)
+
+    context.progress = crash
+    with Session(engine) as s, pytest.raises(TaskLeaseLost):
+        collect.run_collection(s, 'filtered', storage_root=tmp_path, control=context,
+                               profile_snapshot=json.loads(claim.profile_json))
+    tasks.recover()
+    TaskWorker(engine, tmp_path).execute(tasks.claim())
+    assert tasks.get(task['task_id'])['status'] == 'succeeded'
+    assert fetcher.call_count == 1
+    with Session(engine) as s:
+        reports = s.exec(select(SourceReport).order_by(SourceReport.row_index)).all()
+        assert [row.url for row in reports] == [accepted['url'], excluded['url']]
+        assert reports[0].language == ''
+        first = json.loads(reports[0].provenance_json)
+        assert first['source_language'] == 'und'
+        assert len((tmp_path / first['run_key'] / 'raw.jsonl').read_text().splitlines()) == 2
+        kept = s.exec(select(Article)).one()
+        assert (kept.url, kept.language) == (accepted['url'], '')
+        assert s.exec(select(Event)).first() is None
+
+
 def test_heartbeat_keeps_blocking_provider_lease(tasks, engine, tmp_path, monkeypatch):
     started, release = threading.Event(), threading.Event()
     def fetch(_):
@@ -299,9 +342,11 @@ def test_sdk_run_now_preserves_run_result_and_timeout():
 
 
 def test_failed_item_rolls_back_ledger_and_event(tasks, engine, tmp_path, monkeypatch):
-    def failure(session, item, event_key):
+    from news2douyin.candidates import promotion
+
+    def failure(session, article, **decision):
         raise RuntimeError('event failure')
-    monkeypatch.setattr(collect, '_upsert_event', failure)
+    monkeypatch.setattr(promotion, 'approve_collected_article', failure)
     task = tasks.submit('mock')
     TaskWorker(engine, tmp_path).execute(tasks.claim())
     assert tasks.get(task['task_id'])['status'] == 'failed'

@@ -39,9 +39,10 @@ def retry_delay(attempt):
     return min(30,.5*2**min(attempt,6)*random.uniform(.8,1.2))
 
 class DeskWorker:
-    def __init__(self,engine,research_runtime):
+    def __init__(self,engine,research_runtime,storage_root=None):
         self.engine=engine
         self.research=research_runtime
+        self.storage_root=storage_root
         self.graph=GraphMirror()
         self.stop_event=Event()
         self.threads=[]
@@ -50,8 +51,11 @@ class DeskWorker:
 
     def start(self):
         self.stop_event.clear()
-        for target in [self.index_loop,self.read_loop,self.model_loop,self.graph_loop,
-                       self.focus_build_loop,self.focus_history_loop,self.focus_judge_loop]:
+        targets=[self.index_loop,self.read_loop,self.model_loop,self.graph_loop,
+                 self.focus_build_loop,self.focus_history_loop,self.focus_judge_loop]
+        if self.storage_root is not None:
+            targets.append(self.focus_lead_loop)
+        for target in targets:
             thread=Thread(target=target,daemon=True)
             thread.start()
             self.threads.append(thread)
@@ -89,10 +93,17 @@ class DeskWorker:
         self.focus_loop(scan_step)
 
     def focus_judge_loop(self):
+        from itertools import cycle
         from .focus_jobs import judge_step
-        self.focus_loop(judge_step)
+        from .focus_leads import judge_step as judge_lead
+        orders = cycle(((judge_step, judge_lead), (judge_lead, judge_step)))
+        self.focus_loop(lambda engine: any(step(engine) for step in next(orders)))
 
-    def focus_loop(self,step):
+    def focus_lead_loop(self):
+        from .focus_leads import scan_step
+        self.focus_loop(lambda engine: scan_step(engine, self.storage_root, stop_event=self.stop_event), idle=10)
+
+    def focus_loop(self,step,*,idle=3):
         failures=0
         while not self.stop_event.is_set():
             try:
@@ -105,7 +116,7 @@ class DeskWorker:
                 if conflict(exc):log.warning('topic worker database conflict; retrying')
                 else:log.warning('topic worker tick failed (%s)',type(exc).__name__)
                 self.stop_event.wait(retry_delay(failures));continue
-            self.stop_event.wait(.5 if changed else 3)
+            self.stop_event.wait(.5 if changed else idle)
 
     def model_loop(self):
         self.extract_loop(model=True)

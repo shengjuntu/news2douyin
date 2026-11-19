@@ -78,3 +78,31 @@ class FocusCandidate(SQLModel, table=True):
     next_attempt: float = 0.0
     created: str = Field(default_factory=utc_now_iso)
     updated: str = Field(default_factory=utc_now_iso)
+
+
+class FocusLead(SQLModel, table=True):
+    """A match against a source observation, independent of local event membership."""
+
+    __table_args__ = (
+        Index('ix_focuslead_scope', 'watch', 'scope_version', 'observed_at', 'key'),
+        Index('ix_focuslead_work', 'status', 'next_attempt', 'observed_at', 'key'),
+        Index('ix_focuslead_judge_day', 'judge_day', 'watch'),
+    )
+    key: str = Field(primary_key=True)
+    watch: str
+    scope_version: int
+    candidate: str
+    observed_at: str
+    title: str
+    url: str
+    provider: str
+    language: str = ''
+    excerpt: str = ''
+    recall_json: str = '{}'
+    reason: str = ''
+    status: str = 'done'
+    decision: str = 'pending'
+    evidence_json: str = '[]'
+    judge_day: str = ''
+    attempts: int = 0
+    next_attempt: float = 0.0

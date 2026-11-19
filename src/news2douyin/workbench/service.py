@@ -29,6 +29,8 @@ class Start(BaseModel):
     digest_day: str=Field(default='',max_length=10)
     progress: str=Field(default='',max_length=160)
     digest_token: str=Field(default='',pattern=r'^(?:[a-f0-9]{64})?$')
+    candidate: str=Field(default='',max_length=240)
+    candidate_token: str=Field(default='',pattern=r'^(?:[a-f0-9]{64})?$')
     articles: list[str]=Field(default_factory=list,max_length=12)
     date_from: str=''
     date_to: str=''
@@ -120,7 +122,31 @@ def set_trashed(engine, key, version, *, trashed):
         return dict(key=key, trashed=trashed)
 
 
-def start(engine,payload):
+def candidate_material(session, storage_root, candidate, token=''):
+    from ..candidates.service import candidate_token, resolve_material
+
+    material = resolve_material(session, storage_root, candidate)
+    row = material['candidate']
+    current = candidate_token(row)
+    if token and token != current:
+        raise TaskConflict('候选材料已更新，请刷新后重新选择')
+    document = {key: value for key, value in material.items() if key != 'candidate'}
+    ref = document['source_ref']
+    readable = document['content_kind'] == 'text' and bool(document['content'].strip())
+    document.update(canonical_url=document['url'], revision=ref.get('revision'),
+                    source_domain=row.domains[0] if row.domains else '',
+                    requires_original_text=not readable,
+                    source_kind=('news_snapshot' if readable else 'newsnow_metadata' if row.source_kind == 'newsnow'
+                                 else 'event_metadata' if row.source_kind == 'gdelt' and not document['content']
+                                 else 'search_snippet'))
+    if row.source_kind == 'gdelt':
+        document['official_event_id'] = ref.get('event_id', '')
+    elif row.source_kind == 'newsnow':
+        document['attention_topic'] = ref.get('attention_topic', '')
+    return document, current
+
+
+def start(engine,payload,*,storage_root=None):
     value=Start.model_validate(payload)
     scope=topics.Scope(period='custom' if value.date_from or value.date_to else 'all',
                        date_from=value.date_from,date_to=value.date_to,event_key=value.event).checked()
@@ -129,6 +155,14 @@ def start(engine,payload):
     if not value.digest_token:
         fields.pop('digest_token')  # Preserve creation request hashes from earlier releases.
     from_digest = bool(value.digest_day or value.progress or value.digest_token)
+    if value.candidate:
+        if from_digest or value.event or value.watch or value.articles or value.date_from or value.date_to:
+            raise ValueError('请单独选择一条候选材料')
+    elif value.candidate_token:
+        raise ValueError('请选择候选材料')
+    else:
+        fields.pop('candidate')
+        fields.pop('candidate_token')
     if from_digest:
         if not value.digest_day or not value.progress or value.event or value.watch or value.articles or value.date_from or value.date_to:
             raise ValueError('请单独选择一期日报中的进展')
@@ -159,7 +193,18 @@ def start(engine,payload):
         if from_digest:
             from ..digest.handoff import selected_card
             card = selected_card(s, value.digest_day, value.progress, value.digest_token)
-        title=value.title.strip() or (card['title'][:250] if card else event.event_title if event else watch.name+' · 新选题' if watch else '未命名选题')
+        document = None
+        if value.candidate:
+            document, _ = candidate_material(s, storage_root, value.candidate, value.candidate_token)
+        if card or document:
+            source_title = (card or document)['title'][:250]
+        elif event:
+            source_title = event.event_title
+        elif watch:
+            source_title = watch.name + ' · 新选题'
+        else:
+            source_title = '未命名选题'
+        title=value.title.strip() or source_title
         cid='topiccase_'+research.digest(key)[:24]
         w=TopicWorkspace(workspace_id=key,request_hash=fingerprint,case_id=cid,title=title,
             angle=value.angle,scope_json=research.dump(scope))
@@ -181,6 +226,16 @@ def start(engine,payload):
             from ..digest.handoff import freeze_sources
             source_ids = freeze_sources(s, key, value.digest_day, card)
             bind(s, key, 'radar_daily', value.digest_day + '/' + value.progress)
+        elif document:
+            from ..topics.models import TopicSource
+
+            document = dict(document, candidate_key=value.candidate)
+            source_id = 'topic_source_' + research.digest([key, value.candidate])[:24]
+            s.add(TopicSource(source_id=source_id, workspace_id=key,
+                  article_key=document.get('article_key') or 'candidate/' + source_id,
+                  document_json=research.dump(document), content_hash=research.digest(document)))
+            source_ids = [source_id]
+            bind(s, key, 'source_candidate', value.candidate)
         else:
             source_ids = [topics.freeze(s,key,a).source_id for a in selected]
         w.selected_json=research.dump(source_ids)

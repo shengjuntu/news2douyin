@@ -38,7 +38,7 @@ def test_publication_idempotency_and_history(engine, simulated):
         assert session.get(DailyDigestIssue, day.isoformat()) is None
     original = service.build_issue(engine, day)
     assert original['status'] == 'ready'
-    assert original['stats']['sources'] == {'local_seen': 2}
+    assert original['stats']['sources'] == {'local_seen': 2, 'candidate_layer': 1, 'collected_emitted': 0}
     assert service.build_issue(engine, day) == original
     next_day = day + timedelta(days=1)
     followup = service.build_issue(engine, next_day)

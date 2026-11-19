@@ -120,6 +120,10 @@ def _card(pick: SelectionPick, run_key: bytes) -> dict:
             seen_urls.add(address)
             sample = dict(url=candidate.source_url, title=candidate.title, source_kind=candidate.source_kind,
                           source_key=candidate.key, evidence_key=candidate.evidence_key)
+            if candidate.language:
+                sample['language'] = candidate.language
+            if candidate.source_ref:
+                sample['source_ref'] = candidate.source_ref
             if candidate.action_evidence:
                 sample['action_evidence'] = candidate.action_evidence
             if candidate.reconstruction:
@@ -141,7 +145,7 @@ def _card(pick: SelectionPick, run_key: bytes) -> dict:
                 score=pick.score, reasons=list(pick.reasons))
     if row.source_kind == 'gkg':
         card['earliest_gkg_receipt'] = earliest_gkg
-    for field in ('source_clock', 'action_evidence', 'official_coverage', 'reconstruction'):
+    for field in ('source_clock', 'action_evidence', 'official_coverage', 'reconstruction', 'language', 'source_ref'):
         if getattr(row, field):
             card[field] = getattr(row, field)
     return deepcopy(card)

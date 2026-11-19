@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}采集候选 · 新闻雷达{% endblock %}
+{% block graph_libraries %}{% endblock %}
+{% block content %}
+{% with radar_tab='candidates' %}{% include 'radar_view_tabs.html' %}{% endwith %}
+<h1>采集候选</h1>
+<form class="inline" method="get">
+  <label>关键词 <input name="q" value="{{ q }}" maxlength="200" type="search"></label>
+  <label>信源 <input name="provider" value="{{ provider }}" maxlength="80" placeholder="worldnewsapi"></label>
+  <label>语种 <input name="language" value="{{ language }}" maxlength="40" placeholder="ar、en、zh"></label>
+  <button type="submit">筛选</button>
+</form>
+<section aria-label="候选报道">
+{% for item in rows %}
+  <article class="desk-pane" data-candidate-key="{{ item.key }}">
+    <h2 dir="auto">{{ item.title }}</h2>
+    <div class="row desk-meta">
+      <span>{{ item.provider }} · {{ item.language }}</span>
+      <span>收录 {{ item.observed_at|local_ts('Asia/Shanghai') }}（北京时间）</span>
+      <a href="/organize?candidate={{ item.key|urlencode }}">整理事件</a>
+      <a href="/workbench/new?candidate={{ item.key|urlencode }}">形成选题</a>
+    </div>
+  </article>
+{% else %}
+  <p class="muted">当前条件下没有已索引的采集报道。也可从<a href="/radar?source=gdelt">全球事件线索</a>或<a href="/radar?source=attention">中文平台关注</a>继续查找。</p>
+{% endfor %}
+</section>
+{% if more_url %}<p><a href="{{ more_url }}">查看更多</a></p>{% endif %}
+{% endblock %}

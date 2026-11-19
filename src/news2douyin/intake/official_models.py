@@ -73,3 +73,10 @@ class OfficialMention(SQLModel, table=True):
     last_stamp: str
     last_row_index: int
     updated_at: str = Field(default_factory=utc_now_iso)
+
+
+class OfficialFocusUpdate(SQLModel, table=True):
+    """Recent availability clock for the compact official event projection."""
+
+    event_id: str = Field(primary_key=True)
+    available_at: str = Field(index=True)

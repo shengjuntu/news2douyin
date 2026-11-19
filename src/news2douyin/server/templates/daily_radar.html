@@ -81,8 +81,9 @@
         </p>
         {% if why.change.quote and why.change.quote != entry.title %}<p class="daily-excerpt"><strong>{{ '重建片段' if entry.reconstruction else '报道中的行动表述' }}</strong> {{ why.change.quote }}</p>
         {% elif entry.excerpt and entry.excerpt != entry.title %}<p class="daily-excerpt">{{ entry.excerpt }}</p>{% endif %}
-        {% if entry.select_url or entry.detail_url %}<div class="daily-actions">
+        {% if entry.select_url or entry.detail_url or entry.organize_url %}<div class="daily-actions">
           {% if entry.select_url %}<a class="daily-select" href="{{ entry.select_url }}">形成选题</a>{% endif %}
+          {% if entry.organize_url %}<a href="{{ entry.organize_url }}">整理事件</a>{% endif %}
           {% if entry.detail_url %}<a href="{{ entry.detail_url }}">查看{{ entry.source_label }}详情</a>{% endif %}
         </div>{% endif %}
         {% include 'daily_card_translation.html' %}

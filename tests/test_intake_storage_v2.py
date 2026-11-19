@@ -160,6 +160,8 @@ def test_unsupported_parser_version_does_not_silently_reinterpret_archive(tmp_pa
 
 
 def test_default_gkg_discovery_does_not_create_research_event_or_extraction_job(setup,monkeypatch):
+    from news2douyin.candidates.promotion import promote
+    from news2douyin.candidates.service import candidate_token, list_reports
     from news2douyin.storage.models import Event
     from news2douyin.extraction.models import VersionReading
     engine,storage=setup
@@ -170,10 +172,13 @@ def test_default_gkg_discovery_does_not_create_research_event_or_extraction_job(
         assert session.exec(select(Article)).one().title.startswith('Alice')
         assert session.exec(select(Event)).first() is None
         assert session.exec(select(VersionReading)).one().state=='metadata_only'
-    # Existing selected/connector material continues through normal local events.
+    # After the connector observation is selected, the same article can enter the event.
     selected=import_document(engine,dict(provider='editorial',record_id='chosen',uri='https://media.example/article/1',
         title='Alice met Bob in Paris.',content='Alice met Bob in Paris yesterday.'))
     with Session(engine) as session:
+        assert session.exec(select(Event)).first() is None
+        candidate, = list_reports(session,provider='editorial')
+        promote(session,storage,candidate.key,expected_token=candidate_token(candidate),request_id='choose-editorial-report')
         assert session.exec(select(Event)).first() is not None
     next_stamp='20261104121500'
     archive(engine,storage,[line(next_stamp,1,'New GKG title')],stamp=next_stamp)

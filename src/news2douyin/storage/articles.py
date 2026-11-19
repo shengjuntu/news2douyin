@@ -71,11 +71,13 @@ def latest_version(session: Session, article_key: str) -> ArticleVersion | None:
                         .order_by(ArticleVersion.revision.desc()).limit(1)).first()
 
 
-def record_version(session: Session, row: Article, *, run_key=None, origin='collected') -> bool:
+def record_version(session: Session, row: Article, *, run_key=None, origin='collected',
+                   provenance_upgrade=False) -> bool:
+    """Write changed material, or a deliberate upgrade from a lead to original text."""
     payload = snapshot(row)
     digest = fingerprint(payload)
     previous = latest_version(session, row.article_key)
-    if previous and previous.content_hash == digest:
+    if previous and previous.content_hash == digest and not provenance_upgrade:
         return False
     try:
         payload['raw'] = json.loads(row.raw_json)

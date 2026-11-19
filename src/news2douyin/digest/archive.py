@@ -1,6 +1,7 @@
 """Read immutable GKG headline observations already received by the local archive."""
 from datetime import date, datetime, timezone
 from pathlib import Path
+import re
 from urllib.parse import urlsplit
 from .calendar import day_bounds_utc
 
@@ -11,7 +12,7 @@ from ..selection.source_content import source_url, text, usable_title
 PAGE_SIZE = 4096
 
 
-def iter_gkg(storage_root: str | Path, day: date, *, stats=None, cutoff=None, checkpoint=None, read_only=False, restored_stamps=(), coarse=False):
+def iter_gkg(storage_root: str | Path, day: date, *, stats=None, cutoff=None, checkpoint=None, read_only=False, restored_stamps=(), coarse=False, since=None, receipts=False):
     """Scan narrow columns in small slices, releasing the intake lock before yielding.
 
     Archive completion time is the observation clock. A backfilled batch belongs
@@ -28,6 +29,10 @@ def iter_gkg(storage_root: str | Path, day: date, *, stats=None, cutoff=None, ch
         counts.update(gkg_coarse_metadata_read=0, gkg_coarse_metadata_unavailable=0,
                       gkg_coarse_genre=0, gkg_coarse_category=0, gkg_coarse_mention_country=0)
     start, end = day_bounds_utc(day)
+    if since is not None:
+        if since.tzinfo is None:
+            raise ValueError('since must include a timezone')
+        start = max(start, since.astimezone(timezone.utc))
     if cutoff is not None:
         dt = datetime.fromisoformat(cutoff.replace("Z", "+00:00")) if isinstance(cutoff, str) else cutoff
         if dt.tzinfo is None:
@@ -49,7 +54,7 @@ def iter_gkg(storage_root: str | Path, day: date, *, stats=None, cutoff=None, ch
         if not available or "intake_archives" not in tables:
             raise RuntimeError("GKG archive schema is incomplete")
         scope = ''
-        if 'intake_digest_repairs' in tables:
+        if not receipts and 'intake_digest_repairs' in tables:
             scope = (" AND NOT EXISTS (SELECT 1 FROM intake_digest_repairs r "
                      "WHERE r.feed=a.feed AND r.stamp=a.stamp AND r.target_day<>?)")
         args = [timestamp(start), timestamp(end)]
@@ -124,3 +129,53 @@ def iter_gkg(storage_root: str | Path, day: date, *, stats=None, cutoff=None, ch
                 yield Candidate(key=f"gkg:{feed}:{stamp}:{idx}", title=headline,
                                 observed_at=observed_at, source_url=url, source_kind="gkg", source_clock=source_clock,
                                 evidence_key=canonicalize_url(url), domains=(urlsplit(url).hostname,), coarse=hints)
+
+
+def read_gkg_reference(storage_root, key, *, cutoff=''):
+    """Resolve one exact GKG observation with its immutable batch provenance."""
+    match = re.fullmatch(r'gkg:(gkg_english|gkg_translation):(\d{14}):([1-9]\d{0,8})', key)
+    if match is None:
+        raise KeyError('未找到可用的来源候选')
+    feed, stamp, index = match.groups()
+    index = int(index)
+    from ..intake.lake import validate_key
+    try:
+        validate_key(feed, stamp)
+    except ValueError:
+        raise KeyError('未找到可用的来源候选') from None
+    lake = Lake(storage_root)
+    with lake.connection() as db:
+        if db is None:
+            raise KeyError('未找到可用的来源候选')
+        tables = lake.tables(db)
+        if 'intake_archives' not in tables:
+            raise KeyError('未找到可用的来源候选')
+        record = db.execute('SELECT completed_at,sha256,rows FROM intake_archives WHERE feed=? AND stamp=?',
+                            (feed, stamp)).fetchone()
+        if record is None or not record[0] or not 1 <= index <= record[2] or (cutoff and record[0] >= cutoff):
+            raise KeyError('未找到可用的来源候选')
+        for name in ('intake_records_v2', 'intake_records'):
+            if name not in tables:
+                continue
+            raw_column = 'payload' if name.endswith('_v2') else 'metadata_json'
+            row = db.execute(f'SELECT title,url,valid,{raw_column} IS NOT NULL FROM {name} '
+                             'WHERE feed=? AND stamp=? AND row_index=?', (feed, stamp, index)).fetchone()
+            if row is not None:
+                break
+        else:
+            raise KeyError('未找到可用的来源候选')
+    title, url, valid, raw_present = row
+    url = source_url(url)
+    if not valid or not url or "\\" in url or not usable_title(title):
+        raise KeyError('未找到可用的来源候选')
+    language = ''
+    if raw_present:
+        observation, = lake.rows(feed, stamp, after=index - 1, limit=1)
+        if observation['row_index'] != index:
+            raise KeyError('未找到可用的来源候选')
+        language = (observation.get('metadata') or {}).get('source_language') or ''
+    observed, archive_sha, _ = record
+    reference = dict(provider='gkg', feed=feed, stamp=stamp, row_index=index, archive_sha256=archive_sha or '',
+                     source_language=language)
+    return dict(title=text(title, 500), url=url, observed_at=observed, source_language=language,
+                source_ref=reference)

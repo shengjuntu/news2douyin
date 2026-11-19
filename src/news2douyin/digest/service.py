@@ -1,9 +1,8 @@
 """Publish an atomic, versioned reading list for each Beijing calendar day."""
 from __future__ import annotations
 
-from contextlib import ExitStack, closing
+from contextlib import closing
 from datetime import date, datetime, timedelta, timezone
-from itertools import chain
 import json
 import logging
 import os
@@ -202,7 +201,7 @@ def build_issue(engine, day: date, *, storage_root=None, stop_event=None, only_d
     """
     from .focus_hints import annotate_focus, read_focus_hints
     from .selection import load_selection
-    from .sources import iter_candidates
+    from ..candidates.service import iter_day
 
     instant = now or datetime.now(timezone.utc)
     if instant.tzinfo is None:
@@ -234,16 +233,6 @@ def build_issue(engine, day: date, *, storage_root=None, stop_event=None, only_d
                 raise _Interrupted
             renew_at = time.monotonic() + LEASE_SECONDS / 4
 
-    def projected_candidates(source_stats):
-        # Release the SQL snapshot before scanning DuckDB or ranking the list.
-        with Session(engine) as session:
-            conn = session.connection()
-            if engine.dialect.name == 'postgresql':
-                conn.exec_driver_sql('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY')
-            else:
-                conn.exec_driver_sql('BEGIN')
-            yield from iter_candidates(session, day, stats=source_stats, cutoff=ceiling, checkpoint=checkpoint)
-
     try:
         checkpoint()
         plan = load_selection()
@@ -258,15 +247,8 @@ def build_issue(engine, day: date, *, storage_root=None, stop_event=None, only_d
                 if job_id:
                     archived['restored_stamps'] = stamps
                     source_stats['backfill_id'] = job_id
-        with ExitStack() as inputs:
-            sql_stream = inputs.enter_context(closing(projected_candidates(source_stats)))
-            stream = sql_stream
-            if storage_root is not None:
-                from .archive import iter_gkg
-                if plan.needs_coarse:
-                    archived['coarse'] = True
-                archive = inputs.enter_context(closing(iter_gkg(storage_root, day, cutoff=ceiling, stats=source_stats, checkpoint=checkpoint, **archived)))
-                stream = chain(sql_stream, archive)
+        with closing(iter_day(engine, storage_root, day, stats=source_stats, cutoff=ceiling,
+                              checkpoint=checkpoint, coarse=plan.needs_coarse, **archived)) as stream:
             annotated = annotate_focus(stream, matcher, stats=source_stats)
             result = plan.select(annotated, day=day, cutoff=ceiling, prior_keys=history)
         checkpoint()

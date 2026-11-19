@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
+from news2douyin.candidates import promotion
 from news2douyin.collect import service as collect
 from news2douyin.collect import llm_filter
 from news2douyin.collect.profiles import normalize_profile_dict
@@ -20,8 +21,8 @@ from conftest import FrozenTime
 
 
 def collect_fixture(session, monkeypatch, tmp_path, items):
-    monkeypatch.setitem(collect.PROVIDERS, 'fixture', lambda _: items)
-    collect.create_or_update_profile(session, {'name': 'fixture', 'provider': 'fixture'})
+    monkeypatch.setitem(collect.PROVIDERS, 'mock', lambda _: items)
+    collect.create_or_update_profile(session, {'name': 'fixture', 'provider': 'mock'})
     return collect.run_collection(session, 'fixture', storage_root=tmp_path / 'runs')
 
 
@@ -62,12 +63,12 @@ def test_same_second_runs_have_unique_ids(engine, monkeypatch, tmp_path):
 
 
 def test_article_and_event_update_are_atomic_on_db_error(engine, article, monkeypatch, tmp_path):
-    def fail_event(session, item, event_key):
+    def fail_event(session, article, **decision):
         row = session.exec(select(Article)).first()
         session.add(Article(article_key=row.article_key))
         session.flush()
 
-    monkeypatch.setattr(collect, '_upsert_event', fail_event)
+    monkeypatch.setattr(promotion, 'approve_collected_article', fail_event)
     with Session(engine) as session:
         with pytest.raises(IntegrityError):
             collect_fixture(session, monkeypatch, tmp_path, [article])

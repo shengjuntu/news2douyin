@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from loguru import logger
 
 from ...ingest.worldnewsapi import fetch_top_news
+from ...translations.language import normalize_language
 
 
 def fetch_news(config: dict) -> list[dict]:
@@ -14,8 +15,9 @@ def fetch_news(config: dict) -> list[dict]:
         from ...search.dates import calendar_day, timezone_name
         zone = timezone_name(config.get('timezone',''))
         day = calendar_day(config.get('date_str',''), zone)
+        language = normalize_language(config.get('language', ''), provider='worldnewsapi', strict=True)
         query = ResearchQuery(query=config.get('search_query',''), date_from=day, date_to=day, timezone=zone,
-            country=config.get('country',''), language=config.get('language',''), limit=config.get('max_items',100))
+            country=config.get('country',''), language=language, limit=config.get('max_items',100))
         return search_news(query.model_dump(), api_key_env=config.get('api_key_env','API_KEY'))['items']
     items = fetch_top_news(config)
     if items or config.get('date_str'):

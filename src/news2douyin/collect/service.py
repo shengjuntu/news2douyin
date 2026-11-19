@@ -18,11 +18,12 @@ from .providers.mock import fetch_mock_news
 from .providers.worldnewsapi import fetch_news as fetch_worldnewsapi
 from ..dedup.service import decide_duplicate
 from ..enrich.service import enrich_item
-from ..storage.models import CollectProfile, RunRecord, Article, Event, ArticleEventLink, ArticleIdentity, EventAssignment, ArticleVersion, GdeltDiscovery, CollectedObservation, utc_now_iso
+from ..storage.models import CollectProfile, RunRecord, Article, ArticleEventLink, ArticleIdentity, ArticleVersion, GdeltDiscovery, CollectedObservation, utc_now_iso
 from ..storage.articles import lock_news, identity_key, find_article, record_version, latest_version
 from ..events.service import choose_event, refresh_event
 from ..storage.utils import dumps, loads
 from ..store.io_jsonl import write_json, write_jsonl
+from ..translations.language import language_metadata, normalize_language
 
 PROVIDERS = {
     'worldnewsapi': fetch_worldnewsapi,
@@ -120,40 +121,6 @@ def _utc_timestamp(value: str, fallback: str) -> str:
         return fallback
 
 
-def _upsert_event(session: Session, item: dict[str, Any], event_key: str) -> Event:
-    lock_news(session, 'event:' + event_key)
-    row = session.exec(select(Event).where(Event.event_key == event_key).execution_options(populate_existing=True)).first()
-    now = utc_now_iso()
-    published = _utc_timestamp(item.get('published_at') or (item.get('gdelt') or {}).get('seen_at'), now)
-    if not row:
-        row = Event(
-            event_key=event_key,
-            event_title=item.get('title',''),
-            topic=(item.get('sector_tags') or ['market'])[0] if item.get('sector_tags') else 'market',
-            summary=item.get('content','')[:400],
-            first_seen_at=published,
-            last_seen_at=published,
-            importance=float(item.get('market_relevance_score', 0.0)),
-            sentiment=item.get('sentiment','neutral'),
-            market_scope=item.get('country') or 'global',
-            sectors_json=dumps(item.get('sector_tags', [])),
-            symbols_json=dumps(item.get('symbols', [])),
-            countries_json=dumps(sorted(set([item.get('country','')]))),
-            article_count=1,
-        )
-        session.add(row)
-    else:
-        row.first_seen_at = min(_utc_timestamp(row.first_seen_at, published), published)
-        row.last_seen_at = max(_utc_timestamp(row.last_seen_at, published), published)
-        row.article_count += 1
-        row.importance = max(row.importance, float(item.get('market_relevance_score', 0.0)))
-        if len(item.get('content','')) > len(row.summary or ''):
-            row.summary = item.get('content','')[:400]
-    session.add(row)
-    # The caller commits the article, link and event as one transaction.
-    return row
-
-
 def run_collection(session: Session, profile_name: str, *, storage_root: str | Path = 'runs_v7', trigger_type: str = 'manual', job_id: Optional[int] = None, override: Optional[dict[str, Any]] = None, profile_snapshot: Optional[dict[str, Any]] = None, control=None) -> RunRecord:
     if profile_snapshot is None:
         from .management import require_profile
@@ -170,6 +137,7 @@ def run_collection(session: Session, profile_name: str, *, storage_root: str | P
     profile['date_str'] = calendar_day(profile.get('date_str', ''), profile['timezone'])
     run_dir = _make_run_dir(storage_root)
     run_key = str(run_dir.relative_to(Path(storage_root))) if Path(storage_root) in run_dir.parents else run_dir.name
+    scope_id = control.task_id if control else run_key
     run = RunRecord(run_key=run_key, job_id=job_id, trigger_type=trigger_type, profile_name=profile_name, storage_path=str(run_dir), status='running')
     if control:
         control.attach_run(session, run)
@@ -237,7 +205,17 @@ def run_collection(session: Session, profile_name: str, *, storage_root: str | P
             control.fence(session)
         write_jsonl(run_dir / 'raw.jsonl', raw_items)
         write_json(run_dir / 'meta.json', {'run_key': run_key, 'profile': profile, 'status': 'running'})
-        if control:
+        registered = 0
+        index_reports = trigger_type != 'profile_test' and provider not in ('newsnow', 'mock') and raw_items
+        if index_reports:
+            from ..candidates.service import record_reports
+
+            # NewsNow publishes its preserved observations above. The catalogue
+            # for other providers is independent of the profile's relevance rules.
+            records = record_reports(session, raw_items, provider=provider, batch=scope_id,
+                                     source_ref={'run_key': run_key, 'profile': profile_name})
+            registered = len(records)
+        if control or index_reports:
             session.commit()
         # LLM filter with automatic rule-based fallback (mode: llm | mixed | rules)
         if control:
@@ -286,7 +264,6 @@ def run_collection(session: Session, profile_name: str, *, storage_root: str | P
         skipped_existing = 0
         updated_articles = 0
         created_events = 0
-        scope_id = control.task_id if control else run.run_key
 
         for index, item in enumerate(filtered):
             if control:
@@ -300,7 +277,10 @@ def run_collection(session: Session, profile_name: str, *, storage_root: str | P
                 item.pop('newsnow_extra',None)
             item['provider'] = provider
             item['country'] = (item.get('country') or profile.get('country', 'us')).lower()
-            item['language'] = item.get('language') or profile.get('language', 'en')
+            declared_language = item.get('source_language', item.get('language', profile.get('language', '')))
+            language = language_metadata(declared_language, provider=provider)
+            language['language'] = normalize_language(item.get('language'), provider=provider) or language['language']
+            item.update(language)
             item['published_at'] = _utc_timestamp(item.get('published_at'), '')
             # External fetch/filter work finished before this short write lock.
             lock_news(session, 'article:' + identity_key(item))
@@ -318,7 +298,9 @@ def run_collection(session: Session, profile_name: str, *, storage_root: str | P
                     'newsnow_discovery',0,norm.title_signature)
             else:
                 decision = decide_duplicate(session, item, before_id=existing.id) if existing else decide_duplicate(session, item)
-            assignment = None if existing or provider=='newsnow' else choose_event(session, item, decision)
+            # The built-in simulation deliberately exercises the event workflow.
+            # Real provider results wait for an explicit editorial promotion.
+            assignment = choose_event(session, item, decision) if provider == 'mock' and not existing else None
             row = Article(
                 article_key=article_key,
                 provider=provider,
@@ -329,7 +311,7 @@ def run_collection(session: Session, profile_name: str, *, storage_root: str | P
                 source_domain=((item.get('source') or {}).get('domain')) or '',
                 published_at=item.get('published_at') or '',
                 fetched_at=item.get('fetched_at') or utc_now_iso(),
-                language=item.get('language') or profile.get('language', 'en'),
+                language=item['language'],
                 country=item.get('country') or profile.get('country', 'us'),
                 raw_json=dumps(item),
                 normalized_title=decision.normalized.normalized_title,
@@ -349,8 +331,6 @@ def run_collection(session: Session, profile_name: str, *, storage_root: str | P
                 dedup_score=decision.score,
             )
             if existing:
-                was_newsnow=existing.provider=='newsnow'
-                upgrade_event_created=False
                 # Legacy/directly inserted rows get an honest baseline first.
                 record_version(session, existing, origin='legacy_baseline')
                 session.flush()
@@ -369,20 +349,6 @@ def run_collection(session: Session, profile_name: str, *, storage_root: str | P
                         link.relation_type = 'duplicate' if decision.is_duplicate else 'primary'
                         session.add(link)
                         refresh_event(session, link.event_key)
-                    if (was_newsnow and not links and provider not in ('newsnow','gdelt','gkg')
-                            and row.content.strip()):
-                        # A later genuine document upgrades this identity from
-                        # discovery to the established local event pipeline.
-                        assignment=choose_event(session,item,decision)
-                        session.add(ArticleEventLink(article_key=article_key,event_key=assignment.event_key,
-                            relation_type='duplicate' if decision.is_duplicate else 'primary'))
-                        event=_upsert_event(session,item,assignment.event_key)
-                        upgrade_event_created=event.id is None
-                        refresh_event(session,assignment.event_key)
-                        session.add(EventAssignment(article_key=article_key,event_key=assignment.event_key,
-                            reason=assignment.reason,score=assignment.score,
-                            matched_article_key=assignment.matched_article_key))
-                        created_events+=int(upgrade_event_created)
                     updated_articles += 1
                     stored_articles.append(existing)
                     disposition = 'updated'
@@ -395,7 +361,7 @@ def run_collection(session: Session, profile_name: str, *, storage_root: str | P
                 if control:
                     control.record_item(session, index, article_key, disposition,
                                         duplicate=decision.is_duplicate if changed else True,
-                                        event_created=upgrade_event_created)
+                                        event_created=False)
                 if changed and decision.is_duplicate:
                     dup_count += 1
             else:
@@ -406,14 +372,14 @@ def run_collection(session: Session, profile_name: str, *, storage_root: str | P
                 record_version(session, row, run_key=run.run_key)
                 is_new_event=False
                 if assignment is not None:
-                    session.add(ArticleEventLink(article_key=article_key,event_key=assignment.event_key,
-                                relation_type='duplicate' if decision.is_duplicate else 'primary'))
-                    event=_upsert_event(session,item,assignment.event_key)
-                    is_new_event=event.id is None
-                    refresh_event(session,assignment.event_key)
-                    session.add(EventAssignment(article_key=article_key,event_key=assignment.event_key,
-                                reason=assignment.reason,score=assignment.score,
-                                matched_article_key=assignment.matched_article_key))
+                    from ..candidates.promotion import approve_collected_article
+
+                    session.flush()
+                    is_new_event = approve_collected_article(
+                        session, row, event_key=assignment.event_key,
+                        decision='demo', reason=assignment.reason, score=assignment.score,
+                        matched_article_key=assignment.matched_article_key, seen_at=row.published_at,
+                        topic=(item.get('sector_tags') or ['market'])[0])
                 if control:
                     control.record_item(session, index, article_key, 'stored', decision.is_duplicate, is_new_event)
                 created_events += int(is_new_event)
@@ -462,6 +428,7 @@ def run_collection(session: Session, profile_name: str, *, storage_root: str | P
         stats = {
             'fetched': len(raw_items),
             'after_filter': len(filtered),
+            'candidates_registered': registered,
             'filter_mode': filter_mode,
             'stored_articles': len(stored_articles) - updated_articles,
             'updated_articles': updated_articles,

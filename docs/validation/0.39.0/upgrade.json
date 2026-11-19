@@ -1,0 +1,23 @@
+{
+  "source_version": "0.38.2",
+  "target_version": "0.39.0",
+  "postgres_test_version": "16.2",
+  "scenarios": [
+    {
+      "backend": "sqlite",
+      "version": "0.39.0",
+      "repeated_startup": true,
+      "preserved_event_and_original_report": true,
+      "adopted_new_candidate_into_previous_event": true
+    },
+    {
+      "backend": "postgresql",
+      "version": "0.39.0",
+      "repeated_startup": true,
+      "preserved_event_and_original_report": true,
+      "adopted_new_candidate_into_previous_event": true
+    }
+  ],
+  "reused_archive_or_graph_data_migrations": false,
+  "scope": "Upgrade installation across a fresh SQLite and PostgreSQL fixture containing a pre-existing linked event."
+}

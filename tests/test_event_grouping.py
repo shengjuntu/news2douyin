@@ -16,9 +16,9 @@ CASES = json.loads((Path(__file__).parent/'fixtures/event_grouping.json').read_t
 def test_event_grouping_cases(engine, monkeypatch, tmp_path, case):
     items = [dict(case['first'], url='https://first.test/story', source={'domain':'first.test'}),
              dict(case['second'], url='https://second.test/report', source={'domain':'second.test'})]
-    monkeypatch.setitem(collect.PROVIDERS, 'fixture', lambda _: items)
+    monkeypatch.setitem(collect.PROVIDERS, 'mock', lambda _: items)
     with Session(engine) as session:
-        collect.create_or_update_profile(session, {'name':'fixture','provider':'fixture'})
+        collect.create_or_update_profile(session, {'name':'fixture','provider':'mock'})
         collect.run_collection(session, 'fixture', storage_root=tmp_path/'runs')
         articles = session.exec(select(Article).order_by(Article.id)).all()
         links = session.exec(select(ArticleEventLink).order_by(ArticleEventLink.id)).all()

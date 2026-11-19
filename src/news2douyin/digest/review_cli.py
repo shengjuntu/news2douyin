@@ -42,21 +42,23 @@ def read_engine(db_url):
     raise ValueError('Use an existing SQLite file or PostgreSQL database')
 
 
-def observed_candidates(engine, storage_root, day, counts, *, include_recovered, cutoff=None, restored_stamps=(), coarse=False):
-    from news2douyin.digest.archive import iter_gkg
-    from news2douyin.digest.sources import iter_candidates
+def observed_candidates(engine, storage_root, day, counts, *, include_recovered, cutoff=None,
+                        restored_stamps=(), coarse=False, include_reports=None):
+    from contextlib import closing
+    from news2douyin.candidates.service import iter_day
     from news2douyin.digest.focus_hints import annotate_focus, read_focus_hints
+
     if cutoff is None:
         cutoff = min(datetime.now(timezone.utc), day_bounds_utc(day)[1])
+    if include_reports is None:
+        from news2douyin.candidates.models import SourceReport
+        include_reports = inspect(engine).has_table(SourceReport.__tablename__)
     with Session(engine) as session:
-        connection = session.connection()
-        if connection.dialect.name == 'postgresql':
-            connection.exec_driver_sql('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY')
-        else:
-            connection.exec_driver_sql('BEGIN')
         matcher = read_focus_hints(session, day, cutoff=cutoff)
-        yield from annotate_focus(iter_candidates(session, day, cutoff=cutoff, stats=counts, include_recovered=include_recovered), matcher, stats=counts)
-    yield from annotate_focus(iter_gkg(storage_root, day, cutoff=cutoff, stats=counts, read_only=True, restored_stamps=restored_stamps, **({'coarse': True} if coarse else {})), matcher, stats=counts)
+    with closing(iter_day(engine, storage_root, day, cutoff=cutoff, stats=counts,
+                          include_recovered=include_recovered, include_reports=include_reports,
+                          restored_stamps=restored_stamps, coarse=coarse, read_only=True)) as stream:
+        yield from annotate_focus(stream, matcher, stats=counts)
 
 
 def main(argv=None):
@@ -130,13 +132,17 @@ def main(argv=None):
         try:
             # Read-only backups taken before v0.32 have no enrichment queue.
             # Source availability is checked once and recorded for every day.
-            include_recovered = inspect(engine).has_table('ngramtarget')
+            from news2douyin.candidates.models import SourceReport
+            inspector = inspect(engine)
+            include_recovered = inspector.has_table('ngramtarget')
+            include_reports = inspector.has_table(SourceReport.__tablename__)
             days = [args.start + timedelta(days=i) for i in range((args.end - args.start).days + 1)]
             published_windows = {}
             def sources(day, counts):
-                ceiling, restored = published_windows.pop(day, (captured, ()))
+                ceiling, restored, use_reports = published_windows.pop(day, (captured, (), include_reports))
                 return observed_candidates(engine, args.storage_root, day, counts, cutoff=ceiling,
-                                           include_recovered=include_recovered, restored_stamps=restored)
+                                           include_recovered=include_recovered, restored_stamps=restored,
+                                           include_reports=use_reports)
 
             if args.cmd == 'compare-publishers':
                 from news2douyin.digest.publisher_comparison import compare_publishers, write_comparison
@@ -165,7 +171,7 @@ def main(argv=None):
                             cutoff = min(cutoff, last + timedelta(seconds=1))
                         source_stats = issue['stats'].get('sources', {})
                         restored = [tuple(key.split(':', 1)) for key in source_stats.get('gkg_restored_batches', {})]
-                        published_windows[day] = cutoff, restored
+                        published_windows[day] = cutoff, restored, include_reports and bool(source_stats.get('candidate_layer'))
                     return issue
                 export_daily(days, sources, args.out, edition=args.edition, issue_for_day=frozen, **settings)
             else:

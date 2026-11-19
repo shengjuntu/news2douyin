@@ -1,4 +1,6 @@
-# news2douyin 0.38.2 · 事件雷达和选题工作台
+# news2douyin 0.39.0 · 事件雷达和选题工作台
+
+日报、焦点和人工整理可从共同候选层取材。WorldNewsAPI 在本地相关性筛选前登记本次取得的报道。从候选打开「整理事件」，可以新建事件或加入已有事件。新增语种可通过采集配置和信源映射接入。[候选与整理流程](docs/CANDIDATE-FLOW.md)
 
 每天采用哪一种算法、最多选多少条、传给算法哪些参数，均可在同一个 TOML 文件中配置。支持独立安装 Python 策略包。插件能读取当日截止时全部可用候选，自行决定分组和入选顺序。默认使用原有的 `balanced` 策略，每日最多 100 条。[Top N 配置与插件开发](docs/TOPN-SELECTION.md)
 
@@ -56,7 +58,7 @@ v0.33 使用三个连续日期的公开 GKG 归档复核了选题质量和转载
 Python 3.10+。先停止原服务，备份原数据库、运行目录与配置，然后在原环境安装：
 
 ```bash
-python -m pip install --upgrade "./release-0.38.2/news2douyin-0.38.2-py3-none-any.whl[research,ngrams]"
+python -m pip install --upgrade "./release-0.39.0/news2douyin-0.39.0-py3-none-any.whl[research,ngrams]"
 ```
 
 源码安装使用 `python -m pip install '.[research,ngrams]'`。仅使用原有正文读取时可省略 `ngrams`。CLI与服务默认读取 `NEWS2DOUYIN_DATABASE_URL`，显式 `--db-url` 优先；两者都未设置时才使用SQLite兼容默认值。`postgresql://` 自动规范为 `postgresql+psycopg://`。原SQLite用户可沿用原启动参数；迁移到PostgreSQL需要先停服务，运行迁移工具，保持原 `storage_root` 和图实例。不要通过连到空库代替迁移。

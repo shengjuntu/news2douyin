@@ -79,12 +79,19 @@ def long_title():
 
 
 def test_real_old_pg_title_index_upgrade_and_gkg_zero_updates_linked_event(postgres_url, tmp_path, monkeypatch):
+    from news2douyin.candidates.promotion import approve_collected_article
+
     monkeypatch.setenv('NEWS2DOUYIN_GKG_AUTO_EVENTS', '0')
     monkeypatch.setenv('NEWS2DOUYIN_FALKOR_URL', '')
     root = tmp_path/'runs'; engine = make_engine(postgres_url); init_db(engine)
     payload = dict(provider='gkg', record_id='legacy-link', uri='https://media.example/article/1',
                    title='Short old title', content='', observed_at='2026-11-14T04:00:00Z')
     selected = projection.import_document(engine, payload)
+    with Session(engine) as session:
+        old_article = session.exec(select(Article)).one()
+        approve_collected_article(session,old_article,event_key='legacy-event',decision='legacy_auto',
+                                  reason='existing_event_fixture')
+        session.commit()
     with engine.begin() as connection:
         connection.execute(text('CREATE INDEX ix_event_event_title ON event (event_title)'))
     value = long_title()

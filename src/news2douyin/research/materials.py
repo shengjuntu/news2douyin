@@ -40,6 +40,10 @@ def source_document(document, raw=None):
                           ('source_excerpt' if result.get('content') else 'title_only'),
                       requires_original_text=True,
                       newsnow=dict(newsnow) if isinstance(newsnow, dict) else {})
+    elif result.get('material_kind', raw.get('material_kind')) == 'candidate_lead':
+        result.update(source_kind='search_snippet', material_kind='candidate_lead',
+                      content_kind=result.get('content_kind', raw.get('content_kind')) or 'title_only',
+                      requires_original_text=True)
     return result
 
 

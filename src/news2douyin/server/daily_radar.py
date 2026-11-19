@@ -89,7 +89,8 @@ def _focus_evidence_label(match):
 
 GROUP_OPTIONS = {'none': '不分组', 'country': '按国家或地区', 'category': '按分类', 'source': '按数据来源'}
 SORT_OPTIONS = {'recommended': '推荐顺序', 'recent': '最近观测优先'}
-SOURCE_LABELS = {'gdelt': 'GDELT Events', 'gkg': 'GDELT GKG', 'local': '已整理事件', 'newsnow': 'NewsNow'}
+SOURCE_LABELS = {'gdelt': 'GDELT Events', 'gkg': 'GDELT GKG', 'local': '已整理事件', 'newsnow': 'NewsNow',
+                 'collected': '采集报道', 'report': '采集报道'}
 
 
 def _geography(card, names):
@@ -158,6 +159,11 @@ def page_context(session, raw_day, group_by='none', sort_by='recommended'):
         card['reasons'] = [_focus_reason(reason) for reason in (original.get('reasons') or ())]
         source_key = card.get('source_key') or ''
         source = source_key.partition(':')[0]
+        organize_url = '/organize?' + urlencode({'candidate': source_key}) if source in SOURCE_LABELS else ''
+        source_label = SOURCE_LABELS.get(source or card.get('source_kind'), '')
+        if source == 'report':
+            provider = (card.get('source_ref') or {}).get('provider', '')
+            source_label = 'WorldNewsAPI' if provider == 'worldnewsapi' else source_label
         select_url = ''
         if can_select_card(card):
             select_url = '/workbench/new?' + urlencode({'digest_day': day.isoformat(), 'progress': card['key'],
@@ -168,7 +174,7 @@ def page_context(session, raw_day, group_by='none', sort_by='recommended'):
         cards.append(dict(card, why=why, title_label=_title_label(card), publisher=_publisher_details(card),
                           rank=rank, country_group=country_group, country_text=country_text, category_label=category,
                           detail_url=_record_url(source_key, day.isoformat()), domain=domain,
-                          select_url=select_url, source_label=SOURCE_LABELS.get(source or card.get('source_kind'), ''),
+                          select_url=select_url, organize_url=organize_url, source_label=source_label,
                           translation=daily_card_descriptor(issue['day'], original)))
 
     def day_link(target):

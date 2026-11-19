@@ -209,7 +209,9 @@
   function selectionActions(host, topic) {
     const actions = node('div', undefined, 'row attention-selection-entry');
     if (topic.selected_task) { const anchor = link('继续选题 →', '/workbench/' + encodeURIComponent(topic.selected_task) + '/selection'); anchor.className = 'action-link'; actions.append(anchor); }
-    actions.append(button(topic.selected_task ? '另起一个角度' : '形成选题', () => openSelection(topic.key, topic.title), topic.selected_task ? 'ghost' : '')); host.append(actions);
+    actions.append(button(topic.selected_task ? '另起一个角度' : '形成选题', () => openSelection(topic.key, topic.title), topic.selected_task ? 'ghost' : ''));
+    actions.append(link('整理事件', '/organize?candidate=' + encodeURIComponent('newsnow:' + topic.key)));
+    host.append(actions);
   }
   function renderDetail(data, generation) {
     const topic = {...(topics.get(currentTopic) || {}), ...object(data.topic)}, info = summary(topic);
