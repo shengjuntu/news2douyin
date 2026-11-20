@@ -3,14 +3,22 @@
 {% block graph_libraries %}{% endblock %}
 {% block content %}
 <link rel="stylesheet" href="/research-assets/georisk.css">
-{% with radar_tab='hotspots' %}{% include 'radar_view_tabs.html' %}{% endwith %}
+{% with radar_tab='georisk' %}{% include 'radar_view_tabs.html' %}{% endwith %}
 <header class="risk-header">
-  <div><a href="/radar/hotspots">← 热点</a><h1>地缘风险</h1></div>
+  <h1>地缘风险</h1>
   <span class="muted">GDELT GKG · 北京时间</span>
 </header>
 {% set states={'unchecked':'未核对归档','missing':'归档缺失','pending':'已归档，待分析','partial':'覆盖不足','complete':'已结算','live':'今日累计'} %}
 {% set messages={'disabled':'地缘风险后台汇总未启用。', 'error':'后台汇总遇到错误，请检查服务日志。', 'archive_absent':'当前数据目录未找到 GKG 原始仓。', 'unchecked':'所选日期的 GKG 归档尚未核对。'} %}
-{% if risk.analysis_status in messages %}<p class="card">{{ messages[risk.analysis_status] }} <a href="/intake">查看 GDELT 采集状态</a></p>{% endif %}
+{% if risk.analysis_status in messages %}
+<div class="card">
+  <p>{{ messages[risk.analysis_status] }}</p>
+  {% if risk.analysis_status=='disabled' %}
+  <p>在 <code>.env</code> 设置 <code>NEWS2DOUYIN_GEORISK_ENABLED=1</code> 后重启服务，后台会处理已经归档的 GKG 批次。</p>
+  {% endif %}
+  <a href="/intake">查看 GDELT 采集状态</a>
+</div>
+{% endif %}
 <form class="card risk-filters" method="get">
   <label>地区 <select name="scope">{% for value,label in risk.scopes.items() %}<option value="{{ value }}"{% if value==risk.scope %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
   <label>主题 <select name="category">{% for value,label in risk.categories.items() %}<option value="{{ value }}"{% if value==risk.category %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>

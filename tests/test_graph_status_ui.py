@@ -48,7 +48,7 @@ def test_maintenance_error_uses_separate_retry_and_preserves_unknown_counts():
     assert '待建立事件索引：暂不可用' in page
     assert '清理进度尚未记录' in page
     assert '本轮已检查 0' not in page
-    assert 'src="/research-assets/graph-maintenance.js" defer' in page
+    assert 'src="/research-assets/graph-maintenance.js?v=' in page
 
 
 def test_healthy_state_hides_retry_and_keeps_maintenance_collapsed():

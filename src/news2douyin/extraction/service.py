@@ -142,8 +142,11 @@ def pick(engine, model):
 
 def touch_events(s, article):
     from ..desk.service import enqueue_dirty
-    for key in s.exec(select(ArticleEventLink.event_key).where(ArticleEventLink.article_key==article)):
+    from ..event_embeddings.queue import enqueue_event
+    for key in s.exec(select(ArticleEventLink.event_key).where(ArticleEventLink.article_key==article)
+                      .order_by(ArticleEventLink.event_key)).all():
         enqueue_dirty(s,key)
+        enqueue_event(s,key)
 
 
 def step(engine, model=False):

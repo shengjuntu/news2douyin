@@ -16,7 +16,9 @@ from news2douyin.storage.models import CollectJob, CollectProfile, ProfileState,
 
 @pytest.fixture
 def app(tmp_path, monkeypatch):
-    for name in ['API_KEY', 'ALT_NEWS_KEY', 'MODEL', 'OPENAI_BASE_URL', 'OPENAI_API_KEY']:
+    for name in ('API_KEY', 'ALT_NEWS_KEY', 'MODEL', 'OPENAI_BASE_URL', 'OPENAI_API_KEY',
+                 'NEWS2DOUYIN_ATTRIBUTION_BASE_URL', 'NEWS2DOUYIN_ATTRIBUTION_MODEL',
+                 'NEWS2DOUYIN_ATTRIBUTION_API_KEY'):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv('NEWS2DOUYIN_TIMEZONE', 'Asia/Shanghai')
     # Prevent a developer's .env from being loaded by this isolated fixture.
@@ -40,6 +42,8 @@ def test_empty_install_does_not_call_network_or_create_files(app, monkeypatch):
     assert data['profiles'] == [] and data['summary']['enabled_profiles'] == 0
     assert data['calendar']['timezone'] == 'Asia/Shanghai'
     assert data['model']['defaults'] == ['OPENAI_BASE_URL', 'OPENAI_API_KEY', 'MODEL']
+    assert not data['attribution_model']['configured'] and not data['attribution_model']['valid']
+    assert '检查归因模型' in page.text
     assert data['storage'] == dict(exists=False, permissions_ok=False)
     assert '首次运行检查' in client.get('/daily').text
     with Session(app.state.engine) as session:
@@ -122,6 +126,44 @@ def test_model_catalog_success_is_not_generation_success(app, monkeypatch):
     assert report['state'] == 'listed' and '尚未验证生成能力' in report['message']
     assert captured == dict(url='http://127.0.0.1:19993/v1/models', headers={'Content-type':'application/json','Authorization':'Bearer private-model-key'}, method='GET', timeout=3)
     assert 'private-model-key' not in json.dumps(report)
+
+
+def test_attribution_probe_uses_only_its_own_model_and_credentials(app, monkeypatch):
+    monkeypatch.setenv('OPENAI_BASE_URL', 'https://default-model.test/v1')
+    monkeypatch.setenv('MODEL', 'small-model')
+    monkeypatch.setenv('OPENAI_API_KEY', 'small-key')
+    requests = []
+
+    class Response(io.BytesIO):
+        status = 200
+
+    def open_request(req, timeout):
+        requests.append((req.full_url, req.get_header('Authorization')))
+        return Response(b'{"data":[{"id":"small-model"},{"id":"large-model"}]}')
+
+    monkeypatch.setattr(readiness, 'build_opener', lambda *args: SimpleNamespace(open=open_request))
+    client = TestClient(app)
+    attribution_url = '/api/setup/model-probe?role=attribution'
+    assert client.post(attribution_url).json()['state'] == 'unconfigured'
+    monkeypatch.setenv('NEWS2DOUYIN_ATTRIBUTION_MODEL', 'large-model')
+    assert client.post(attribution_url).json()['state'] == 'invalid'
+    assert not requests
+
+    monkeypatch.setenv('NEWS2DOUYIN_ATTRIBUTION_BASE_URL', ' https://attribution.test/v1/ ')
+    report = client.get('/api/setup/check').json()
+    assert report['model']['model'] == 'small-model'
+    assert report['attribution_model']['model'] == 'large-model'
+    assert report['attribution_model']['valid'] and not report['attribution_model']['key_present']
+    assert client.post(attribution_url).json()['state'] == 'listed'
+    monkeypatch.setenv('NEWS2DOUYIN_ATTRIBUTION_API_KEY', 'large-key')
+    response = client.post(attribution_url)
+    assert response.json()['state'] == 'listed' and 'large-key' not in response.text
+    assert client.post('/api/setup/model-probe').json()['state'] == 'listed'
+    assert requests == [
+        ('https://attribution.test/v1/models', None),
+        ('https://attribution.test/v1/models', 'Bearer large-key'),
+        ('https://default-model.test/v1/models', 'Bearer small-key'),
+    ]
 
 
 @pytest.mark.parametrize('body,state', [(b'{"data":[{"id":"other"}]}', 'model_not_listed'),

@@ -27,6 +27,8 @@ from ..tasks.control import TaskConflict
 def stage_event(session, *, title, summary='', topic='', market_scope='global', key='',
                 seen_at=None, manual=True, article=None):
     """Stage an intentionally adopted event with its initial version state."""
+    from ..event_embeddings.queue import enqueue_event
+
     key = key or 'evt_' + uuid4().hex[:20]
     values = dict(event_key=key, event_title=title, summary=summary, topic=topic, market_scope=market_scope)
     if seen_at:
@@ -39,6 +41,7 @@ def stage_event(session, *, title, summary='', topic='', market_scope='global', 
                        summary_override=summary if manual else None)
     session.add(event)
     session.add(state)
+    enqueue_event(session, key)
     return event, state
 
 

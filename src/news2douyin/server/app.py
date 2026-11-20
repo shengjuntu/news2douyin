@@ -107,6 +107,8 @@ def create_app(*, db_url: str | None = None, storage_root: str = 'runs_v7') -> F
             app.state.attention.start()
         with startup.phase('workers.source_content'):
             app.state.source_content.start()
+        with startup.phase('workers.event_embeddings'):
+            app.state.event_embeddings.start()
         with startup.phase('workers.ngram_enrichment'):
             app.state.ngram_worker.start()
         with startup.phase('workers.daily_radar'):
@@ -117,6 +119,7 @@ def create_app(*, db_url: str | None = None, storage_root: str = 'runs_v7') -> F
         finally:
             app.state.digest_worker.stop()
             app.state.ngram_worker.stop()
+            app.state.event_embeddings.stop()
             app.state.source_content.stop()
             app.state.attention.stop()
             app.state.georisk.stop()
@@ -164,6 +167,8 @@ def create_app(*, db_url: str | None = None, storage_root: str = 'runs_v7') -> F
     app.state.attention = AttentionWorker(engine, storage_root)
     from ..selection.source_runtime import SourceContentWorker
     app.state.source_content = SourceContentWorker(engine,storage_root)
+    from ..event_embeddings.runtime import EventEmbeddingWorker
+    app.state.event_embeddings = EventEmbeddingWorker(engine)
     from ..intake.runtime import IntakeWorker
     from ..intake.projection import ProjectionWorker
     with startup.phase('application.intake'):

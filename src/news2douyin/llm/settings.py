@@ -27,6 +27,15 @@ def get_settings() -> LLMSettings:
     )
 
 
+def get_attribution_settings() -> LLMSettings:
+    """Resolve the optional event attribution model and its own credentials."""
+    return LLMSettings(
+        os.getenv('NEWS2DOUYIN_ATTRIBUTION_BASE_URL', '').strip().rstrip('/'),
+        os.getenv('NEWS2DOUYIN_ATTRIBUTION_API_KEY', '').strip(),
+        os.getenv('NEWS2DOUYIN_ATTRIBUTION_MODEL', '').strip(),
+    )
+
+
 def probe_endpoint(timeout: float = 3.0) -> bool:
     settings = get_settings()
     request = urllib.request.Request(settings.base_url + '/models', headers=settings.headers)

@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import socket
+from typing import Literal
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
@@ -12,7 +13,7 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener
 from sqlmodel import Session, select
 
 from ..collect.service import row_to_profile
-from ..llm.settings import get_settings
+from ..llm.settings import LLMSettings, get_attribution_settings, get_settings
 from ..scheduler.cron import next_occurrences
 from ..search.dates import calendar_day, timezone_name
 from ..storage.models import CollectJob, CollectProfile, ProfileState, utc_now_iso
@@ -39,8 +40,7 @@ def intake_runtime(app):
                                 last_error=str(getattr(projection, 'last_error', '') or '')))
 
 
-def model_configuration():
-    settings = get_settings()
+def model_configuration(settings: LLMSettings, *, attribution: bool = False):
     valid, origin = True, ''
     try:
         url = urlsplit(settings.base_url)
@@ -52,9 +52,13 @@ def model_configuration():
         origin = f'{url.scheme}://{host}' + (f':{url.port}' if url.port is not None else '')
     except ValueError:
         valid = False
+    defaults = [] if attribution else [
+        name for name in ('OPENAI_BASE_URL', 'OPENAI_API_KEY', 'MODEL') if name not in os.environ
+    ]
     return dict(valid=valid and bool(settings.model.strip()), origin=origin,
                 model=settings.model, key_present=bool(settings.api_key.strip()),
-                defaults=[name for name in ('OPENAI_BASE_URL', 'OPENAI_API_KEY', 'MODEL') if name not in os.environ])
+                configured=not attribution or bool(settings.base_url or settings.model or settings.api_key),
+                defaults=defaults)
 
 
 def _profile(row, enabled):
@@ -100,7 +104,9 @@ def configuration_report(app):
     """Only local reads; do not expose credentials, database URLs or raw errors."""
     result = dict(checked_at=utc_now_iso(), database_ok=False, profiles=[], schedules=[],
                   database=database_configuration(app.state.engine), intake=intake_runtime(app),
-                  model=model_configuration(), worker_running=bool(app.state.worker.running),
+                  model=model_configuration(get_settings()),
+                  attribution_model=model_configuration(get_attribution_settings(), attribution=True),
+                  worker_running=bool(app.state.worker.running),
                   scheduler_running=bool(app.state.scheduler._thread and app.state.scheduler._thread.is_alive()))
     try:
         zone = timezone_name()
@@ -154,14 +160,17 @@ class _NoRedirect(HTTPRedirectHandler):
         return None
 
 
-def probe_model():
+def probe_model(*, attribution: bool = False):
     """Explicit GET /models only. Catalog visibility does not prove generation."""
-    config = model_configuration()
+    settings = get_attribution_settings() if attribution else get_settings()
+    config = model_configuration(settings, attribution=attribution)
     def reply(state, message):
         return dict(state=state, message=message, checked_at=utc_now_iso(), configuration=config)
+    if not config['configured']:
+        return reply('unconfigured', '归因推理模型尚未配置。请填写服务地址和模型名称。')
     if not config['valid']:
         return reply('invalid', '模型名称不能为空；服务地址须为 HTTP(S)，且不能包含账号、密码、查询参数或片段。')
-    settings = get_settings()
+    model_variable = 'NEWS2DOUYIN_ATTRIBUTION_MODEL' if attribution else 'MODEL'
     try:
         request = Request(settings.base_url + '/models', headers=settings.headers)
         with build_opener(_NoRedirect()).open(request, timeout=3) as response:
@@ -175,15 +184,19 @@ def probe_model():
             return reply('invalid_response', '服务已响应，但不是兼容的模型列表。')
         names = {m.get('id') for m in payload['data'] if isinstance(m, dict) and isinstance(m.get('id'), str)}
         if settings.model not in names:
-            return reply('model_not_listed', '模型列表已响应，但未列出当前 MODEL；请核对名称，部分服务也可能不公开完整列表。')
-        return reply('listed', '模型列表已响应，并包含当前 MODEL。尚未验证生成能力，请提交一条 AI 初稿验证。')
+            return reply('model_not_listed', f'模型列表未列出 {model_variable} 指定的模型。请核对名称与服务权限。')
+        message = f'模型列表包含 {model_variable} 指定的模型。尚未验证生成能力。'
+        if not attribution:
+            message += '可提交一条 AI 初稿验证。'
+        return reply('listed', message)
     except HTTPError as exc:
         code = exc.code
         exc.close()
         if code in {401, 403}:
-            return reply('auth_error', '服务拒绝鉴权，请检查 OPENAI_API_KEY 和访问权限。')
+            key_variable = 'NEWS2DOUYIN_ATTRIBUTION_API_KEY' if attribution else 'OPENAI_API_KEY'
+            return reply('auth_error', f'服务拒绝鉴权，请检查 {key_variable} 和访问权限。')
         if 300 <= code < 400:
-            return reply('redirect', '服务返回重定向；检查 OPENAI_BASE_URL，填写最终兼容接口地址。')
+            return reply('redirect', '服务返回重定向，请填写最终兼容接口地址。')
         if code == 404:
             return reply('not_found', '未找到 /models；检查接口前缀，部分兼容服务可能不提供模型列表。')
         if code == 429:
@@ -226,8 +239,8 @@ def register_readiness_routes(app):
                                 headers={'Cache-Control': 'no-store'})
 
     @app.post('/api/setup/model-probe')
-    def model_probe():
-        return JSONResponse(probe_model(), headers={'Cache-Control': 'no-store'})
+    def model_probe(role: Literal['default', 'attribution'] = 'default'):
+        return JSONResponse(probe_model(attribution=role == 'attribution'), headers={'Cache-Control': 'no-store'})
 
     @app.post('/api/setup/video-check')
     def video_check():

@@ -13,6 +13,7 @@ from news2douyin.georisk.service import dashboard, evidence_for_day
 from news2douyin.intake.feeds import FEEDS
 from news2douyin.intake.lake import Lake
 from news2douyin.server.app import create_app
+from news2douyin.server.desk import safe_back
 from news2douyin.storage.utils import dumps
 
 
@@ -46,10 +47,19 @@ def test_risk_page_separates_an_unchecked_archive_from_a_confirmed_gap(tmp_path,
     app = create_app(db_url=f'sqlite:///{tmp_path / "web.db"}', storage_root=str(tmp_path))
     client = TestClient(app)
     params = {'end_day': SIGNAL_DAY, 'day': SIGNAL_DAY}
-    path = '/radar/hotspots/risk'
+    path = '/radar/georisk'
     try:
+        hotspots = client.get('/radar/hotspots').text
+        assert 'href="/radar/georisk">地缘风险</a>' in hotspots
+        assert '/radar/hotspots/risk' not in hotspots
+        bookmark = client.get('/radar/hotspots/risk', params=params, follow_redirects=False)
+        assert bookmark.status_code == 307
+        assert bookmark.headers['location'] == f'{path}?end_day={SIGNAL_DAY}&day={SIGNAL_DAY}'
+        assert safe_back(bookmark.headers['location']) == bookmark.headers['location']
         empty = client.get(path, params=params).text
+        assert 'href="/radar/georisk" class="on" aria-current="page">地缘风险</a>' in empty
         assert '地缘风险后台汇总未启用' in empty
+        assert 'NEWS2DOUYIN_GEORISK_ENABLED=1' in empty
         assert '<div class="risk-chart"' not in empty
         pending = client.get('/api/radar/georisk', params=params).json()
         assert pending['analysis_status'] == 'disabled'
@@ -69,6 +79,13 @@ def test_risk_page_separates_an_unchecked_archive_from_a_confirmed_gap(tmp_path,
         assert missing['selected']['state'] == 'missing'
         assert missing['selected']['missing_batches'] == 192
         assert '归档缺失' in client.get(path, params=params).text
+
+        archive(tmp_path, 'gkg_english', '20261119010000',
+                ('https://example.com/clashes', 'Officials reported armed clashes', 'ARMEDCONFLICT', 'UP', 5))
+        assert app.state.georisk.step(NOW, refresh=True)
+        with_data = client.get(path, params=params).text
+        assert '<div class="risk-chart"' in with_data
+        assert 'Officials reported armed clashes' in with_data
     finally:
         client.close()
         app.state.engine.dispose()

@@ -3,7 +3,7 @@
 # Exactly one application process owns the local DuckDB/archive directory.
 services:
   postgres:
-    image: postgres:17-bookworm
+    image: ${NEWS2DOUYIN_POSTGRES_IMAGE:-postgres:17-bookworm}
     restart: unless-stopped
     environment:
       POSTGRES_DB: news2douyin
@@ -33,7 +33,7 @@ services:
       start_period: 20s
 
   app:
-    image: news2douyin:0.44.1
+    image: news2douyin:0.45.1
     build:
       context: ..
       dockerfile: deploy/Dockerfile

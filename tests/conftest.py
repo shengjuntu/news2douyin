@@ -11,6 +11,8 @@ def offline(monkeypatch):
     monkeypatch.setenv('NEWS2DOUYIN_GKG_STREAM_ENABLED', '0')
     monkeypatch.setenv('NEWS2DOUYIN_GKG_PROJECTION_ENABLED', '0')
     monkeypatch.setenv('NEWS2DOUYIN_SOURCE_CONTENT_ENABLED', '0')
+    monkeypatch.setenv('NEWS2DOUYIN_EVENT_EMBEDDING_ENABLED', '0')
+    monkeypatch.delenv('EMBEDDING_BASE_URL', raising=False)
     monkeypatch.setattr(llm_filter, 'endpoint_alive', lambda: False)
     from news2douyin.server import webui
     monkeypatch.setattr(webui, '_llm_alive', lambda: False)

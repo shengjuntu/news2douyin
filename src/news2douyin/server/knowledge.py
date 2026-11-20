@@ -1,6 +1,9 @@
 import json
 from collections import Counter
+from datetime import date
+from typing import Annotated
 from fastapi import Depends, HTTPException, Request
+from pydantic import BaseModel, StringConstraints
 from sqlmodel import Session, select
 from ..knowledge import service as knowledge
 from ..knowledge.models import FocusVisit, PointMaterial
@@ -11,6 +14,15 @@ from ..storage.models import utc_now_iso
 from ..storage.articles import lock_news
 from .research import same_origin
 from .tasks import task_call
+
+
+class EmbeddingDateRange(BaseModel):
+    start_date: date
+    end_date: date
+
+
+class EmbeddingSearch(EmbeddingDateRange):
+    query: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=2000)]
 
 
 def register(app,engine,render):
@@ -24,13 +36,30 @@ def register(app,engine,render):
         return dict(**knowledge.status(s,app.state.desk.graph),extraction=counts,methods=methods,
             indexing=s.exec(select(func.count()).select_from(DeskDirty)).one())
 
+    def page_status(s):
+        return dict(info(s), embeddings=app.state.event_embeddings.status(s))
+
     @app.get('/knowledge')
     def page(s=Depends(db)):
-        return render('knowledge.html',state=info(s),active='knowledge')
+        return render('knowledge.html',state=page_status(s),active='knowledge')
 
     @app.get('/api/knowledge/status')
     def status(s=Depends(db)):
-        return info(s)
+        return page_status(s)
+
+    @app.post('/api/knowledge/embeddings/backfill',status_code=202,dependencies=[Depends(same_origin)])
+    def embedding_backfill(bounds:EmbeddingDateRange,s=Depends(db)):
+        try:
+            return app.state.event_embeddings.request_backfill(s,bounds.start_date,bounds.end_date)
+        except ValueError as exc:
+            raise HTTPException(409,str(exc)) from None
+
+    @app.post('/api/knowledge/embeddings/search',dependencies=[Depends(same_origin)])
+    def embedding_search(filters:EmbeddingSearch):
+        try:
+            return app.state.event_embeddings.search(filters.query,filters.start_date,filters.end_date)
+        except ValueError as exc:
+            raise HTTPException(409,str(exc)) from None
 
     @app.get('/api/knowledge/graph')
     def graph(event:str='',watch:str='',s=Depends(db)):

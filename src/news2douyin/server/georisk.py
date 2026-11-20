@@ -3,8 +3,8 @@ from datetime import date
 from typing import Annotated
 from urllib.parse import quote, urlencode
 
-from fastapi import HTTPException, Query
-from fastapi.responses import HTMLResponse
+from fastapi import HTTPException, Query, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import func, or_
 from sqlmodel import select
 
@@ -16,7 +16,7 @@ from ..storage.db import session_scope
 from ..storage.models import Article, ArticleEventLink, Event, EventState
 
 
-PATH = '/radar/hotspots/risk'
+PATH = '/radar/georisk'
 Day = Annotated[str, Query(pattern=r'^(?:[0-9]{4}-[0-9]{2}-[0-9]{2})?$')]
 
 
@@ -104,6 +104,11 @@ def register(app, engine, render):
                  category: Annotated[str, Query(max_length=32)] = '',
                  days: Annotated[int, Query(ge=7, le=90)] = 30, end_day: Day = '', day: Day = ''):
         return read(scope, category, days, end_day, day)
+
+    @app.get('/radar/hotspots/risk', include_in_schema=False)
+    def legacy_risk_page(request: Request):
+        query = request.url.query
+        return RedirectResponse(PATH + ('?' + query if query else ''), status_code=307)
 
     @app.get(PATH, response_class=HTMLResponse)
     def risk_page(scope: Annotated[str, Query(max_length=32)] = 'global',

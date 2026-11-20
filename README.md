@@ -106,6 +106,16 @@ OPENAI_API_KEY=你的密钥
 MODEL=你的模型名称
 ```
 
+默认模型用于采集筛选、事件抽取、焦点相关性判断、译读和 AI 初稿。在 `/setup` 可分别查看默认模型和归因推理模型的配置，以及检查各自的模型列表。
+
+为事件归因配置更强的模型时，可在同一份 `.env` 增加以下变量。归因模型使用单独的服务地址、模型名和凭据。服务无鉴权时，密钥可留空。当前版本提供配置和模型列表检查，供后续事件查因流程使用。
+
+```dotenv
+NEWS2DOUYIN_ATTRIBUTION_BASE_URL=http://你的归因模型服务:端口/v1
+NEWS2DOUYIN_ATTRIBUTION_MODEL=服务公布的模型名称
+NEWS2DOUYIN_ATTRIBUTION_API_KEY=
+```
+
 独立数据库使用独立图前缀；从SQLite完整迁移到PostgreSQL时保留原图实例和前缀。独立图Compose仅向本机开放图数据库和Browser，持久卷挂载到 `/var/lib/falkordb/data`。正式Compose默认不开放Browser；升级时须明确保留原图地址或迁移旧图卷，不能把新空图当作原图。
 
 ```bash
@@ -113,6 +123,8 @@ news2douyin-server --host 0.0.0.0 --port 18080 --db-url sqlite:///runs_v7/news2d
 ```
 
 打开 `/knowledge` 检查抽取与图分析状态。FalkorDB 未连接时可以查看原文和已有成果，图排序与关联会明确显示未就绪。未启用模型抽取时只有有限规则覆盖。
+
+配置向量服务后，已整理事件会在后台生成向量。可在 `/knowledge` 的「事件向量」区按日期补算历史事件并试查相似结果。[事件向量配置与使用](docs/EMBEDDINGS.md)
 
 `/setup` 和 `/intake` 显示实际事务库类型及驱动，区分PostgreSQL正式模式和SQLite兼容模式。接收与投影后台错误独立显示；事务库不可读时，计数显示未知，仍可看到内存中保留的后台错误。
 

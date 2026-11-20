@@ -86,7 +86,8 @@ class EmbeddingClient:
         identifiers = [item.get('id') for item in entries if isinstance(item, dict)]
         return list(dict.fromkeys(value for value in identifiers if isinstance(value, str) and value.strip()))
 
-    def _choose_model(self, *, check: bool = False) -> str:
+    def resolve_model(self, *, check: bool = False) -> str:
+        """Resolve the configured ID or discover the service's sole model."""
         if self.model and not check:
             return self.model
         models = self.list_models()
@@ -109,7 +110,7 @@ class EmbeddingClient:
         if not texts or any(not isinstance(item, str) or not item.strip() for item in texts):
             raise ValueError('待编码文本不能为空')
         rows = self._request('POST', '/embeddings', {
-            'model': self._choose_model(), 'input': texts, 'encoding_format': 'float',
+            'model': self.resolve_model(), 'input': texts, 'encoding_format': 'float',
         }).get('data')
         if not isinstance(rows, list) or len(rows) != len(texts):
             raise EmbeddingError('返回向量数量与输入数量不符')
@@ -149,7 +150,7 @@ def main(argv=None) -> int:
     load_environment()
     try:
         client = EmbeddingClient.from_env()
-        model = client._choose_model(check=True)
+        model = client.resolve_model(check=True)
         vectors = client.get_embedding(['港口开始测试货运铁路', 'The port began testing a freight railway.'])
     except EmbeddingError as exc:
         print(json.dumps({'status': 'error', 'error': str(exc)}, ensure_ascii=False), file=sys.stderr)

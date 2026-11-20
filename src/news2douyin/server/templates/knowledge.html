@@ -33,7 +33,37 @@
 <details><summary>从保存的证据重新投影</summary><p class="muted">重建会将已有图记录重新排队。</p><button id="rebuild-graph" class="ghost" type="button">从保存的证据重建图</button></details>
 </details></section></div>
 <p id="knowledge-message" role="status" aria-live="polite"></p>
+{% if state.embeddings is defined %}
+{% set embeddings=state.embeddings %}
+{% set counts=embeddings.counts %}
+{% macro embedding_dates() %}
+<label>开始日期 <input type="date" name="start_date" required></label>
+<label>结束日期 <input type="date" name="end_date" required></label>
+{% endmacro %}
+<section class="card work-actions" aria-labelledby="knowledge-embeddings-title">
+<h2 id="knowledge-embeddings-title">事件向量</h2>
+<p id="knowledge-embeddings-state">{{ embeddings.message or ('自动生成已就绪' if embeddings.ready else '暂不可用') }}</p>
+<p id="knowledge-embeddings-counts" {% if not embeddings.enabled %}hidden{% endif %}>已生成 {{ counts.ready }} · 待处理 {{ counts.pending }} · 处理中 {{ counts.running }} · 失败 {{ counts.failed }}</p>
+<p id="knowledge-embeddings-backfill-progress" {% if not embeddings.backfill %}hidden{% endif %}>{% if embeddings.backfill %}{% set run=embeddings.backfill %}补算 {{ run.start_date }} 至 {{ run.end_date }} · {{ '扫描中' if run.state=='scanning' else '扫描结束' }} · 已检查 {{ run.scanned }} · 已生成 {{ run.counts.ready }} · 待处理 {{ run.counts.pending }} · 处理中 {{ run.counts.running }} · 跳过 {{ run.counts.skipped }} · 失败 {{ run.counts.failed }}{% endif %}</p>
+<details class="work-actions"><summary>补算历史事件</summary>
+<p class="muted small">按首次记录日期选择范围（系统时区）。</p>
+<form id="knowledge-embeddings-backfill" class="row" method="post" action="/api/knowledge/embeddings/backfill">
+{{ embedding_dates() }}<button type="submit" class="ghost" {% if not embeddings.ready %}disabled{% endif %}>开始补算</button>
+</form>
+<p id="knowledge-embeddings-backfill-message" role="status"></p>
+</details>
+<details class="work-actions"><summary>查找相似事件</summary>
+<p class="muted small">按首次记录日期筛选（系统时区），查询范围为最近 5,000 条已生成向量的事件。</p>
+<form id="knowledge-embeddings-search" method="post" action="/api/knowledge/embeddings/search">
+<p><label>检索描述 <input type="text" name="query" required maxlength="2000"></label></p>
+<div class="row">{{ embedding_dates() }}<button type="submit" class="ghost" {% if not embeddings.ready %}disabled{% endif %}>检索</button></div>
+</form>
+<p id="knowledge-embeddings-search-message" role="status"></p>
+<ol id="knowledge-embeddings-results" hidden></ol>
+</details>
+</section>
+{% endif %}
 <details class="card work-actions"><summary>连接和运行说明</summary><p>图处理使用 FalkorDB。启动服务前设置 NEWS2DOUYIN_FALKOR_URL，例如 redis://127.0.0.1:6379。连接包含密码时请保存在服务环境配置中。</p><p>模型抽取使用 OPENAI_BASE_URL、OPENAI_API_KEY、MODEL。设置 NEWS2DOUYIN_EVENT_READER=model 后自动执行上下文抽取。未启用时使用有限规则，并在原文页面标明抽取方式。</p><p>修改连接配置后重启服务。深度研究与自动补查使用<a href="/research/settings">研究助手设置</a>中的 RunDesk。</p><a href="/api/desk/graph-schema">查看图结构契约</a></details>
 <script id="knowledge-status-config" type="application/json">{{ state|tojson }}</script>
-<script src="/research-assets/graph-maintenance.js" defer></script>
+<script src="/research-assets/graph-maintenance.js?v=0.45.0" defer></script>
 {% endblock %}

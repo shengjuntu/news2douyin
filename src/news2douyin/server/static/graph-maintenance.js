@@ -3,7 +3,8 @@
   'use strict';
   const config = document.getElementById('knowledge-status-config');
   if (!config) return;
-  let disposed = false, timer = null, failures = 0, active = null;
+  let disposed = false, timer = null, failures = 0, embeddingReady = false;
+  const active = new Set();
   const byId = id => document.getElementById(id);
   const number = value => typeof value === 'number' && Number.isFinite(value);
   const safeText = value => typeof value === 'string' ? value : '';
@@ -20,6 +21,35 @@
     return line;
   }
   const extractionLabels = {baseline:'等待规则抽取',rule_running:'规则抽取中',model_queued:'等待模型抽取',model_running:'模型抽取中',model_wait:'模型重试等待',ready:'本轮完成',metadata_only:'仅元数据，等待原文',error:'抽取失败'};
+  function embeddingCounts(counts) {
+    return '已生成 ' + counts.ready + ' · 待处理 ' + counts.pending + ' · 处理中 ' + counts.running + ' · 失败 ' + counts.failed;
+  }
+  function renderEmbeddingBackfill(run) {
+    const label = byId('knowledge-embeddings-backfill-progress');
+    if (!label) return;
+    label.hidden = !run;
+    label.textContent = run ? '补算 ' + run.start_date + ' 至 ' + run.end_date + ' · ' +
+      (run.state === 'scanning' ? '扫描中' : '扫描结束') + ' · 已检查 ' + run.scanned +
+      ' · ' + embeddingCounts(run.counts) + ' · 跳过 ' + run.counts.skipped : '';
+  }
+  function embeddingButton(form) {
+    form.querySelector('button').disabled = !embeddingReady || form.dataset.pending === 'true';
+  }
+  function renderEmbeddings(state) {
+    if (!state) return;
+    embeddingReady = state.ready;
+    text('knowledge-embeddings-state', state.message || (embeddingReady ? '自动生成已就绪' : '暂不可用'));
+    const counts = byId('knowledge-embeddings-counts');
+    if (counts) {
+      counts.hidden = !state.enabled;
+      counts.textContent = embeddingCounts(state.counts);
+    }
+    renderEmbeddingBackfill(state.backfill);
+    for (const action of ['backfill', 'search']) {
+      const form = byId('knowledge-embeddings-' + action);
+      if (form) embeddingButton(form);
+    }
+  }
   function render(state) {
     if (disposed || !state || typeof state !== 'object') return;
     const index = state.indexes || {}, gc = state.gc || {}, projection = state.projection || {};
@@ -80,20 +110,26 @@
     }
     const methods = state.methods || {};
     text('knowledge-methods', '规则完成 ' + (number(methods.rules) ? methods.rules : '暂无记录') + ' · 模型完成 ' + (number(methods.model) ? methods.model : '暂无记录'));
+    renderEmbeddings(state.embeddings);
   }
-  async function request(path, method = 'GET') {
-    const controller = new AbortController(), limit = setTimeout(() => controller.abort(), 15000);
-    active = controller;
+  async function request(path, method = 'GET', payload, timeout = 15000) {
+    const controller = new AbortController(), limit = setTimeout(() => controller.abort(), timeout);
+    active.add(controller);
     try {
-      const response = await fetch(path, {method, cache:'no-store', signal:controller.signal});
+      const options = {method, cache:'no-store', signal:controller.signal};
+      if (payload) {
+        options.headers = {'Content-Type':'application/json'};
+        options.body = JSON.stringify(payload);
+      }
+      const response = await fetch(path, options);
       let data;
       try { data = await response.json(); } catch (_) { throw new Error('服务返回了无法读取的结果，请稍后重试。'); }
       if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : '请求未完成，请稍后重试。');
       return data;
     } catch (err) {
-      if (err.name === 'AbortError') throw new Error('状态读取超时，稍后会自动重试。');
+      if (err.name === 'AbortError') throw new Error(method === 'GET' ? '状态读取超时。' : '请求超时，请稍后重试。');
       throw err;
-    } finally { clearTimeout(limit); if (active === controller) active = null; }
+    } finally { clearTimeout(limit); active.delete(controller); }
   }
   async function refresh() {
     if (disposed) return;
@@ -127,7 +163,60 @@
       finally { if (!disposed) button.disabled = false; }
     });
   }
+  function renderEmbeddingResults(results, events) {
+    results.hidden = !events.length;
+    results.replaceChildren();
+    for (const event of events) {
+      const item = document.createElement('li');
+      const link = document.createElement('a');
+      link.href = '/events/' + encodeURIComponent(event.event_key);
+      link.textContent = event.title || event.event_key;
+      item.append(link);
+      const note = document.createElement('span');
+      note.className = 'muted small';
+      const recorded = safeText(event.first_seen_at).replace('T', ' ');
+      note.textContent = (recorded ? ' · 首次记录 ' + recorded : '') +
+        (number(event.similarity) ? ' · 相似度 ' + event.similarity.toFixed(3) : '');
+      item.append(note);
+      results.append(item);
+    }
+  }
+  for (const action of ['backfill', 'search']) {
+    const form = byId('knowledge-embeddings-' + action);
+    if (!form) continue;
+    form.addEventListener('submit', async event => {
+      event.preventDefault();
+      if (!embeddingReady || form.dataset.pending === 'true') return;
+      const searching = action === 'search';
+      const results = byId('knowledge-embeddings-results');
+      const message = 'knowledge-embeddings-' + action + '-message';
+      if (searching) renderEmbeddingResults(results, []);
+      form.dataset.pending = 'true';
+      embeddingButton(form);
+      text(message, searching ? '检索中…' : '正在提交…');
+      try {
+        const payload = Object.fromEntries(new FormData(form));
+        const data = await request(form.action, 'POST', payload, searching ? 70000 : 15000);
+        if (disposed) return;
+        if (searching) {
+          renderEmbeddingResults(results, data.events);
+          text(message, data.events.length ? '找到 ' + data.events.length + ' 条事件' : '未找到相似事件。');
+        } else {
+          renderEmbeddingBackfill(data);
+          text(message, '已提交补算。');
+        }
+      } catch (err) {
+        if (!disposed) text(message, err.message);
+      } finally {
+        delete form.dataset.pending;
+        if (!disposed) embeddingButton(form);
+      }
+    });
+  }
   try { render(JSON.parse(config.textContent)); } catch (_) { /* Server-rendered state remains available. */ }
   timer = setTimeout(refresh, 6000);
-  window.addEventListener('pagehide', () => { disposed = true; clearTimeout(timer); if (active) active.abort(); }, {once:true});
+  window.addEventListener('pagehide', () => {
+    disposed = true; clearTimeout(timer);
+    for (const controller of active) controller.abort();
+  }, {once:true});
 })();

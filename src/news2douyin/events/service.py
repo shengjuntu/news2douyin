@@ -119,6 +119,7 @@ def choose_event(session: Session, item: dict, decision) -> Assignment:
 
 
 def refresh_event(session: Session, event_key: str, *, touch_version=True) -> None:
+    from ..event_embeddings.queue import discard_event, enqueue_event
     from ..storage.articles import lock_news
     lock_news(session, 'event:' + event_key)
     session.flush()
@@ -149,6 +150,10 @@ def refresh_event(session: Session, event_key: str, *, touch_version=True) -> No
         state.updated_at = utc_now_iso()
         session.add(state)
     session.add(event)
+    if state and state.merged_into:
+        discard_event(session, event_key)
+    else:
+        enqueue_event(session, event_key)
 
 
 def evidence_counts(session: Session, event_key: str) -> dict:

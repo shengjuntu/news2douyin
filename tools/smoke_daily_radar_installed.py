@@ -15,7 +15,7 @@ from news2douyin.server.app import create_app
 
 
 def main():
-    assert metadata.version('news2douyin') == '0.44.1'
+    assert metadata.version('news2douyin') == '0.45.1'
     day = last_closed_day()
     # 09:00 UTC is 17:00 Beijing on the same date.
     observed = day.isoformat() + 'T09:00:00Z'

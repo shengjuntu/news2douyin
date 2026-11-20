@@ -131,6 +131,7 @@ def load_models() -> None:
     from ..digest import models as digest_models
     from ..candidates import models as candidate_models
     from ..georisk import models as georisk_models
+    from ..event_embeddings import models as event_embedding_models
 
 
 def create_schema(engine) -> None:

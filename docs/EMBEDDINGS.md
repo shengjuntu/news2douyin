@@ -19,6 +19,16 @@ EMBEDDING_API_KEY=
 python -m news2douyin.llm.client.embedding --check
 ```
 
-验收通过后，这份配置可供后续的事件向量检索使用。本版接入入口是客户端和独立验收命令。后续应用进程需要重新加载 `.env` 时，按现有部署方式重启服务。使用 Docker Compose 时，重新创建应用容器以应用环境变量。
+应用按 `.env` 读取向量配置。修改后按现有部署方式重启，Docker Compose 部署需重新创建应用容器以应用环境变量。
 
 向量客户端随 news2douyin 提供，使用现有的 `requests` 依赖。接入验收调用模型列表和 OpenAI 兼容向量接口。[vLLM 0.30 Embeddings API](https://docs.vllm.ai/en/v0.30.0/models/pooling_models/embed/)
+
+## 事件向量
+
+配置 `EMBEDDING_BASE_URL` 后，系统在整理事件提交时登记后台任务。向量内容包括标题、摘要、已核对的时间线描述和有原文依据的行动摘录。内容哈希不变时复用已有向量。可用 `NEWS2DOUYIN_EVENT_EMBEDDING_ENABLED=0` 暂停编码。
+
+在「运行管理 → 知识处理状态 → 事件向量」按日期提交历史补算。日期按系统时区解释，使用事件的首次记录时间。历史计划、事件任务和重试进度都保存在事务库中，重启后续跑。找不到模型、接口错误或无效向量会自动尝试重试，最终失败的事件可以按原日期再次补算。
+
+同页可以输入描述检索相似事件。它按日期和同一套模型配置过滤，最多在最近的 5,000 条合格向量中计算余弦相似度。结果链接到已整理事件。第一次启用时可选近期范围补算，验证可搜后再扩大日期。更换向量模型、地址、维度或同名权重时，按需要重新补算相应日期。权重在模型 ID 不变时可以通过增加 `NEWS2DOUYIN_EVENT_EMBEDDING_MODEL_REVISION` 区分。
+
+向量保存在 PostgreSQL 事务库。部署已经启用 `vector` 扩展时，检索优先使用 pgvector 计算余弦距离。普通 PostgreSQL 和 SQLite 也支持有界的相似度计算。正式 Compose 可选设 `NEWS2DOUYIN_POSTGRES_IMAGE=pgvector/pgvector:pg17-bookworm`。换镜像时保留同主版本和原数据卷，并在目标数据库执行 `CREATE EXTENSION IF NOT EXISTS vector;`。[pgvector 安装说明](https://github.com/pgvector/pgvector#docker)
