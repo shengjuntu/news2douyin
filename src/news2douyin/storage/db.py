@@ -130,6 +130,7 @@ def load_models() -> None:
     from ..attention import models as attention_models
     from ..digest import models as digest_models
     from ..candidates import models as candidate_models
+    from ..georisk import models as georisk_models
 
 
 def create_schema(engine) -> None:

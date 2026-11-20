@@ -1,4 +1,8 @@
-# news2douyin 0.43.0 · 事件雷达和选题工作台
+# news2douyin 0.43.1 · 事件雷达和选题工作台
+
+可独立部署 TradeView，与本服务交换只读数据。配置后，事件页可以查看市场日线与事件窗口，TradeView 可以按日期查已整理事件及其报道来源。[互通配置与 API](docs/TRADE-VIEW-INTEROP.md)
+
+「事件雷达 → 热点 → 地缘风险」提供 GKG 日度报道升温与原文回查。[地缘风险与事件窗口](docs/GEORISK.md)
 
 事件雷达的「热点」把近期冲突、重要会议、自然灾害和广泛影响事件按议题归并。可以查看两段时间的报道变化，核对原文，或者从议题建立焦点。[热点使用说明](docs/HOTSPOTS.md)
 
@@ -68,7 +72,7 @@ v0.33 使用三个连续日期的公开 GKG 归档复核了选题质量和转载
 Python 3.10+。先停止原服务，备份原数据库、运行目录与配置，然后在原环境安装：
 
 ```bash
-python -m pip install --upgrade "./release-0.43.0/news2douyin-0.43.0-py3-none-any.whl[research,ngrams]"
+python -m pip install --upgrade "./release-0.43.1/news2douyin-0.43.1-py3-none-any.whl[research,ngrams]"
 ```
 
 源码安装使用 `python -m pip install '.[research,ngrams]'`。仅使用原有正文读取时可省略 `ngrams`。CLI与服务默认读取 `NEWS2DOUYIN_DATABASE_URL`，显式 `--db-url` 优先；两者都未设置时才使用SQLite兼容默认值。`postgresql://` 自动规范为 `postgresql+psycopg://`。原SQLite用户可沿用原启动参数；迁移到PostgreSQL需要先停服务，运行迁移工具，保持原 `storage_root` 和图实例。不要通过连到空库代替迁移。

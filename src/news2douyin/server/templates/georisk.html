@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+{% block title %}地缘风险 · 事件雷达{% endblock %}
+{% block graph_libraries %}{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="/research-assets/georisk.css">
+{% with radar_tab='hotspots' %}{% include 'radar_view_tabs.html' %}{% endwith %}
+<header class="risk-header">
+  <div><a href="/radar/hotspots">← 热点</a><h1>地缘风险</h1></div>
+  <span class="muted">GDELT GKG · 北京时间</span>
+</header>
+{% set states={'missing':'缺数据','pending':'待分析','partial':'覆盖不足','complete':'已结算','live':'今日累计'} %}
+{% if not enabled %}<p class="card">地缘风险后台汇总未启用。<a href="/intake">查看 GDELT 采集状态</a></p>{% endif %}
+<form class="card risk-filters" method="get">
+  <label>地区 <select name="scope">{% for value,label in risk.scopes.items() %}<option value="{{ value }}"{% if value==risk.scope %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+  <label>主题 <select name="category">{% for value,label in risk.categories.items() %}<option value="{{ value }}"{% if value==risk.category %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+  <label>结束日 <input name="end_day" type="date" value="{{ risk.end }}"></label>
+  <label>天数 <input name="days" type="number" min="7" max="90" value="{{ days }}"></label>
+  <button type="submit">查看</button>
+</form>
+
+{% if risk['items'] %}
+<section class="card" aria-label="报道升温趋势">
+  <div class="risk-caption"><h2>报道升温趋势</h2><span>青色 有效 · 橙色 异常 · 灰色 覆盖不足</span></div>
+  <div class="risk-chart" aria-label="点击柱查看当天材料">
+  {% for row in risk['items']|sort(attribute='day') %}
+    <a href="?scope={{ risk.scope|urlencode }}&amp;category={{ risk.category|urlencode }}&amp;days={{ days }}&amp;end_day={{ risk.end }}&amp;day={{ row.day }}#risk-evidence"
+       data-state="{{ 'spike' if row.spike else row.state }}"
+       {% if risk.selected and risk.selected.day==row.day %}aria-current="true"{% endif %}
+       aria-label="{{ row.day }} {{ '异常' if row.spike else states.get(row.state,row.state) }} {{ '%.2f'|format(row.score) if row.score is not none else '' }}"
+       title="{{ row.day }} · {{ '%.2f'|format(row.score) if row.score is not none else states.get(row.state,row.state) }}">
+      <span style="--bar-height:{{ ((row.score or 0) / chart_max * 100)|round(2) }}%"></span>
+    </a>
+  {% endfor %}
+  </div>
+  <div class="risk-caption muted"><span>{{ risk.start }}</span><span>{{ risk.end }}</span></div>
+  <details class="risk-table">
+    <summary>每日数值和覆盖</summary>
+    <div class="risk-scroll">
+      <table><thead><tr><th>日期</th><th>指数</th><th>报道</th><th>来源域名</th><th>批次覆盖</th><th>状态</th></tr></thead>
+      <tbody>{% for row in risk['items']|sort(attribute='day',reverse=true) %}
+        <tr><td><a href="?scope={{ risk.scope|urlencode }}&amp;category={{ risk.category|urlencode }}&amp;days={{ days }}&amp;end_day={{ risk.end }}&amp;day={{ row.day }}#risk-evidence">{{ row.day }}</a></td>
+          <td>{{ '%.2f'|format(row.score) if row.score is not none else '—' }}</td>
+          <td>{{ row.doc_count if row.doc_count is not none else '—' }}</td>
+          <td>{{ row.source_count if row.source_count is not none else '—' }}</td>
+          <td>{{ row.available_batches }}/{{ row.expected_batches }}{% if row.pending_batches %} · 待分析 {{ row.pending_batches }}{% endif %}{% if row.missing_batches %} · 缺 {{ row.missing_batches }}{% endif %}</td>
+          <td>{{ '异常升温' if row.spike else states.get(row.state,row.state) }}</td></tr>
+      {% endfor %}</tbody></table>
+    </div>
+  </details>
+</section>
+{% endif %}
+
+{% if risk.selected %}
+{% set row=risk.selected %}
+<section class="card risk-evidence" id="risk-evidence">
+  <div class="risk-caption"><h2>{{ row.day }} · 证据</h2><span>{{ '异常升温' if row.spike else states.get(row.state,row.state) }}</span></div>
+  {% if row.score is not none %}<p>{{ row.doc_count }} 篇去重报道 · {{ row.source_count }} 个来源域名 · 批次 {{ row.available_batches }}/{{ row.expected_batches }}{% if row.zscore is not none %} · 异常分数 {{ '%.2f'|format(row.zscore) }}{% endif %}</p>{% endif %}
+  {% if row.events %}<h3>已整理事件</h3>
+    <ul>{% for event in row.events %}<li><a href="{{ event.path }}">{{ event.title }}</a> · <a href="/focus?seed={{ event.key|urlencode }}">建立焦点</a></li>{% endfor %}</ul>
+  {% endif %}
+  {% if row.evidence %}
+  <div class="risk-caption"><h3>代表性原文</h3>{% if not row.events and row.focus_url %}<a href="{{ row.focus_url }}">跟踪首条报道</a>{% endif %}</div>
+  <ul>{% for report in row.evidence %}
+    <li><a href="{{ report.url }}" target="_blank" rel="noopener noreferrer">{{ report.title }}</a>{% if report.domain %} <small>{{ report.domain }}</small>{% endif %}</li>
+  {% endfor %}</ul>
+  {% else %}<p class="muted">这个日期暂无带标题的代表性报道。</p>{% endif %}
+</section>
+{% elif enabled %}<p class="card">所选范围暂无可分析的 GKG 日度汇总。<a href="/intake">查看采集</a></p>{% endif %}
+
+<details class="risk-method">
+  <summary>统计口径</summary>
+  <p>指数为平均负面语调乘以 ln（去重报道数 + 1）。异常日与此前有效日比较。地点范围按 GKG 提及地筛选。选择带原文的具体进展作为市场窗口锚点。</p>
+</details>
+{% endblock %}

@@ -10,7 +10,7 @@
     <h1>热点</h1>
     <p>查看最近 {{ hours }} 小时值得跟踪的事件。</p>
   </div>
-  <time datetime="{{ as_of }}">更新于 {{ as_of|local_ts('Asia/Shanghai') }} · 北京时间</time>
+  <div><a href="/radar/hotspots/risk">地缘风险</a><br><time datetime="{{ as_of }}">更新于 {{ as_of|local_ts('Asia/Shanghai') }} · 北京时间</time></div>
 </div>
 
 <nav class="hotspot-filters" aria-label="热点分类">

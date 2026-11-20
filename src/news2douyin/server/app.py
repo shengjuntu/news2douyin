@@ -101,6 +101,8 @@ def create_app(*, db_url: str | None = None, storage_root: str = 'runs_v7') -> F
         if not app.state.intake.status_error:
             with startup.phase('workers.intake_projection'):
                 app.state.intake_projection.start()
+        with startup.phase('workers.georisk'):
+            app.state.georisk.start()
         with startup.phase('workers.attention'):
             app.state.attention.start()
         with startup.phase('workers.source_content'):
@@ -117,6 +119,7 @@ def create_app(*, db_url: str | None = None, storage_root: str = 'runs_v7') -> F
             app.state.ngram_worker.stop()
             app.state.source_content.stop()
             app.state.attention.stop()
+            app.state.georisk.stop()
             app.state.intake.stop()
             app.state.intake_projection.stop()
             app.state.desk.stop()
@@ -166,6 +169,8 @@ def create_app(*, db_url: str | None = None, storage_root: str = 'runs_v7') -> F
     with startup.phase('application.intake'):
         app.state.intake=IntakeWorker(engine,storage_root)
         app.state.intake_projection=ProjectionWorker(engine,storage_root)
+    from ..georisk.runtime import GeoriskWorker
+    app.state.georisk = GeoriskWorker(engine, storage_root)
     from .research import register_research_routes
     with startup.phase('application.research_routes'):
         register_research_routes(app, engine, storage_root)
@@ -288,6 +293,8 @@ def create_app(*, db_url: str | None = None, storage_root: str = 'runs_v7') -> F
 
     from .news import register_news_routes
     register_news_routes(app, engine)
+    from .interop import register as register_interop
+    register_interop(app, engine)
     from .daily import register_daily_routes
     register_daily_routes(app, engine, storage_root)
     from .short_scripts import register_short_script_routes

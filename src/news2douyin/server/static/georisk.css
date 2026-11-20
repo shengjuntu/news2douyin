@@ -1,0 +1,32 @@
+.risk-header, .risk-caption, .risk-filters {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.risk-header { margin: 14px 0 20px; }
+.risk-header h1, .risk-caption h2 { margin: 4px 0; }
+.risk-caption span { color: #adbac9; font-size: .86rem; }
+.risk-filters { justify-content: start; }
+.risk-filters label { display: grid; gap: 4px; }
+.risk-filters input[type=number] { width: 76px; }
+.risk-chart {
+  min-height: 128px;
+  height: clamp(128px, 17vw, 196px);
+  display: flex;
+  gap: clamp(2px, .36vw, 5px);
+  align-items: stretch;
+  margin: 18px 0 6px;
+  padding-bottom: 1px;
+  border-bottom: 1px solid #4b5566;
+}
+.risk-chart a { flex: 1; display: flex; align-items: end; min-width: 1px; }
+.risk-chart a span { background: #49bcc5; width: 100%; height: max(3px, var(--bar-height)); border-radius: 3px 3px 0 0; }
+.risk-chart a[data-state=spike] span { background: #ffa86c; }
+.risk-chart a:is([data-state=missing], [data-state=pending], [data-state=partial], [data-state=live]) span { background: #939cab; }
+.risk-chart a:is(:focus-visible, :hover, [aria-current=true]) { outline: 1px solid #e8f1f4; outline-offset: 1px; }
+.risk-table, .risk-method { margin-top: 16px; }
+.risk-scroll { overflow-x: auto; }
+.risk-evidence li { margin: 8px 0; }
+.risk-evidence small { color: #adbac9; }

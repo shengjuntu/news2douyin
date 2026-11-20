@@ -1,0 +1,21 @@
+# 地缘风险与事件窗口
+
+从「事件雷达 → 热点 → 地缘风险」查看 GKG 报道升温。选择地区、主题和回看日期，再点击某天，查看代表性原文和已关联这些原文的整理事件。从证据区可以建立焦点。
+
+## 启用和数据口径
+
+- 在 News2Douyin 的环境变量设置 `NEWS2DOUYIN_GEORISK_ENABLED=1` 并重启。后台增量处理本机已有的 GKG 批次。首轮回看默认 60 天，可用 `NEWS2DOUYIN_GEORISK_REPLAY_DAYS` 配置 1–180 天。补采后的批次仍可加入统计。
+- 默认使用英语和机器翻译 GKG 流。若机器只接入其中一条流，可通过 `NEWS2DOUYIN_GEORISK_CONFIG` 指向 TOML 文件，在根部设 `feeds = ["gkg_english"]` 或 `feeds = ["gkg_translation"]`。可用 `[scopes]`、`[categories]` 和 `[title_terms]` 调整地区、GKG 主题和标题线索。
+- 指数按 GKG 批次在北京时间的观察日汇总。同一天重复原文链接计一次。指数是平均负面语调乘以 `ln(去重报道数 + 1)`。地区依据 GKG 提及地。制裁与贸易限制会结合主题和原文标题线索。
+- 页面显示已分析批次、应有批次和来源域名。异常只评估已结束、至少分析了 95% 应有批次的日期。基线取此前 30 个自然日里的有效日，至少 14 天，达到 3 个样本标准差标为异常。正在汇总及缺批次的日期显示覆盖状态。
+- 地缘风险汇总存入现有关系数据库；原始数据仍由 DuckDB 采集仓管理。页面查询读取汇总和代表性证据。
+
+只读接口：`GET /api/radar/georisk?scope=global&category=conflict&days=30&end_day=2025-02-03&day=2025-02-01`。结束日期包含在窗口内，`day` 可选。
+
+## 查看市场窗口
+
+启用 [Trade View 互通](TRADE-VIEW-INTEROP.md)，并升级至支持事件窗口的 Trade View。原文加入事件后，展开「同期市场数据」，选择报道发布时间或已核对进展日，再选择指标与可选基准。
+
+结果显示事件后第 1、3、5 个交易日相对于事件前一个交易日收盘的累计变化。交易日历和开闭市时点跟随目标市场。只有日期时可按市场日期粗对齐。WTI 近月报价和美国 10 年期国债收益率的供应商收值截止时点在本版待核实，按日期模式可查看日线窗口。
+
+风险日期标记报道升温，市场窗口标记某条具体消息公开后可观察的变化。历史验证可选 [2025 年 2 月 1 日美国关税公告](https://www.whitehouse.gov/fact-sheets/2025/02/fact-sheet-president-donald-j-trump-imposes-tariffs-on-imports-from-canada-mexico-and-china/)，在该周末事件旁核对 Trade View 的下一交易日和前一日收盘。两个查询都可在缺数据时保留已有材料。

@@ -331,6 +331,8 @@ def register_webui_routes(app: FastAPI, engine, scheduler, storage_root: str) ->
     register_daily_management(app,engine,render)
     from .hotspots import register as register_hotspots
     register_hotspots(app,engine,render)
+    from .georisk import register as register_georisk
+    register_georisk(app, engine, render)
     from .video_candidates import register as register_video_candidates
     register_video_candidates(app,engine,render)
     from .graph_browser import register as register_graph_browser
@@ -341,8 +343,16 @@ def register_webui_routes(app: FastAPI, engine, scheduler, storage_root: str) ->
     @app.get('/events/{event_key}', response_class=HTMLResponse)
     def page_event_detail(event_key: str, back: str = '/radar'):
         from ..events.workbench import workspace
+        from .interop import event_market_context, trade_view_settings
+        from .event_window import anchor_options
         with session_scope(engine) as session:
             view = task_call(workspace, session, event_key)
+            market = None
+            windows = []
+            if trade_view_settings() and not view['merged_into']:
+                recorded_at = session.exec(select(Event.first_seen_at).where(Event.event_key == event_key)).one()
+                market = event_market_context(view, recorded_at)
+                windows = anchor_options(view)
             scripts = script_workbench.list_scripts(session, event_key=event_key, limit=10)
             related=desk.memberships(session,event_key)
             from ..desk.focus_lifecycle import visible_watch
@@ -372,7 +382,7 @@ def register_webui_routes(app: FastAPI, engine, scheduler, storage_root: str) ->
         from ..extraction.schema import LABELS
         back=safe_back(back)
         return render('event_workspace.html', active='focus' if back.startswith('/focus') else 'radar',
-                      view=view, scripts=scripts, timezone=timezone_name(),related=related,watches=watches,content_tasks=content_tasks,knowledge=knowledge,
+                      view=view, scripts=scripts, timezone=timezone_name(),related=related,watches=watches,content_tasks=content_tasks,knowledge=knowledge,market=market,windows=windows,
                       back=back,action_labels=LABELS,reports=reports,source_groups=source_groups,places=places,layers=layers,marks=marks,countries=country_labels())
 
     @app.get('/report/{run_id}')

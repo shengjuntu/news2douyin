@@ -8,6 +8,48 @@
 {% include 'graph_status.html' %}
 {% if content_tasks %}<details class="card"><summary>相关选题与作品</summary>{% for t in content_tasks %}<p><a href="/workbench/{{ t.key }}">{{ t.title }}</a> · {{ t.phase }}</p>{% endfor %}</details>{% endif %}
 <details class="card work-actions"><summary>相关事件图</summary><div data-knowledge-graph data-event="{{ view.event_key }}"></div></details>
+{% if market or windows %}
+<details class="card" id="event-market-panel">
+<summary>同期市场数据</summary>
+{% if windows %}
+<form id="event-window-form" class="desk-row">
+  <label>时间锚点
+    <select name="anchor" required>
+      {% for item in windows %}
+      <option value="{{ loop.index }}" data-at="{{ item.at }}" data-precision="{{ item.precision }}" data-url="{{ item.url }}">{{ item.basis }} · {{ item.at }} · {{ item.title }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <a id="event-window-source" href="{{ windows[0].url }}" target="_blank" rel="noopener noreferrer">核对原文</a>
+  <label>指标 <input name="series_id" list="event-window-series" placeholder="如 SPY 或 600519.SH" maxlength="25" required></label>
+  <label>基准 <input name="benchmark_id" list="event-window-series" placeholder="可选，如 SPY" maxlength="25"></label>
+  <label><input name="coarse" type="checkbox"> 仅按市场日期对齐</label>
+  <datalist id="event-window-series"></datalist>
+  <button type="submit">查看事件窗口</button>
+</form>
+<p id="event-window-status" class="small-help" role="status"></p>
+<div id="event-window-results" style="overflow-x:auto"></div>
+<script src="/research-assets/event-window.js" defer></script>
+{% elif market %}
+<p class="small-help">关联一篇有发布时间的原文后，可计算事件窗口。</p>
+{% endif %}
+{% if market %}
+<details>
+<summary>按日期查 A 股日线</summary>
+<p class="small-help">{{ market.basis }} {{ market.day }} · 北京时间。交易日行情由 TradeView 提供。</p>
+<form id="event-market-form" class="desk-row">
+<label>证券代码 <input name="symbol" placeholder="例如 600519.SH" pattern="[0-9]{6}(\.(SH|SZ|BJ|sh|sz|bj))?" maxlength="9" required></label>
+<label>起始日 <input type="date" name="start" value="{{ market.start }}" required></label>
+<label>结束日 <input type="date" name="end" value="{{ market.end }}" required></label>
+<button type="submit">查看</button>
+</form>
+<p id="event-market-status" class="small-help" role="status"></p>
+<div id="event-market-results" style="overflow-x:auto"></div>
+</details>
+<script src="/research-assets/event-market.js" defer></script>
+{% endif %}
+</details>
+{% endif %}
 <section class="card" aria-label="关联焦点">
 <div class="desk-row"><strong>关联焦点</strong>{% for t in related %}<a href="/focus/{{ t.key }}" title="{{ t.reason }}">{{ t.name }}</a>{% endfor %}
 <a href="/focus?seed={{ view.event_key|urlencode }}">新建焦点</a>{% if watches %}<form id="desk-link" class="inline"><select name="watch" aria-label="已有焦点">{% for k,n in watches %}<option value="{{ k }}">{{ n }}</option>{% endfor %}</select><button>加入已有焦点</button></form>{% endif %}</div>

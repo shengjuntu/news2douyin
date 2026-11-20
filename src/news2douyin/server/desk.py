@@ -25,7 +25,7 @@ def safe_back(raw):
     if not raw or '\\' in raw or any(ord(c)<32 for c in raw):return '/radar'
     try: u=urlsplit(raw)
     except ValueError:return '/radar'
-    if u.scheme or u.netloc or not re.fullmatch(r'/(radar|focus(?:/w_[0-9a-f]{32})?)',u.path):return '/radar'
+    if u.scheme or u.netloc or not re.fullmatch(r'/(radar(?:/hotspots/risk)?|focus(?:/w_[0-9a-f]{32})?)',u.path):return '/radar'
     return u.path+('?' + u.query if u.query else '')
 
 
@@ -147,7 +147,8 @@ def register_desk(app,engine,render):
     @app.get('/focus/{key}')
     def focus(request:Request,key:str='',seed:str='',order:str='recent',branch:str='',offset:int=Query(0,ge=0),
               lead_offset:int=Query(0,ge=0,le=100000),video_day:str=Query('',max_length=10),
-              video_key:str=Query('',max_length=160),hotspot:str=Query('',max_length=128),day:str=Query('',max_length=10),
+              video_key:str=Query('',max_length=160),hotspot:str=Query('',max_length=128),risk:str=Query('',max_length=76),
+              day:str=Query('',max_length=10),
               date_basis:Literal['observed','occurred']='observed',
               view:Literal['events','leads','archive']='events',s=Depends(db)):
         from ..desk.focus_lifecycle import visible_watch, trash_items
@@ -158,6 +159,11 @@ def register_desk(app,engine,render):
         if lead_offset and 'view' not in request.query_params:
             view='leads'
         seed_text, seed_name, seed_terms = '', '', []
+        if risk:
+            if key or seed or hotspot or video_day or video_key:
+                raise HTTPException(422, '风险线索只能用于新建焦点')
+            from .georisk import focus_seed
+            seed_name, seed_text = focus_seed(s, risk)
         if hotspot:
             if key or seed or video_day or video_key:
                 raise HTTPException(422, '热点只能用于新建焦点')
@@ -239,7 +245,7 @@ def register_desk(app,engine,render):
             timeline=moments,excluded=excluded,paging=paging,focus_view=view,day=day,date_basis=date_basis,
             seed_title=seed_event.event_title if seed_event else '',seed_text=seed_text,
             seed_name=seed_name,seed_terms=seed_terms,
-            draft_scope=f'hotspot/{hotspot}' if hotspot else f'{video_day}/{video_key}' if video_key else seed,
+            draft_scope=f'hotspot/{hotspot}' if hotspot else f'risk/{risk}' if risk else f'{video_day}/{video_key}' if video_key else seed,
             focus_script_version=focus_script_version,focus_style_version=focus_style_version,**context(request,s))
         response.headers['Cache-Control'] = 'private, no-cache'
         return remember(response,'focus')
