@@ -51,6 +51,9 @@ def register_webui_routes(app: FastAPI, engine, scheduler, storage_root: str) ->
         page = env.get_template(name)
         return HTMLResponse(page.render(fmt_ts=_fmt_ts, active=ctx.pop('active', ''), **ctx))
 
+    from .causal import register as register_causal
+    register_causal(app, engine, render)
+
     @app.get('/resources/countries', response_class=HTMLResponse, include_in_schema=False, name='country_directory_legacy')
     @app.get('/country-reference.html', response_class=HTMLResponse)
     def country_directory():

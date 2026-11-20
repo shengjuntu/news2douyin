@@ -1,0 +1,35 @@
+.causal-page { max-width: 920px; margin-inline: auto; overflow-wrap: anywhere; }
+.causal-page h1 { font-size: 28px; margin: 20px 0 14px; }
+.causal-form > label { display: block; margin-bottom: 8px; font-weight: 600; }
+.causal-form textarea { display: block; width: 100%; resize: vertical; line-height: 1.7; margin-bottom: 8px; }
+.causal-form textarea:focus-visible { outline: 2px solid #4dd0e1; outline-offset: 2px; }
+.causal-options { margin: 12px 0 16px; }
+.causal-page summary { cursor: pointer; }
+.causal-options > div { margin: 12px 0; }
+.causal-options #causal-at { width: min(100%, 235px); }
+.causal-message { color: #c0cddd; white-space: pre-wrap; }
+.causal-message[data-error=true], .causal-node-error { color: #fec3a2; }
+.causal-result-head { justify-content: space-between; }
+.causal-result-head h2 { margin: 8px 0; font-size: 19px; }
+.causal-assistance { margin: 0 0 8px; font-size: 12px; }
+.causal-repair form { margin-top: 10px; }
+.causal-message:empty { margin-block: 0; }
+.causal-tree { margin: 10px 0 0; padding: 0; list-style: none; }
+.causal-branches { margin: 8px 0 0; padding-left: 18px; border-left: 1px solid #395368; }
+.causal-node { margin: 8px 0; padding: 11px 13px; background: #171d27; border: 1px solid #2e3a4a; border-radius: 8px; }
+.causal-node h3 { margin: 0; font-size: 15px; line-height: 1.55; white-space: pre-wrap; }
+.causal-node p { margin: 8px 0; line-height: 1.55; }
+.causal-node-meta, .causal-node-actions { margin-top: 8px; }
+.causal-node-meta { font-size: 12px; color: #9baec5; }
+.causal-node-actions { color: #aabbd0; font-size: 12px; }
+.causal-evidence { margin-top: 10px; }
+.causal-evidence ul, #causal-history-list ul { margin: 9px 0 0; padding-left: 20px; }
+.causal-evidence li, #causal-history-list li { margin: 7px 0; }
+.causal-evidence blockquote { margin: 6px 0 0; padding: 0 0 0 10px; border-left: 2px solid #485a72; color: #b9c4d4; white-space: pre-wrap; }
+.causal-other { margin: 8px 0; }
+.causal-history { margin-top: 18px; }
+@media (max-width: 600px) {
+  .causal-page h1 { font-size: 22px; }
+  .causal-node { padding: 8px; }
+  .causal-branches { padding-left: 8px; }
+}
