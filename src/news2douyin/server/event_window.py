@@ -11,6 +11,7 @@ from .research import same_origin
 
 WINDOW_PATH = '/api/v1/interop/event-window'
 CATALOG_PATH = '/api/v1/overseas/series'
+MAX_ANCHORS = 24
 Series = Annotated[str, Query(pattern=r'^(?:[A-Z][A-Z0-9_-]{0,24}|[0-9]{6}(?:\.(?:SH|SZ|BJ))?)$')]
 
 
@@ -49,7 +50,8 @@ def anchor_options(view):
             reviewed.append(dict(at=parsed[0], precision='date', url=url, title=moment['title'][:110],
                                  basis='已核对进展日'))
     options.sort(key=lambda item: (item['precision'] != 'timestamp', item['at']))
-    return (options + reviewed)[:24]
+    reviewed = sorted(reviewed, key=lambda item: item['at'])[-MAX_ANCHORS:]
+    return options[:MAX_ANCHORS - len(reviewed)] + reviewed
 
 
 def peer(response):

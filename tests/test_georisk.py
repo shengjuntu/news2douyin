@@ -3,6 +3,7 @@ from math import log1p
 from zipfile import ZipFile
 
 import pytest
+from fastapi.testclient import TestClient
 from sqlmodel import Session
 
 from news2douyin.georisk.config import settings
@@ -11,6 +12,7 @@ from news2douyin.georisk.runtime import GeoriskWorker, MAX_BATCHES_PER_TICK
 from news2douyin.georisk.service import dashboard, evidence_for_day
 from news2douyin.intake.feeds import FEEDS
 from news2douyin.intake.lake import Lake
+from news2douyin.server.app import create_app
 from news2douyin.storage.utils import dumps
 
 
@@ -35,6 +37,41 @@ def archive(root, feed, stamp, *observations):
     with ZipFile(target, 'w') as package:
         package.writestr(stamp + suffix[:-4], '\n'.join(data) + '\n' if data else '')
     return Lake(root).ingest_archive(feed, stamp, target)
+
+
+def test_risk_page_separates_an_unchecked_archive_from_a_confirmed_gap(tmp_path, monkeypatch):
+    monkeypatch.delenv('NEWS2DOUYIN_GEORISK_ENABLED', raising=False)
+    monkeypatch.delenv('NEWS2DOUYIN_GEORISK_CONFIG', raising=False)
+    monkeypatch.setenv('NEWS2DOUYIN_GEORISK_REPLAY_DAYS', '2')
+    app = create_app(db_url=f'sqlite:///{tmp_path / "web.db"}', storage_root=str(tmp_path))
+    client = TestClient(app)
+    params = {'end_day': SIGNAL_DAY, 'day': SIGNAL_DAY}
+    path = '/radar/hotspots/risk'
+    try:
+        empty = client.get(path, params=params).text
+        assert '地缘风险后台汇总未启用' in empty
+        assert '<div class="risk-chart"' not in empty
+        pending = client.get('/api/radar/georisk', params=params).json()
+        assert pending['analysis_status'] == 'disabled'
+        assert pending['selected']['state'] == 'unchecked'
+        assert pending['selected']['missing_batches'] is None
+        assert pending['selected']['doc_count'] is None
+
+        monkeypatch.setenv('NEWS2DOUYIN_GEORISK_ENABLED', '1')
+        assert '未找到 GKG 原始仓' in client.get(path, params=params).text
+        # Initialize a real, empty archive and let the worker check the date window.
+        with Lake(tmp_path).connection(create=True):
+            pass
+        assert '尚未核对' in client.get(path, params=params).text
+        app.state.georisk.step(NOW)
+        missing = client.get('/api/radar/georisk', params=params).json()
+        assert missing['analysis_status'] == 'ready'
+        assert missing['selected']['state'] == 'missing'
+        assert missing['selected']['missing_batches'] == 192
+        assert '归档缺失' in client.get(path, params=params).text
+    finally:
+        client.close()
+        app.state.engine.dispose()
 
 
 def test_lake_projection_replays_late_batches_and_sql_failure(engine, tmp_path, monkeypatch):
@@ -116,7 +153,8 @@ def test_spike_uses_only_covered_past_days_and_marks_live_gaps(engine):
         assert live['state'] == 'live' and live['zscore'] is None and not live['spike']
         assert live['expected_batches'] == 82 and live['missing_batches'] == 70
         missing = dashboard(session, days=1, end_day='2026-11-01', now=NOW)['items'][0]
-        assert missing['state'] == 'missing' and missing['score'] is None
+        assert missing['state'] == 'unchecked' and missing['score'] is None
+        assert missing['doc_count'] is None and missing['missing_batches'] is None
 
 
 def test_archive_backlog_is_bounded_and_no_theme_hit_is_distinct_from_missing(engine, tmp_path):
@@ -140,3 +178,49 @@ def test_archive_backlog_is_bounded_and_no_theme_hit_is_distinct_from_missing(en
     with Session(engine) as session:
         result = dashboard(session, days=1, end_day=SIGNAL_DAY, now=NOW)['items'][0]
         assert result['available_batches'] == archive_count and result['pending_batches'] == 0
+
+
+def test_unpublished_day_survives_replay_window_rollover(engine, tmp_path, monkeypatch):
+    monkeypatch.setenv('NEWS2DOUYIN_GEORISK_REPLAY_DAYS', '1')
+    archive(tmp_path, 'gkg_english', '20261119154500',
+            ('https://example.com/armistice', 'Local officials reported clashes', 'ARMEDCONFLICT', 'UP', 5))
+    before_midnight = datetime(2026, 11, 19, 15, 55, tzinfo=timezone.utc)
+    worker = GeoriskWorker(engine, tmp_path)
+
+    def fail_publication(*_):
+        raise RuntimeError('summary store unavailable')
+
+    monkeypatch.setattr(worker, '_publish', fail_publication)
+    with pytest.raises(RuntimeError, match='summary store unavailable'):
+        worker.step(before_midnight)
+
+    retry = GeoriskWorker(engine, tmp_path)
+    assert retry.step(NOW)
+    assert not retry.step(NOW, refresh=True)
+    with Session(engine) as session:
+        result = dashboard(session, days=1, end_day=SIGNAL_DAY, now=NOW)['items'][0]
+        assert result['available_batches'] == result['doc_count'] == 1
+        assert result['negative_tone'] == 5
+
+
+def test_replaying_pruned_batches_keeps_more_complete_summary(engine, tmp_path, monkeypatch):
+    archive_count = MAX_BATCHES_PER_TICK + 1
+    first = datetime(2026, 11, 19, 1, 0, tzinfo=timezone.utc)
+    for index in range(archive_count):
+        stamp = (first + timedelta(minutes=15 * index)).strftime('%Y%m%d%H%M%S')
+        archive(tmp_path, 'gkg_english', stamp,
+                (f'https://example.com/{index}', f'Local clashes report {index}', 'ARMEDCONFLICT', 'UP', 5))
+    monkeypatch.setenv('NEWS2DOUYIN_GEORISK_REPLAY_DAYS', '2')
+    worker = GeoriskWorker(engine, tmp_path)
+    assert worker.step(NOW)
+    assert worker.step(NOW)
+    monkeypatch.setenv('NEWS2DOUYIN_GEORISK_REPLAY_DAYS', '1')
+    assert not worker.step(NOW, refresh=True)
+
+    monkeypatch.setenv('NEWS2DOUYIN_GEORISK_REPLAY_DAYS', '2')
+    assert worker.step(NOW, refresh=True)
+    with Session(engine) as session:
+        result = dashboard(session, days=1, end_day=SIGNAL_DAY, now=NOW)['items'][0]
+        assert result['available_batches'] == result['doc_count'] == archive_count
+    assert worker.step(NOW)
+    assert not worker.step(NOW, refresh=True)

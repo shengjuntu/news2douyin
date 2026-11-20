@@ -67,6 +67,18 @@ def focus_seed(session, risk):
 
 
 def register(app, engine, render):
+    def analysis_status(data):
+        worker = app.state.georisk
+        if not data['enabled']:
+            return 'disabled'
+        if worker.status_error or worker.last_error:
+            return 'error'
+        if not worker.lake.path.is_file():
+            return 'archive_absent'
+        if not any(item['archived_batches'] is not None for item in data['items']):
+            return 'unchecked'
+        return 'ready'
+
     def read(scope, category, days, end_day, day):
         with session_scope(engine) as session:
             data = read_dashboard(session, scope, category, days, end_day)
@@ -85,7 +97,7 @@ def register(app, engine, render):
                                                 PATH + '?' + query)
                 focus_url = '/focus?' + urlencode({'new': 1, 'risk': f"{scope}/{category}/{selected['day']}"})
                 selected = {**selected, 'evidence': evidence, 'events': events, 'focus_url': focus_url if evidence else None}
-            return {**data, 'selected': selected}
+            return {**data, 'selected': selected, 'analysis_status': analysis_status(data)}
 
     @app.get('/api/radar/georisk')
     def risk_api(scope: Annotated[str, Query(max_length=32)] = 'global',
@@ -98,6 +110,6 @@ def register(app, engine, render):
                   category: Annotated[str, Query(max_length=32)] = '',
                   days: Annotated[int, Query(ge=7, le=90)] = 30, end_day: Day = '', day: Day = ''):
         data = read(scope, category, days, end_day, day)
-        chart_max = max((row['score'] or 0 for row in data['items']), default=0) or 1
-        return render('georisk.html', active='radar', risk=data, chart_max=chart_max, days=days,
-                      enabled=data['enabled'])
+        scores = [row['score'] for row in data['items'] if row['score'] is not None]
+        return render('georisk.html', active='radar', risk=data, chart_max=max(scores, default=0) or 1,
+                      show_chart=bool(scores), days=days)

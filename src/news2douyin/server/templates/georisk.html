@@ -8,8 +8,9 @@
   <div><a href="/radar/hotspots">← 热点</a><h1>地缘风险</h1></div>
   <span class="muted">GDELT GKG · 北京时间</span>
 </header>
-{% set states={'missing':'缺数据','pending':'待分析','partial':'覆盖不足','complete':'已结算','live':'今日累计'} %}
-{% if not enabled %}<p class="card">地缘风险后台汇总未启用。<a href="/intake">查看 GDELT 采集状态</a></p>{% endif %}
+{% set states={'unchecked':'未核对归档','missing':'归档缺失','pending':'已归档，待分析','partial':'覆盖不足','complete':'已结算','live':'今日累计'} %}
+{% set messages={'disabled':'地缘风险后台汇总未启用。', 'error':'后台汇总遇到错误，请检查服务日志。', 'archive_absent':'当前数据目录未找到 GKG 原始仓。', 'unchecked':'所选日期的 GKG 归档尚未核对。'} %}
+{% if risk.analysis_status in messages %}<p class="card">{{ messages[risk.analysis_status] }} <a href="/intake">查看 GDELT 采集状态</a></p>{% endif %}
 <form class="card risk-filters" method="get">
   <label>地区 <select name="scope">{% for value,label in risk.scopes.items() %}<option value="{{ value }}"{% if value==risk.scope %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
   <label>主题 <select name="category">{% for value,label in risk.categories.items() %}<option value="{{ value }}"{% if value==risk.category %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
@@ -20,6 +21,7 @@
 
 {% if risk['items'] %}
 <section class="card" aria-label="报道升温趋势">
+  {% if show_chart %}
   <div class="risk-caption"><h2>报道升温趋势</h2><span>青色 有效 · 橙色 异常 · 灰色 覆盖不足</span></div>
   <div class="risk-chart" aria-label="点击柱查看当天材料">
   {% for row in risk['items']|sort(attribute='day') %}
@@ -33,6 +35,9 @@
   {% endfor %}
   </div>
   <div class="risk-caption muted"><span>{{ risk.start }}</span><span>{{ risk.end }}</span></div>
+  {% else %}
+  <p>所选日期暂无可绘制的日度指数。展开下方可查看各天的归档和分析状态。</p>
+  {% endif %}
   <details class="risk-table">
     <summary>每日数值和覆盖</summary>
     <div class="risk-scroll">
@@ -42,7 +47,7 @@
           <td>{{ '%.2f'|format(row.score) if row.score is not none else '—' }}</td>
           <td>{{ row.doc_count if row.doc_count is not none else '—' }}</td>
           <td>{{ row.source_count if row.source_count is not none else '—' }}</td>
-          <td>{{ row.available_batches }}/{{ row.expected_batches }}{% if row.pending_batches %} · 待分析 {{ row.pending_batches }}{% endif %}{% if row.missing_batches %} · 缺 {{ row.missing_batches }}{% endif %}</td>
+          <td>{% if row.archived_batches is none %}— / {{ row.expected_batches }}{% else %}{{ row.available_batches }}/{{ row.expected_batches }}{% if row.pending_batches %} · 待分析 {{ row.pending_batches }}{% endif %}{% if row.missing_batches %} · 缺 {{ row.missing_batches }}{% endif %}{% endif %}</td>
           <td>{{ '异常升温' if row.spike else states.get(row.state,row.state) }}</td></tr>
       {% endfor %}</tbody></table>
     </div>
@@ -65,7 +70,7 @@
   {% endfor %}</ul>
   {% else %}<p class="muted">这个日期暂无带标题的代表性报道。</p>{% endif %}
 </section>
-{% elif enabled %}<p class="card">所选范围暂无可分析的 GKG 日度汇总。<a href="/intake">查看采集</a></p>{% endif %}
+{% endif %}
 
 <details class="risk-method">
   <summary>统计口径</summary>

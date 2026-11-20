@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session
 
 from news2douyin.server import interop
+from news2douyin.server.event_window import anchor_options
 from news2douyin.storage.models import Article, ArticleEventLink, Event, EventMoment, EventState
 
 
@@ -12,6 +13,22 @@ def client_for(engine):
     app = FastAPI()
     interop.register(app, engine)
     return TestClient(app)
+
+
+def test_source_picker_keeps_reviewed_milestones_when_reports_fill_the_cap():
+    sources = [
+        dict(url=f'https://example.test/report/{day}', title=f'报道 {day}',
+             published_at=f'2026-11-{day:02}T10:00:00Z')
+        for day in range(1, 26)
+    ]
+    milestone = dict(reviewed=True, time_kind='occurred', certainty='exact',
+                     date_start='2026-11-26', date_end='', title='已核对的生效日',
+                     sources=[dict(url='https://example.test/official')])
+    options = anchor_options(dict(sources=sources, moments=[milestone]))
+    assert len(options) == 24
+    assert options[0]['basis'] == '报道发布时间'
+    assert options[-1] == dict(at='2026-11-26', precision='date', title='已核对的生效日',
+                               basis='已核对进展日', url='https://example.test/official')
 
 
 def test_news_feed_requires_key_and_reads_beijing_dates_without_claiming_occurrence(engine, monkeypatch):

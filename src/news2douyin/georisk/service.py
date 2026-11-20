@@ -59,13 +59,16 @@ def _point(row, archived_count, day, now, feeds, scope, category):
     group = _group(row, scope, category)
     expected = _expected(day, now, len(feeds))
     available = row.available_batches if row else 0
-    archived = max(archived_count, row.archived_batches if row else 0)
-    coverage = min(1., available / expected) if expected else None
-    docs, negative = group.get('doc_count', 0), group.get('negative_tone')
+    checked = archived_count is not None or row is not None
+    archived = max(archived_count or 0, row.archived_batches if row else 0)
+    coverage = min(1., available / expected) if checked and expected else None
+    docs, negative = group.get('doc_count', 0) if available else None, group.get('negative_tone')
     score = negative * log1p(docs) if negative is not None else None
     if available and not docs:
         score = 0.
-    if not available:
+    if not checked:
+        state = 'unchecked'
+    elif not available:
         state = 'pending' if archived else 'missing'
     elif day == now.astimezone(BEIJING).date():
         state = 'live'
@@ -73,10 +76,11 @@ def _point(row, archived_count, day, now, feeds, scope, category):
         state = 'complete'
     else:
         state = 'partial'
-    return dict(day=day.isoformat(), doc_count=docs, source_count=group.get('source_count', 0),
+    return dict(day=day.isoformat(), doc_count=docs, source_count=group.get('source_count', 0) if available else None,
                 tone_doc_count=group.get('tone_doc_count', 0), negative_tone=negative, score=score,
-                expected_batches=expected, archived_batches=archived, available_batches=available,
-                missing_batches=max(0, expected - archived), pending_batches=max(0, archived - available),
+                expected_batches=expected, archived_batches=archived if checked else None, available_batches=available,
+                missing_batches=max(0, expected - archived) if checked else None,
+                pending_batches=max(0, archived - available) if checked else None,
                 rejected_rows=row.rejected_rows if row else 0, coverage=coverage, state=state)
 
 
@@ -103,7 +107,7 @@ def dashboard(session, *, scope='global', category='conflict', days=30, end_day=
     for index in range((end - history_start).days + 1):
         day = history_start + timedelta(days=index)
         key = day.isoformat()
-        point = _point(rows.get(key), archived.get(key, 0), day, now, cfg.feeds, scope, category)
+        point = _point(rows.get(key), archived.get(key), day, now, cfg.feeds, scope, category)
         earlier = [score for past, score in accepted if (day - past).days <= BASELINE_WINDOW]
         eligible = (point['state'] in ('partial', 'complete') and point['coverage'] is not None
                     and point['coverage'] >= MIN_COVERAGE and point['score'] is not None)

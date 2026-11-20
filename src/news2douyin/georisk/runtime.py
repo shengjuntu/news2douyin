@@ -1,6 +1,6 @@
 """Bounded background projection from raw GKG into daily SQL summaries."""
 from collections import Counter, deque
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import logging
 from pathlib import Path
 from threading import Event, Thread
@@ -99,15 +99,22 @@ class GeoriskWorker:
         batches = manifests(self.lake, cfg, stamp(start), stamp(expected_through(now)))
         retention_changed = first_day != self._retained_from
         if retention_changed:
+            # Dirty days have committed local work awaiting SQL publication,
+            # including work interrupted just as the replay window advanced.
+            expired = ' WHERE day<? AND day NOT IN (SELECT day FROM risk_dirty)'
             with transaction(conn):
-                conn.execute('DELETE FROM risk_doc WHERE day<?', [first_day])
-                conn.execute('DELETE FROM risk_batch WHERE day<?', [first_day])
-                conn.execute('DELETE FROM risk_dirty WHERE day<?', [first_day])
+                conn.execute('DELETE FROM risk_doc' + expired, [first_day])
+                conn.execute('DELETE FROM risk_batch' + expired, [first_day])
         complete = {(feed, batch_stamp): sha for feed, batch_stamp, sha in conn.execute(
             'SELECT feed,stamp,sha FROM risk_batch').fetchall()}
         if any(complete.get((batch.feed, batch.stamp), batch.sha) != batch.sha for batch in batches):
             raise ValueError('已归档的 GKG 批次摘要已改变，请检查原始数据完整性')
-        archived = Counter(batch.day for batch in batches)
+        # Include confirmed zero-count dates. Reads can then distinguish a gap
+        # in this scan from a date for which no scan has been persisted.
+        last = now.astimezone(BEIJING).date()
+        archived = Counter({(first + timedelta(days=offset)).isoformat(): 0
+                            for offset in range((last - first).days + 1)})
+        archived.update(batch.day for batch in batches)
         if retention_changed or archived != self._archived:
             with Session(self.engine) as session:
                 lock_news(session, 'georisk-publish')
@@ -144,6 +151,10 @@ class GeoriskWorker:
         with Session(self.engine) as session:
             lock_news(session, 'georisk-publish')
             for day, available, rejected, groups, evidence in results:
+                # A longer replay can rebuild details for an already published day.
+                published = session.get(GeoriskDay, (cfg.key, day))
+                if published is not None and published.available_batches > available:
+                    continue
                 session.merge(GeoriskDay(config_key=cfg.key, day=day, available_batches=available,
                     archived_batches=max(available, self._archived[day]), rejected_rows=rejected,
                     groups_json=dumps(groups), evidence_json=dumps(evidence)))

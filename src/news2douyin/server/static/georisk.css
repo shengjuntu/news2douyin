@@ -24,7 +24,7 @@
 .risk-chart a { flex: 1; display: flex; align-items: end; min-width: 1px; }
 .risk-chart a span { background: #49bcc5; width: 100%; height: max(3px, var(--bar-height)); border-radius: 3px 3px 0 0; }
 .risk-chart a[data-state=spike] span { background: #ffa86c; }
-.risk-chart a:is([data-state=missing], [data-state=pending], [data-state=partial], [data-state=live]) span { background: #939cab; }
+.risk-chart a:is([data-state=unchecked], [data-state=missing], [data-state=pending], [data-state=partial], [data-state=live]) span { background: #939cab; }
 .risk-chart a:is(:focus-visible, :hover, [aria-current=true]) { outline: 1px solid #e8f1f4; outline-offset: 1px; }
 .risk-table, .risk-method { margin-top: 16px; }
 .risk-scroll { overflow-x: auto; }

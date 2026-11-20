@@ -171,7 +171,7 @@ def register_focus_mcp(app, engine):
     try:
         server_version = version('news2douyin')
     except PackageNotFoundError:
-        server_version = '0.44.0'
+        server_version = '0.44.1'
     info = {'name': 'news2douyin-focus', 'version': server_version}
     tool_list = [
         {'name': name, 'title': title, 'description': description, 'inputSchema': schema.model_json_schema(),
