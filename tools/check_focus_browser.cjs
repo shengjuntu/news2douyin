@@ -14,6 +14,11 @@ let activeBrowser;
       ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--disable-software-rasterizer'], headless: true});
   activeBrowser = browser;
   const page = await browser.newPage({viewport: {width: 1440, height: 1050}});
+  // Exercise the intentionally retained model API in this model-fixture scenario.
+  await page.route('**/api/focus/interpret', async route => {
+    const {description} = route.request().postDataJSON();
+    await route.continue({postData: JSON.stringify({description})});
+  });
   const errors = [], consoleErrors = [], results = {};
   page.setDefaultTimeout(25000);
   page.on('pageerror', error => errors.push(error.message));
@@ -64,13 +69,14 @@ let activeBrowser;
   results.stalePreviewPrevented = true;
 
   // A failed submission preserves the description and offers a retry.
-  await page.route('**/api/focus/interpret', route => route.fulfill({status: 503,
-    contentType: 'application/json', body: '{"detail":"演示服务暂不可用，请重试"}'}));
+  const failInterpretation = route => route.fulfill({status: 503,
+    contentType: 'application/json', body: '{"detail":"演示服务暂不可用，请重试"}'});
+  await page.route('**/api/focus/interpret', failInterpretation);
   await page.locator('#topic-generate').click();
   await page.locator('#topic-build-status').filter({hasText: '演示服务暂不可用'}).waitFor();
   assert.match(await page.locator('#topic-description').inputValue(), /官方更正/);
   assert.equal(await page.locator('#topic-generate').isEnabled(), true);
-  await page.unroute('**/api/focus/interpret');
+  await page.unroute('**/api/focus/interpret', failInterpretation);
   results.failedRequestPreservesDescription = true;
 
   const began = Date.now();
@@ -85,7 +91,9 @@ let activeBrowser;
   const zoom = await previewGraph.evaluate(host => host._focusCy.zoom());
   await previewGraph.getByRole('button', {name: '放大关注图'}).click();
   assert((await previewGraph.evaluate(host => host._focusCy.zoom())) > zoom);
-  await previewGraph.evaluate(host => host._focusCy.nodes().filter(n => n.id() !== '__focus__').first().emit('tap'));
+  await previewGraph.evaluate(host => {
+    host._focusCy.nodes().filter(n => n.id() !== '__focus__').first().emit('tap');
+  });
   assert.match(await previewGraph.locator('.focus-intent-selection').innerText(), /别名/);
   await page.screenshot({path: path.join(folder, 'focus-preview-desktop.png'), fullPage: true});
   await page.locator('#topic-start').click();
@@ -154,7 +162,7 @@ let activeBrowser;
   await page.request.post(base + '/qa/focus-model/unavailable');
   await page.goto(base + '/focus?new=1');
   await build('QA_OFFLINE 持续跟踪特朗普对乌克兰的军援和谈判。');
-  assert.equal(await page.locator('#topic-method').innerText(), '规则生成');
+  assert.equal(await page.locator('#topic-method').innerText(), '本地规则');
   assert.match(await page.locator('#topic-method-message').innerText(), /模型暂不可用|基础范围/);
   await page.locator('#topic-name').fill('模型离线待核验证');
   await page.locator('#topic-start').click();
@@ -180,7 +188,7 @@ let activeBrowser;
     await page.locator('main').waitFor();
     await noOverflow('mobile ' + target);
   }
-  await page.goto(base + '/focus/' + focus);
+  await page.goto(base + '/focus/' + focus + '?view=archive');
   await page.locator('details.focus-settings > summary').click();
   await page.getByText('当前关注图与问题', {exact: true}).click();
   await page.locator('[data-intent-graph="saved"] canvas').first().waitFor();

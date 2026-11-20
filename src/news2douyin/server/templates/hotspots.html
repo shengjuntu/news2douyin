@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+{% block title %}热点 · 事件雷达{% endblock %}
+{% block graph_libraries %}{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="/research-assets/hotspots.css">
+{% with radar_tab='hotspots' %}{% include 'radar_view_tabs.html' %}{% endwith %}
+
+<div class="hotspot-heading">
+  <div>
+    <h1>热点</h1>
+    <p>查看最近 {{ hours }} 小时值得跟踪的事件。</p>
+  </div>
+  <time datetime="{{ as_of }}">更新于 {{ as_of|local_ts('Asia/Shanghai') }} · 北京时间</time>
+</div>
+
+<nav class="hotspot-filters" aria-label="热点分类">
+  <a href="/radar/hotspots"{% if not category %} aria-current="page"{% endif %}>全部</a>
+  {% for value, label in categories.items() %}
+  <a href="/radar/hotspots?category={{ value }}"{% if category==value %} aria-current="page"{% endif %}>{{ label }}</a>
+  {% endfor %}
+</nav>
+
+<section class="hotspot-grid" aria-label="热点列表">
+  {% for topic in cards %}
+  <article class="hotspot-card" id="{{ topic.id }}" data-category="{{ topic.category }}">
+    <div class="hotspot-badges">
+      <span>{{ topic.category_name }}</span>
+      <span class="hotspot-state" data-status="{{ topic.status }}">{{ topic.status_label }}</span>
+    </div>
+    <h2>{{ topic.title }}</h2>
+    {% if topic.reports and topic.reports[0].title!=topic.title %}<p class="hotspot-summary">{{ topic.reports[0].title }}</p>{% endif %}
+    <p class="hotspot-meta">
+      <strong>近 {{ hours }} 小时 {{ topic.recent_reports }} 篇</strong>
+      <span>前一时段 {{ topic.previous_reports|default(0) }} 篇</span>
+      <span>{{ topic.domain_count|default(topic.domains) }} 个来源域名</span>
+      <time datetime="{{ topic.last_seen }}">最近线索 {{ topic.last_seen|local_ts('Asia/Shanghai') }}</time>
+    </p>
+    <div class="hotspot-actions">
+      <a class="hotspot-focus" href="{{ topic.focus_url }}">{{ '打开焦点' if topic.existing_focus else '建立焦点' }}</a>
+    </div>
+    <details>
+      <summary>查看报道</summary>
+      {% if topic.reasons %}
+      <p class="hotspot-reasons">{{ topic.reasons|join(' · ') }}</p>
+      {% endif %}
+      <ul class="hotspot-reports">
+        {% for report in topic.reports %}
+        <li>
+          <a href="{{ report.url }}" target="_blank" rel="noopener noreferrer">{{ report.title }}</a>
+          <small>{{ report.label }}{% if report.label and report.domain %} · {% endif %}{{ report.domain }}</small>
+          {% if report.task_url %}<a href="{{ report.task_url }}" class="hotspot-task">形成选题</a>{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </details>
+  </article>
+  {% else %}
+  <div class="card hotspot-empty">
+    <h2>当前范围暂无可辨认的热点</h2>
+    <p><a href="/radar">查看每日精选</a> · <a href="/intake">检查采集</a></p>
+  </div>
+  {% endfor %}
+</section>
+
+<details class="hotspot-method">
+  <summary>材料与统计口径</summary>
+  <p>根据已收录的报道和事件线索归并。近期与前一个 {{ hours }} 小时时段分别统计，重复原文链接只计一次。来源域名表示样本覆盖，单一来源的线索需核对。</p>
+  {% if sampled_sources %}<ul>{% for label, count, limited in sampled_sources %}
+    <li>{{ label }} · {{ count }} 条材料{% if limited %} · 取样已达上限{% endif %}</li>
+  {% endfor %}</ul>{% endif %}
+</details>
+{% endblock %}

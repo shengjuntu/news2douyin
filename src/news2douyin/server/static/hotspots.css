@@ -1,0 +1,48 @@
+.hotspot-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 22px 0 16px;
+}
+.hotspot-heading h1 { margin: 0 0 6px; font-size: 28px; }
+.hotspot-heading p { margin: 0; color: #b4becf; }
+.hotspot-heading time { color: #a6b3c6; font-size: 12px; }
+.hotspot-filters { flex: none; gap: 8px; margin-bottom: 16px; }
+.hotspot-filters a { padding: 7px 12px; border: 1px solid #323c50; border-radius: 20px; }
+.hotspot-filters a[aria-current] { background: #223748; border-color: #537d91; color: #edf6fc; }
+.hotspot-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-items: start; }
+.hotspot-card {
+  background: #171d28;
+  border: 1px solid #313d50;
+  border-radius: 12px;
+  padding: 16px 18px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.hotspot-card h2 { margin: 11px 0 8px; font-size: 18px; color: #edf1f7; line-height: 1.45; }
+.hotspot-badges, .hotspot-meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; }
+.hotspot-badges span { font-size: 12px; padding: 3px 8px; border-radius: 5px; background: #243546; color: #cfe9f5; }
+.hotspot-badges .hotspot-state { background: #2e2c3e; color: #e3cffa; }
+.hotspot-summary { margin: 0; color: #c3cede; line-height: 1.55; }
+.hotspot-meta { color: #a8b6ca; font-size: 12px; margin: 12px 0; }
+.hotspot-meta strong { color: #e4ebf5; }
+.hotspot-actions { margin-bottom: 11px; }
+.hotspot-focus { display: inline-block; padding: 7px 12px; border-radius: 6px; background: #295a6b; color: #f1fbfe; }
+.hotspot-card details { border-top: 1px solid #344055; padding-top: 9px; }
+.hotspot-card summary, .hotspot-method summary { cursor: pointer; color: #bacadd; }
+.hotspot-reasons, .hotspot-reports small { color: #a8b6ca; font-size: 12px; }
+.hotspot-reports { margin: 0; padding-left: 18px; }
+.hotspot-reports li { margin: 9px 0; }
+.hotspot-reports small { display: inline-block; margin-right: 7px; }
+.hotspot-task { font-size: 12px; white-space: nowrap; }
+.hotspot-empty { grid-column: 1 / -1; }
+.hotspot-empty h2 { margin-top: 4px; }
+.hotspot-method { margin-top: 18px; }
+.hotspot-method p { max-width: 68ch; color: #b4becf; }
+
+@media (max-width: 760px) {
+  .hotspot-grid { grid-template-columns: minmax(0, 1fr); }
+  .hotspot-heading h1 { font-size: 23px; }
+}

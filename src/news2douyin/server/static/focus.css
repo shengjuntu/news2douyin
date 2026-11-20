@@ -6,3 +6,27 @@
 
 /* Recoverable topic removal stays in the topic, without another main menu. */
 .focus-delete{margin-left:auto;color:#e8a7a7}.focus-trash{margin-top:20px;border-top:1px solid #354154;padding-top:14px}.focus-trash summary{cursor:pointer}.focus-trash-item{display:flex;gap:8px;align-items:center;justify-content:space-between;margin:12px 0;overflow-wrap:anywhere}.focus-trash-item button{flex-shrink:0}.focus-delete-dialog{color:#e6e8ee;background:#171e2b;border:1px solid #485568;border-radius:12px;width:min(560px,calc(100% - 28px));max-height:85vh;overflow:auto;padding:24px}.focus-delete-dialog::backdrop{background:#0009}.focus-delete-dialog p{line-height:1.7}.focus-delete-dialog .desk-row{justify-content:flex-end;gap:12px}@media(max-width:520px){.focus-delete{margin-left:0}.focus-trash-item{align-items:flex-start;flex-direction:column}}
+
+.focus-view-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 14px;
+  border-bottom: 1px solid #344353;
+}
+
+.focus-view-tabs a {
+  padding: 8px 12px;
+  color: #a8becb;
+  border-bottom: 2px solid transparent;
+}
+
+.focus-view-tabs a[aria-current="page"] {
+  color: #edf8fc;
+  border-bottom-color: #57bcc6;
+}
+
+.focus-filters { row-gap: 8px; }
+.focus-filters input[type="date"] { box-sizing: border-box; max-width: 100%; }
+.focus-agent dt { color: #a8becb; font-size: 13px; }
+.focus-agent dd { margin: 4px 0 12px; overflow-wrap: anywhere; }

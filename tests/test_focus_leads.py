@@ -64,7 +64,7 @@ def test_shared_focus_scan_routes_unselected_arabic_report_without_an_event(tmp_
             for model in (Event, WatchEvent, DailyDigestIssue):
                 assert session.exec(select(func.count()).select_from(model)).one() == 0
         client = TestClient(app)
-        focus = client.get('/focus/tunis')
+        focus = client.get('/focus/tunis?view=leads')
         assert focus.status_code == 200
         assert title in focus.text and 'worldnewsapi · ar' in focus.text
         assert '/workbench/new?candidate=' in focus.text

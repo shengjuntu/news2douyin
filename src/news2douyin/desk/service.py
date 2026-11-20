@@ -370,11 +370,14 @@ def memberships_many(s,event_keys):
     return result
 
 
-def focus_entries(s,key,offset=0,limit=30,*,order='recent',branch=''):
+def focus_entries(s,key,offset=0,limit=30,*,order='recent',branch='',day='',date_basis='observed'):
     stmt=select(RadarEntry,WatchEvent.reason).join(WatchEvent,WatchEvent.event==RadarEntry.key).where(
         WatchEvent.watch==key,WatchEvent.choice!='exclude',current_membership())
     if branch:
         stmt=stmt.where(WatchEvent.branch==branch)
+    if day:
+        from .focus_read import entry_day
+        stmt=stmt.where(entry_day(s,date_basis)==day)
     total=count_keys(s,stmt,RadarEntry.key,name='desk.focus_entries.count')
     if order=='relevance':
         stmt=stmt.order_by(WatchEvent.relevance.desc())

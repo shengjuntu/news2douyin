@@ -1,25 +1,18 @@
 {% extends 'base.html' %}
 {% block graph_libraries %}{% endblock %}
-{% block title %}视频候选 · {{ issue.day }} · 事件雷达{% endblock %}
+{% block title %}历史视频候选 · {{ issue.day }} · 事件雷达{% endblock %}
 {% block content %}
 <link rel="stylesheet" href="/research-assets/daily-radar.css">
 {% with radar_tab='video' %}{% include 'radar_view_tabs.html' %}{% endwith %}
 {% set published=issue.status == 'ready' %}
-{% set busy=issue.build_status in ('pending','building') %}
 <div class="daily-edition">
   <header class="daily-heading">
     <div>
-      <h1>视频候选</h1>
+      <h1>历史视频候选</h1>
       <p><time datetime="{{ issue.day }}">{{ issue.day }}</time> · 北京时间{% if published %} · {{ cards|length }} 条 · 第 {{ issue.revision }} 版{% endif %}</p>
       {% if published and issue.cutoff_at %}<p class="daily-timestamp">资料截至 {{ issue.cutoff_at|local_ts('Asia/Shanghai') }} 北京时间</p>{% endif %}
     </div>
     <div class="daily-tools">
-      {% if worker_enabled and not busy %}
-      <form action="/radar/video/generate" method="post">
-        <input type="hidden" name="day" value="{{ issue.day }}">
-        <button type="submit" class="{{ 'ghost' if published else '' }}">{{ '重新生成' if published else ('重试生成' if issue.build_status == 'failed' else '生成视频候选') }}</button>
-      </form>
-      {% endif %}
       {% if published %}<a href="{{ export_url }}">下载 Markdown（{{ cards|length }} 条）</a>{% endif %}
     </div>
   </header>
@@ -32,16 +25,6 @@
     </div>
   </form>
   {% if notice %}<p class="daily-job-note" role="status">{{ notice }}</p>{% endif %}
-  {% if busy %}
-    <p class="daily-job-note" role="status"{% if not published %} data-video-build="{{ status_url }}"{% endif %}>
-      {{ '正在生成' if issue.build_status == 'building' else '生成已排队' }}{% if published %}，当前显示上一版{% endif %}。
-      <a href="/radar/video?day={{ issue.day }}">刷新进度</a>
-    </p>
-  {% elif issue.build_status == 'failed' %}
-    <p class="daily-job-note" role="status">生成失败{% if published %}，仍可查看上一版{% endif %}。{{ issue.error or '' }}</p>
-  {% elif not worker_enabled and not published %}
-    <p class="daily-job-note" role="status">视频候选生成已暂停。</p>
-  {% endif %}
   {% for card in cards %}
   <article class="daily-entry"{% if card.anchor %} id="{{ card.anchor }}"{% endif %}>
     <div class="daily-byline">
@@ -75,9 +58,7 @@
     {% endif %}
   </article>
   {% else %}
-    {% if published %}<p>本期没有入选的拍摄题材。</p>
-    {% elif not busy and issue.build_status != 'failed' and worker_enabled %}<p>这一天还没有生成视频候选。</p>{% endif %}
+    <p>当天没有已保存的候选。</p>
   {% endfor %}
 </div>
-{% if busy and not published %}<script defer src="/research-assets/video-candidates.js"></script>{% endif %}
 {% endblock %}

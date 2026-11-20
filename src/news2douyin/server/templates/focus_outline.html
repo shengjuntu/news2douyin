@@ -1,5 +1,5 @@
 <details class="card" open><summary>长期问题大纲</summary>
-{% for p in points %}<p>↳ <strong>{{ p.text }}</strong>　{% if p.parent!=w.key %}{% for parent in points if parent.key==p.parent %}<small>上级 · {{ parent.text }}</small>{% endfor %}{% endif %} <button class="ghost" data-point="{{ p.key }}">补查</button></p>
+{% for p in points %}<p>↳ <strong>{{ p.text }}</strong>　{% if p.parent!=w.key %}{% for parent in points if parent.key==p.parent %}<small>上级 · {{ parent.text }}</small>{% endfor %}{% endif %}</p>
 {% for material in point_material.get(p.key,[]) if point_material is defined %}<p class="small"><a href="/events/{{ material.key|urlencode }}">{{ material.title }}</a> · {{ material.reason }}</p>{% endfor %}
 {% for link,review in point_history if link.point==p.key %}<small>{{ review.created }} · {{ review.status }} {% if review.status in ['submitted','blocked'] %}<a href="/research/{{ review.case_key }}">研究记录</a>{% endif %}</small>{% endfor %}
 {% endfor %}
@@ -10,6 +10,5 @@
 (()=>{const form=document.querySelector('#point-form'),message=document.querySelector('#point-msg'),base='/api/focus/'+{{ w.key|tojson }}+'/outline';
 async function add(url,body){const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw Error((await r.json()).detail);location.reload()}
 form.onsubmit=e=>{e.preventDefault();add(base,Object.fromEntries(new FormData(form))).catch(err=>message.textContent=err.message)};
-for(const b of document.querySelectorAll('[data-point]'))b.onclick=()=>add(base+'/'+b.dataset.point+'/review',{}).catch(err=>message.textContent=err.message);
 })();
 </script>

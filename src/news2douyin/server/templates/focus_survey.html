@@ -1,8 +1,5 @@
 {% extends 'base.html' %}{% block title %}综述证据预览 · {{ w.name }}{% endblock %}{% block content %}
-<a href="/focus/{{ w.key }}">← {{ w.name }}</a><h1>综述大纲与证据预览</h1>
+<a href="/focus/{{ w.key }}?view=archive">← {{ w.name }}</a><h1>综述大纲与证据预览</h1>
 <form class="desk-row"><label>截止日期（UTC）<input type="date" name="day" value="{{ day }}"></label><button>查看</button></form>
 {% include 'survey_evidence.html' %}
-<button id="survey-run">按此截止日期提交综述</button><p id="survey-status" role="status"></p>
-<script>
-document.querySelector('#survey-run').onclick=async function(){this.disabled=true;try{const r=await fetch('/api/focus/'+{{ w.key|tojson }}+'/reviews',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'summary',cutoff:{{ day|tojson }}})});if(!r.ok)throw Error((await r.json()).detail);location.href='/focus/'+{{ w.key|tojson }}}catch(e){document.querySelector('#survey-status').textContent=e.message;this.disabled=false}};
-</script>{% endblock %}
+{% endblock %}

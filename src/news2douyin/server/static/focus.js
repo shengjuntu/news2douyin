@@ -16,9 +16,12 @@
   const buildStatus = document.getElementById('topic-build-status');
   const saveStatus = document.getElementById('topic-save-status');
   const start = document.getElementById('topic-start');
-  let buildToken = 0, building = false, saving = false, draft = '', draftSpec = null, draftDescription = '';
+  const anchors = document.getElementById('topic-anchors');
+  const mcpUrl = document.getElementById('focus-mcp-url');
+  if (mcpUrl) mcpUrl.textContent = new URL('/mcp/focus', location.origin).href;
+  let buildToken = 0, building = false, saving = false, draft = '', draftSpec = null, draftDescription = '', localDraft = false;
   let activeRequest = null, trackingTimer = null, disposed = false;
-  const cacheKey = 'n2d-focus-draft:' + (watch.key || 'new:' + (cfg.seed || ''));
+  const cacheKey = 'n2d-focus-draft:local:' + (watch.key || 'new:' + (cfg.draft_scope || cfg.seed || ''));
   function status(node, text, error = false) {
     if (!node) return;
     node.textContent = text || '';
@@ -52,7 +55,7 @@
   function setBuilding(value) {
     building = value;
     generate.disabled = value;
-    generate.textContent = value ? '正在生成…' : '生成关注范围';
+    generate.textContent = value ? '正在准备…' : '预览关注规则';
     cancel.hidden = !value;
     form.setAttribute('aria-busy', String(value));
   }
@@ -67,8 +70,8 @@
     setBuilding(false);
     if (text) status(buildStatus, text);
   }
-  function listLines(text, limit) {
-    return [...new Set(text.split(/\r?\n/).map(x => x.trim()).filter(Boolean))].slice(0, limit);
+  function listLines(text) {
+    return [...new Set(text.split(/\r?\n/).map(x => x.trim()).filter(Boolean))];
   }
   const safeArray = value => Array.isArray(value) ? value : [];
   function entityName(entity) { return entity.name || entity.id || ''; }
@@ -151,17 +154,28 @@
     if (token !== buildToken || disposed) return;
     if (!value.spec || typeof value.spec !== 'object' || !value.spec.name) throw new Error('生成结果不完整，请修改描述后重试。');
     draft = value.key || draft; draftSpec = value.spec;
-    document.getElementById('topic-name').value = draftSpec.name;
+    localDraft = value.method === 'local';
+    const fromHotspot = localDraft && cfg.seed_name && draftDescription === cfg.seed_text;
+    document.getElementById('topic-name').value = fromHotspot ? cfg.seed_name : draftSpec.name;
     document.getElementById('topic-questions').value = safeArray(draftSpec.questions).join('\n');
     document.getElementById('topic-exclude').value = safeArray(draftSpec.exclude).join('\n');
-    status(document.getElementById('topic-method'), value.method === 'model' ? 'AI 生成' : '规则生成');
-    status(document.getElementById('topic-method-message'), value.method === 'model' ? '' : value.message || '已生成基础范围，可调整后开始跟踪。');
+    status(document.getElementById('topic-method'), value.method === 'model' ? 'AI 生成' : '本地规则');
+    status(document.getElementById('topic-method-message'), value.method === 'model' ? '' : value.message || '请确认关注词。');
+    const anchorsPanel = document.getElementById('topic-anchors-panel');
+    if (anchorsPanel) anchorsPanel.hidden = !localDraft;
+    if (anchors && localDraft) {
+      const entities = safeArray(draftSpec.entities);
+      const core = entities.filter(entity => entity.core);
+      const terms = fromHotspot && safeArray(cfg.seed_terms).length
+        ? cfg.seed_terms : (core.length ? core : entities).map(entityName);
+      anchors.value = terms.slice(0, 12).join('\n');
+    }
     const boundaries = [];
     if (safeArray(draftSpec.include).length) boundaries.push('重点：' + draftSpec.include.slice(0, 6).join('；'));
     if (safeArray(draftSpec.geography).length) boundaries.push('地区：' + draftSpec.geography.join('、'));
     if (draftSpec.time_start || draftSpec.time_end) boundaries.push('关注时间：' + (draftSpec.time_start || '不限起点') + ' 至 ' + (draftSpec.time_end || '持续跟踪'));
     status(document.getElementById('topic-boundaries'), boundaries.join('。'));
-    focusSpecGraph(document.querySelector('[data-intent-graph="preview"]'), draftSpec);
+    if (!localDraft) focusSpecGraph(document.querySelector('[data-intent-graph="preview"]'), draftSpec);
     preview.hidden = false; setBuilding(false);
     status(buildStatus, ''); status(saveStatus, '');
     rememberDraft({key: draft, description: draftDescription});
@@ -189,7 +203,7 @@
     try {
       if (resumeKey) { await pollBuild(resumeKey, token); return; }
       draft = '';
-      const value = await request('/api/focus/interpret', {description: text}, 'POST', {build: true});
+      const value = await request('/api/focus/interpret', {description: text, method: 'local'}, 'POST', {build: true});
       if (token !== buildToken || disposed) return;
       if (!value.key) throw new Error('服务没有返回生成任务，请重试。');
       draft = value.key; rememberDraft({key: draft, description: text});
@@ -215,12 +229,21 @@
     if (saving || !draft || !draftSpec) return;
     const name = document.getElementById('topic-name'); if (!name.value.trim()) { status(saveStatus, '请填写焦点名称。', true); name.focus(); return; }
     const spec = JSON.parse(JSON.stringify(draftSpec));
-    spec.name = name.value.trim(); spec.questions = listLines(document.getElementById('topic-questions').value, 12);
-    spec.exclude = listLines(document.getElementById('topic-exclude').value, 12); spec.description = draftDescription;
+    spec.name = name.value.trim(); spec.questions = listLines(document.getElementById('topic-questions').value).slice(0, 12);
+    spec.exclude = listLines(document.getElementById('topic-exclude').value).slice(0, 12); spec.description = draftDescription;
+    const payload = {draft, spec};
+    if (localDraft && anchors) {
+      payload.anchors = listLines(anchors.value);
+      if (!payload.anchors.length || payload.anchors.length > 12 || payload.anchors.some(term => term.length < 2 || term.length > 160)) {
+        status(saveStatus, '请填写 1–12 个关注词，每项 2–160 个字。', true); anchors.focus(); return;
+      }
+    }
     saving = true; start.disabled = true; generate.disabled = true;
     status(saveStatus, '正在保存…');
     try {
-      const value = watch.key ? await request(base + '/definition', {version: watch.version, description: draftDescription, draft, spec}, 'PUT') : await request('/api/focus/from-description', {draft, spec, seed: cfg.seed || ''});
+      const value = watch.key
+        ? await request(base + '/definition', {...payload, version: watch.version, description: draftDescription}, 'PUT')
+        : await request('/api/focus/from-description', {...payload, seed: cfg.seed || ''});
       if (!value.key) throw new Error('未取得焦点编号，请刷新列表确认。');
       forgetDraft(); location.assign('/focus/' + encodeURIComponent(value.key));
     } catch (err) { status(saveStatus, err.message, true); saving = false; start.disabled = false; generate.disabled = false; }
@@ -278,17 +301,11 @@
     const button = event.currentTarget; button.disabled = true;
     try { await request(base + '/seen', {}); location.reload(); } catch (err) { status(msg, err.message, true); button.disabled = false; }
   });
-  document.getElementById('summary-run')?.addEventListener('click', async event => {
-    const button = event.currentTarget; button.disabled = true;
-    try { await request(base + '/reviews', {event: '', action: 'summary', cutoff: document.getElementById('summary-cutoff').value}); location.reload(); }
-    catch (err) { status(msg, err.message, true); button.disabled = false; }
-  });
-  for (const button of document.querySelectorAll('[data-hide],[data-check],[data-retry],[data-restore]')) button.addEventListener('click', async () => {
+  for (const button of document.querySelectorAll('[data-hide],[data-restore]')) button.addEventListener('click', async () => {
     if (button.disabled) return; button.disabled = true;
     try {
       if (button.dataset.restore) await request(base + '/links', {event: button.dataset.restore, action: 'auto'});
-      else if (button.dataset.retry) await request(base + '/reviews/' + encodeURIComponent(button.dataset.retry) + '/retry', {});
-      else await request(base + (button.dataset.check ? '/reviews' : '/links'), {event: button.dataset.check || button.dataset.hide, action: button.dataset.check ? 'check' : 'exclude'});
+      else await request(base + '/links', {event: button.dataset.hide, action: 'exclude'});
       location.reload();
     } catch (err) { status(msg, err.message, true); button.disabled = false; }
   });
@@ -375,7 +392,7 @@
   if (definition?.spec) focusSpecGraph(document.querySelector('[data-intent-graph="saved"]'), definition.spec);
   try {
     const saved = JSON.parse(sessionStorage.getItem(cacheKey) || 'null');
-    if (saved?.key && saved.description && !description.value.trim()) {
+    if (saved?.key && saved.description && (!description.value.trim() || description.value.trim() === saved.description)) {
       description.value = saved.description; draftDescription = saved.description; draft = saved.key;
       const token = buildToken; setBuilding(true); status(buildStatus, '正在恢复上次生成的关注范围…');
       pollBuild(draft, token).catch(err => { if (token === buildToken) { setBuilding(false); status(buildStatus, err.message, true); } });

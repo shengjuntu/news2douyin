@@ -163,7 +163,7 @@ def test_watch_research_accumulates_and_honors_cutoff(tmp_path, monkeypatch):
         'kind':'fact','evidence':[{'source_id':source,'paragraph_id':'P1','quote':'military aid'}]}))['claim_id']
     value(rpc(env,'research_save_question',{'run_id':run,'key':'agreement','text':'Was an agreement signed?','status':'gap'}))
     value(rpc(env,'research_save_report',{'run_id':run,'title':'Aid evidence','sections':[{'heading':'Terms','body':'The headline links the deal to aid.','claim_ids':[claim]}],'gaps':['Agreement unclear'],'completeness':'partial'}))
-    assert 'Aid evidence' in c.get('/focus/'+watch).text
+    assert 'Aid evidence' in c.get('/focus/'+watch, params={'view': 'archive'}).text
     summary = c.post(url,json={}).json()['key']
     app.state.desk.review_step()
     with Session(app.state.engine) as s:

@@ -1,7 +1,7 @@
 """Durable description compilation, bounded history routing and evidence judging.
 
-HTTP handlers enqueue only. All model calls happen after their read session has
-closed, and a short lease/version check protects publication afterwards.
+HTTP handlers compile bounded local drafts and enqueue model jobs. Model calls
+run outside SQL sessions, and a lease/version check protects publication.
 """
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ from ..extraction.models import FocusPoint, PointReview
 from ..knowledge.models import PointMaterial
 from ..extraction.schema import stable_id
 from .models import Watch, WatchEvent, RadarEntry
-from .focus_models import FocusDefinition, FocusBuild, FocusBackfill, FocusCandidate
+from .focus_models import LOCAL_METHOD, FocusDefinition, FocusBuild, FocusBackfill, FocusCandidate
 from .leases import acquire
 
 BATCH = 25
@@ -51,11 +51,17 @@ def definition(s, key):
                 scope_version=row.scope_version, updated=row.updated)
 
 
-def submit_build(s, description):
+def submit_build(s, description, *, method='model'):
     description = description.strip()
     if not 1 <= len(description) <= 4000:
         raise ValueError('请用 1–4000 字描述希望长期关注的内容')
     row = FocusBuild(key='fd_'+uuid4().hex, description=description)
+    if method == LOCAL_METHOD:
+        from .intent import local_scope
+        row.spec_json = _json(local_scope(description).model_dump())
+        row.status = 'ready'
+        row.method = LOCAL_METHOD
+        row.message = '请确认关注词，系统会按这些词匹配新材料。'
     s.add(row)
     s.commit()
     return get_build(s, row.key)
@@ -83,9 +89,13 @@ def queue_backfill(s, w):
     return job
 
 
-def _write_definition(s, spec, description, method, *, key='', expected=None, seed=''):
+def _write_definition(s, spec, description, method, *, key='', expected=None, seed='', anchors=None):
     from . import intent, service as desk
     spec = intent.validate_spec(spec, description=description)
+    if anchors is not None:
+        if method != LOCAL_METHOD:
+            raise ValueError('关注词用于本地规则焦点')
+        spec = intent.replace_anchors(spec, anchors)
     scope = intent.to_scope(spec)
     ident = key or 'w_'+uuid4().hex
     lock_news(s, 'watch:'+ident, 'watch-name:'+scope.name)
@@ -136,7 +146,7 @@ def _write_definition(s, spec, description, method, *, key='', expected=None, se
     return w
 
 
-def create_from_build(s, draft, spec=None, seed=''):
+def create_from_build(s, draft, spec=None, seed='', *, anchors=None):
     lock_news(s, 'focus-build/'+draft)
     build = s.get(FocusBuild, draft)
     if build is None:
@@ -147,7 +157,7 @@ def create_from_build(s, draft, spec=None, seed=''):
         from .focus_lifecycle import require_active
         return require_active(s, build.watch)
     w = _write_definition(s, spec if spec is not None else _loads(build.spec_json, {}),
-                          build.description, build.method, seed=seed)
+                          build.description, build.method, seed=seed, anchors=anchors)
     build.watch = w.key
     build.updated = utc_now_iso()
     s.add(build)
@@ -156,7 +166,7 @@ def create_from_build(s, draft, spec=None, seed=''):
     return w
 
 
-def update_definition(s, key, version, description, spec=None, draft=''):
+def update_definition(s, key, version, description, spec=None, draft='', *, anchors=None):
     method = 'edited'
     if draft:
         build = s.get(FocusBuild, draft)
@@ -165,11 +175,15 @@ def update_definition(s, key, version, description, spec=None, draft=''):
         description = build.description
         spec = spec if spec is not None else _loads(build.spec_json, {})
         method = build.method
+    else:
+        current = s.get(FocusDefinition, key)
+        if current and current.method == LOCAL_METHOD:
+            method = LOCAL_METHOD
     if spec is None:
         raise ValueError('请先根据描述生成关注范围')
     if not 1 <= len(description.strip()) <= 4000:
         raise ValueError('关注描述须为 1–4000 字')
-    w = _write_definition(s, spec, description, method, key=key, expected=version)
+    w = _write_definition(s, spec, description, method, key=key, expected=version, anchors=anchors)
     s.commit()
     s.refresh(w)
     return w
@@ -420,6 +434,7 @@ def _judge_step(engine):
                     s.commit()
                     continue
                 spec = intent.validate_spec(_loads(spec_row.spec_json, {}), description=spec_row.description)
+                local_rules = spec_row.method == LOCAL_METHOD
                 snapshot, signatures, stale = _snapshot(s, card)
                 watch_key, event_key, scope_version, digest = row.watch, row.event, row.scope_version, row.event_fingerprint
                 route = _loads(row.recall_json, {})
@@ -435,7 +450,7 @@ def _judge_step(engine):
                 result = dict(decision='pending', method='evidence', reason='原文版本正在更新，等待事件索引同步', evidence=[], questions=[])
             else:
                 try:
-                    result = intent.judge(spec, snapshot, route)
+                    result = intent.judge_local(spec, snapshot) if local_rules else intent.judge(spec, snapshot, route)
                 except (ValueError, TypeError, KeyError):
                     result = dict(decision='pending', method='unavailable', reason='模型判断未完成，保留待核', evidence=[], questions=[])
             decision = result.get('decision')

@@ -12,6 +12,7 @@ TEMPLATES = Path(__file__).parents[1] / 'src/news2douyin/server/templates'
 def render(**values):
     env = Environment(loader=FileSystemLoader(TEMPLATES), autoescape=select_autoescape(['html']))
     env.filters['urlencode'] = lambda value: value
+    env.filters['local_ts'] = lambda value, _zone: value[:10]
     context = dict(w=None, data={}, watches=[], counts={}, presets=[], seed='', seed_title='',
         indexing=0, graph_error='', graph_enabled=False, knowledge={'state':'unconfigured'},
         active='focus', intent_definition=None, tracking={}, changes=[], items=[], offset=0,
@@ -40,17 +41,21 @@ def test_existing_topic_retains_material_timeline_research_and_escaped_descripti
         exclude='',question='历史背景？',enabled=True,auto_research=False,review_days=7,
         next_review='',version=1)
     description = '</textarea><script>bad()</script>'
-    page = render(w=watch,data=vars(watch),watches=[watch],intent_definition={
+    context = dict(w=watch,data=vars(watch),watches=[watch],intent_definition={
         'description':description,'spec':{'name':'军援变化','entities':[],'relations':[]},'method':'model'})
+    page = render(**context)
     assert description not in page
     assert '&lt;/textarea&gt;&lt;script&gt;bad()&lt;/script&gt;' in page
     assert 'id="focus-form"' not in page  # One source of truth for natural-language scopes.
     assert 'id="focus-options"' in page and 'id="focus-tracking"' in page
     assert 'id="tracking-refresh" hidden' in page
-    assert '近期进展与来源' in page and '时间线与关系图' in page
-    assert '长期问题与深度研究' in page and '生成焦点综述' in page
+    assert '近期进展与来源' in page and 'name="day"' in page
+    assert '时间线与关系图' not in page and '连接 Agent' not in page
     assert '暂无匹配材料' in page and '删除焦点' in page
-    assert 'data-intent-graph="saved"' in page
+    archive = render(focus_view='archive', **context)
+    assert '时间线与关系图' in archive and '长期问题与深度研究' in archive
+    assert 'data-intent-graph="saved"' in archive and '/mcp/focus' in archive
+    assert 'summary-run' not in archive
 
 
 def test_config_round_trips_model_text_without_script_termination():
@@ -79,4 +84,46 @@ def test_materials_keep_reasons_in_closed_details_in_both_modes():
         assert '人工关联' not in visible and '<summary>查看收录依据</summary>' in evidence
         assert '人工关联' in evidence and ' open' not in evidence.split('>',1)[0]
         assert '旧证据标签' not in card and '旧全局级别' not in card
-        assert 'data-check="e_example"' in card and 'data-hide="e_example"' in card
+        assert 'data-check=' not in card and 'data-hide="e_example"' in card
+
+
+def test_focus_page_filters_adopted_events_by_either_calendar_basis(tmp_path):
+    from fastapi.testclient import TestClient
+    from sqlmodel import Session
+
+    from news2douyin.desk.models import RadarEntry, Watch, WatchEvent
+    from news2douyin.server.app import create_app
+    from news2douyin.storage.models import Event, EventMoment
+
+    app = create_app(db_url=f'sqlite:///{tmp_path / "desk.db"}', storage_root=str(tmp_path))
+    try:
+        with Session(app.state.engine) as session:
+            session.add(Watch(key='w_example', name='交通运行', kind='长期事件', scope='公交'))
+            for key, title, seen in (
+                ('bus', '恢复巴士路线', '2026-11-18T16:10:00Z'),
+                ('train', '更改列车时刻', '2026-11-18T15:10:00Z'),
+            ):
+                session.add(Event(event_key=key, event_title=title))
+                session.add(RadarEntry(key=key, title=title, seen=seen, priority=1, band='', reason='',
+                    evidence='', headings='', material='', sources='[]', geography='[]'))
+                session.add(WatchEvent(watch='w_example', event=key, choice='include', branch='交通'))
+            session.add(EventMoment(moment_key='bus-1', event_key='bus', title='恢复巴士路线',
+                time_kind='occurred', date_start='2026-11-17', reviewed=True))
+            session.add(EventMoment(moment_key='train-1', event_key='train', title='更改列车时刻',
+                time_kind='occurred', date_start='2026-11-17', reviewed=False))
+            session.commit()
+        client = TestClient(app)  # Exclude workers that refresh the fixture's index timestamps.
+        try:
+            url = '/focus/w_example'
+            observed = client.get(url, params={'day':'2026-11-19', 'branch':'交通'})
+            occurred = client.get(url, params={'day':'2026-11-17', 'date_basis':'occurred'})
+            for response in (observed, occurred):
+                assert response.status_code == 200
+                assert '恢复巴士路线' in response.text and '更改列车时刻' not in response.text
+            assert '最近收录 2026-11-19 00:10' in observed.text
+            assert client.get(url, params={'day':'2026-02-31'}).status_code == 422
+            assert '更改列车时刻' in client.get(url).text
+        finally:
+            client.close()
+    finally:
+        app.state.engine.dispose()

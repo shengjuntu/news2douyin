@@ -1,15 +1,16 @@
 {% extends 'base.html' %}
 {% block title %}焦点 · 新闻研究台{% endblock %}
 {% block content %}
-<link rel="stylesheet" href="/research-assets/focus.css">
+<link rel="stylesheet" href="/research-assets/focus.css?v={{ focus_style_version }}">
 {% set definition = intent_definition|default(none) %}
+{% set view = focus_view|default('events') %}
 <header class="focus-page-head"><h1>焦点</h1><a class="focus-new-link" href="/focus?new=1">＋ 新建焦点</a></header>
 <div class="desk-grid focus-layout">
   <aside class="card focus-sidebar" aria-label="焦点列表">
     <div class="focus-topic-list">
       {% for t in watches %}
       <a class="desk-topic" href="/focus/{{ t.key }}" {% if w and t.key==w.key %}aria-current="page"{% endif %}>
-        <span>{{ t.name }}</span><small>{{ counts.get(t.key,0) }} 项{% if not t.enabled %} · 已暂停{% endif %}</small>
+        <span>{{ t.name }}</span>{% if not t.enabled %}<small>已暂停</small>{% endif %}
       </a>
       {% else %}<p class="muted">暂无焦点</p>{% endfor %}
     </div>
@@ -42,6 +43,11 @@
         <button id="focus-delete" type="button" class="ghost focus-delete">删除焦点</button>
       </div>
     </header>
+    <nav class="focus-view-tabs" aria-label="焦点内容">
+      <a href="/focus/{{ w.key|urlencode }}"{% if view=='events' %} aria-current="page"{% endif %}>事件</a>
+      <a href="?view=leads"{% if view=='leads' %} aria-current="page"{% endif %}>候选报道</a>
+      <a href="?view=archive"{% if view=='archive' %} aria-current="page"{% endif %}>档案</a>
+    </nav>
     <section class="card focus-tracking" id="focus-tracking" aria-label="跟踪进度">
       <div class="focus-tracking-line">
         <strong id="tracking-title">正在读取跟踪进度…</strong>
@@ -68,7 +74,7 @@
       <h2 class="focus-composer-title">{{ '调整关注范围' if w else '新建焦点' }}</h2>
       <form id="topic-description-form">
         <label class="focus-label" for="topic-description">关注描述</label>
-        <textarea id="topic-description" name="description" rows="5" maxlength="4000" required placeholder="例如：跟踪特朗普政府对俄乌战争的政策变化，重点看军援、制裁与停火谈判。">{{ definition.description if definition else (w.question or w.scope) if w else video_seed|default('') }}</textarea>
+        <textarea id="topic-description" name="description" rows="5" maxlength="4000" required placeholder="例如：跟踪特朗普政府对俄乌战争的政策变化，重点看军援、制裁与停火谈判。">{{ definition.description if definition else (w.question or w.scope) if w else seed_text|default('') }}</textarea>
         {% if not w %}
         <div class="focus-examples" aria-label="描述示例">
           <button type="button" class="ghost" data-topic-example="持续跟踪特朗普本人的公开活动、会见、表态和政策决定，区分实际行动与传闻，少看商业品牌和私人生活。">人物活动</button>
@@ -78,7 +84,7 @@
         </div>
         {% endif %}
         <div class="desk-row focus-primary-row">
-          <button type="submit" id="topic-generate">生成关注范围</button>
+          <button type="submit" id="topic-generate">预览关注规则</button>
           <button type="button" class="ghost" id="topic-cancel" hidden>取消等待</button>
         </div>
         <p id="topic-build-status" role="status" aria-live="polite" class="focus-status"></p>
@@ -87,11 +93,14 @@
         <div class="desk-row"><strong>关注范围</strong><span class="badge" id="topic-method"></span></div>
         <p id="topic-method-message" class="focus-status"></p>
         <label class="focus-label" for="topic-name">焦点名称</label><input id="topic-name" maxlength="80" required>
+        <div id="topic-anchors-panel" hidden>
+          <label class="focus-label" for="topic-anchors">关注词 <span class="muted small">每行一个姓名或关键词</span></label>
+          <textarea id="topic-anchors" rows="3" maxlength="1931"></textarea>
+        </div>
         <label class="focus-label" for="topic-questions">长期问题 <span class="muted small">每行一个</span></label>
         <textarea id="topic-questions" rows="4" maxlength="4800"></textarea>
         <details class="focus-preview-detail">
-          <summary>查看关注图与范围</summary>
-          <p class="desk-meta small">连线表示关注关系。</p>
+          <summary>范围与排除内容</summary>
           <div data-intent-graph="preview"></div>
           <div id="topic-boundaries" class="desk-meta"></div>
           <label class="focus-label" for="topic-exclude">排除内容 <span class="muted small">每行一项</span></label>
@@ -106,7 +115,7 @@
       <noscript><p class="desk-alert">请启用 JavaScript 生成或编辑焦点。</p></noscript>
     </section>
 
-    {% if w and definition %}
+    {% if w and definition and view=='archive' %}
     <details class="focus-detail"><summary>当前关注图与问题</summary><div data-intent-graph="saved"></div></details>
     {% endif %}
     {% if not definition %}
@@ -144,7 +153,7 @@
     <p id="focus-msg" class="desk-error" role="status" aria-live="polite"></p>
 
     {% if w %}
-    {% if leads|default([]) or lead_offset|default(0) %}
+    {% if view=='leads' %}
     <section class="focus-materials" id="focus-leads" aria-label="候选报道">
       <div class="focus-section-head"><h2>候选报道</h2></div>
       {% for lead in leads %}
@@ -169,20 +178,23 @@
         {% if more_leads %}<a href="?{{ paging }}&offset={{ offset }}&lead_offset={{ lead_offset+12 }}#focus-leads">下一页 →</a>{% endif %}
       </nav>
     </section>
-    {% endif %}
+    {% elif view=='events' %}
     <section class="focus-materials" aria-label="焦点材料">
       <div class="focus-section-head"><h2>近期进展与来源</h2><span class="desk-meta">{{ total }} 项</span></div>
       <form class="desk-row focus-filters">
+        <label>日期 <input type="date" name="day" value="{{ day|default('') }}"></label>
+        <label>日期口径 <select name="date_basis"><option value="observed">最近收录日</option><option value="occurred"{% if date_basis|default('observed')=='occurred' %} selected{% endif %}>已核对发生日</option></select></label>
         <label>排序 <select name="order"><option value="recent">最新材料</option><option value="relevance" {{ 'selected' if order=='relevance' }}>相关度</option></select></label>
         <label>分支 <select name="branch"><option value="">全部分支</option>{% for label in branches if label %}<option value="{{ label }}" {{ 'selected' if label==branch }}>{{ label }}</option>{% endfor %}</select></label>
         <button class="ghost">查看</button>
+        {% if day|default('') %}<a href="/focus/{{ w.key|urlencode }}">全部日期</a>{% endif %}
       </form>
       {% for e,why in items %}
       {% set label = tags.get(e.key) %}
       <article class="desk-pane">
         <a class="desk-title" href="/events/{{ e.key|urlencode }}?back={{ back|urlencode }}">{{ e.title }}</a>
         {% if label or e.seen %}
-        <p class="desk-meta small">{% if label %}{{ label }}{% endif %}{% if label and e.seen %} · {% endif %}{% if e.seen %}<time datetime="{{ e.seen }}">{{ e.seen[:10] }}</time>{% endif %}</p>
+        <p class="desk-meta small">{% if label %}{{ label }}{% endif %}{% if label and e.seen %} · {% endif %}{% if e.seen %}<time datetime="{{ e.seen }}">最近收录 {{ e.seen|local_ts('Asia/Shanghai') }}</time>{% endif %}</p>
         {% endif %}
         {% if definition or why %}
         <details class="focus-decision"{% if definition %} data-focus-decision="{{ e.key }}"{% endif %}>
@@ -192,18 +204,23 @@
         {% endif %}
         <div class="desk-row focus-material-actions">
           <a href="/workbench/new?event={{ e.key|urlencode }}&watch={{ w.key }}">形成选题</a>
-          <button class="ghost" type="button" data-check="{{ e.key }}">核查此事</button>
           <button class="ghost" type="button" data-hide="{{ e.key }}">排除此项</button>
         </div>
       </article>
       {% else %}
-      <div class="card focus-empty"><strong>{{ '暂无已整理材料' if leads|default([]) else '暂无匹配材料' }}</strong> · <a href="/radar">添加事件线索 →</a></div>
+      <div class="card focus-empty"><strong>{{ '当天暂无匹配记录' if day|default('') else '暂无匹配材料' }}</strong> · <a href="/radar">添加事件线索 →</a></div>
       {% endfor %}
       <nav class="desk-row focus-pagination" aria-label="材料分页">
         {% if offset %}<a href="?{{ paging }}&offset={{ [0,offset-30]|max }}">← 上一页</a>{% endif %}
         {% if offset+30<total %}<a href="?{{ paging }}&offset={{ offset+30 }}">下一页 →</a>{% endif %}
       </nav>
     </section>
+    {% else %}
+    <details class="card focus-detail">
+      <summary>连接 Agent</summary>
+      <dl class="focus-agent"><dt>MCP 地址</dt><dd><code id="focus-mcp-url">/mcp/focus</code></dd><dt>焦点编号</dt><dd><code>{{ w.key }}</code></dd></dl>
+      <p class="desk-meta">使用 Streamable HTTP，并在 Agent 中配置服务端的访问令牌。</p>
+    </details>
     <details class="card focus-detail">
       <summary>时间线与关系图</summary>
       <h2>焦点关系图</h2><div data-knowledge-graph data-watch="{{ w.key }}"></div>
@@ -225,16 +242,13 @@
       {% for q in questions %}<p><a href="/research/{{ q.case_id }}">{{ q.text }}</a> · {{ q.status }}</p>{% endfor %}
       {% for r in summaries %}<p><a href="/research/{{ r.case_id }}">{{ r.title }}</a> · v{{ r.version }} · 截至 {{ r.cutoff }}</p>{% endfor %}
       {% for r,case,run in reviews %}
-      <p>{{ r.created }} · {{ r.question }} · {{ run.status if run else r.status }} {% if case %}<a href="/research/{{ r.case_key }}">查看证据与报告</a>{% endif %} {{ r.message }} {% if r.status=='blocked' %}<button class="ghost" type="button" data-retry="{{ r.key }}">重试此项</button>{% endif %}</p>
+      <p>{{ r.created }} · {{ r.question }} · {{ run.status if run else r.status }} {% if case %}<a href="/research/{{ r.case_key }}">查看证据与报告</a>{% endif %} {{ r.message }}</p>
       {% else %}<p class="desk-meta">暂无补查任务。</p>{% endfor %}
       <p class="desk-meta">{% if w.enabled and w.auto_research %}下次复查 {{ w.next_review }} · {% endif %}<a href="/research/settings">研究助手设置</a></p>
     </details>
     <details class="card focus-detail">
-      <summary>生成焦点综述{% if content_tasks %}与相关作品{% endif %}</summary>
-      <label class="focus-label" for="summary-cutoff">截止日期（UTC，留空为现在）</label>
-      <input type="date" id="summary-cutoff">
+      <summary>综述材料{% if content_tasks %}与相关作品{% endif %}</summary>
       <div class="desk-row focus-primary-row">
-        <button class="ghost" type="button" id="summary-run">生成综述</button>
         <a href="/focus/{{ w.key }}/survey">预览大纲与证据</a>
       </div>
       {% for t in content_tasks %}<p><a href="/workbench/{{ t.key }}">{{ t.title }}</a> · {{ t.phase }}</p>{% endfor %}
@@ -243,6 +257,7 @@
     <details class="card focus-detail"><summary>已排除材料</summary>
       {% for e in excluded %}<p><a href="/events/{{ e.key|urlencode }}?back={{ back|urlencode }}">{{ e.title }}</a> <button class="ghost" type="button" data-restore="{{ e.key }}">恢复自动匹配</button></p>{% endfor %}
     </details>
+    {% endif %}
     {% endif %}
     {% endif %}
   </section>
@@ -256,6 +271,6 @@
   <div class="desk-row"><button id="focus-delete-cancel" type="button" class="ghost">取消</button><button id="focus-delete-confirm" type="button">移入回收站</button></div>
 </dialog>
 {% endif %}
-<script id="focus-config" type="application/json">{{ {'watch':data,'presets':presets,'seed':seed,'definition':definition,'tracking':tracking|default({})}|tojson }}</script>
-<script src="/research-assets/focus.js?v={{ focus_script_version }}" defer></script><script src="/research-assets/knowledge.js" defer></script>
+<script id="focus-config" type="application/json">{{ {'watch':data,'presets':presets,'seed':seed,'draft_scope':draft_scope|default(''),'seed_text':seed_text|default(''),'seed_name':seed_name|default(''),'seed_terms':seed_terms|default([]),'definition':definition,'tracking':tracking|default({})}|tojson }}</script>
+<script src="/research-assets/focus.js?v={{ focus_script_version }}" defer></script>{% if w and view=='archive' %}<script src="/research-assets/knowledge.js" defer></script>{% endif %}
 {% endblock %}

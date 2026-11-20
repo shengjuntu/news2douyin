@@ -140,7 +140,7 @@ def test_outline_scoping_and_targeted_research(tmp_path):
         assert record.question=='协议何时生效？'
         res=c.get('/api/research/cases/'+record.case_key).json()
         assert '援助条件是什么' in res['goal'] and res['goal'].startswith(record.question)
-    assert '协议何时生效' in c.get('/focus/'+w).text
+    assert '协议何时生效' in c.get('/focus/'+w, params={'view': 'archive'}).text
 
 
 def test_survey_hybrid_missing_evidence_citations_and_one_hop(tmp_path):

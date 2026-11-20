@@ -1,16 +1,15 @@
-"""Read the separate video-candidate edition and explicitly queue its builds."""
+"""Browse and export previously saved video candidates."""
 from datetime import date, timedelta
 from hashlib import sha256
 from urllib.parse import urlencode, urlsplit
 
-from fastapi import Depends, Form, HTTPException, Query
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi import HTTPException, Query
+from fastapi.responses import HTMLResponse, Response
 from sqlmodel import Session
 
 from ..digest.markdown_text import _md, _md_link, _url
 from ..digest.shortlist import _identifier, _local_time
 from .daily_radar import SOURCE_LABELS, _title_label, resolve_day
-from .research import same_origin
 
 SIGNALS = (('person', '人物'), ('movement', '情节'), ('life', '生活关联'))
 MATERIAL_LABELS = {'headline': '标题线索', 'excerpt': '标题与摘录', 'reconstruction': '归档重建片段 · 待核原文'}
@@ -108,12 +107,12 @@ def register(app, engine, render):
     from ..digest import video_service
 
     def page(issue, selected, latest, *, notice='', status_code=200):
-        response = render('video_candidates.html', active='radar', issue=issue, cards=_cards(issue),
-                          latest_day=latest, worker_enabled=video_service.worker_enabled(), notice=notice,
+        cards = _cards(issue) if issue['status'] == 'ready' else []
+        response = render('video_candidates.html', active='radar', issue=issue, cards=cards,
+                          latest_day=latest, notice=notice,
                           today_url=_page_url(latest),
                           prev_url=_page_url(selected - timedelta(days=1)) if selected > date.min else '',
                           next_url=_page_url(selected + timedelta(days=1)) if selected < latest else '',
-                          status_url='/api/radar/video?' + urlencode({'day': selected}),
                           export_url='/radar/video/export.md?' + urlencode({'day': selected, 'revision': issue['revision']}))
         response.status_code = status_code
         return response
@@ -125,33 +124,6 @@ def register(app, engine, render):
             issue = video_service.read_issue(session, selected)
         return page(issue, selected, latest)
 
-    @app.get('/api/radar/video')
-    def video_build_state(day: str | None = Query(None, max_length=10)):
-        selected, _ = resolve_day(day)
-        with Session(engine) as session:
-            return video_service.read_issue_state(session, selected)
-
-    @app.post('/radar/video/generate', dependencies=[Depends(same_origin)], include_in_schema=False)
-    def generate_video_candidates(day: str = Form(max_length=10)):
-        selected, latest = resolve_day(day)
-        with Session(engine) as session:
-            state = video_service.read_issue_state(session, selected)
-        try:
-            if selected < latest and state['status'] == 'ready' and state['build_status'] not in ('pending', 'building'):
-                video_service.request_rebuild(engine, selected)
-            else:
-                video_service.request_issue(engine, selected)
-        except RuntimeError:
-            if video_service.worker_enabled():
-                raise
-            with Session(engine) as session:
-                issue = video_service.read_issue(session, selected)
-            return page(issue, selected, latest, notice='视频候选生成已暂停。', status_code=503)
-        wake = getattr(getattr(app.state, 'video_digest_worker', None), 'wake', None)
-        if wake:
-            wake()
-        return RedirectResponse(_page_url(selected), status_code=303)
-
     @app.get('/radar/video/export.md', response_class=Response)
     def export_video_candidates(day: str | None = Query(None, max_length=10),
                                 revision: int | None = Query(None, ge=1)):
@@ -159,9 +131,9 @@ def register(app, engine, render):
         with Session(engine) as session:
             issue = video_service.read_issue(session, selected)
         if issue['status'] != 'ready':
-            raise HTTPException(404, '这期视频候选尚未发布')
+            raise HTTPException(404, '当天没有已保存的候选')
         if revision is not None and issue['revision'] != revision:
-            return page(issue, selected, latest, notice='本期候选已更新，请重新下载。', status_code=409)
+            return page(issue, selected, latest, notice='链接所指的版次不可用，请下载已保存的版次。', status_code=409)
         name = f"news2douyin-video-candidates-{issue['day']}-r{issue['revision']}.md"
         return Response(render_markdown(issue, _cards(issue)), media_type='text/markdown',
                         headers={'Content-Disposition': f'attachment; filename="{name}"',

@@ -179,7 +179,7 @@ def test_radar_page_membership_queries_stay_constant_for_1_and_30(query_engine,t
             assert 'RADARENTRY' not in queries[0]
             assert 'Alpha' in response.text
         sql,stop=observed(app.state.engine)
-        try:response=client.get('/focus/w_alpha')
+        try:response=client.get('/focus/w_alpha?view=archive')
         finally:stop()
         assert response.status_code==200,response.text
         assert response.text.count('material hint')==30

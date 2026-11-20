@@ -1,0 +1,117 @@
+{
+  "version": "0.42.0",
+  "scope": "Local controlled fixtures and generated data, no production deployment.",
+  "isolated_wheel_browser": {
+    "chromium": "149.0.7827.54",
+    "installed_wheel": true,
+    "same_origin_and_real_saved_local_focus": true,
+    "video_story_seed_saves_local_focus": true,
+    "trusted_occurrence_and_beijing_observation_date_filters": true,
+    "matching_archives_and_agent_endpoint": true,
+    "mobile_390_no_overflow": true,
+    "browser_errors": [],
+    "model_calls": 0
+  },
+  "isolated_wheel_mcp_sdk": {
+    "client": "Official Python MCP SDK",
+    "client_version": "1.29.0",
+    "protocol_version": "2025-11-25",
+    "transport": "Streamable HTTP over TCP",
+    "server": {
+      "name": "news2douyin-focus",
+      "version": "0.42.0"
+    },
+    "tools": [
+      "focus_list",
+      "focus_overview",
+      "focus_list_events",
+      "focus_get_event",
+      "focus_read_source"
+    ],
+    "sessionless": true,
+    "authenticated_structured_lookup_and_events": true
+  },
+  "existing_model_api_browser_fixture": {
+    "stalePreviewPrevented": true,
+    "failedRequestPreservesDescription": true,
+    "interpretMilliseconds": 1355,
+    "decisions": {
+      "pending": 1,
+      "core": 1,
+      "background": 0,
+      "excluded": 1
+    },
+    "fixedVersionEvidenceVisible": true,
+    "realFalkorInterestGraph": true,
+    "manualExclusionPreserved": true,
+    "definitionEditedInPlace": true,
+    "legacyManualCreation": true,
+    "offlinePending": {
+      "pending": 3,
+      "core": 0,
+      "background": 0,
+      "excluded": 0
+    },
+    "mobileNoOverflow": true,
+    "ok": true,
+    "pageErrors": [],
+    "consoleErrors": [],
+    "fixtureNewsAndModel": true
+  },
+  "focused_ui_and_data_regression_tests": 37,
+  "local_matching_and_compatibility_tests": 64,
+  "schema": {
+    "sqlite_schema_objects": 490,
+    "sqlite_ddl_identical_with_0_41_1": true
+  },
+  "synthetic_focus_scale": {
+    "postgres_16_2": {
+      "db": "postgresql",
+      "daily_counts_ms": [
+        389.3,
+        284.8,
+        284.3
+      ],
+      "country_counts_ms": [
+        140.3,
+        154.1,
+        182.9
+      ],
+      "event_total": 23000,
+      "latest_page_ms": [
+        409.8,
+        466.9,
+        589.8
+      ],
+      "date_country_page_ms": [
+        25.9,
+        20.1,
+        24.6
+      ]
+    },
+    "sqlite": {
+      "db": "sqlite",
+      "daily_counts_ms": [
+        167.1,
+        123.6,
+        129.0
+      ],
+      "country_counts_ms": [
+        135.6,
+        144.2,
+        145.5
+      ],
+      "event_total": 23000,
+      "latest_page_ms": [
+        86.5,
+        89.3,
+        82.8
+      ],
+      "date_country_page_ms": [
+        56.6,
+        76.9,
+        53.2
+      ]
+    }
+  }
+}

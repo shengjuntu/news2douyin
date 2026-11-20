@@ -14,7 +14,7 @@ def reports(n):
 
 
 def test_legacy_builtins_reuse_one_pool_and_keep_their_compatibility_output():
-    specs = [spec for spec in STRATEGIES.all() if spec.family != 'video']
+    specs = STRATEGIES.all()
     material = reports(8)
     ids = [spec.id for spec in specs]
     assert STRATEGIES.requirements(DEFAULT_STRATEGY).coarse is False
@@ -47,7 +47,7 @@ def test_requirements_fail_before_unavailable_input_is_used():
 
 
 def test_new_topn_interface_exceeds_old_hundred_seat_cap():
-    ids = [spec.id for spec in STRATEGIES.all() if spec.family != 'video']
+    ids = [spec.id for spec in STRATEGIES.all()]
     with STRATEGIES.prepare(reports(117), ids) as pool:
         for strategy_id in ids:
             result = STRATEGIES.select(pool, strategy_id, limit=114)

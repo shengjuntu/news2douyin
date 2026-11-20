@@ -239,7 +239,7 @@ time_start/time_end仅填写用户明确给出的YYYY-MM-DD，不擅自换算相
 不输出description、分析过程或任何Cypher/SQL。"""
 
 
-def _fallback(description):
+def _fallback(description, *, named_subject=''):
     # Work from positive clauses only. A request to exclude an actor is not an
     # instruction to make that actor the core attention anchor.
     exclusions = re.findall(r'(?:排除|不关注|少看|不看|忽略|不要)([^。；;\n]{1,160})', description)
@@ -255,8 +255,8 @@ def _fallback(description):
         match = re.search(r'(?:关注|跟踪|研究|了解|核查|关于)\s*([^，,。；;\n]{2,50})', positive)
         phrase = (match[1] if match else positive).strip(' ：:。.!！?？')
         phrase = re.split(r'的(?:活动|政策|历史|变化)|，|,', phrase)[0].strip()
-        if phrase:
-            entities.append(dict(name=phrase[:80], type='unknown', aliases=[], core=True))
+        if named_subject or phrase:
+            entities.append(dict(name=named_subject[:160] or phrase[:80], type='unknown', aliases=[], core=True))
     found = [name for name, aliases in _TOPICS.items() if any(_word_hit(alias, text) for alias in aliases)]
     keywords = _unique([alias for name in found for alias in _TOPICS[name]])[:48]
     if not entities and not keywords:
@@ -275,6 +275,39 @@ def _fallback(description):
     return validate_spec(dict(name=name, kind=kind, description=description, entities=entities[:24],
                               relations=relations, keywords=keywords, include=[], exclude=exclusions[:12],
                               questions=questions, time_start='', time_end='', geography=[]), description)
+
+
+def local_scope(description):
+    """Compile a preview using curated aliases and explicit subjects only."""
+    quoted = re.match(r'^(?:(?:我想|请|持续|长期)\s*)*(?:关注|跟踪|研究|了解|核查)\s*「([^」]+)」', description)
+    return _fallback(description, named_subject=quoted[1].strip() if quoted else '')
+
+
+def replace_anchors(spec, anchors):
+    """Apply editable local terms without keeping query edges to removed terms."""
+    entities = {norm(entity.name): entity for entity in spec.entities}
+    names = {}
+    for raw in anchors:
+        name = raw.strip()
+        if not 2 <= len(name) <= 160:
+            raise ValueError('每个关注词须为 2–160 个字符')
+        names.setdefault(norm(name), name)
+    if not 1 <= len(names) <= 12:
+        raise ValueError('请填写 1–12 个关注词')
+    retained = []
+    for key, name in names.items():
+        if key in entities:
+            retained.append(entities[key].model_copy(update={'name': name, 'core': True}))
+        else:
+            kind, aliases = _ANCHORS.get(_canonical(name), ('unknown', []))
+            retained.append(InterestEntity(name=name, type=kind, aliases=aliases))
+    saved_ids = {entity.id for entity in retained if entity.id}
+    raw = spec.model_dump()
+    raw['entities'] = [entity.model_dump() for entity in retained]
+    raw['relations'] = [edge.model_dump() for edge in spec.relations
+                        if (not edge.subject or edge.subject in saved_ids)
+                        and (not edge.object or edge.object in saved_ids)]
+    return validate_spec(raw)
 
 
 def interpret(description, use_model=True):
@@ -481,6 +514,58 @@ def _in_time_window(spec, sources, evidence):
         if (not spec.time_start or value >= spec.time_start) and (not spec.time_end or value <= spec.time_end):
             return True
     return False
+
+
+def judge_local(spec, card):
+    """Use local terms from a saved scope with source-version evidence."""
+    spec = _spec(spec)
+    entities = [entity for entity in spec.entities if entity.core] or spec.entities
+    terms = {norm(alias) for entity in entities for alias in _aliases(entity)}
+    topics = _unique([*spec.keywords, *(term for edge in spec.relations if not edge.subject and not edge.object
+                                      for term in (edge.keywords or [edge.relation]))])
+    personal = spec.kind == '人物' or bool(entities and all(entity.type == 'person' for entity in entities))
+    dated = bool(spec.time_start or spec.time_end)
+    background = None
+
+    def assess(source, quote, *, action=None):
+        if not 4 <= len(quote) <= 600 or not (terms or topics):
+            return None
+        text = norm(quote)
+        if any(_word_hit(exclusion, text) for exclusion in spec.exclude):
+            return None
+        if topics and not any(_word_hit(topic, text) for topic in topics):
+            return None
+        arguments = action['arguments'] if action else []
+        actor = any(norm(arg['text']) in terms and arg['role'] in ('actor', 'speaker', 'participant') for arg in arguments)
+        if terms and not (actor or any(_word_hit(term, text) for term in terms)):
+            return None
+        if spec.geography and not any(arg['role'] in ('location', 'target') and
+                any(_word_hit(place, norm(arg['text'])) for place in spec.geography) for arg in arguments):
+            return None
+        citation = Evidence(article=source['article'], revision=source['revision'], quote=quote)
+        if dated and not _in_time_window(spec, [source], [citation]):
+            return None
+        core = actor or (not personal and (action is not None or quote == source['title']))
+        reason = '行动角色与关注词匹配' if actor else ('原文标题与关注范围匹配' if quote == source['title'] else '原文与关注词匹配')
+        return dict(decision='core' if core else 'background', method='rules', reason=reason,
+                    evidence=[citation.model_dump()], questions=[])
+
+    for source in _evidence_sources(_card(card)):
+        for action in source['actions']:
+            match = assess(source, action['quote'], action=action)
+            if match and match['decision'] == 'core':
+                return match
+            background = background or match
+        if dated or spec.geography:
+            continue
+        for field in source['excerpts']:
+            quotes = [field] if field == source['title'] else re.split(r'(?<=[。！？.!?])\s|(?<=[。！？])|\n', field)[:24]
+            for quote in quotes:
+                match = assess(source, quote.strip()[:600])
+                if match and match['decision'] == 'core':
+                    return match
+                background = background or match
+    return background or _pending('原文尚缺少符合关注词或范围的依据。')
 
 
 def judge(spec, card, recall_result, use_model=True):

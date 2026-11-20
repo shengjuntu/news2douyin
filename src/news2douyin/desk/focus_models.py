@@ -8,6 +8,9 @@ from sqlalchemy import Index
 from ..storage.models import utc_now_iso
 
 
+LOCAL_METHOD = 'local'
+
+
 class FocusDefinition(SQLModel, table=True):
     watch: str = Field(primary_key=True)
     description: str

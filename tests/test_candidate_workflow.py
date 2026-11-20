@@ -122,7 +122,7 @@ def test_new_language_report_can_be_recovered_by_focus_and_organized(tmp_path, m
             token = candidate_token(resolve_candidate(session, tmp_path, key))
             assert session.exec(select(func.count()).select_from(Event)).one() == 0
 
-        assert TITLE in client.get('/focus/' + watch).text
+        assert TITLE in client.get('/focus/' + watch, params={'view': 'leads'}).text
         page = client.get('/workbench/new', params={'candidate': key})
         assert page.status_code == 200 and TITLE in page.text
         draft = client.post('/api/workbench', json=dict(candidate=key, candidate_token=token, request_id='fixture-draft'))

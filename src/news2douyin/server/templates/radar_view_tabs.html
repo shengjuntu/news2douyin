@@ -1,7 +1,6 @@
 <nav class="radar-view-tabs" aria-label="雷达材料视图">
-  {% set video_url = '/radar/video?day=' ~ issue.day if radar_tab == 'daily' and issue is defined else '/radar/video' %}
   {% set daily_url = '/radar?day=' ~ issue.day if radar_tab == 'video' and issue is defined else '/radar' %}
-  {% for key, url, label in [('daily',daily_url,'每日精选'),('video',video_url,'视频候选'),('gdelt','/radar?source=gdelt','全球事件线索'),('local','/radar?source=local','已整理事件'),('attention','/radar?source=attention','中文平台关注'),('candidates','/candidates','采集候选')] %}
+  {% for key, url, label in [('daily',daily_url,'每日精选'),('hotspots','/radar/hotspots','热点'),('gdelt','/radar?source=gdelt','全球事件线索'),('local','/radar?source=local','已整理事件'),('attention','/radar?source=attention','中文平台关注'),('candidates','/candidates','采集候选')] %}
   <a href="{{ url }}"{% if radar_tab == key %} class="on" aria-current="page"{% endif %}>{{ label }}</a>
   {% endfor %}
 </nav>

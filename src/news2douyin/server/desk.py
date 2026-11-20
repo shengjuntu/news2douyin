@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 from pathlib import Path
+from typing import Literal
 from urllib.parse import urlsplit, urlencode
 from fastapi import Request, Query, Depends, HTTPException
 from fastapi.responses import RedirectResponse
@@ -54,8 +55,9 @@ class RemoveFocus(BaseModel):
 
 
 def register_desk(app,engine,render):
-    focus_script = Path(__file__).with_name('static') / 'focus.js'
-    focus_script_version = sha256(focus_script.read_bytes()).hexdigest()[:16]
+    static = Path(__file__).with_name('static')
+    focus_script_version = sha256((static / 'focus.js').read_bytes()).hexdigest()[:16]
+    focus_style_version = sha256((static / 'focus.css').read_bytes()).hexdigest()[:16]
     def db():
         with Session(engine,expire_on_commit=False) as s:yield s
     from .extraction import register as register_extraction
@@ -145,52 +147,75 @@ def register_desk(app,engine,render):
     @app.get('/focus/{key}')
     def focus(request:Request,key:str='',seed:str='',order:str='recent',branch:str='',offset:int=Query(0,ge=0),
               lead_offset:int=Query(0,ge=0,le=100000),video_day:str=Query('',max_length=10),
-              video_key:str=Query('',max_length=160),s=Depends(db)):
+              video_key:str=Query('',max_length=160),hotspot:str=Query('',max_length=128),day:str=Query('',max_length=10),
+              date_basis:Literal['observed','occurred']='observed',
+              view:Literal['events','leads','archive']='events',s=Depends(db)):
         from ..desk.focus_lifecycle import visible_watch, trash_items
         from ..desk.focus_leads import recent
-        video_seed = ''
+        from ..desk.focus_read import checked_dates
+        if day:
+            task_call(checked_dates,day,day,date_basis)
+        if lead_offset and 'view' not in request.query_params:
+            view='leads'
+        seed_text, seed_name, seed_terms = '', '', []
+        if hotspot:
+            if key or seed or video_day or video_key:
+                raise HTTPException(422, '热点只能用于新建焦点')
+            topic = app.state.hotspot_board.get(s, hotspot)
+            if topic is None:
+                raise HTTPException(404, '这个热点已更新，请从热点页重新打开')
+            seed_name = topic['title'][:80]
+            seed_terms = list(dict.fromkeys(term.strip() for term in topic.get('focus_terms', ())
+                                             if isinstance(term, str) and 2 <= len(term.strip()) <= 160))[:12]
+            seed_text = topic.get('focus_description') or f'持续跟踪「{seed_name}」的后续进展，记录重要行动和来源。'
+            event_keys = [event[6:] for item in topic['sources']
+                          if (event := item.get('event_key', '')).startswith('local:')]
+            if event_keys:
+                indexed = set(s.exec(select(Event.event_key).where(Event.event_key.in_(event_keys))))
+                seed = next((event for event in event_keys if event in indexed), '')
         if video_day or video_key:
             if key or seed or not (video_day and video_key):
                 raise HTTPException(422, '视频候选只能用于新建焦点')
             from .daily_radar import resolve_day
             from ..digest.video_service import read_issue
-            day, _ = resolve_day(video_day)
-            card = next((item for item in read_issue(s, day)['items'] if item['key'] == video_key), None)
+            edition_day, _ = resolve_day(video_day)
+            card = next((item for item in read_issue(s, edition_day)['items'] if item['key'] == video_key), None)
             if card is None:
                 raise HTTPException(404, '该期视频候选中没有这条材料')
-            video_seed = f'持续跟踪「{card["title"]}」的后续进展，记录当事人的行动、具体变化和生活影响。'
+            seed_text = f'持续跟踪「{card["title"]}」的后续进展，记录当事人的行动、具体变化和生活影响。'
         watches=s.exec(select(Watch).where(visible_watch()).order_by(Watch.created,Watch.key)).all()
         w=task_call(desk.get_watch,s,key) if key else None
-        leads,more_leads=recent(s,w,offset=lead_offset) if w else ([],False)
-        total,items=desk.focus_entries(s,key,offset,order=order,branch=branch) if w else (0,[])
+        events=bool(w and view=='events')
+        archive=bool(w and view=='archive')
+        leads,more_leads=recent(s,w,offset=lead_offset) if w and view=='leads' else ([],False)
+        total,items=desk.focus_entries(s,key,offset,order=order,branch=branch,day=day,date_basis=date_basis) if events else (0,[])
         reviews=s.exec(select(WatchReview,ResearchCase,ResearchRun).outerjoin(ResearchCase,ResearchCase.case_id==WatchReview.case_key)
               .outerjoin(ResearchRun,ResearchRun.run_id==ResearchCase.active_run_id).where(WatchReview.watch==key)
-              .order_by(WatchReview.created.desc()).limit(30)).all() if w else []
-        counts=dict(s.exec(select(WatchEvent.watch,func.count()).where(WatchEvent.choice!='exclude',desk.current_membership()).group_by(WatchEvent.watch)).all())
+              .order_by(WatchReview.created.desc()).limit(30)).all() if archive else []
         material = select(WatchEvent.event).where(WatchEvent.watch==key,WatchEvent.choice!='exclude',desk.current_membership())
         branches = s.exec(select(WatchEvent.branch).where(WatchEvent.watch==key,WatchEvent.choice!='exclude',desk.current_membership())
-            .distinct().order_by(WatchEvent.branch)).all() if w else []
+            .distinct().order_by(WatchEvent.branch)).all() if events else []
         tags = dict(s.exec(select(WatchEvent.event, WatchEvent.branch).where(WatchEvent.watch==key,
             WatchEvent.event.in_([card.key for card,_ in items]))).all()) if items else {}
         moments=s.exec(select(EventMoment).where(EventMoment.event_key.in_(material),
             EventMoment.deleted==False,EventMoment.time_kind=='occurred',EventMoment.date_start!='')
-            .order_by(EventMoment.date_start.desc(),EventMoment.moment_key).limit(100)).all() if w else []
+            .order_by(EventMoment.date_start.desc(),EventMoment.moment_key).limit(100)).all() if archive else []
         excluded=s.exec(select(RadarEntry).join(WatchEvent,WatchEvent.event==RadarEntry.key)
             .where(WatchEvent.watch==key,WatchEvent.choice=='exclude')
-            .order_by(RadarEntry.seen.desc()).limit(100)).all() if w else []
+            .order_by(RadarEntry.seen.desc()).limit(100)).all() if archive else []
         cases=select(WatchReview.case_key).where(WatchReview.watch==key)
         questions=s.exec(select(ResearchQuestion).where(ResearchQuestion.case_id.in_(cases))
-            .order_by(ResearchQuestion.updated_at.desc()).limit(30)).all() if w else []
+            .order_by(ResearchQuestion.updated_at.desc()).limit(30)).all() if archive else []
         summaries=s.exec(select(ResearchReport).where(ResearchReport.case_id.in_(cases))
-            .order_by(ResearchReport.created_at.desc()).limit(12)).all() if w else []
+            .order_by(ResearchReport.created_at.desc()).limit(12)).all() if archive else []
         seed_event=s.exec(select(Event).where(Event.event_key==seed)).first() if seed else None
         from ..knowledge.models import FocusChange,FocusVisit,PointMaterial
         from ..workbench.service import related
-        visit=s.get(FocusVisit,key) if w else None
+        visit=s.get(FocusVisit,key) if events else None
         changes=s.exec(select(FocusChange).where(FocusChange.watch==key,FocusChange.created>(visit.seen if visit else ''))
-            .order_by(FocusChange.created.desc()).limit(30)).all() if w else []
+            .order_by(FocusChange.created.desc()).limit(5)).all() if events and not day else []
         point_material={}
-        if w:
+        if archive:
             material_rows=all_rows(s,select(PointMaterial.point,RadarEntry.key,RadarEntry.title,PointMaterial.reason)
                 .select_from(PointMaterial).join(FocusPoint,FocusPoint.key==PointMaterial.point)
                 .join(RadarEntry,RadarEntry.key==PointMaterial.event)
@@ -201,18 +226,21 @@ def register_desk(app,engine,render):
                 point_material.setdefault(point,[]).append(dict(key=event,title=title,reason=reason))
         if seed and not seed_event:raise HTTPException(404,'事件不存在')
         from ..desk.focus_jobs import definition as focus_definition, status as focus_status
+        paging=urlencode(dict(view=view,order=order,branch=branch,day=day,date_basis=date_basis))
         response = render('desk_focus.html',active='focus',w=w,data=w.model_dump() if w else {},watches=watches,
             trashed=trash_items(s),trash_open=request.query_params.get('trash')=='1',
             intent_definition=focus_definition(s,key) if w else None,
             tracking=focus_status(s,key) if w else {},
-            counts=counts,total=total,items=items,offset=offset,reviews=reviews,presets=PRESETS,seed=seed,
+            total=total,items=items,offset=offset,reviews=reviews,presets=PRESETS,seed=seed,
             leads=leads,lead_offset=lead_offset,more_leads=more_leads,
-            changes=changes,point_material=point_material,content_tasks=related(s,watch=key) if w else [],
+            changes=changes,point_material=point_material,content_tasks=related(s,watch=key) if archive else [],
             order=order,branch=branch,branches=branches,tags=tags,questions=questions,summaries=summaries,
-            candidate_dates=focus_timeline(s,key) if w else [],action_labels=LABELS,points=outline.points(s,key) if w else [],point_history=outline.history(s,key) if w else [],
-            timeline=moments,excluded=excluded,paging=urlencode(dict(order=order,branch=branch)),
-            seed_title=seed_event.event_title if seed_event else '',video_seed=video_seed,
-            focus_script_version=focus_script_version,**context(request,s))
+            candidate_dates=focus_timeline(s,key) if archive else [],action_labels=LABELS,points=outline.points(s,key) if archive else [],point_history=outline.history(s,key) if archive else [],
+            timeline=moments,excluded=excluded,paging=paging,focus_view=view,day=day,date_basis=date_basis,
+            seed_title=seed_event.event_title if seed_event else '',seed_text=seed_text,
+            seed_name=seed_name,seed_terms=seed_terms,
+            draft_scope=f'hotspot/{hotspot}' if hotspot else f'{video_day}/{video_key}' if video_key else seed,
+            focus_script_version=focus_script_version,focus_style_version=focus_style_version,**context(request,s))
         response.headers['Cache-Control'] = 'private, no-cache'
         return remember(response,'focus')
 

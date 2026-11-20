@@ -18,7 +18,7 @@ from ..selection.source_content import source_url
 from ..storage.articles import lock_news
 from . import intent, rules
 from .focus_lifecycle import visible_watch
-from .focus_models import FocusDefinition, FocusLead
+from .focus_models import LOCAL_METHOD, FocusDefinition, FocusLead
 from .leases import acquire
 from .models import DeskMeta, Watch
 
@@ -56,7 +56,7 @@ class _Matcher:
         for index, (watch, definition) in enumerate(scopes):
             spec = (intent.validate_spec(json.loads(definition.spec_json), description=definition.description)
                     if definition and definition.scope_version == watch.version else None)
-            self.scopes.append((watch, spec))
+            self.scopes.append((watch, spec, spec is not None and definition.method != LOCAL_METHOD))
             if spec is None:
                 anchors = [alias for term in rules.terms(watch.scope) for alias in (term, *rules.ALIASES.get(term, ()))]
             else:
@@ -80,11 +80,11 @@ class _Matcher:
         while eligible:
             bit = eligible & -eligible
             eligible ^= bit
-            watch, spec = self.scopes[bit.bit_length() - 1]
+            watch, spec, use_model = self.scopes[bit.bit_length() - 1]
             if spec is not None:
                 path = intent.recall(spec, card)
                 if path:
-                    yield watch, path, True
+                    yield watch, path, use_model
             else:
                 reason = rules.match(watch, card)
                 if reason:
@@ -227,7 +227,7 @@ def _current_spec(session, lead):
         Watch.key == lead.watch, Watch.version == lead.scope_version, Watch.enabled.is_(True), visible_watch()
     )).first()
     definition = session.get(FocusDefinition, lead.watch) if current else None
-    if definition and definition.scope_version == lead.scope_version:
+    if definition and definition.method != LOCAL_METHOD and definition.scope_version == lead.scope_version:
         return intent.validate_spec(json.loads(definition.spec_json), description=definition.description)
 
 

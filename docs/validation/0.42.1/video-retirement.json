@@ -1,0 +1,9 @@
+{
+  "version": "0.42.1",
+  "targeted_sqlite_and_postgresql_tests": 101,
+  "installed_archive_tests": 4,
+  "verification_scope": "Local controlled databases and wheel install.",
+  "no_video_ranking_strategy_or_worker": true,
+  "historical_get_and_markdown_are_read_only": true,
+  "ordinary_daily_digest_implementation_and_schema_unchanged": true
+}

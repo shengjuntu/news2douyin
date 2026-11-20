@@ -1,4 +1,4 @@
-"""The production video edition is a separately readable snapshot."""
+"""Video archives remain readable after the generator is retired."""
 from datetime import timedelta
 import json
 
@@ -7,7 +7,6 @@ from fastapi.testclient import TestClient
 from sqlalchemy import event as db_event
 from sqlmodel import Session
 
-from news2douyin.digest import video_service
 from news2douyin.digest.models import DailyDigestIssue, VideoDigestIssue
 from news2douyin.digest.service import default_day
 from news2douyin.server.app import create_app
@@ -42,7 +41,8 @@ def _seed(app, day):
     )
     cards = [card] + [dict(card, key=f'video_{index}', title=f'第{index}条候选') for index in range(2, 101)]
     with Session(app.state.engine) as session:
-        session.add(VideoDigestIssue(day=day, status='ready', items_json=json.dumps(cards)))
+        session.add(VideoDigestIssue(day=day, status='refresh_failed', items_json=json.dumps(cards),
+                                     error='旧版生成错误文本'))
         session.add(DailyDigestIssue(day=day, status='ready', items_json=json.dumps([dict(key='ordinary', title='普通日报独有进展')])))
         session.commit()
     return earlier, card
@@ -69,7 +69,9 @@ def test_video_snapshot_sources_story_and_all_100_download(suite):
     main = client.get('/radar', params={'day': day})
     assert main.status_code == 200 and '普通日报独有进展' in main.text
     assert '码头工人改走小路' not in main.text
-    assert f'href="/radar/video?day={day}"' in main.text
+    assert '/radar/video' not in main.text
+    assert '历史视频候选' in page.text and '旧版生成错误文本' not in page.text
+    assert '/radar/video/generate' not in page.text and '/api/radar/video' not in page.text
     assert '下载 Markdown（100 条）' in page.text
     assert '第100条候选' in page.text
     for label in ('人物', '情节', '生活关联', '故事回看', '较早的通知', '跟踪这个故事', '形成选题'):
@@ -89,32 +91,26 @@ def test_video_snapshot_sources_story_and_all_100_download(suite):
     assert client.get('/radar/video/export.md', params={'day': day, 'revision': 2}).status_code == 409
 
 
-def test_generate_only_queues_own_day_with_origin_and_status(suite, monkeypatch):
+def test_retired_routes_cannot_queue_and_pending_archive_is_inactive(suite):
     app, client = suite
     day = (default_day() - timedelta(days=3)).isoformat()
-
-    def forbidden(*_args, **_kwargs):
-        raise AssertionError('HTTP request must not build either edition')
-
-    monkeypatch.setattr(video_service, 'build_issue', forbidden)
-    response = client.get('/radar/video', params={'day': day})
-    assert response.status_code == 200 and '生成视频候选' in response.text
-    assert client.get('/radar/video/export.md', params={'day': day}).status_code == 404
-    assert client.get('/api/radar/video', params={'day': day}).json()['requested'] is False
-    assert client.post('/radar/video/generate', data={'day': day}, headers={'Origin': 'https://cross.example'}).status_code == 403
-    for _ in range(2):
-        posted = client.post('/radar/video/generate', data={'day': day}, follow_redirects=False)
-        assert posted.status_code == 303 and posted.headers['location'] == '/radar/video?day=' + day
-    state = client.get('/api/radar/video', params={'day': day}).json()
-    assert state['requested'] is True and state['build_status'] == 'pending' and 'items' not in state
-    assert '生成已排队' in client.get('/radar/video', params={'day': day}).text
+    unused_day = (default_day() - timedelta(days=4)).isoformat()
+    with Session(app.state.engine) as session:
+        session.add(VideoDigestIssue(day=day, status='building', requested=True, lease_token='old-run'))
+        session.commit()
+    for selected_day in (day, unused_day):
+        response = client.get('/radar/video', params={'day': selected_day})
+        assert response.status_code == 200 and '当天没有已保存的候选' in response.text
+        for stale in ('生成视频候选', '正在生成', '已排队', 'video-candidates.js', '下载 Markdown'):
+            assert stale not in response.text
+        assert client.get('/radar/video/export.md', params={'day': selected_day}).status_code == 404
+        assert client.get('/api/radar/video', params={'day': selected_day}).status_code == 404
+        assert client.post('/radar/video/generate', data={'day': selected_day}).status_code == 404
+    assert client.get('/research-assets/video-candidates.js').status_code == 404
     with Session(app.state.engine) as session:
         assert session.get(DailyDigestIssue, day) is None
+        assert session.get(VideoDigestIssue, unused_day) is None
+        old = session.get(VideoDigestIssue, day)
+        assert old.status == 'building' and old.requested and old.lease_token == 'old-run'
     for raw in ('tomorrow', (default_day() + timedelta(days=1)).isoformat()):
         assert client.get('/radar/video', params={'day': raw}).status_code == 422
-        assert client.post('/radar/video/generate', data={'day': raw}).status_code == 422
-    monkeypatch.setenv('NEWS2DOUYIN_DIGEST_ENABLED', '0')
-    paused_day = (default_day() - timedelta(days=4)).isoformat()
-    paused = client.post('/radar/video/generate', data={'day': paused_day})
-    assert paused.status_code == 503 and '视频候选生成已暂停' in paused.text
-    assert not client.get('/api/radar/video', params={'day': paused_day}).json()['requested']

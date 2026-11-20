@@ -109,13 +109,10 @@ def create_app(*, db_url: str | None = None, storage_root: str = 'runs_v7') -> F
             app.state.ngram_worker.start()
         with startup.phase('workers.daily_radar'):
             app.state.digest_worker.start()
-        with startup.phase('workers.video_candidates'):
-            app.state.video_digest_worker.start()
         startup.ready()
         try:
             yield
         finally:
-            app.state.video_digest_worker.stop()
             app.state.digest_worker.stop()
             app.state.ngram_worker.stop()
             app.state.source_content.stop()
@@ -160,8 +157,6 @@ def create_app(*, db_url: str | None = None, storage_root: str = 'runs_v7') -> F
     app.state.ngram_worker = NgramWorker(engine, storage_root)
     from ..digest.runtime import DigestWorker
     app.state.digest_worker = DigestWorker(engine, storage_root)
-    from ..digest.video_service import VideoDigestWorker
-    app.state.video_digest_worker = VideoDigestWorker(engine, storage_root)
     from ..attention.runtime import AttentionWorker
     app.state.attention = AttentionWorker(engine, storage_root)
     from ..selection.source_runtime import SourceContentWorker
@@ -174,6 +169,8 @@ def create_app(*, db_url: str | None = None, storage_root: str = 'runs_v7') -> F
     from .research import register_research_routes
     with startup.phase('application.research_routes'):
         register_research_routes(app, engine, storage_root)
+    from .focus_mcp import register_focus_mcp
+    register_focus_mcp(app, engine)
     from ..desk.runtime import DeskWorker
     with startup.phase('application.desk'):
         app.state.desk=DeskWorker(engine,app.state.research,storage_root)

@@ -1,0 +1,43 @@
+{
+  "version": "0.43.0",
+  "scope": "Local fixtures only. No field deployment or production ranking validation.",
+  "targeted_regression": {
+    "engines": [
+      "SQLite",
+      "PostgreSQL 16.2"
+    ],
+    "passed": 107
+  },
+  "installed_wheel_chromium": {
+    "chromium": "149.0.7827.54",
+    "installed_wheel": true,
+    "hotspot_categories": 4,
+    "hotspot_is_distinct_from_daily": true,
+    "sources_are_expandable": true,
+    "focus_seed_is_read_only_until_saved": true,
+    "local_focus_persisted": true,
+    "saved_focus_reused": true,
+    "existing_report_can_start_topic_draft": true,
+    "mobile_width_px": 390,
+    "horizontal_overflow": false,
+    "browser_errors": [],
+    "model_calls": 0,
+    "full_gkg_scans": 0
+  },
+  "independent_report_index_scale": {
+    "fixture": "synthetic local SQLite, report index only",
+    "input_rows": 200000,
+    "reports_returned": 256,
+    "reads_ms": [
+      17.58,
+      11.54,
+      10.76,
+      10.15,
+      9.88,
+      10.52
+    ],
+    "report_query_plan": [
+      "SEARCH sourcereport USING INDEX ix_sourcereport_observed_key (observed_at>? AND observed_at<?)"
+    ]
+  }
+}
