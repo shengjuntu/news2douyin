@@ -243,13 +243,27 @@ function installGraph(root) {
     showDetails(details, node.details)
     const target = safeLink(node.url)
     if (target) {
-      const anchor = element('a', target.origin === window.location.origin ? '打开详情' : '打开原文 ↗')
+      const local = target.origin === window.location.origin
+      const anchor = element('a', local ? '打开详情' : '打开原文 ↗')
       anchor.href = target.href
-      if (target.origin !== window.location.origin) {
+      if (!local) {
         anchor.target = '_blank'
         anchor.rel = 'noopener noreferrer'
       }
-      details.append(anchor)
+      const eventKey = root.dataset.focusKey && node.kind === 'event' && local && !target.search && !target.hash
+        ? target.pathname.match(/^\/events\/([A-Za-z0-9_-]{1,160})$/)?.[1] : undefined
+      if (eventKey) {
+        const investigate = element('button', '以此事件查前因', 'ghost')
+        investigate.type = 'button'
+        investigate.addEventListener('click', () => {
+          document.dispatchEvent(new CustomEvent('n2d:causal-root', {detail: {eventKey, title: node.title}}))
+        })
+        const actions = element('div', '', 'row')
+        actions.append(anchor, investigate)
+        details.append(actions)
+      } else {
+        details.append(anchor)
+      }
     }
     const related = neighbors[selected]
     details.append(element('p', related.length ? `直接关系 ${related.length}` : '图中暂无直接关系。', 'graph-explorer-related-title'))

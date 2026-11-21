@@ -1,13 +1,14 @@
 """Web and machine entry points for the same investigation queue."""
 from datetime import date
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import Depends, HTTPException, Query
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, StringConstraints
 
-from ..causal import service
+from ..causal import agent, service
 from ..causal.model import CausalModelError, configure
+from ..causal.models import CausalAgentLink
 from ..storage.db import session_scope
 from .research import same_origin
 
@@ -16,7 +17,14 @@ class InvestigationInput(BaseModel):
     text: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=2000)]
     event_at: Annotated[str, StringConstraints(strip_whitespace=True, max_length=48)] = ''
     event_key: Annotated[str, StringConstraints(strip_whitespace=True, max_length=160)] = ''
+    focus_key: Annotated[str, StringConstraints(strip_whitespace=True, max_length=100)] = ''
     automatic: bool = False
+    runner: Literal['local', 'agent'] = 'local'
+    date_from: Annotated[str, StringConstraints(strip_whitespace=True, max_length=10)] = ''
+
+
+class AgentInput(BaseModel):
+    date_from: Annotated[str, StringConstraints(strip_whitespace=True, max_length=10)] = ''
 
 
 class ExpansionInput(BaseModel):
@@ -52,35 +60,55 @@ def register(app, engine, render):
         return render('causal.html', active='radar', seed=initial, task_key=investigation)
 
     @app.get('/api/causal/investigations')
-    def investigations():
-        with session_scope(engine) as session:
-            return _reply({'investigations': service.recent(session)})
+    def investigations(focus_key: Annotated[str, Query(max_length=100)] = ''):
+        try:
+            with session_scope(engine) as session:
+                return _reply({'investigations': service.recent(session, focus_key)})
+        except KeyError as exc:
+            raise HTTPException(404, exc.args[0]) from None
 
     @app.post('/api/causal/investigations', status_code=202, dependencies=[Depends(same_origin)])
     def create(payload: InvestigationInput):
-        _configured()
+        local = payload.runner == 'local'
+        if local:
+            _configured()
         try:
+            if not local:
+                agent.check_config(app.state.research)
             with session_scope(engine) as session:
-                key = service.create(session, payload.text, payload.event_at, payload.event_key, payload.automatic)
-                result = service.view(session, key)
-        except KeyError:
-            raise HTTPException(404, '未找到当前有效的整理事件') from None
+                key = service.create(session, payload.text, payload.event_at, payload.event_key,
+                                     payload.automatic, focus_key=payload.focus_key, queue_local=local)
+                if local:
+                    result = service.view(session, key)
+                else:
+                    binding = agent.bind(session, key, payload.date_from)
+                    session.commit()
+        except KeyError as exc:
+            raise HTTPException(404, exc.args[0]) from None
+        except service.CausalConflict as exc:
+            raise HTTPException(409, str(exc)) from None
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from None
-        app.state.causal.wake()
+        if local:
+            app.state.causal.wake()
+        else:
+            result = agent.submit(engine, app.state.research, key, *binding)
         return _reply(result, 202)
 
     @app.get('/api/causal/investigations/{case_key}')
-    def get(case_key: str):
+    def get(case_key: str, focus_key: Annotated[str, Query(max_length=100)] = ''):
         try:
             with session_scope(engine) as session:
-                return _reply(service.view(session, case_key))
-        except KeyError:
-            raise HTTPException(404, '调查不存在') from None
+                return _reply(service.view(session, case_key, focus_key=focus_key))
+        except KeyError as exc:
+            raise HTTPException(404, exc.args[0]) from None
 
     @app.post('/api/causal/investigations/{case_key}/expand', status_code=202, dependencies=[Depends(same_origin)])
     def expand(case_key: str, payload: ExpansionInput):
-        _configured()
+        with session_scope(engine) as session:
+            is_agent_investigation = session.get(CausalAgentLink, case_key) is not None
+        if not is_agent_investigation:
+            _configured()
         try:
             with session_scope(engine) as session:
                 service.expand(session, case_key, payload.node_key, payload.automatic)
@@ -91,6 +119,21 @@ def register(app, engine, render):
             raise HTTPException(409, str(exc)) from None
         app.state.causal.wake()
         return _reply(result, 202)
+
+    @app.post('/api/causal/investigations/{case_key}/agent', status_code=202, dependencies=[Depends(same_origin)])
+    def handoff(case_key: str, payload: AgentInput):
+        try:
+            agent.check_config(app.state.research)
+            with session_scope(engine) as session:
+                binding = agent.bind(session, case_key, payload.date_from)
+                session.commit()
+        except KeyError as exc:
+            raise HTTPException(404, exc.args[0]) from None
+        except service.CausalConflict as exc:
+            raise HTTPException(409, str(exc)) from None
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from None
+        return _reply(agent.submit(engine, app.state.research, case_key, *binding), 202)
 
     @app.post('/api/causal/investigations/{case_key}/archive', status_code=202, dependencies=[Depends(same_origin)])
     def request_archive(case_key: str, payload: ArchiveInput):

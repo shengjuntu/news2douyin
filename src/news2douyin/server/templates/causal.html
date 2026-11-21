@@ -2,57 +2,6 @@
 {% block title %}查找前因 · 事件雷达{% endblock %}
 {% block graph_libraries %}{% endblock %}
 {% block content %}
-<link rel="stylesheet" href="/research-assets/causal.css">
 {% with radar_tab='causal' %}{% include 'radar_view_tabs.html' %}{% endwith %}
-<div class="causal-page">
-  <h1>查找前因</h1>
-  <form id="causal-form" class="card causal-form" method="post" action="/api/causal/investigations">
-    <label for="causal-text">事件描述</label>
-    <textarea id="causal-text" name="text" rows="4" required maxlength="2000" placeholder="想查找哪件事的前因？">{{ seed.text|default('') }}</textarea>
-    {% if seed.event_key|default('') %}
-    <input type="hidden" name="event_key" value="{{ seed.event_key }}">
-    <a href="/events/{{ seed.event_key|urlencode }}" class="small">查看关联事件</a>
-    {% endif %}
-    <details class="causal-options">
-      <summary>事件时间与搜索方式</summary>
-      <div class="row">
-        <label for="causal-at">事件时间（可选）</label>
-        <input id="causal-at" name="event_at" maxlength="48" value="{{ seed.event_at|default('') }}" placeholder="如 2026-11-19">
-        <span class="muted small">日期或 ISO 时间，默认系统时区</span>
-      </div>
-      <label><input name="automatic" type="checkbox"> 自动沿排名靠前的分支继续查找</label>
-    </details>
-    <button type="submit" id="causal-submit">查找前因</button>
-  </form>
-  <p id="causal-message" class="causal-message" role="status"></p>
-  <section id="causal-result" aria-labelledby="causal-result-title" hidden>
-    <div class="row causal-result-head">
-      <h2 id="causal-result-title" tabindex="-1">候选前因</h2>
-      <span id="causal-progress" class="badge" role="status"></span>
-    </div>
-    <p id="causal-anchor" class="muted small" hidden></p>
-    <p id="causal-coverage" class="muted small"></p>
-    <div class="row causal-assistance">
-      <a id="causal-archive" hidden>核对归档覆盖</a>
-      <a id="causal-research" hidden>研究助手设置</a>
-    </div>
-    <details class="card causal-repair">
-      <summary>补采 GDELT 归档</summary>
-      <form id="causal-repair-form" class="row" method="post">
-        <label>日期（北京时间） <input type="date" name="day" required></label>
-        <button id="causal-repair-submit" type="submit" class="ghost">提交补采</button>
-        <button id="causal-repair-refresh" type="button" class="ghost" hidden>刷新补采状态</button>
-      </form>
-      <p id="causal-repair-message" class="causal-message" role="status"></p>
-      <ul id="causal-repair-list" hidden></ul>
-    </details>
-    <div id="causal-tree"></div>
-  </section>
-  <details class="card causal-history" id="causal-history">
-    <summary>查找记录</summary>
-    <div id="causal-history-list"></div>
-  </details>
-</div>
-<script type="application/json" id="causal-config">{{ {'task_key': task_key|default('')}|tojson }}</script>
-<script src="/research-assets/causal.js" defer></script>
+{% include 'causal_panel.html' %}
 {% endblock %}

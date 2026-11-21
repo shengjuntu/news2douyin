@@ -1,8 +1,12 @@
 """Check public navigation and graph routing on the actual application."""
 import pytest
 from fastapi.testclient import TestClient
+from sqlmodel import Session
 
+from news2douyin.desk.models import WatchEvent
 from news2douyin.server.app import create_app
+from news2douyin.server.desk import safe_back
+from news2douyin.storage.models import Event, EventMoment
 
 
 @pytest.fixture
@@ -60,3 +64,42 @@ def test_missing_deleted_or_invalid_graphs_have_explicit_responses(client):
     assert result.status_code == 200, result.text
     for url in ('/graphs', '/api/graphs'):
         assert client.get(url, params={'view': 'focus', 'focus': key}).status_code == 404
+
+
+def test_focus_graph_investigations_are_saved_under_the_selected_focus(client, monkeypatch):
+    monkeypatch.setenv('NEWS2DOUYIN_ATTRIBUTION_BASE_URL', 'http://model.test/v1')
+    monkeypatch.setenv('NEWS2DOUYIN_ATTRIBUTION_MODEL', 'fixture-model')
+    focus = _create_focus(client, '焦点甲')['key']
+    other = _create_focus(client, '焦点乙')['key']
+    with Session(client.app.state.engine) as session:
+        session.add(Event(event_key='evt_root', event_title='用于溯源的事件'))
+        session.add(EventMoment(moment_key='root_date', event_key='evt_root', title='发生',
+                                reviewed=True, time_kind='occurred', certainty='exact', date_start='2026-11-18'))
+        session.add(WatchEvent(watch=focus, event='evt_root', choice='include'))
+        session.commit()
+
+    base = '/api/causal/investigations'
+    root = client.post(base, json={'text': '用于溯源的事件', 'focus_key': focus, 'event_key': 'evt_root'})
+    assert root.status_code == 202, root.text
+    case = root.json()
+    assert case['event_at'] == '2026-11-18' and case['focus_key'] == focus
+    assert case['nodes'][0]['event_key'] == 'evt_root'
+    prose = client.post(base, json={'text': '自由输入的描述', 'focus_key': other})
+    assert prose.status_code == 202
+    assert prose.json()['focus_key'] == other and prose.json()['nodes'][0]['event_key'] == ''
+    assert client.post(base, json={'text': '其他焦点的事件', 'focus_key': other, 'event_key': 'evt_root'}).status_code == 422
+    assert client.post(base, json={'text': '不存在的焦点', 'focus_key': 'missing'}).status_code == 404
+    assert [item['key'] for item in client.get(base, params={'focus_key': focus}).json()['investigations']] == [case['key']]
+    assert client.get(base + '/' + case['key'], params={'focus_key': other}).status_code == 404
+    assert client.get(base + '/' + case['key']).status_code == 200
+
+    graph_path = f"/graphs?view=focus&focus={focus}&investigation={case['key']}"
+    assert safe_back(graph_path) == graph_path
+    assert safe_back(f'https://outside.test{graph_path}') == '/radar'
+    graph = client.get(graph_path)
+    assert graph.status_code == 200 and 'id="causal-form"' in graph.text and case['key'] in graph.text
+    assert 'id="causal-form"' not in client.get('/graphs').text
+    assert '>查找前因</a>' not in client.get('/radar').text
+    event = client.get('/events/evt_root', params={'back': graph_path})
+    assert event.status_code == 200 and '返回焦点图谱' in event.text
+    assert 'id="causal-event-link"' not in event.text

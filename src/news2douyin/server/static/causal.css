@@ -1,4 +1,5 @@
 .causal-page { max-width: 920px; margin-inline: auto; overflow-wrap: anywhere; }
+.causal-page [hidden] { display: none; }
 .causal-page h1 { font-size: 28px; margin: 20px 0 14px; }
 .causal-form > label { display: block; margin-bottom: 8px; font-weight: 600; }
 .causal-form textarea { display: block; width: 100%; resize: vertical; line-height: 1.7; margin-bottom: 8px; }
@@ -12,6 +13,8 @@
 .causal-result-head { justify-content: space-between; }
 .causal-result-head h2 { margin: 8px 0; font-size: 19px; }
 .causal-assistance { margin: 0 0 8px; font-size: 12px; }
+.causal-agent form { margin-top: 10px; }
+.causal-agent input[type=date], .causal-options input[type=date] { width: auto; max-width: 100%; }
 .causal-repair form { margin-top: 10px; }
 .causal-message:empty { margin-block: 0; }
 .causal-tree { margin: 10px 0 0; padding: 0; list-style: none; }

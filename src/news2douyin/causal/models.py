@@ -53,3 +53,38 @@ class CausalJob(SQLModel, table=True):
 class CausalArchiveLink(SQLModel, table=True):
     case_key: str = Field(primary_key=True)
     day: str = Field(primary_key=True)
+
+
+class CausalFocus(SQLModel, table=True):
+    case_key: str = Field(primary_key=True)
+    focus_key: str = Field(index=True)
+
+
+class CausalAgentLink(SQLModel, table=True):
+    case_key: str = Field(primary_key=True)
+    research_case_id: str = Field(index=True, unique=True)
+    date_from: str
+    current_run_id: str = ''
+    last_error: str = ''
+
+
+class CausalAgentQuery(SQLModel, table=True):
+    __table_args__ = (Index('ix_causalagentquery_case_run', 'case_key', 'run_id', 'node_key'),)
+
+    key: str = Field(primary_key=True)
+    case_key: str
+    run_id: str
+    node_key: str
+    query: str
+    date_from: str
+    date_to: str
+    state: str = 'running'
+    results_json: str = '[]'
+    error: str = ''
+
+
+class CausalAgentNote(SQLModel, table=True):
+    node_key: str = Field(primary_key=True)
+    case_key: str = Field(index=True)
+    stop_reason: str = ''
+    relation: str = ''

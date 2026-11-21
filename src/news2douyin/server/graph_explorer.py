@@ -14,7 +14,8 @@ def register(app, engine, render):
 
     @app.get('/graphs', response_class=HTMLResponse, include_in_schema=False)
     def page(view: Literal['global', 'focus'] = 'global', focus: str = Query('', max_length=100),
-             limit: int = Query(DEFAULT_LIMIT, ge=20, le=MAX_LIMIT)):
+             limit: int = Query(DEFAULT_LIMIT, ge=20, le=MAX_LIMIT),
+             investigation: str = Query('', max_length=35)):
         choices = []
         if view == 'focus':
             with Session(engine) as session:
@@ -30,6 +31,8 @@ def register(app, engine, render):
         endpoint = '/api/graphs?' + urlencode(params) if view == 'global' or selected else ''
         return render('graph_explorer.html', active='graphs', mode=view, choices=choices,
                       selected=selected, endpoint=endpoint, limit=limit,
+                      causal_page_root='/graphs?' + urlencode(params) if selected else '',
+                      task_key=investigation if selected else '',
                       node_limits=sorted({100, DEFAULT_LIMIT, 480, MAX_LIMIT, limit}))
 
     @app.get('/api/graphs')

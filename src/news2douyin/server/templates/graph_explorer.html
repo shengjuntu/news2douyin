@@ -4,7 +4,7 @@
 <link rel="stylesheet" href="/research-assets/graph-explorer.css">
 {% endblock %}
 {% block content %}
-<div id="graph-explorer" data-endpoint="{{ endpoint }}" data-module="/research-assets/vendor/cosmos-graph-3.6.0.min.js">
+<div id="graph-explorer" data-endpoint="{{ endpoint }}" data-module="/research-assets/vendor/cosmos-graph-3.6.0.min.js"{% if mode == 'focus' and selected %} data-focus-key="{{ selected.key }}"{% endif %}>
   <div class="graph-explorer-heading">
     <h1>{{ selected.name if selected else '全局活动图' if mode == 'global' else '焦点图' }}</h1>
     {% if selected %}<a href="/focus/{{ selected.key|urlencode }}">返回焦点 →</a>{% endif %}
@@ -40,6 +40,7 @@
       <button id="graph-zoom-in" class="ghost" type="button" aria-label="放大" disabled>＋</button>
       <button id="graph-fit" class="ghost" type="button" disabled>适合视图</button>
       <button id="graph-clear" class="ghost" type="button" disabled>清除选中</button>
+      {% if mode == 'focus' and selected %}<a id="graph-causal-jump" href="#causal-panel">事件溯源</a>{% endif %}
     </div>
   </div>
   <p id="graph-status" role="status" aria-live="polite">正在加载图谱…</p>
@@ -55,9 +56,17 @@
     </section>
   </div>
   <noscript><p>请启用 JavaScript 查看节点和关系。</p></noscript>
-  <script type="module" src="/research-assets/graph-explorer.js"></script>
+  <script type="module" src="/research-assets/graph-explorer.js?v=0.46.1"></script>
   {% else %}
   <p>还没有可查看的焦点图。<a href="/focus?new=1">新建焦点</a></p>
   {% endif %}
 </div>
+{% if mode == 'focus' and selected %}
+<details id="causal-panel" class="card work-actions"{% if task_key|default('') or (seed|default({})) %} open{% endif %}>
+  <summary>事件溯源</summary>
+  {% with causal_focus_key=selected.key, causal_page_root=causal_page_root|default('/graphs?view=focus&focus=' ~ (selected.key|urlencode)) %}
+  {% include 'causal_panel.html' %}
+  {% endwith %}
+</details>
+{% endif %}
 {% endblock %}

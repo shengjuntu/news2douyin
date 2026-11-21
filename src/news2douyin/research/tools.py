@@ -47,9 +47,11 @@ DEFINITIONS = [
 
 
 def tool_list():
+    from ..causal.agent_tools import tool_list as causal_tool_list
+
     return [dict(name=name, description=description,
                  inputSchema=schema({'run_id': S, **properties}, ['run_id', *required]))
-            for name, description, properties, required in DEFINITIONS] + topic_tool_list()
+            for name, description, properties, required in DEFINITIONS] + topic_tool_list() + causal_tool_list()
 
 
 def validate_args(name, args):
@@ -78,6 +80,9 @@ class ResearchTools:
         self.engine, self.settings = engine, settings
 
     def call(self, name, args):
+        if isinstance(name, str) and name.startswith('causal_'):
+            from ..causal.agent_tools import call
+            return call(self.engine, name, args)
         from ..topics import tools as topic_tools
         from ..topics.models import TopicMessage
         if name in topic_tools.NAMES:

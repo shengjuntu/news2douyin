@@ -2,6 +2,7 @@
 import hashlib
 import json
 import re
+from contextlib import nullcontext
 from datetime import datetime, timezone
 from uuid import uuid4
 
@@ -138,7 +139,7 @@ def add_source(s, case, *, title, url, text, kind, published_at='', provenance=N
     return row
 
 
-def create_case(engine, payload, *, preparation=None, frozen_sources=None, fixed_case_id='', budget_override=None, allow_empty=False, prior_watch='', survey_packet=None):
+def create_case(engine, payload, *, preparation=None, frozen_sources=None, fixed_case_id='', budget_override=None, allow_empty=False, prior_watch='', survey_packet=None, session=None):
     goal = str(payload.get('goal', '')).strip()
     if not goal or len(goal) > 6000:
         raise ValueError('请填写研究目的，最多 6000 字')
@@ -154,7 +155,7 @@ def create_case(engine, payload, *, preparation=None, frozen_sources=None, fixed
         datetime.strptime(date_from, '%Y-%m-%d')
         if date_from > cutoff[:10]:
             raise ValueError('回溯起始日期不能晚于截止日期')
-    with Session(engine, expire_on_commit=False) as s:
+    with (Session(engine, expire_on_commit=False) if session is None else nullcontext(session)) as s:
         locked(s)
         if fixed_case_id and s.get(ResearchCase,fixed_case_id):
             return detail(s,fixed_case_id)
@@ -238,8 +239,12 @@ def create_case(engine, payload, *, preparation=None, frozen_sources=None, fixed
             from ..extraction.survey import bind
             bind(s,case,survey_packet)
         activity(s, case.case_id, 'created', '已保存事件元数据线索，等待读取原文核查' if metadata_only else
-                 '已保存榜单／摘要线索，等待读取原文核查' if leads_only else '已创建研究课题并保存新闻快照')
-        s.commit()
+                 '已保存榜单／摘要线索，等待读取原文核查' if leads_only else
+                 '已创建研究课题并保存新闻快照' if articles else '已创建研究课题')
+        if session is None:
+            s.commit()
+        else:
+            s.flush()
         return detail(s, case.case_id)
 
 

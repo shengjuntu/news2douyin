@@ -144,8 +144,10 @@ def callback_for_docker(config):
 
 
 def prepare_runtime(client, config, *, probe=True):
-    return client.request('POST', '/applications/news2douyin/runtime/prepare', {
-        'instanceId': config['instance_id'], 'workspaceId': config['workspace_id'], 'probe': probe})
+    payload = {'instanceId': config['instance_id'], 'workspaceId': config['workspace_id'], 'probe': probe}
+    if config.get('runtime_preset_id'):
+        payload['presetId'] = config['runtime_preset_id']
+    return client.request('POST', '/applications/news2douyin/runtime/prepare', payload)
 
 
 def setup_docker(settings, client, skill):
@@ -274,6 +276,44 @@ def configure_docker_full_access(client, config):
 
 
 RESEARCH_TOOLS = {'research_get_case', 'research_search', 'research_record_search', 'research_read_source', 'research_save_question', 'research_save_claim', 'research_save_report', 'research_save_short_script'} | {'topic_get_workspace','topic_search_library','topic_read_article','topic_save_candidates','topic_save_reply'}
+CAUSAL_TOOLS = {'causal_get_investigation', 'causal_search_events', 'causal_save_step',
+                'research_get_case', 'research_read_source', 'research_save_claim', 'research_save_report'}
+CAUSAL_WEB_TOOLS = {'research_search', 'research_record_search'}
+
+
+def validate_causal_tools(servers):
+    if not CAUSAL_TOOLS <= set(servers.get('news2douyin-research', [])):
+        raise ValueError('未发现完整因果探索与证据保存工具，请刷新所选 RunDesk 运行环境中的 news2douyin-research MCP。')
+
+
+def causal_web_ready(servers):
+    return (CAUSAL_WEB_TOOLS <= set(servers.get('news2douyin-research', []))
+            and 'web_search_exa' in servers.get('exa', []))
+
+
+def _server_tools(overview):
+    state = overview.get('mcp', {}).get('status') or {}
+    entries = state.get('data', []) if isinstance(state, dict) else state if isinstance(state, list) else []
+    servers = {}
+    for entry in entries:
+        tools = entry.get('tools') or {}
+        servers[entry.get('name')] = sorted(tools) if isinstance(tools, dict) else [x.get('name', '') for x in tools]
+    return servers
+
+
+def validate_causal_session_binding(session, config, session_id, *, environment_id=''):
+    """Check metadata against the scoped runtime probe, without admin routes.
+
+    Application keys may read their sessions and runtime/prepare, but may not
+    read session/instance configuration. The prepare response supplies actual
+    tools for the exact tuple; the session must bind that same environment.
+    """
+    if (session.get('id') != session_id or session.get('instanceId') != config['instance_id']
+            or session.get('workspaceId') != config['workspace_id']
+            or (session.get('source') or {}).get('presetId', '') != config.get('runtime_preset_id', '')):
+        raise ValueError('实际因果会话与保存的实例、工作区或预设不一致，未提交模型任务。')
+    if environment_id and session.get('environmentId') != environment_id:
+        raise ValueError('实际因果会话不属于刚检查的容器环境，未提交模型任务。')
 
 
 def validate_library_tools(servers):
@@ -291,9 +331,11 @@ def validate_search_tools(servers, config):
         raise ValueError('未发现 Exa 搜索工具，请在 RunDesk 启用 Exa MCP 并检查网络；不会回退到新闻采集的搜索服务')
 
 
-def validate_runtime(value, config, *, library_only=False):
+def validate_runtime(value, config, *, library_only=False, causal=False):
     if not isinstance(value, dict) or value.get('instanceId') != config['instance_id'] or value.get('workspaceId') != config['workspace_id']:
         raise ValueError('容器回执与研究应用绑定不一致')
+    if (causal or config.get('runtime_preset_id')) and value.get('presetId', '') != config.get('runtime_preset_id', ''):
+        raise ValueError('容器回执与保存的因果运行预设不一致')
     env = value.get('environment') or {}
     if value.get('executionMode') != 'docker' or env.get('state') != 'running' or not env.get('id') or env.get('pendingUpdate'):
         raise ValueError('Docker 环境尚未就绪或等待更新，请在 RunDesk 检查')
@@ -302,35 +344,35 @@ def validate_runtime(value, config, *, library_only=False):
     if not value.get('accountReady'):
         raise ValueError('Docker 环境尚未配置模型认证，请在 RunDesk 此应用的模型与认证页面完成配置')
     servers = value.get('servers') or {}
-    validate_library_tools(servers) if library_only else validate_search_tools(servers, config)
+    if causal: validate_causal_tools(servers)
+    elif library_only: validate_library_tools(servers)
+    else: validate_search_tools(servers, config)
     return env
 
 
-def local_runtime_status(client, config, *, library_only=False):
+def local_runtime_status(client, config, *, library_only=False, causal=False):
     path = '/workspaces/' + quote(config['workspace_id'], safe='')
     account = client.request('GET', path + '/account', params={'instanceId': config['instance_id']})
     overview = client.request('GET', '/instances/' + quote(config['instance_id'], safe='') + '/configuration',
                               params={'workspaceId': config['workspace_id'], 'probe': '1'})
-    state = overview.get('mcp', {}).get('status') or {}
-    entries = state.get('data', []) if isinstance(state, dict) else state if isinstance(state, list) else []
-    servers = {}
-    for entry in entries:
-        tools = entry.get('tools') or {}
-        servers[entry.get('name')] = sorted(tools) if isinstance(tools, dict) else [x.get('name', '') for x in tools]
+    servers = _server_tools(overview)
     result = {'account_ready': bool(account.get('account')) or account.get('requiresOpenaiAuth') is False,
               'default_model': overview.get('instance', {}).get('defaultModel', ''),
               'skills': [{'name': v.get('name'), 'scope': v.get('sourceScope'), 'enabled': v.get('enabled')} for v in overview.get('skills', [])],
               'configuration_errors': overview.get('errors', {}),
               'tools': servers.get('news2douyin-research', []),
-              'mcp_ready': RESEARCH_TOOLS <= set(servers.get('news2douyin-research', [])),
-              'search_ready': 'web_search_exa' in servers.get('exa', [])}
+              'mcp_ready': (CAUSAL_TOOLS if causal else RESEARCH_TOOLS) <= set(servers.get('news2douyin-research', [])),
+              'search_ready': causal_web_ready(servers) if causal else 'web_search_exa' in servers.get('exa', [])}
     try:
         if not result['account_ready']:
             raise ValueError('尚未配置模型认证，请在 RunDesk 完成认证')
         if result['configuration_errors']:
             raise ValueError('RunDesk 配置探测未通过，请检查模型和 MCP 配置')
-        validate_library_tools(servers) if library_only else validate_search_tools(servers, config)
-        result.update(ready=True, message='模型认证、研究工具和 Exa 检查完成；尚未验证真实研究质量')
+        if causal: validate_causal_tools(servers)
+        elif library_only: validate_library_tools(servers)
+        else: validate_search_tools(servers, config)
+        result.update(ready=True, message=('模型认证与因果工具检查完成；Exa 为可选补充，尚未验证调查质量'
+                      if causal else '模型认证、研究工具和 Exa 检查完成；尚未验证真实研究质量'))
     except ValueError as exc:
         result.update(ready=False, message=str(exc))
     return result

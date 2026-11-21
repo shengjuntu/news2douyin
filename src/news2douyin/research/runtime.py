@@ -8,8 +8,9 @@ from sqlmodel import Session, select
 
 from . import service as svc
 from .models import ResearchRun, ResearchReport, ResearchActivity, ResearchSubmission, ResearchEnvironment, ShortScriptBrief
-from .rundesk import RunDeskClient, RemoteError, submit_once, require_v1, prepare_runtime, validate_runtime, local_runtime_status
+from .rundesk import RunDeskClient, RemoteError, submit_once, require_v1, prepare_runtime, validate_runtime, local_runtime_status, validate_causal_session_binding
 from .config import require_search_route
+from . import causal_dispatch
 
 
 class ResearchRuntime:
@@ -72,15 +73,36 @@ class ResearchRuntime:
 
     def enqueue(self, case_id, instruction='', refresh_cutoff=False, topic_request=None, handoff_id='', request_run_id=''):
         config = self.settings.get()
-        if not all(config.get(k) for k in ('instance_id', 'workspace_id')):
-            raise ValueError('请先在研究设置中连接 RunDesk')
         if not isinstance(instruction, str) or len(instruction) > 6000:
             raise ValueError('补充要求最多 6000 字')
         if type(refresh_cutoff) is not bool:
             raise ValueError('更新截止时间必须为布尔值')
+        # Optional preset resolution is read-only network I/O outside the
+        # serialized SQL transaction. Already submitted causal requests reuse
+        # their durable run without consulting changed preset defaults.
+        with Session(self.engine, expire_on_commit=False) as s:
+            causal_snapshot = causal_dispatch.link_for(s, case_id)
+            if causal_snapshot:
+                saved = s.get(ResearchRun, request_run_id) if request_run_id else None
+                if saved:
+                    if saved.case_id != case_id: raise ValueError('研究请求号冲突')
+                    return saved.model_dump()
+                existing_case = svc.require_case(s, case_id)
+                active = s.get(ResearchRun, existing_case.active_run_id)
+                if active and active.status in svc.ACTIVE:
+                    if instruction and instruction != active.instruction:
+                        raise ValueError('该课题已有活动任务；新的要求请通过“追加到当前研究”发送')
+                    return active.model_dump()
+        if causal_snapshot:
+            config = causal_dispatch.new_config(config, self.client_factory)
+        if not all(config.get(k) for k in ('instance_id', 'workspace_id')):
+            raise ValueError('请先在研究设置中连接 RunDesk')
         with Session(self.engine, expire_on_commit=False) as s:
             svc.locked(s)
             case = svc.require_case(s, case_id)
+            causal = causal_dispatch.link_for(s, case_id)
+            if bool(causal) != bool(causal_snapshot):
+                raise ValueError('研究与因果调查的关联已变化，请刷新后重试。')
             if request_run_id:
                 saved = s.get(ResearchRun,request_run_id)
                 if saved and saved.case_id == case_id:
@@ -90,6 +112,8 @@ class ResearchRuntime:
             from ..topics import service as topics
             from ..topics.models import TopicMessage
             topic = topics.by_case(s, case_id)
+            if causal and topic:
+                raise ValueError('因果探索须使用独立研究课题，不能复用选题会话。')
             message_input = None
             handoff = None
             if handoff_id:
@@ -115,7 +139,7 @@ class ResearchRuntime:
                     raise ValueError('此选题已有100轮讨论，请新建后续选题')
             else:
                 if topic_request is not None: raise ValueError('此课题不是选题会话')
-                require_search_route(config['search_provider'], config['search_backend'])
+                if not causal: require_search_route(config['search_provider'], config['search_backend'])
             short = s.get(ShortScriptBrief, case_id)
             if short and short.package_key:
                 raise ValueError('短稿已交付，请在脚本工作台编辑；需要重新补材请从每日选题创建新任务')
@@ -147,6 +171,8 @@ class ResearchRuntime:
             if short:
                 from ..editorial.short_scripts import prompt as short_prompt
                 prompt += short_prompt(json.loads(short.options_json))
+            if causal:
+                prompt = causal_dispatch.prompt(row, case, causal, instruction)
             if topic:
                 message = TopicMessage(message_id=message_key,request_id=message_input.request_id,workspace_id=topic.workspace_id,request_hash=message_hash,
                     run_id=row.run_id,text=instruction,context_json=svc.dump(topics.message_context(s,topic)))
@@ -158,15 +184,20 @@ class ResearchRuntime:
                         raise ValueError('原选题会话属于其他环境，请恢复连接或新建选题')
                     row.session_id=previous.session_id
             prefix = 'n2d-' + config['installation_id'] + '-' + row.run_id
+            source = {'kind':'application','appId':'news2douyin','taskId':row.run_id}
+            if causal and config.get('runtime_preset_id'):
+                source['presetId'] = config['runtime_preset_id']
             s.add(ResearchSubmission(run_id=row.run_id, backend_url=config['rundesk_url'],
                 session_key=prefix+'-session', turn_key=prefix+'-turn',
                 session_payload=svc.dump({'workspaceId':row.workspace_id,'instanceId':row.instance_id,'title':case.title[:120],'model':'',
-                                         'source':{'kind':'application','appId':'news2douyin','taskId':row.run_id}}),
-                turn_payload=svc.dump({'text':prompt,'files':[],'skills':([] if topic or config.get('managed_by_rundesk') else [{'name':'news-research','path':config['skill_path']}])})))
+                                         'source':source}),
+                turn_payload=svc.dump({'text':prompt,'files':[],'skills':([] if causal or topic or config.get('managed_by_rundesk') else [{'name':'news-research','path':config['skill_path']}])})))
             s.add(ResearchEnvironment(run_id=row.run_id, mode=config.get('runtime_mode', 'local'),
                                       search_provider=config['search_provider'], search_backend=config.get('search_backend', 'exa')))
             if handoff:
                 handoff.run_id=row.run_id;s.add(handoff)
+            if causal:
+                causal.current_run_id=row.run_id;causal.last_error='';s.add(causal)
             s.add(row); s.add(case)
             svc.activity(s, case_id, 'queued', '研究已排队' + ('：' + instruction if instruction else ''), row.run_id)
             s.commit()
@@ -210,12 +241,18 @@ class ResearchRuntime:
                 return
             from ..topics import service as topics
             library_only = topics.by_case(s,run.case_id) is not None
+            causal = causal_dispatch.link_for(s, run.case_id)
             if run.status=='queued': run.started_at=svc.utc_now_iso()
             run.status='starting'; run.dispatch_done=False; s.add(run); s.commit()
-        config=self.settings.get(); client=self.client_factory(config)
+        config=self.settings.get()
         try:
-            if submission.backend_url!=config['rundesk_url'] or run.instance_id!=config['instance_id'] or run.workspace_id!=config['workspace_id']:
+            if submission.backend_url!=config['rundesk_url']:
                 raise ValueError('研究环境与保存的提交不一致，请恢复原连接后确认')
+            if causal:
+                config=causal_dispatch.frozen_config(config, run, submission)
+            elif run.instance_id!=config['instance_id'] or run.workspace_id!=config['workspace_id']:
+                raise ValueError('研究环境与保存的提交不一致，请恢复原连接后确认')
+            client=self.client_factory(config)
             try:
                 meta = require_v1(client)
                 if meta.get('demo'):
@@ -226,14 +263,16 @@ class ResearchRuntime:
             with Session(self.engine, expire_on_commit=False) as s:
                 plan = s.get(ResearchEnvironment, run_id)
             if not submission.turn_attempted:
-                if not library_only: require_search_route(plan.search_provider if plan else '', plan.search_backend if plan else '')
+                if not library_only and not causal: require_search_route(plan.search_provider if plan else '', plan.search_backend if plan else '')
                 if plan.mode == 'local':
-                    status = local_runtime_status(client, config, library_only=library_only)
+                    status = local_runtime_status(client, config, library_only=library_only, causal=bool(causal))
                     if not status['ready']:
                         raise ValueError(status['message'])
             if plan and plan.mode == 'docker' and not submission.turn_attempted:
                 if 'application-runtime' not in meta.get('capabilities', []):
                     raise ValueError('一键 Docker 研究需要 RunDesk 0.47.0 或更新版本')
+                if config.get('runtime_preset_id') and 'application-runtime-presets' not in meta.get('capabilities', []):
+                    raise ValueError('保存的因果运行预设需要支持 application-runtime-presets 的 RunDesk。')
                 with Session(self.engine, expire_on_commit=False) as s:
                     svc.locked(s); current = s.get(ResearchRun, run_id)
                     if current.status == 'stopping': return
@@ -244,7 +283,7 @@ class ResearchRuntime:
                     p.status = 'preparing'; s.add(p); s.commit()
                 fixed = {**config, 'search_provider': plan.search_provider, 'search_backend': plan.search_backend}
                 prepared = prepare_runtime(client, fixed)
-                env = validate_runtime(prepared, fixed, library_only=library_only)
+                env = validate_runtime(prepared, fixed, library_only=library_only, causal=bool(causal))
                 with Session(self.engine, expire_on_commit=False) as s:
                     svc.locked(s); current = s.get(ResearchRun, run_id)
                     if current.status == 'stopping' or current.status not in svc.ACTIVE: return
@@ -263,12 +302,15 @@ class ResearchRuntime:
                     svc.locked(s); current=s.get(ResearchRun,run_id)
                     current.session_id=sid; s.add(current); s.commit()
                 run.session_id=sid
-            if plan and plan.mode == 'docker' and not submission.turn_attempted:
+            if not submission.turn_attempted and (causal or (plan and plan.mode == 'docker')):
                 session = client.request('GET', '/sessions/' + quote(run.session_id, safe=''))
                 with Session(self.engine) as s:
                     prepared = s.get(ResearchEnvironment, run_id)
-                if session.get('executionMode') != 'docker' or session.get('environmentId') != prepared.environment_id:
+                if plan and plan.mode == 'docker' and (session.get('executionMode') != 'docker' or session.get('environmentId') != prepared.environment_id):
                     raise ValueError('会话未绑定刚检查的 Docker 环境，未提交模型任务')
+                if causal:
+                    validate_causal_session_binding(session, config, run.session_id,
+                        environment_id=prepared.environment_id if prepared and prepared.mode=='docker' else '')
             # Once a turn has been attempted, recover its receipt even if a
             # Skill was later disabled; never revalidate into a duplicate run.
             if not submission.turn_attempted and json.loads(submission.turn_payload).get('skills'):

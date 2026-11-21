@@ -2,17 +2,32 @@
   'use strict';
 
   const apiRoot = '/api/causal/investigations';
-  const pageRoot = '/radar/causes';
   const el = id => document.getElementById(id);
   const form = el('causal-form');
   const tree = el('causal-tree');
   const history = el('causal-history');
+  const agentForm = el('causal-agent-form');
+  const agentMessage = 'causal-agent-message';
   const repairForm = el('causal-repair-form');
   const repairList = el('causal-repair-list');
   const repairMessage = 'causal-repair-message';
   const config = JSON.parse(el('causal-config').textContent);
+  const pageRoot = localPath(config.page_root) ? config.page_root : '/radar/causes';
+  const focusKey = config.focus_key || '';
+  const panel = el('causal-panel');
   const stateLabels = {pending:'排队中', running:'查找中', failed:'查找失败'};
   const timeLabels = {earlier:'有更早公开证据', unknown:'先后未明', root:'待查事件'};
+  const agentLabels = {
+    draft:'待开始', queued:'排队中', preparing:'正在准备环境', starting:'正在提交',
+    running:'研究中', waiting:'等待处理', stopping:'正在停止', uncertain:'待确认',
+    completed:'已完成', partial:'部分完成', paused:'已暂停', failed:'研究失败', cancelled:'已取消',
+    canceled:'已取消', interrupted:'已中断'
+  };
+  const resumableAgent = new Set(['completed', 'partial', 'paused']);
+  const retryableAgent = new Set(['draft', 'failed', 'cancelled', 'canceled', 'interrupted']);
+  const relationLabels = {
+    possible_cause:'可能前因', context:'背景', contradicts:'反证', document_reference:'参考线索'
+  };
   const repairLabels = {
     queued:'已排队', running:'补采中', partial:'仍有缺口', failed:'失败', completed:'已完成',
     submit_digest:'等待重算', awaiting_digest:'正在重算', completed_partial:'已用部分批次重算'
@@ -55,13 +70,36 @@
   }
 
   function investigationPath(key) {
-    return pageRoot + '?investigation=' + encodeURIComponent(key);
+    const [path, query] = pageRoot.split('?', 2);
+    const parameters = new URLSearchParams(query);
+    parameters.set('investigation', key);
+    return path + '?' + parameters.toString();
+  }
+
+  function scopedRead(path) {
+    return focusKey ? path + '?focus_key=' + encodeURIComponent(focusKey) : path;
   }
 
   function withBack(path, key) {
     const [base, fragment] = path.split('#', 2);
     return base + (base.includes('?') ? '&' : '?') +
-      'back=' + encodeURIComponent(investigationPath(key)) + (fragment ? '#' + fragment : '');
+      'back=' + encodeURIComponent(key ? investigationPath(key) : pageRoot) + (fragment ? '#' + fragment : '');
+  }
+
+  function setRoot(key) {
+    form.elements.event_key.value = key;
+    const root = el('causal-root');
+    root.hidden = !key;
+    const path = key ? withBack('/events/' + encodeURIComponent(key), current?.key) : '';
+    localLink('causal-root-link', path);
+  }
+
+  function openPanel() {
+    if (panel) {
+      panel.open = true;
+      panel.scrollIntoView({block:'nearest'});
+    }
+    el('causal-text').focus();
   }
 
   function message(value = '', error = false, id = 'causal-message') {
@@ -119,7 +157,7 @@
     return details;
   }
 
-  function renderTree(items, caseKey) {
+  function renderTree(items, caseKey, agentMode) {
     const open = new Set([...tree.querySelectorAll('details[data-disclosure][open]')].map(item => item.dataset.disclosure));
     const focused = document.activeElement?.dataset?.expand;
     const siblings = new Map();
@@ -140,7 +178,8 @@
         const card = node('article', undefined, 'causal-node');
         card.id = 'cause-' + encodeURIComponent(item.key);
         card.append(node('h3', item.text));
-        const meta = [timeLabels[item.time_status], item.time_status !== 'root' && item.occurred_at && '发生 ' + item.occurred_at,
+        const meta = [relationLabels[item.relation], timeLabels[item.time_status],
+          item.time_status !== 'root' && item.occurred_at && '发生 ' + item.occurred_at,
           item.published_at && '报道 ' + item.published_at].filter(Boolean);
         if (meta.length) card.append(node('p', meta.join(' · '), 'causal-node-meta'));
         if (item.reason) card.append(node('p', item.reason));
@@ -150,7 +189,7 @@
         const actions = node('div', undefined, 'row causal-node-actions');
         if (item.event_key) actions.append(link(withBack('/events/' + encodeURIComponent(item.event_key), caseKey), '查看整理事件'));
         if (stateLabels[item.job_state]) actions.append(node('span', stateLabels[item.job_state]));
-        if (!['pending', 'running'].includes(item.job_state)) {
+        if (!agentMode && !['pending', 'running'].includes(item.job_state)) {
           const label = {failed:'重试查找', ready:'重新查找'}[item.job_state] || '沿此线索查找';
           const button = node('button', label, 'ghost');
           button.type = 'button';
@@ -162,7 +201,9 @@
         if (item.job_error) card.append(node('p', item.job_error, 'small causal-node-error'));
 
         const branches = siblings.get(item.key) || [];
-        if (!branches.length && item.job_state === 'ready') {
+        if (item.stop_reason) {
+          card.append(node('p', '停止追查 · ' + item.stop_reason, 'small muted'));
+        } else if (!branches.length && item.job_state === 'ready') {
           card.append(node('p', '暂无可继续追查的候选。', 'small muted'));
         }
         entry.append(card);
@@ -184,10 +225,37 @@
 
   function setControls() {
     el('causal-submit').disabled = submitting;
+    if (agentForm) el('causal-agent-submit').disabled = submitting || Boolean(current?.working);
     el('causal-repair-submit').disabled = submitting;
     el('causal-repair-refresh').disabled = submitting;
     for (const button of repairList.querySelectorAll('[data-retry-day]')) button.disabled = submitting;
     for (const button of tree.querySelectorAll('[data-expand]')) button.disabled = submitting || current.working;
+  }
+
+  function renderAgent(agent, newCase, caseKey) {
+    if (!agentForm) return;
+    const resumable = resumableAgent.has(agent?.status);
+    el('causal-agent').hidden = false;
+    agentForm.hidden = Boolean(agent && !resumable && !retryableAgent.has(agent.status));
+    el('causal-agent-submit').textContent = resumable ? '继续 RunDesk 研究' :
+      agent && agent.status !== 'draft' ? '重试 RunDesk 研究' : '交给 RunDesk';
+    const status = el('causal-agent-status');
+    status.hidden = !agent;
+    status.textContent = agent ? agentLabels[agent.status] || '状态待核' : '';
+    const windowLabel = el('causal-agent-window');
+    windowLabel.hidden = !agent?.date_from;
+    windowLabel.textContent = agent?.date_from ? '从 ' + agent.date_from + ' 开始查找' : '';
+    const error = el('causal-agent-error');
+    error.hidden = !agent?.error;
+    error.textContent = agent?.error || '';
+    const path = agent?.research_path;
+    const eventResearch = localPath(path) && path.startsWith('/events/');
+    localLink('causal-agent-research', eventResearch ? withBack(path, caseKey) : path);
+    el('causal-agent-research').textContent = ['completed', 'partial'].includes(agent?.status) ? '查看研究报告' : '查看研究';
+    if (newCase || (agent?.date_from && !agentForm.elements.date_from.value)) {
+      agentForm.elements.date_from.value = agent?.date_from || '';
+    }
+    if (newCase) message('', false, agentMessage);
   }
 
   function renderRepairs(repairs) {
@@ -209,11 +277,13 @@
   }
 
   function render(data) {
-    const changed = !current || JSON.stringify(current.nodes) !== JSON.stringify(data.nodes);
+    const changed = !current || Boolean(current.agent) !== Boolean(data.agent) ||
+      JSON.stringify(current.nodes) !== JSON.stringify(data.nodes);
     const newCase = current?.key !== data.key;
     const changedRepairs = newCase || JSON.stringify(current.coverage?.repairs) !== JSON.stringify(data.coverage?.repairs);
     current = data;
     pollingKey = data.key;
+    setRoot(form.elements.event_key.value);
     el('causal-result').hidden = false;
     el('causal-progress').textContent = data.working ? '查找中' :
       data.nodes.some(item => item.job_state === 'failed') ? '有分支待重试' : '本轮已结束';
@@ -225,12 +295,13 @@
     const eventResearch = data.research_path?.startsWith('/events/');
     localLink('causal-research', eventResearch ? withBack(data.research_path, data.key) : data.research_path);
     el('causal-research').textContent = eventResearch ? '补充检索' : '研究助手设置';
+    renderAgent(data.agent, newCase, data.key);
     if (newCase) {
       repairForm.elements.day.value = data.coverage?.suggested_day || '';
       message('', false, repairMessage);
     }
     if (changedRepairs) renderRepairs(data.coverage?.repairs || []);
-    if (changed) renderTree(data.nodes, data.key);
+    if (changed) renderTree(data.nodes, data.key, Boolean(data.agent));
     setControls();
   }
 
@@ -254,7 +325,7 @@
     const timeout = setTimeout(() => controller.abort(), 12000);
     let delay;
     try {
-      const data = await request(apiRoot + '/' + encodeURIComponent(pollingKey), {signal:controller.signal});
+      const data = await request(scopedRead(apiRoot + '/' + encodeURIComponent(pollingKey)), {signal:controller.signal});
       if (controller !== pollRequest) return;
       render(data);
       message('', false, feedback);
@@ -288,7 +359,8 @@
       }
       if (history.open) loadHistory();
     } catch (error) {
-      const timeout = feedback === repairMessage ? '提交超时，请刷新补采状态。' : '提交超时，请在查找记录中核对。';
+      const timeout = feedback === repairMessage ? '提交超时，请刷新补采状态。' :
+        feedback === agentMessage ? '提交超时，请刷新页面核对研究状态。' : '提交超时，请在查找记录中核对。';
       message(error.name === 'TimeoutError' ? timeout : error.message, true, feedback);
     } finally {
       submitting = false;
@@ -305,10 +377,46 @@
       message('请填写事件描述。', true);
       return;
     }
+    const runner = values.get('runner') === 'agent' ? 'agent' : 'local';
     changeCase(apiRoot, {
       text, event_at:String(values.get('event_at') || '').trim(),
-      event_key:values.get('event_key') || '', automatic:values.has('automatic')
+      event_key:values.get('event_key') || '', automatic:runner === 'local' && values.has('automatic'),
+      focus_key:focusKey, runner, date_from:values.get('date_from') || ''
     }, true);
+  });
+  function updateRunnerForm() {
+    const agent = form.elements.runner.value === 'agent';
+    el('causal-automatic').hidden = agent;
+    el('causal-date-options').hidden = !agent;
+    form.elements.date_from.disabled = !agent;
+    el('causal-submit').textContent = agent ? '用 RunDesk 查找' : '查找前因';
+  }
+  if (form.elements.runner) {
+    form.elements.runner.addEventListener('change', updateRunnerForm);
+    updateRunnerForm();
+  }
+  agentForm?.addEventListener('submit', event => {
+    event.preventDefault();
+    if (!current || current.working) return;
+    changeCase(apiRoot + '/' + encodeURIComponent(current.key) + '/agent',
+      {date_from:agentForm.elements.date_from.value}, false, agentMessage);
+  });
+  el('causal-root-clear').addEventListener('click', () => {
+    setRoot('');
+    el('causal-at').value = '';
+    openPanel();
+  });
+  el('graph-causal-jump')?.addEventListener('click', event => {
+    event.preventDefault();
+    openPanel();
+  });
+  if (focusKey && panel) document.addEventListener('n2d:causal-root', event => {
+    const {eventKey, title} = event.detail || {};
+    if (typeof eventKey !== 'string' || !eventKey || typeof title !== 'string') return;
+    setRoot(eventKey);
+    el('causal-text').value = title.slice(0, 2000);
+    el('causal-at').value = '';
+    openPanel();
   });
   tree.addEventListener('click', event => {
     const button = event.target.closest('button[data-expand]');
@@ -336,7 +444,7 @@
     const target = el('causal-history-list');
     target.textContent = '读取查找记录…';
     try {
-      const data = await request(apiRoot, {signal:AbortSignal.timeout(12000)});
+      const data = await request(scopedRead(apiRoot), {signal:AbortSignal.timeout(12000)});
       const list = node('ul');
       for (const item of data.investigations) {
         const row = node('li');
@@ -358,6 +466,7 @@
   });
   window.addEventListener('pagehide', stopPolling);
   window.addEventListener('pageshow', () => schedulePolling(0));
+  setRoot(form.elements.event_key.value);
   if (pollingKey) {
     message('读取查找进度…');
     refreshCase();

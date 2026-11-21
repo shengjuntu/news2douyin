@@ -9,12 +9,17 @@ from sqlalchemy import func, or_
 from sqlmodel import Session, select
 
 from ..digest.calendar import BEIJING
+from ..desk.focus_lifecycle import require_active
+from ..desk.models import WatchEvent
+from ..desk.service import current_membership
 from ..intake.models import DailyRepairJob
+from ..research import service as research_service
+from ..research.models import ResearchRun
 from ..storage.articles import lock_news
 from ..storage.models import Event, EventMoment, EventState, utc_now_iso
 from ..storage.utils import dumps, loads
 from .chronology import eligible, inferred, interval, sqlite_utc_bound
-from .models import CausalArchiveLink, CausalInvestigation, CausalJob, CausalNode
+from .models import CausalAgentLink, CausalAgentNote, CausalArchiveLink, CausalFocus, CausalInvestigation, CausalJob, CausalNode
 
 ACTIVE = ('pending', 'running')
 BEAM_WIDTH = 3
@@ -59,7 +64,16 @@ def _new_job(case, node, automatic):
                      due_at=time(), state='pending', automatic=automatic)
 
 
-def create(session, text, event_at, event_key, automatic):
+def create(session, text, event_at, event_key, automatic, *, focus_key='', queue_local=True):
+    if focus_key:
+        lock_news(session, 'watch:' + focus_key)
+        require_active(session, focus_key)
+        if event_key and not session.exec(
+            select(WatchEvent.event).where(WatchEvent.watch == focus_key,
+                                          WatchEvent.event == event_key,
+                                          WatchEvent.choice != 'exclude', current_membership())
+        ).first():
+            raise ValueError('该事件不在当前焦点，请从图谱重新选择')
     event, reviewed_at = _event(session, event_key)
     now = datetime.now(timezone.utc)
     if event_at and interval(event_at) is None:
@@ -69,9 +83,14 @@ def create(session, text, event_at, event_key, automatic):
     root = CausalNode(key='cn_' + uuid4().hex, case_key=case.key, text=text, event_key=event_key,
                       ref=event.event_key if event else '', occurred_at=known, time_status='root')
     session.add(case)
+    if focus_key:
+        session.add(CausalFocus(case_key=case.key, focus_key=focus_key))
     session.add(root)
-    session.add(_new_job(case, root, automatic))
-    session.commit()
+    if queue_local:
+        session.add(_new_job(case, root, automatic))
+        session.commit()
+    else:
+        session.flush()
     return case.key
 
 
@@ -90,6 +109,8 @@ def _count(session, case_key):
 def expand(session, case_key, node_key, automatic):
     lock_news(session, 'causal:' + case_key)
     case = _require(session, case_key)
+    if session.get(CausalAgentLink, case_key):
+        raise CausalConflict('这项调查由 RunDesk 执行，请使用“交给 RunDesk”继续')
     node = session.get(CausalNode, node_key)
     if node is None or node.case_key != case_key:
         raise KeyError('调查中没有这条线索')
@@ -106,10 +127,15 @@ def expand(session, case_key, node_key, automatic):
     session.commit()
 
 
-def recent(session):
-    rows = session.exec(select(CausalInvestigation)
-                        .order_by(CausalInvestigation.updated_at.desc(), CausalInvestigation.key.desc())
-                        .limit(20)).all()
+def recent(session, focus_key=''):
+    statement = select(CausalInvestigation)
+    if focus_key:
+        require_active(session, focus_key)
+        statement = statement.join(CausalFocus, CausalFocus.case_key == CausalInvestigation.key).where(
+            CausalFocus.focus_key == focus_key
+        )
+    rows = session.exec(statement.order_by(CausalInvestigation.updated_at.desc(),
+                                           CausalInvestigation.key.desc()).limit(20)).all()
     return [dict(key=row.key, text=row.text, created_at=row.created_at, updated_at=row.updated_at)
             for row in rows]
 
@@ -129,17 +155,23 @@ def request_archive(engine, case_key, day, retry):
         return view(session, case_key)
 
 
-def view(session, case_key):
+def view(session, case_key, *, focus_key=''):
     case = _require(session, case_key)
-    rows = session.exec(select(CausalNode, CausalJob)
+    focus = session.get(CausalFocus, case_key)
+    bound_focus = focus.focus_key if focus else ''
+    if focus_key and focus_key != bound_focus:
+        raise KeyError('调查不在该焦点')
+    rows = session.exec(select(CausalNode, CausalJob, CausalAgentNote)
                         .outerjoin(CausalJob, CausalJob.node_key == CausalNode.key)
+                        .outerjoin(CausalAgentNote, CausalAgentNote.node_key == CausalNode.key)
                         .where(CausalNode.case_key == case_key)
                         .order_by(CausalNode.depth, CausalNode.score.desc(), CausalNode.key)).all()
     nodes = []
-    for node, job in rows:
+    for node, job, note in rows:
         item = node.model_dump(exclude={'case_key', 'ref', 'sources_json'})
         nodes.append(dict(**item, sources=loads(node.sources_json, []), job_state=job.state if job else '',
-                          job_error=job.error if job else ''))
+                          job_error=job.error if job else '', stop_reason=note.stop_reason if note else '',
+                          relation=note.relation if note and node.parent_key else ''))
     context = interval(case.event_at) or interval(case.created_at)
     day = min(context[0], datetime.now(timezone.utc)).astimezone(BEIJING).date()
     previous_day = day - timedelta(days=1) if day.year > 1 else day
@@ -151,8 +183,17 @@ def view(session, case_key):
                )]
     reference = case.event_key or next((item['event_key'] for item in nodes if item['event_key']), '')
     research = '/events/' + quote(reference, safe='') + '#research' if reference else '/research/settings'
-    return dict(**case.model_dump(), nodes=nodes,
-                working=any(item['job_state'] in ACTIVE for item in nodes),
+    link = session.get(CausalAgentLink, case_key)
+    agent = None
+    if link:
+        run = session.get(ResearchRun, link.current_run_id) if link.current_run_id else None
+        agent = dict(status='failed' if link.last_error else run.status if run else 'draft',
+                     error=link.last_error or (run.error if run else ''),
+                     run_id=run.run_id if run else '', date_from=link.date_from,
+                     research_path='/research/' + quote(link.research_case_id, safe=''))
+    return dict(**case.model_dump(), nodes=nodes, focus_key=bound_focus, agent=agent,
+                working=any(item['job_state'] in ACTIVE for item in nodes)
+                or bool(agent and agent['status'] in research_service.ACTIVE),
                 coverage=dict(message='可按日期核对 GDELT 归档。补采完成后，在原调查重新查该分支。',
                               archive_path='/admin/daily-radar?day=' + previous_day.isoformat(),
                               suggested_day=previous_day.isoformat(), repairs=repairs),
