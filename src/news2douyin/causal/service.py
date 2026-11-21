@@ -6,7 +6,7 @@ from urllib.parse import quote
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import func, or_
+from sqlalchemy import func, or_, update
 from sqlmodel import Session, select
 
 from ..digest.calendar import BEIJING
@@ -22,7 +22,8 @@ from ..storage.models import Event, EventMoment, EventState, utc_now_iso
 from ..storage.utils import dumps, loads
 from .chronology import eligible, inferred, interval, sqlite_utc_bound
 from .models import (CausalAgentLink, CausalAgentNote, CausalArchiveLink, CausalFocus,
-                     CausalInvestigation, CausalJob, CausalNode, CausalProgram, CausalProgramStep)
+                     CausalInvestigation, CausalJob, CausalNode, CausalProgram,
+                     CausalProgramRetrieval, CausalProgramStep)
 
 ACTIVE = ('pending', 'running')
 BEAM_WIDTH = 3
@@ -36,6 +37,10 @@ RESULTS = 8
 
 class CausalConflict(ValueError):
     """The requested expansion cannot enter the queue."""
+
+
+class CausalLeaseLost(RuntimeError):
+    """A stale worker must stop without publishing results."""
 
 
 def _event(session, key):
@@ -211,19 +216,21 @@ def view(session, case_key, *, focus_key=''):
     if focus_key and focus_key != bound_focus:
         raise KeyError('调查不在该焦点')
     program_scope = session.get(CausalProgram, case_key)
-    rows = session.exec(select(CausalNode, CausalJob, CausalAgentNote, CausalProgramStep)
+    rows = session.exec(select(CausalNode, CausalJob, CausalAgentNote, CausalProgramStep, CausalProgramRetrieval)
                         .outerjoin(CausalJob, CausalJob.node_key == CausalNode.key)
                         .outerjoin(CausalAgentNote, CausalAgentNote.node_key == CausalNode.key)
                         .outerjoin(CausalProgramStep, CausalProgramStep.node_key == CausalNode.key)
+                        .outerjoin(CausalProgramRetrieval, CausalProgramRetrieval.node_key == CausalNode.key)
                         .where(CausalNode.case_key == case_key)
                         .order_by(CausalNode.depth, CausalNode.score.desc(), CausalNode.key)).all()
     nodes = []
-    for node, job, note, step in rows:
+    for node, job, note, step, report in rows:
         item = node.model_dump(exclude={'case_key', 'ref', 'sources_json'})
         if program_scope:
             item.update(queries=loads(step.queries_json, []) if step else [],
                         candidate_count=step.candidate_count if step else None,
                         retrieval_mode=step.retrieval_mode if step else '',
+                        retrieval=loads(report.report_json, {}) if report else {},
                         expandable=(not node.depth or bool(_program_child(node))) and node.depth < MAX_DEPTH)
         nodes.append(dict(**item, sources=loads(node.sources_json, []), job_state=job.state if job else '',
                           job_error=job.error if job else '', stop_reason=(step.stop_reason if step else '')
@@ -299,6 +306,17 @@ def claim(engine):
         return result
 
 
+def renew(engine, claimed):
+    now = time()
+    with engine.begin() as connection:
+        refreshed = connection.execute(update(CausalJob).where(
+            CausalJob.case_key == claimed.case_key, CausalJob.node_key == claimed.node_key,
+            CausalJob.state == 'running', CausalJob.lease == claimed.lease, CausalJob.due_at > now,
+        ).values(due_at=now + LEASE_SECONDS)).rowcount
+    if not refreshed:
+        raise CausalLeaseLost()
+
+
 def _snapshot(engine, claimed):
     with Session(engine) as session:
         case = _require(session, claimed.case_key)
@@ -368,7 +386,7 @@ def _schedule_program(session, case, depth):
 
 
 def complete(engine, claimed, results=(), error='', *, queries=(), candidate_count=0,
-             retrieval_mode='', stop_reason=''):
+             retrieval_mode='', stop_reason='', retrieval_report=None):
     with Session(engine) as session:
         lock_news(session, 'causal:' + claimed.case_key)
         job = session.exec(select(CausalJob).where(CausalJob.node_key == claimed.node_key)
@@ -420,6 +438,7 @@ def complete(engine, claimed, results=(), error='', *, queries=(), candidate_cou
             session.merge(CausalProgramStep(node_key=node.key, case_key=case.key, queries_json=dumps(queries),
                                             candidate_count=candidate_count, retrieval_mode=retrieval_mode,
                                             stop_reason=stop_reason or error))
+            session.merge(CausalProgramRetrieval(node_key=node.key, report_json=dumps(retrieval_report or {})))
             session.flush()
             _schedule_program(session, case, node.depth)
         session.commit()

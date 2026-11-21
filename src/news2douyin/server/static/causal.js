@@ -31,6 +31,17 @@
     possible_cause:'可能前因', context:'背景', contradicts:'反证', document_reference:'参考线索'
   };
   const retrievalLabels = {lexical_only:'关键词', lexical:'关键词', lexical_embedding:'关键词＋向量', hybrid:'关键词＋向量'};
+  const localCoverageLabels = {gap:'本地缺档', covered:'本地有历史记录', unknown:'本地覆盖待核对'};
+  const historyLabels = {
+    skipped:'未触发上游补查', unconfigured:'上游补查未配置', out_of_range:'日期早于 GDELT 2.0 覆盖范围',
+    no_keywords:'缺少上游检索词', error:'上游补查失败', no_results:'上游所查时段无结果',
+    unverified:'上游有线索待核实', verified:'已核实上游原文'
+  };
+  const historyErrorLabels = {
+    invalid_configuration:'历史补查配置无效', missing_dependency:'缺少 BigQuery 依赖',
+    credentials_or_access:'BigQuery 凭据或权限有误', bytes_limit:'超出 BigQuery 扫描量上限',
+    query_timeout:'BigQuery 查询超时', query_quota:'达到 BigQuery 配额上限', query_failed:'BigQuery 查询失败'
+  };
   const repairLabels = {
     queued:'已排队', running:'补采中', partial:'仍有缺口', failed:'失败', completed:'已完成',
     submit_digest:'等待重算', awaiting_digest:'正在重算', completed_partial:'已用部分批次重算'
@@ -160,6 +171,51 @@
     return details;
   }
 
+  function countFacts(entries) {
+    return entries.filter(([, count]) => Number.isInteger(count) && count >= 0)
+      .map(([label, count]) => label + ' ' + count);
+  }
+
+  function showRetrieval(item, open) {
+    const report = item.retrieval;
+    const local = report?.local;
+    const history = report?.history;
+    const steps = [localCoverageLabels[local?.status], historyLabels[history?.status]].filter(Boolean);
+    const mode = retrievalLabels[item.retrieval_mode];
+    const active = ['pending', 'running'].includes(item.job_state);
+    const label = [active ? '上轮检索' : '检索过程', ...steps, mode,
+      Number.isInteger(item.candidate_count) && item.candidate_count + ' 条候选'].filter(Boolean).join(' · ');
+    if (!steps.length && !item.queries?.length && !Number.isInteger(item.candidate_count) && !mode) return null;
+    const list = node('ul', undefined, 'causal-node-meta');
+    if (local) {
+      const facts = countFacts([['召回记录', local.recall_count], ['候选入池', local.pool_count], ['通过初筛', local.eligible_count],
+        ['有更早原文证据', local.dated_evidence_count], ['参与向量排序', local.vector_ranked_count]]);
+      if (facts.length) list.append(node('li', ['本地检索', ...facts].join(' · ')));
+    }
+    if (history && history.status !== 'skipped') {
+      const window = [history.date_from, history.date_to].filter(Boolean).join(' 至 ');
+      const facts = countFacts([['线索', history.lead_count], ['已尝试核查', history.attempted_count],
+        ['已读取页面', history.fetched_count],
+        ['已核实日期和出处', history.verified_count], ['纳入候选', history.eligible_count],
+        ['参与向量排序', history.ranked_count]]);
+      const notes = [window && window + '（UTC）', history.window_limited && '仅查此时间窗',
+        history.verification_limited && '还有线索未核查', historyErrorLabels[history.error_code], ...facts].filter(Boolean);
+      if (notes.length) list.append(node('li', ['GDELT 补查', ...notes].join(' · ')));
+    }
+    const ranking = countFacts([['交给模型判断', report?.ranked_count], ['保留为分支', report?.selected_count]]);
+    if (ranking.length) list.append(node('li', ranking.join(' · ')));
+    if (!list.childNodes.length && !item.queries?.length) return node('p', label, 'causal-node-meta');
+    const details = disclosure(label, 'query:' + item.key, open);
+    details.className = 'causal-queries';
+    if (list.childNodes.length) details.append(list);
+    if (item.queries?.length) {
+      const queries = node('ul');
+      for (const query of item.queries) queries.append(node('li', query));
+      details.append(queries);
+    }
+    return details;
+  }
+
   function updateTreeToggle() {
     const branches = [...tree.querySelectorAll('details[data-branch]')];
     treeToggle.hidden = !branches.length;
@@ -197,21 +253,8 @@
         if (item.reason && item.reason !== item.hypothesis) card.append(node('p', item.reason));
         const evidence = showEvidence(item, open);
         if (evidence) card.append(evidence);
-        const retrieval = retrievalLabels[item.retrieval_mode];
-        if (item.queries?.length || Number.isInteger(item.candidate_count) || retrieval) {
-          const label = ['检索过程', retrieval, Number.isInteger(item.candidate_count) && item.candidate_count + ' 条候选']
-            .filter(Boolean).join(' · ');
-          if (item.queries?.length) {
-            const details = disclosure(label, 'query:' + item.key, open);
-            details.className = 'causal-queries';
-            const queries = node('ul');
-            for (const query of item.queries) queries.append(node('li', query));
-            details.append(queries);
-            card.append(details);
-          } else {
-            card.append(node('p', label, 'causal-node-meta'));
-          }
-        }
+        const retrieval = showRetrieval(item, open);
+        if (retrieval) card.append(retrieval);
 
         const branches = siblings.get(item.key) || [];
         const actions = node('div', undefined, 'row causal-node-actions');
@@ -230,7 +273,7 @@
         if (actions.childNodes.length) card.append(actions);
         if (item.job_error) card.append(node('p', item.job_error, 'small causal-node-error'));
 
-        if (item.stop_reason) {
+        if (item.stop_reason && !['pending', 'running'].includes(item.job_state)) {
           card.append(node('p', '停止追查 · ' + item.stop_reason, 'small muted'));
         } else if (!branches.length && item.job_state === 'ready') {
           card.append(node('p', '暂无可继续追查的候选。', 'small muted'));

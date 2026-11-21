@@ -1,4 +1,4 @@
-# news2douyin 0.43.1 · 事件雷达和选题工作台
+# news2douyin 0.50.0 · 事件雷达和选题工作台
 
 可独立部署 TradeView，与本服务交换只读数据。配置后，事件页可以查看市场日线与事件窗口，TradeView 可以按日期查已整理事件及其报道来源。[互通配置与 API](docs/TRADE-VIEW-INTEROP.md)
 
@@ -74,7 +74,7 @@ v0.33 使用三个连续日期的公开 GKG 归档复核了选题质量和转载
 Python 3.10+。先停止原服务，备份原数据库、运行目录与配置，然后在原环境安装：
 
 ```bash
-python -m pip install --upgrade "./release-0.43.1/news2douyin-0.43.1-py3-none-any.whl[research,ngrams]"
+python -m pip install --upgrade "./release-0.50.0/news2douyin-0.50.0-py3-none-any.whl[research,ngrams]"
 ```
 
 源码安装使用 `python -m pip install '.[research,ngrams]'`。仅使用原有正文读取时可省略 `ngrams`。CLI与服务默认读取 `NEWS2DOUYIN_DATABASE_URL`，显式 `--db-url` 优先；两者都未设置时才使用SQLite兼容默认值。`postgresql://` 自动规范为 `postgresql+psycopg://`。原SQLite用户可沿用原启动参数；迁移到PostgreSQL需要先停服务，运行迁移工具，保持原 `storage_root` 和图实例。不要通过连到空库代替迁移。
@@ -110,7 +110,7 @@ MODEL=你的模型名称
 
 默认模型用于采集筛选、事件抽取、焦点相关性判断、译读和 AI 初稿。在 `/setup` 可分别查看默认模型和归因推理模型的配置，以及检查各自的模型列表。
 
-为事件归因配置更强的模型时，可在同一份 `.env` 增加以下变量。归因模型使用单独的服务地址、模型名和凭据。服务无鉴权时，密钥可留空。当前版本提供配置和模型列表检查，供后续事件查因流程使用。
+为事件归因配置更强的模型时，可在同一份 `.env` 增加以下变量。归因模型使用单独的服务地址、模型名和凭据。服务无鉴权时，密钥可留空。
 
 ```dotenv
 NEWS2DOUYIN_ATTRIBUTION_BASE_URL=http://你的归因模型服务:端口/v1
@@ -128,7 +128,7 @@ news2douyin-server --host 0.0.0.0 --port 18080 --db-url sqlite:///runs_v7/news2d
 
 配置向量服务后，已整理事件会在后台生成向量。可在 `/knowledge` 的「事件向量」区按日期补算历史事件并试查相似结果。[事件向量配置与使用](docs/EMBEDDINGS.md)
 
-在焦点图谱中打开「事件溯源」。给出根事件和日期即可由本地程序逐层构建搜索树，也可以一次只查一层。搜索结束后可将已保存的树和原文证据交给 RunDesk 解读。[查找前因与接口说明](docs/CAUSAL-SEARCH.md)
+在焦点图谱中打开「事件溯源」。给出根事件和日期即可由程序逐层构建搜索树。配置 BigQuery 后，程序可以按日期定向补查本地缺少的历史材料。搜索结束后可将已保存的树和原文证据交给 RunDesk 解读。[查找前因、历史补查与接口说明](docs/CAUSAL-SEARCH.md)
 
 `/setup` 和 `/intake` 显示实际事务库类型及驱动，区分PostgreSQL正式模式和SQLite兼容模式。接收与投影后台错误独立显示；事务库不可读时，计数显示未知，仍可看到内存中保留的后台错误。
 

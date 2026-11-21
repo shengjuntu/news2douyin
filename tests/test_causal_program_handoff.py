@@ -7,7 +7,7 @@ from sqlmodel import Session, select
 
 from news2douyin.causal import agent_tools
 from news2douyin.causal.models import (CausalAgentNote, CausalAgentQuery, CausalNode,
-                                     CausalProgram, CausalProgramStep)
+                                     CausalProgram, CausalProgramRetrieval, CausalProgramStep)
 from news2douyin.research import causal_dispatch, sources
 from news2douyin.research.models import (ResearchRun, ResearchSource, ResearchSubmission, ResearchToolCall)
 from news2douyin.research.rundesk import CAUSAL_ANALYSIS_TOOLS, validate_runtime
@@ -28,8 +28,8 @@ def program_case(causal_case):
         child = CausalNode(key='cn_program_child', case_key=key, parent_key=root.key,
             ref='evt_program_prior', text='A prior agreement established a joint commission.',
             occurred_at='2014-01-01', published_at='2014-01-02', time_status='earlier', depth=1,
-            sources_json=dumps([dict(url='https://source.example/agreement', title='Earlier local article',
-                quote=QUOTE, published_at='2014-01-02', kind='local_article')]))
+            sources_json=dumps([dict(url='https://source.example/agreement', title='Earlier publisher article',
+                quote=QUOTE, published_at='2014-01-02', kind='publisher_history')]))
         headline = CausalNode(key='cn_program_headline', case_key=key, parent_key=root.key,
             ref='evt_metadata', text='Unverified headline lead', depth=1,
             sources_json=dumps([dict(url='https://source.example/headline', title='Headline only',
@@ -39,6 +39,7 @@ def program_case(causal_case):
             CausalProgramStep(node_key=root.key, case_key=key,
                 queries_json=dumps(['Earlier agreements and compliance mechanism']), candidate_count=7,
                 stop_reason='程序已选取本轮可用线索'),
+            CausalProgramRetrieval(node_key=root.key, report_json=dumps({'history': {'status': 'verified'}})),
             CausalProgramStep(node_key=child.key, case_key=key, queries_json=dumps(['joint commission history']),
                 candidate_count=0, stop_reason='没有找到可核对的新材料')])
         session.commit()
@@ -74,6 +75,7 @@ def test_program_prompt_and_registration_are_frozen_without_fake_query_receipts(
         provenance = loads(source.provenance_json, {})
         assert provenance['causal_case_key'] == key and provenance['run_id'] == run_id
         assert provenance['registration'] == 'existing_program_tree_excerpt'
+        assert provenance['source_kind'] == 'publisher_history'
         assert 'search_id' not in provenance
         assert loads(source.paragraphs_json, []) == [dict(id='P1', text=QUOTE)]
         assert not list(session.exec(select(CausalAgentQuery)))
@@ -140,6 +142,7 @@ def test_tree_read_is_read_only_and_its_existing_evidence_can_be_claimed_and_rep
     assert child['queries'] == ['joint commission history'] and child['candidate_count'] == 0
     assert child['stop_reason'] == '没有找到可核对的新材料' and child['relation'] == 'context'
     assert child['evidence'][0]['quote'] == QUOTE
+    assert next(node for node in tree['nodes'] if not node['depth'])['retrieval']['history']['status'] == 'verified'
     headline = next(node for node in tree['nodes'] if node['key'] == 'cn_program_headline')
     assert headline['evidence'] == [] and '前置时间待核' in headline['stop_reason']
     context = tools.call('research_get_case', dict(run_id=run_id))

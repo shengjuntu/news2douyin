@@ -16,7 +16,8 @@ from ..storage.models import utc_now_iso
 from ..storage.utils import dumps, loads
 from . import service as causal
 from .chronology import CHINESE_DATE, LITERAL, eligible, interval, sqlite_utc_bound
-from .models import CausalAgentLink, CausalAgentNote, CausalAgentQuery, CausalJob, CausalNode, CausalProgramStep
+from .models import (CausalAgentLink, CausalAgentNote, CausalAgentQuery, CausalJob, CausalNode,
+                     CausalProgramRetrieval, CausalProgramStep)
 from .retrieval import retrieve
 
 
@@ -24,6 +25,7 @@ MAX_SEARCHES = 12
 SEARCHES_PER_PARENT = 3
 MAX_RESULTS = 12
 _LOCAL_EXCERPT_KINDS = {'local_article', 'publisher_preview', 'reviewed_moment'}
+_PROGRAM_EXCERPT_KINDS = _LOCAL_EXCERPT_KINDS | {'publisher_history'}
 Key = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=160)]
 Day = Annotated[str, StringConstraints(pattern=r'^\d{4}-\d{2}-\d{2}$')]
 Reason = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]
@@ -179,13 +181,15 @@ def _get(engine, args):
         source_index = {row.source_id: row for row in session.exec(select(ResearchSource).where(
             ResearchSource.case_id == research_case.case_id))} if analysis else {}
         nodes = []
-        rows = list(session.exec(select(CausalNode, CausalAgentNote, CausalProgramStep, CausalJob).outerjoin(
+        rows = list(session.exec(select(CausalNode, CausalAgentNote, CausalProgramStep, CausalJob,
+                                        CausalProgramRetrieval).outerjoin(
             CausalAgentNote, CausalAgentNote.node_key == CausalNode.key
         ).outerjoin(CausalProgramStep, CausalProgramStep.node_key == CausalNode.key
         ).outerjoin(CausalJob, CausalJob.node_key == CausalNode.key
+        ).outerjoin(CausalProgramRetrieval, CausalProgramRetrieval.node_key == CausalNode.key
         ).where(CausalNode.case_key == case.key).order_by(CausalNode.depth, CausalNode.key).limit(causal.MAX_TREE_NODES)))
-        completed_steps = sum(bool(job and job.state in {'ready', 'failed'}) for _node, _note, _step, job in rows)
-        for node, note, step, job in rows:
+        completed_steps = sum(bool(job and job.state in {'ready', 'failed'}) for _, _, _, job, _ in rows)
+        for node, note, step, job, report in rows:
             sources = loads(node.sources_json, [])
             evidence = _program_evidence(research_case, sources, source_index) if analysis else _claim_evidence(sources)[:1]
             value = dict(key=node.key, parent_key=node.parent_key, ref=node.ref, text=node.text[:800],
@@ -197,6 +201,7 @@ def _get(engine, args):
                 value.update(queries=loads(step.queries_json, []) if step else [],
                     candidate_count=step.candidate_count if step else None,
                     retrieval_mode=step.retrieval_mode if step else '',
+                    retrieval=loads(report.report_json, {}) if report else {},
                     job_state=job.state if job else '', job_error=job.error if job else '',
                     source_refs=[dict(url=source.get('url', ''), title=source.get('title', ''),
                         kind=source.get('kind', ''), published_at=source.get('published_at', ''),
@@ -353,7 +358,8 @@ def _local_quote(source, *, program=False):
 
 
 def _register_local_excerpt(session, research_case, run, ref, source, *, program_case_key=''):
-    if source['kind'] not in _LOCAL_EXCERPT_KINDS or not source_url(source['url']):
+    kinds = _PROGRAM_EXCERPT_KINDS if program_case_key else _LOCAL_EXCERPT_KINDS
+    if source['kind'] not in kinds or not source_url(source['url']):
         return source
     # Research evidence cites a single real paragraph. Keep any wider
     # multiline excerpt intact in the tree and register a literal slice.
@@ -383,8 +389,8 @@ def register_program_sources(session, link, research_case, run):
     """Register existing literal tree excerpts at enqueue, without changing it.
 
     Program retrieval predates this research run, so no agent query receipt is
-    invented. Only the same eligible local excerpt kinds as the older handoff
-    enter the case; headlines and event metadata remain non-citable leads.
+    invented. Eligible publisher and local excerpts enter the case; headlines
+    and event metadata remain non-citable leads.
     """
     rows = session.exec(select(CausalNode.ref, CausalNode.sources_json).where(
         CausalNode.case_key == link.case_key).order_by(CausalNode.depth, CausalNode.key).limit(causal.MAX_TREE_NODES))
@@ -405,7 +411,7 @@ def _program_evidence(research_case, sources, source_index):
         paragraph_id = source.get('paragraph_id', '')
         quote = source.get('citation_quote', source.get('quote', ''))
         registered = source_index.get(source_id)
-        if registered is None and source.get('kind') in _LOCAL_EXCERPT_KINDS and isinstance(source.get('quote'), str):
+        if registered is None and source.get('kind') in _PROGRAM_EXCERPT_KINDS and isinstance(source.get('quote'), str):
             quote = _local_quote(source, program=True)
             content_hash = hashlib.sha256(quote.encode()).hexdigest()
             source_id = 'src_' + research.digest([research_case.case_id, source.get('url', ''), 'causal_excerpt', content_hash])[:24]

@@ -4,12 +4,13 @@ The durable queue, leases and breadth/depth scheduling belong to service.py.
 This module holds no SQL connection while calling either configured model or
 retrieval boundary. Hypotheses are search inputs, never generated graph facts.
 """
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from math import isfinite
+from time import monotonic
 
 from sqlmodel import Session
 
-from . import model, retrieval, service
+from . import history, model, retrieval, service
 from .chronology import eligible, interval, sqlite_utc_bound
 from .models import CausalInvestigation, CausalNode
 
@@ -25,16 +26,18 @@ class ProgramStep:
     candidate_count: int
     stop_reason: str
     retrieval_mode: str = ''
+    retrieval_report: dict = field(default_factory=dict)
 
 
 class ProgramStepFailure(model.CausalModelError):
     """Safe failure plus already obtained progress for the durable step record."""
 
-    def __init__(self, message, *, queries=(), candidate_count=0, retrieval_mode=''):
+    def __init__(self, message, *, queries=(), candidate_count=0, retrieval_mode='', retrieval_report=None):
         super().__init__(message)
         self.queries = list(queries)
         self.candidate_count = candidate_count
         self.retrieval_mode = retrieval_mode
+        self.retrieval_report = retrieval_report or {}
 
 
 def _snapshot(engine, claimed):
@@ -116,17 +119,42 @@ def investigate(engine, claimed):
     target, anchor, lower, upper, excluded = _snapshot(engine, claimed)
     if lower >= upper:
         return ProgramStep([], [], 0, '已到达调查最早日期，本分支停止。')
-    queries, count, mode = [], 0, ''
+    queries, count, mode, report = [], 0, '', {}
+    last_renewal = monotonic()
+
+    def checkpoint(*, force=False):
+        nonlocal last_renewal
+        now = monotonic()
+        if force or now - last_renewal >= 30:
+            service.renew(engine, claimed)
+            last_renewal = now
+
     try:
         settings = model.configure()
         queries = model.propose_hypotheses(settings, target)
         if not queries:
             return ProgramStep([], [], 0, '归因模型未提出可核查的前因假说，本分支停止。')
-        raw = retrieval.retrieve_for_tree(engine, queries, lower=sqlite_utc_bound(lower),
-            upper=sqlite_utc_bound(upper), exclude=excluded, event_text=target)
+        bounds = dict(lower=sqlite_utc_bound(lower), upper=sqlite_utc_bound(upper))
+        pool = retrieval.collect_tree_pool(engine, queries, **bounds, exclude=excluded, event_text=target)
+        report = dict(local=pool.local, history=dict(status='skipped'))
+        if pool.local.get('status') == 'gap' or not pool.local.get('dated_evidence_count'):
+            trigger = 'local_gap' if pool.local.get('status') == 'gap' else 'no_dated_candidates'
+            checkpoint(force=True)
+            supplement = history.search_history(queries, **bounds, event_text=target, checkpoint=checkpoint)
+            report['history'] = {**supplement.diagnostics, 'trigger': trigger}
+            historical = supplement.candidates
+        else:
+            historical = []
+        ranked = retrieval.rank_tree_pool(engine, pool, historical=historical, checkpoint=checkpoint)
+        report['local'] = ranked.local
+        report['history'].update(eligible_count=ranked.history_eligible_count,
+                                 ranked_count=ranked.history_ranked_count)
+        raw = ranked.rows
         if not isinstance(raw, list):
             raise ProgramStepFailure('本轮程序召回结果格式无效，未保存候选。')
         count, mode = _metadata(raw)
+        count = max(count, pool.local.get('pool_count', 0))
+        mode = ranked.mode or mode
         candidates, refs = [], set()
         for item in raw:
             candidate = _eligible(item, anchor, lower, upper)
@@ -135,9 +163,13 @@ def investigate(engine, claimed):
                 candidates.append(candidate)
         if len(candidates) > model.MAX_CANDIDATES:
             raise ProgramStepFailure('本轮程序召回超出单步候选上限，未保存候选。')
+        report.update(ranked_count=len(candidates), selected_count=0)
         if not candidates:
+            if report['history'].get('status') == 'error':
+                raise ProgramStepFailure('本地没有合格候选，GDELT 历史补查失败，可重新查找。')
             return ProgramStep([], queries, count,
-                '本轮本地未取得符合日期与出处要求的候选；这不能证明历史材料不存在。', mode)
+                '本轮未取得符合日期与出处要求的候选。', mode, report)
+        checkpoint()
         decisions = model.rank(settings, target, candidates)
         by_ref = {item['ref']: item for item in candidates}
         results, saved_refs = [], set()
@@ -156,6 +188,7 @@ def investigate(engine, claimed):
             results.append({**by_ref[ref], 'reason': reason, 'score': float(score), 'relation': relation})
         results.sort(key=lambda item: (item['time_status'] != 'earlier', -item['score'], item['ref']))
         results = results[:service.RESULTS]
+        report['selected_count'] = len(results)
         stop = ('归因模型未找到有可核查依据的解释候选，本分支停止。' if not results else
                 '候选的前置时间尚未确认，保留线索并停止自动展开。'
                 if all(item['time_status'] != 'earlier' for item in results) else '')
@@ -165,10 +198,12 @@ def investigate(engine, claimed):
                 for source in item['sources']) for item in results
         ):
             stop = '候选只有标题线索，缺少可核查的原文依据，停止自动展开。'
-        return ProgramStep(results, queries, count, stop, mode)
+        return ProgramStep(results, queries, count, stop, mode, report)
+    except service.CausalLeaseLost:
+        raise
     except model.CausalModelError as exc:
         raise ProgramStepFailure(str(exc), queries=queries, candidate_count=count,
-                                 retrieval_mode=mode) from None
+                                 retrieval_mode=mode, retrieval_report=report) from None
     except Exception:
         raise ProgramStepFailure('本轮程序调查检索失败，稍后可重试。', queries=queries,
-                                 candidate_count=count, retrieval_mode=mode) from None
+                                 candidate_count=count, retrieval_mode=mode, retrieval_report=report) from None

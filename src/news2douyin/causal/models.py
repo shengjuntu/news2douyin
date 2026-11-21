@@ -74,6 +74,11 @@ class CausalProgramStep(SQLModel, table=True):
     stop_reason: str = ''
 
 
+class CausalProgramRetrieval(SQLModel, table=True):
+    node_key: str = Field(primary_key=True)
+    report_json: str = '{}'
+
+
 class CausalAgentLink(SQLModel, table=True):
     case_key: str = Field(primary_key=True)
     research_case_id: str = Field(index=True, unique=True)

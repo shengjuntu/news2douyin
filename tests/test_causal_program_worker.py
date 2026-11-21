@@ -5,15 +5,17 @@ model, embedding service, source site or RunDesk instance is contacted.
 """
 from copy import deepcopy
 import json
+from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
-from news2douyin.causal import model, retrieval, service, tree_worker
-from news2douyin.causal.models import CausalJob, CausalNode, CausalProgramStep
+from news2douyin.causal import history, model, retrieval, service, tree_worker
+from news2douyin.causal.models import CausalJob, CausalNode, CausalProgramRetrieval, CausalProgramStep
 from news2douyin.causal.runtime import CausalWorker
 from news2douyin.server.app import create_app
+from news2douyin.storage.db import create_schema
 from test_postgres_integration import postgres_url
 from test_causal_model_isolated import SETTINGS, Response, candidate as model_candidate, completion, ranked, wire
 
@@ -58,7 +60,16 @@ class ProgramBoundaries:
         self.calls.append(('retrieve', event_text, lower, upper, set(exclude)))
         if self.failure == 'retrieve':
             raise RuntimeError('private-api-key-and-source-body must not reach a saved error')
-        return deepcopy(self.by_target.get(event_text, self.results))
+        rows = deepcopy(self.by_target.get(event_text, self.results))
+        dated = sum(bool(row['published_at']) and row['sources'][0]['kind'] != 'local_headline' for row in rows)
+        return SimpleNamespace(rows=rows, local=dict(status='covered' if dated else 'unknown',
+            pool_count=len(rows), eligible_count=len(rows), dated_evidence_count=dated, vector_ranked_count=0))
+
+    def rank_pool(self, engine, pool, *, historical, checkpoint):
+        self.free('retrieval ranking')
+        assert engine is self.engine
+        return SimpleNamespace(rows=pool.rows + historical, local=pool.local, mode='',
+                               history_eligible_count=len(historical), history_ranked_count=len(historical))
 
     def rank(self, _settings, target, rows):
         self.free('rank')
@@ -84,7 +95,10 @@ def program_case(request, tmp_path, monkeypatch):
     monkeypatch.setattr(model, 'configure', fake.configure)
     monkeypatch.setattr(model, 'propose_hypotheses', fake.hypotheses)
     monkeypatch.setattr(model, 'rank', fake.rank)
-    monkeypatch.setattr(retrieval, 'retrieve_for_tree', fake.retrieve)
+    monkeypatch.setattr(retrieval, 'collect_tree_pool', fake.retrieve)
+    monkeypatch.setattr(retrieval, 'rank_tree_pool', fake.rank_pool)
+    monkeypatch.setattr(history, 'search_history', lambda *_args, **_kwargs:
+                        history.HistoryResult([], {'status': 'unconfigured'}))
     from news2douyin.server import causal as routes
     monkeypatch.setattr(routes, 'configure', fake.configure)
 
@@ -223,6 +237,72 @@ def test_program_empty_hypotheses_stops_without_repeating_the_target_as_a_query(
     assert data['nodes'][0]['queries'] == []
 
 
+@pytest.mark.parametrize('upstream', ['no_results', 'unverified', 'error'])
+def test_program_history_keeps_a_report_even_when_there_are_no_candidates(program_case, monkeypatch, upstream):
+    app, client, fake = program_case
+
+    def supplement(queries, lower, upper, *, event_text, checkpoint):
+        fake.free('BigQuery')
+        assert queries and event_text == TARGET
+        assert lower == '1991-01-01T00:00:00' and upper == '2022-02-24T00:00:00'
+        checkpoint()
+        return history.HistoryResult([], dict(status=upstream, date_from='2021-11-26', date_to='2022-02-23',
+                                             lead_count=2 if upstream == 'unverified' else 0))
+
+    monkeypatch.setattr(history, 'search_history', supplement)
+    case = create(client)
+    assert drain(app) == 1
+    root = detail(client, case)['nodes'][0]
+    assert root['job_state'] == ('failed' if upstream == 'error' else 'ready')
+    assert root['retrieval']['local']['eligible_count'] == 0
+    assert root['retrieval']['history']['status'] == upstream
+    assert root['retrieval']['history']['date_to'] == '2022-02-23'
+    assert root['retrieval']['ranked_count'] == root['retrieval']['selected_count'] == 0
+
+
+def test_verified_history_requeues_an_existing_root_and_grows_the_same_tree(program_case, monkeypatch):
+    app, client, fake = program_case
+    case = create(client)
+    assert drain(app) == 1
+    first = detail(client, case)['nodes'][0]
+    assert first['retrieval']['history']['status'] == 'unconfigured'
+
+    def supplement(_queries, lower, upper, *, event_text, checkpoint):
+        fake.free('BigQuery')
+        assert lower < upper
+        checkpoint()
+        if event_text != TARGET:
+            return history.HistoryResult([], {'status': 'no_results'})
+        actual = candidate('gdelt-history:prior', year=2022, occurred='', published='2022-02-21', kind='publisher_history')
+        late = candidate('gdelt-history:late', year=2022, occurred='', published='2022-02-25', kind='publisher_history')
+        return history.HistoryResult([actual, late], {'status': 'verified', 'verified_count': 2})
+
+    monkeypatch.setattr(history, 'search_history', supplement)
+    response = client.post(BASE+'/'+case['key']+'/expand', json={'node_key': first['key']})
+    assert response.status_code == 202
+    assert drain(app) == 2
+    tree = detail(client, case)
+    assert tree['key'] == case['key'] and tree['program']['completed'] == 2
+    root, child = tree['nodes']
+    assert root['key'] == child['parent_key'] == first['key']
+    assert root['retrieval']['history']['status'] == 'verified'
+    assert root['retrieval']['ranked_count'] == root['retrieval']['selected_count'] == 1
+    assert child['occurred_at'] == '' and child['sources'][0]['published_at'] == '2022-02-21'
+    assert child['time_status'] == 'earlier' and child['sources'][0]['kind'] == 'publisher_history'
+
+
+def test_startup_schema_adds_retrieval_diagnostics_to_an_existing_store(program_case):
+    app, client, _ = program_case
+    case = create(client)
+    assert drain(app) == 1
+    root = detail(client, case)['nodes'][0]
+    CausalProgramRetrieval.__table__.drop(app.state.engine)
+    create_schema(app.state.engine)
+    preserved = detail(client, case)['nodes'][0]
+    assert preserved['key'] == root['key'] and preserved['queries'] == root['queries']
+    assert preserved['stop_reason'] == root['stop_reason'] and preserved['retrieval'] == {}
+
+
 @pytest.mark.parametrize('evidence', ['none', 'unknown', 'headline'])
 def test_program_no_confirmed_continuation_records_why_it_stopped(program_case, evidence):
     app, client, fake = program_case
@@ -250,16 +330,22 @@ def test_program_stale_lease_cannot_publish_nodes_or_overwrite_step_diagnostics(
         row.due_at = 0; session.add(row); session.commit()
     current = service.claim(app.state.engine)
     assert current.lease != stale.lease and current.program
+    with pytest.raises(service.CausalLeaseLost):
+        service.renew(app.state.engine, stale)
+    service.renew(app.state.engine, current)
     service.complete(app.state.engine, current, queries=['new hypothesis'], candidate_count=7,
-        retrieval_mode='lexical', stop_reason='No new supported candidates.')
+        retrieval_mode='lexical', stop_reason='No new supported candidates.',
+        retrieval_report={'history': {'status': 'no_results'}})
     service.complete(app.state.engine, stale, [{**candidate('obsolete'), 'time_status': 'earlier',
         'reason': 'obsolete', 'score': .8}], queries=['old hypothesis'], candidate_count=100,
-        retrieval_mode='lexical_embedding', stop_reason='obsolete')
+        retrieval_mode='lexical_embedding', stop_reason='obsolete',
+        retrieval_report={'history': {'status': 'obsolete'}})
     data = detail(client, case)
     assert len(data['nodes']) == 1
     root = data['nodes'][0]
     assert root['queries'] == ['new hypothesis'] and root['candidate_count'] == 7
     assert root['retrieval_mode'] == 'lexical' and root['stop_reason'] == 'No new supported candidates.'
+    assert root['retrieval']['history']['status'] == 'no_results'
     assert not fake.calls
 
 

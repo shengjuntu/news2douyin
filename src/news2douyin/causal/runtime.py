@@ -3,7 +3,7 @@ import logging
 from threading import Event, Thread
 
 from .model import CausalModelError, configure
-from .service import claim, complete, investigate
+from .service import CausalLeaseLost, claim, complete, investigate
 from . import tree_worker
 
 log = logging.getLogger(__name__)
@@ -25,10 +25,12 @@ class CausalWorker:
                 step = tree_worker.investigate(self.engine, job)
             else:
                 results = investigate(self.engine, job)
+        except CausalLeaseLost:
+            return True
         except tree_worker.ProgramStepFailure as exc:
             complete(self.engine, job, error=str(exc), queries=exc.queries,
                      candidate_count=exc.candidate_count, stop_reason=str(exc),
-                     retrieval_mode=exc.retrieval_mode)
+                     retrieval_mode=exc.retrieval_mode, retrieval_report=exc.retrieval_report)
         except CausalModelError as exc:
             complete(self.engine, job, error=str(exc))
         except Exception as exc:
@@ -38,7 +40,7 @@ class CausalWorker:
             if getattr(job, 'program', False):
                 complete(self.engine, job, step.results, queries=step.queries,
                          candidate_count=step.candidate_count, stop_reason=step.stop_reason,
-                         retrieval_mode=step.retrieval_mode)
+                         retrieval_mode=step.retrieval_mode, retrieval_report=step.retrieval_report)
             else:
                 complete(self.engine, job, results)
         return True

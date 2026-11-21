@@ -6,9 +6,26 @@
 
 焦点图谱默认使用「程序逐层查找」。根事件需要已核对的发生日期，可以在表单填写，也可以使用选中事件或文字中唯一明确的日期。可指定最早查找日期，留空时从根日期往前取 90 天。
 
-程序对每个节点调用独立配置的归因模型，生成可核对的前因假设。关键词扩大对本地事件、报道和有本地来源的 GDELT 线索的召回范围。配置向量后，用事件向量和假设向量对齐候选，再结合时间与原文证据排序。关键词检索与向量匹配的分数只用于筛选，树里的「可能前因」仍是待审核的候选解释。
+程序对每个节点调用独立配置的归因模型，生成可核对的前因假设。关键词扩大对本地事件、报道和有本地来源的 GDELT 线索的召回范围。本地缺少合格的带日期原文时，可以补查 GDELT BigQuery。配置向量后，用父事件与假设的向量重排候选，再由归因模型按原文证据筛选。树里的「可能前因」仍是待审核的候选解释。
 
-每层最多继续 3 个有日期和原文的分支，每棵树最多查找 18 个节点。任务按节点保存在现有队列，页面可以折叠或展开各层，查看假设、候选数、证据和停止理由。指定窗口没有找到候选时，该分支停在当前节点。可先核对 GDELT 归档，按需提交补采，再重查相应分支。
+每层最多继续 3 个有日期和原文的分支，每棵树最多查找 18 个节点。节点的「检索」详情显示本地召回、初筛、带日期的原文证据以及历史补查结果，即使最终没有候选也会保留。若没有可继续查找的材料，分支停在当前节点。升级和配置完成后，可打开旧调查，在停下的原节点点「重新查找」。
+
+### 配置 GDELT 历史补查
+
+用源码安装时添加 `causal-history` 到所需扩展，例如 `python -m pip install '.[research,llm,ngrams,causal-history]'`。安装本版本的 wheel 时也可附加 `[causal-history]`。正式 Docker 镜像已安装该扩展。
+
+在 `.env` 中设置有权创建 BigQuery 查询任务的 Google Cloud 项目，并给应用提供 Application Default Credentials（ADC）。容器部署时，凭据文件路径必须在容器内可访问，例如将已有凭据文件以只读方式挂载后配置 `GOOGLE_APPLICATION_CREDENTIALS`。
+
+```dotenv
+NEWS2DOUYIN_CAUSAL_HISTORY_BIGQUERY_PROJECT=your-google-cloud-project
+NEWS2DOUYIN_CAUSAL_HISTORY_LOOKBACK_DAYS=90
+NEWS2DOUYIN_CAUSAL_HISTORY_MAX_BYTES_BILLED=12884901888
+# GOOGLE_APPLICATION_CREDENTIALS=/path/visible/to/news2douyin/credentials.json
+```
+
+有一条合格的带日期本地原文时，程序通常直接使用本地候选。需要补查时，只查询父节点之前的一个历史窗口，起点受调查最早日期和 GDELT 2.0 覆盖范围约束。以 UTC 日期裁剪 BigQuery 分区，取回的报道仍须满足树的精确时间边界。每次查询有扫描计费字节上限。页面会标明实际查询日期和只查询了部分日期的情况。[GDELT 分区表](https://blog.gdeltproject.org/announcing-partitioned-gdelt-bigquery-tables/) · [BigQuery ADC](https://cloud.google.com/bigquery/docs/authentication)
+
+Events 和 Mentions 提供报道链接与编码线索。程序读取出版方网页，核对公开日期和原文摘录后才能形成可排序候选。只找到链接、原文不可读或日期待核时，检索详情会显示相应结果。「日报管理」仍可按日核对归档并提交批次补采。
 
 ## RunDesk 解读
 
@@ -28,7 +45,7 @@ Agent 可按父事件生成检索词，在日期窗口内检索本地候选，�
 | 查证与交付 | `research_get_case`、`research_read_source`、`research_save_claim`、`research_save_report` |
 | 可选外部补材 | `research_search`、`research_record_search`、Exa 的 `web_search_exa` |
 
-需要超出本地档案范围的资料时，Agent 可通过现有 Exa 搜索票据补材，或在报告中记录资料缺口。GDELT BigQuery 可作为后续独立检索源接入。
+旧版 Agent 搜索可通过现有 Exa 搜索票据补材，或在报告中记录资料缺口。由程序完成并交接的调查，RunDesk 可以直接读取树与已有原文证据。
 
 ## 本地逐层查找
 
@@ -47,7 +64,7 @@ Agent 可按父事件生成检索词，在日期窗口内检索本地候选，�
 ## 调用接口
 
 - `POST /api/causal/investigations` 提交 `{"text":"一段事件描述","runner":"program","event_at":"2022-02-24","date_from":"1989-01-01"}` 启动程序搜索。可附 `event_key` 和 `focus_key`，提供焦点时作为根的事件须属于该焦点。兼容已有的 `runner: "local"` 和 `runner: "agent"`。
-- `GET /api/causal/investigations/{key}` 读取已保存的结果树。RunDesk 调查的 `agent` 字段提供本轮状态和研究链接。
+- `GET /api/causal/investigations/{key}` 读取已保存的结果树。程序节点的 `retrieval.local` 和 `retrieval.history` 分别给出本地及历史补查诊断。RunDesk 调查的 `agent` 字段提供本轮状态和研究链接。
 - `POST /api/causal/investigations/{key}/agent` 将已经结束的程序搜索交给 RunDesk 解读，请求体传 `{}`。旧调查也可使用这一接口继续追查，按需传 `{"date_from":"YYYY-MM-DD"}`。
 - `POST /api/causal/investigations/{key}/expand` 提交 `{"node_key":"..."}`，沿所选节点继续查。提交已查过的节点可更新线索。
 - `POST /api/causal/investigations/{key}/archive` 提交 `{"day":"YYYY-MM-DD"}`，发起现有的日度补采任务，任务状态显示在该调查里。
