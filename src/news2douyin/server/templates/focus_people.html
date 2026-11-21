@@ -1,0 +1,119 @@
+{% set panel = people|default({}, true) %}
+{% set person_items = panel.get('items', []) %}
+{% set selected = panel.selected|default(none) %}
+{% set window = panel.window|default({}) %}
+{% set span = panel.days|default(30) %}
+{% set end = panel.until|default('') %}
+{% set people_back = '/focus/' ~ (w.key|urlencode) ~ '?view=people&people_days=' ~ span
+  ~ ('&people_until=' ~ (end|urlencode) if end else '')
+  ~ ('&person=' ~ (selected.key|urlencode) if selected else '') %}
+{% set date_labels = {
+  'reported_occurrence':'报道所述日期', 'published':'报道发布'
+} %}
+{% set contextual_relations = {
+  'joint_action':'报道共同参与', 'action_context':'同一行动材料提及'
+} %}
+{% macro dated(row) -%}
+  {% if row.time %}<time datetime="{{ row.time }}">{{ date_labels.get(row.time_kind, '记录日期') }} {{ row.time[:10] }}</time>{% endif %}
+{%- endmacro %}
+{% macro source(row) -%}
+  {% set source_path = row.source_path or row.article_path or row.source_url %}
+  {% if source_path and source_path.startswith('/articles/') %}
+  <a href="{{ source_path }}">{{ row.source_title or '查看原文证据' }}</a>
+  {% elif row.source_url and (row.source_url.startswith('https://') or row.source_url.startswith('http://')) %}
+  <a href="{{ row.source_url }}" target="_blank" rel="noopener noreferrer">{{ row.source_title or '查看报道原文' }}</a>
+  {% elif row.source_title %}<span>{{ row.source_title }}</span>{% endif %}
+{%- endmacro %}
+
+<link rel="stylesheet" href="/research-assets/focus-people.css?v=0.49.0">
+<section class="focus-materials focus-people" aria-labelledby="focus-people-title">
+  <div class="focus-section-head"><h2 id="focus-people-title">人物活动</h2></div>
+  <form class="desk-row focus-people-filter" action="/focus/{{ w.key|urlencode }}" method="get">
+    <input type="hidden" name="view" value="people">
+    <label class="focus-person-picker">人物
+      <select name="person"{% if not person_items %} disabled{% endif %}>
+        <option value="">选择人物</option>
+        {% for entry in person_items %}
+        <option value="{{ entry.key }}"{% if selected and entry.key==selected.key %} selected{% endif %}>
+          {{ entry.name }} · {{ entry.activity_count }} 条{% if entry.provisional %} · 身份待核{% endif %}
+        </option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>时间跨度
+      <select name="people_days">
+        {% for days in [30, 90, 365] %}<option value="{{ days }}"{% if span==days %} selected{% endif %}>{{ days }} 天</option>{% endfor %}
+        {% if span not in [30, 90, 365] %}<option value="{{ span }}" selected>{{ span }} 天</option>{% endif %}
+      </select>
+    </label>
+    <label>截至日期 <input name="people_until" type="date" value="{{ end or '' }}"></label>
+    <button class="ghost" type="submit">查看</button>
+  </form>
+  {% if window.date_from and window.date_to %}
+  <p class="desk-meta focus-people-window">材料收录日期（北京时间） <time>{{ window.date_from }}</time> 至 <time>{{ window.date_to }}</time>{% if window.truncated %} · 仅显示本次读取范围{% endif %}</p>
+  {% endif %}
+  {% if panel.selection_missing %}
+  <p class="desk-meta">所选人物在这个时间范围内暂无已收录活动。</p>
+  {% endif %}
+  {% if panel.message %}<p class="desk-meta">{{ panel.message }}</p>{% endif %}
+  {% if selected %}
+  <figure class="card focus-people-figure" aria-labelledby="focus-people-links">
+    <figcaption id="focus-people-links">组织关系</figcaption>
+    <div class="focus-people-map{% if not selected.organizations %} focus-people-map-empty{% endif %}">
+      <div class="focus-person-node">
+        <small>人物</small><strong>{{ selected.name }}</strong>
+        {% if selected.provisional %}<span class="badge warn">身份待核</span>{% endif %}
+      </div>
+      {% if selected.organizations %}
+      <ul class="focus-organization-nodes" aria-label="相关组织及证据">
+        {% for org in selected.organizations %}
+        {% set documented = org.relation_basis=='literal_statement' %}
+        {% set relation = contextual_relations.get(org.relation) or org.relation_label or '组织关系待核' %}
+        <li class="{{ 'focus-organization-evidence' if documented else 'focus-organization-context' }}">
+          <details>
+            <summary>
+              <span class="focus-organization-name">{{ org.name }}</span>
+              <span class="focus-organization-role">{{ relation }}{% if org.role_label %} · {{ org.role_label }}{% endif %}</span>
+              {% if org.time or org.status_label %}
+              <span class="desk-meta">{{ dated(org) }}{% if org.time and org.status_label %} · {% endif %}{{ org.status_label }}{% if org.review=='accepted' %} · 证据已核对{% endif %}</span>
+              {% endif %}
+            </summary>
+            <div class="focus-people-evidence">
+              {% if org.evidence %}<blockquote>{{ org.evidence }}</blockquote>{% endif %}
+              <div class="desk-row">
+                {% if org.event_key %}<a href="/events/{{ org.event_key|urlencode }}?back={{ people_back|urlencode }}">{{ org.event_title or '查看整理事件' }}</a>{% endif %}
+                {{ source(org) }}
+              </div>
+            </div>
+          </details>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="desk-meta">暂无有据可查的组织关系。</p>
+      {% endif %}
+    </div>
+  </figure>
+  <div class="focus-section-head"><h2>活动时间线</h2><span class="desk-meta">{{ selected.activity_count }} 条活动</span></div>
+  <ol class="focus-people-timeline" aria-label="{{ selected.name }}的活动时间线">
+    {% for activity in selected.activities %}
+    <li class="focus-people-activity">
+      <p class="desk-meta focus-people-activity-meta">
+        {% if activity.time %}{{ dated(activity) }}{% else %}日期待核{% endif %}
+        {% if activity.kind_label %} · {{ activity.kind_label }}{% endif %}
+        {% if activity.role_label %} · {{ activity.role_label }}{% endif %}
+        {% if activity.status_label %} · {{ activity.status_label }}{% endif %}
+        {% if activity.review=='accepted' %} · 证据已核对{% endif %}
+      </p>
+      <h3>{% if activity.event_key %}<a href="/events/{{ activity.event_key|urlencode }}?back={{ people_back|urlencode }}">{{ activity.title }}</a>{% else %}{{ activity.title }}{% endif %}</h3>
+      {% if activity.evidence %}<blockquote>{{ activity.evidence }}</blockquote>{% endif %}
+      {{ source(activity) }}
+    </li>
+    {% else %}
+    <li class="desk-meta">此时间范围内暂无活动。</li>
+    {% endfor %}
+  </ol>
+  {% elif not person_items and not panel.message %}
+  <p class="desk-meta">{{ panel.empty_reason or '此时间范围内暂无带出处的人物活动。' }}</p>
+  {% endif %}
+</section>

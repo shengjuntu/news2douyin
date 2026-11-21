@@ -43,7 +43,7 @@ class Publisher(BaseHTTPRequestHandler):
 
 
 def main():
-    assert importlib.metadata.version('news2douyin')=='0.48.0'
+    assert importlib.metadata.version('news2douyin')=='0.49.0'
     publisher=ThreadingHTTPServer(('127.0.0.1',0),Publisher)
     thread=Thread(target=publisher.serve_forever,daemon=True);thread.start()
     try:
@@ -102,7 +102,7 @@ def main():
                 assert client.get(selected.json()['url']).status_code==200
             finally:client.close();engine.dispose()
     finally:publisher.shutdown();publisher.server_close();thread.join(timeout=2)
-    print(json.dumps(dict(status='passed',version='0.48.0',checks=[
+    print(json.dumps(dict(status='passed',version='0.49.0',checks=[
         'packaged_source_modules_and_ui','local_identity_headline_and_excerpt','missing_content_explicit',
         'same_origin_enrich','durable_background_source_worker','real_local_http_preview_extraction',
         'network_without_sql_connection','read_only_content_poll','real_report_translation_input',

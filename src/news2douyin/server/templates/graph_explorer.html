@@ -40,7 +40,10 @@
       <button id="graph-zoom-in" class="ghost" type="button" aria-label="放大" disabled>＋</button>
       <button id="graph-fit" class="ghost" type="button" disabled>适合视图</button>
       <button id="graph-clear" class="ghost" type="button" disabled>清除选中</button>
-      {% if mode == 'focus' and selected %}<a id="graph-causal-jump" href="#causal-panel">事件溯源</a>{% endif %}
+      {% if mode == 'focus' and selected %}
+      <a href="/focus/{{ selected.key|urlencode }}?view=people">人物图</a>
+      <a id="graph-causal-jump" href="#causal-panel">事件溯源</a>
+      {% endif %}
     </div>
   </div>
   <p id="graph-status" role="status" aria-live="polite">正在加载图谱…</p>

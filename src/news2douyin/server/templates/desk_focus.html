@@ -45,6 +45,7 @@
     </header>
     <nav class="focus-view-tabs" aria-label="焦点内容">
       <a href="/focus/{{ w.key|urlencode }}"{% if view=='events' %} aria-current="page"{% endif %}>事件</a>
+      <a href="?view=people"{% if view=='people' %} aria-current="page"{% endif %}>人物图</a>
       <a href="?view=leads"{% if view=='leads' %} aria-current="page"{% endif %}>候选报道</a>
       <a href="?view=archive"{% if view=='archive' %} aria-current="page"{% endif %}>档案</a>
     </nav>
@@ -215,6 +216,8 @@
         {% if offset+30<total %}<a href="?{{ paging }}&offset={{ offset+30 }}">下一页 →</a>{% endif %}
       </nav>
     </section>
+    {% elif view=='people' %}
+    {% include 'focus_people.html' %}
     {% else %}
     <details class="card focus-detail">
       <summary>连接 Agent</summary>

@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Literal
 from urllib.parse import urlsplit, urlencode
 from fastapi import Request, Query, Depends, HTTPException
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import func
 from sqlmodel import Session, select
@@ -79,6 +79,17 @@ def register_desk(app,engine,render):
         return dict(back=request.url.path+('?' + request.url.query if request.url.query else ''),
             indexing=s.exec(select(func.count()).select_from(DeskDirty)).one(),
             graph_enabled=bool(mirror.url),graph_error=mirror.last_error,knowledge=status(s,mirror))
+
+    def focus_people(s, watch, *, person, days, until):
+        from ..desk.people_view import page
+        return task_call(page, s, watch, person=person, days=days, until=until)
+
+    @app.get('/api/focus/{key}/people')
+    def people(key: str, person: str = Query('', max_length=160), days: int = Query(30, ge=1, le=365),
+               until: str = Query('', max_length=10), s=Depends(db)):
+        return JSONResponse(focus_people(s, key, person=person, days=days, until=until),
+                            headers={'Cache-Control': 'private, no-cache'})
+
     @app.get('/')
     def home(request:Request):
         return RedirectResponse('/focus' if request.cookies.get('n2d_desk')=='focus' else '/radar',302)
@@ -150,7 +161,9 @@ def register_desk(app,engine,render):
               video_key:str=Query('',max_length=160),hotspot:str=Query('',max_length=128),risk:str=Query('',max_length=76),
               day:str=Query('',max_length=10),
               date_basis:Literal['observed','occurred']='observed',
-              view:Literal['events','leads','archive']='events',s=Depends(db)):
+              view:Literal['events','leads','archive','people']='events',
+              person:str=Query('',max_length=160),people_days:int=Query(30,ge=1,le=365),
+              people_until:str=Query('',max_length=10),s=Depends(db)):
         from ..desk.focus_lifecycle import visible_watch, trash_items
         from ..desk.focus_leads import recent
         from ..desk.focus_read import checked_dates
@@ -193,6 +206,7 @@ def register_desk(app,engine,render):
         w=task_call(desk.get_watch,s,key) if key else None
         events=bool(w and view=='events')
         archive=bool(w and view=='archive')
+        people_data=focus_people(s,w,person=person,days=people_days,until=people_until) if w and view=='people' else None
         leads,more_leads=recent(s,w,offset=lead_offset) if w and view=='leads' else ([],False)
         total,items=desk.focus_entries(s,key,offset,order=order,branch=branch,day=day,date_basis=date_basis) if events else (0,[])
         reviews=s.exec(select(WatchReview,ResearchCase,ResearchRun).outerjoin(ResearchCase,ResearchCase.case_id==WatchReview.case_key)
@@ -242,7 +256,7 @@ def register_desk(app,engine,render):
             changes=changes,point_material=point_material,content_tasks=related(s,watch=key) if archive else [],
             order=order,branch=branch,branches=branches,tags=tags,questions=questions,summaries=summaries,
             candidate_dates=focus_timeline(s,key) if archive else [],action_labels=LABELS,points=outline.points(s,key) if archive else [],point_history=outline.history(s,key) if archive else [],
-            timeline=moments,excluded=excluded,paging=paging,focus_view=view,day=day,date_basis=date_basis,
+            timeline=moments,excluded=excluded,paging=paging,focus_view=view,day=day,date_basis=date_basis,people=people_data,
             seed_title=seed_event.event_title if seed_event else '',seed_text=seed_text,
             seed_name=seed_name,seed_terms=seed_terms,
             draft_scope=f'hotspot/{hotspot}' if hotspot else f'risk/{risk}' if risk else f'{video_day}/{video_key}' if video_key else seed,
