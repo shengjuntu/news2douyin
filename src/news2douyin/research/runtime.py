@@ -172,7 +172,12 @@ class ResearchRuntime:
                 from ..editorial.short_scripts import prompt as short_prompt
                 prompt += short_prompt(json.loads(short.options_json))
             if causal:
-                prompt = causal_dispatch.prompt(row, case, causal, instruction)
+                if causal_dispatch.program_for(s, causal):
+                    from ..causal.agent_tools import register_program_sources
+                    register_program_sources(s, causal, case, row)
+                    prompt = causal_dispatch.analysis_prompt(row, case, causal, instruction)
+                else:
+                    prompt = causal_dispatch.prompt(row, case, causal, instruction)
             if topic:
                 message = TopicMessage(message_id=message_key,request_id=message_input.request_id,workspace_id=topic.workspace_id,request_hash=message_hash,
                     run_id=row.run_id,text=instruction,context_json=svc.dump(topics.message_context(s,topic)))
@@ -242,6 +247,7 @@ class ResearchRuntime:
             from ..topics import service as topics
             library_only = topics.by_case(s,run.case_id) is not None
             causal = causal_dispatch.link_for(s, run.case_id)
+            analysis_only = bool(causal and causal_dispatch.analysis_only(s, run_id))
             if run.status=='queued': run.started_at=svc.utc_now_iso()
             run.status='starting'; run.dispatch_done=False; s.add(run); s.commit()
         config=self.settings.get()
@@ -265,7 +271,7 @@ class ResearchRuntime:
             if not submission.turn_attempted:
                 if not library_only and not causal: require_search_route(plan.search_provider if plan else '', plan.search_backend if plan else '')
                 if plan.mode == 'local':
-                    status = local_runtime_status(client, config, library_only=library_only, causal=bool(causal))
+                    status = local_runtime_status(client, config, library_only=library_only, causal=bool(causal), analysis_only=analysis_only)
                     if not status['ready']:
                         raise ValueError(status['message'])
             if plan and plan.mode == 'docker' and not submission.turn_attempted:
@@ -283,7 +289,7 @@ class ResearchRuntime:
                     p.status = 'preparing'; s.add(p); s.commit()
                 fixed = {**config, 'search_provider': plan.search_provider, 'search_backend': plan.search_backend}
                 prepared = prepare_runtime(client, fixed)
-                env = validate_runtime(prepared, fixed, library_only=library_only, causal=bool(causal))
+                env = validate_runtime(prepared, fixed, library_only=library_only, causal=bool(causal), analysis_only=analysis_only)
                 with Session(self.engine, expire_on_commit=False) as s:
                     svc.locked(s); current = s.get(ResearchRun, run_id)
                     if current.status == 'stopping' or current.status not in svc.ACTIVE: return

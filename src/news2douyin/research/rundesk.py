@@ -278,11 +278,14 @@ def configure_docker_full_access(client, config):
 RESEARCH_TOOLS = {'research_get_case', 'research_search', 'research_record_search', 'research_read_source', 'research_save_question', 'research_save_claim', 'research_save_report', 'research_save_short_script'} | {'topic_get_workspace','topic_search_library','topic_read_article','topic_save_candidates','topic_save_reply'}
 CAUSAL_TOOLS = {'causal_get_investigation', 'causal_search_events', 'causal_save_step',
                 'research_get_case', 'research_read_source', 'research_save_claim', 'research_save_report'}
+CAUSAL_ANALYSIS_TOOLS = {'causal_get_investigation', 'research_get_case', 'research_read_source',
+                         'research_save_claim', 'research_save_report'}
 CAUSAL_WEB_TOOLS = {'research_search', 'research_record_search'}
 
 
-def validate_causal_tools(servers):
-    if not CAUSAL_TOOLS <= set(servers.get('news2douyin-research', [])):
+def validate_causal_tools(servers, *, analysis_only=False):
+    required = CAUSAL_ANALYSIS_TOOLS if analysis_only else CAUSAL_TOOLS
+    if not required <= set(servers.get('news2douyin-research', [])):
         raise ValueError('未发现完整因果探索与证据保存工具，请刷新所选 RunDesk 运行环境中的 news2douyin-research MCP。')
 
 
@@ -331,7 +334,7 @@ def validate_search_tools(servers, config):
         raise ValueError('未发现 Exa 搜索工具，请在 RunDesk 启用 Exa MCP 并检查网络；不会回退到新闻采集的搜索服务')
 
 
-def validate_runtime(value, config, *, library_only=False, causal=False):
+def validate_runtime(value, config, *, library_only=False, causal=False, analysis_only=False):
     if not isinstance(value, dict) or value.get('instanceId') != config['instance_id'] or value.get('workspaceId') != config['workspace_id']:
         raise ValueError('容器回执与研究应用绑定不一致')
     if (causal or config.get('runtime_preset_id')) and value.get('presetId', '') != config.get('runtime_preset_id', ''):
@@ -344,13 +347,13 @@ def validate_runtime(value, config, *, library_only=False, causal=False):
     if not value.get('accountReady'):
         raise ValueError('Docker 环境尚未配置模型认证，请在 RunDesk 此应用的模型与认证页面完成配置')
     servers = value.get('servers') or {}
-    if causal: validate_causal_tools(servers)
+    if causal: validate_causal_tools(servers, analysis_only=analysis_only)
     elif library_only: validate_library_tools(servers)
     else: validate_search_tools(servers, config)
     return env
 
 
-def local_runtime_status(client, config, *, library_only=False, causal=False):
+def local_runtime_status(client, config, *, library_only=False, causal=False, analysis_only=False):
     path = '/workspaces/' + quote(config['workspace_id'], safe='')
     account = client.request('GET', path + '/account', params={'instanceId': config['instance_id']})
     overview = client.request('GET', '/instances/' + quote(config['instance_id'], safe='') + '/configuration',
@@ -361,17 +364,18 @@ def local_runtime_status(client, config, *, library_only=False, causal=False):
               'skills': [{'name': v.get('name'), 'scope': v.get('sourceScope'), 'enabled': v.get('enabled')} for v in overview.get('skills', [])],
               'configuration_errors': overview.get('errors', {}),
               'tools': servers.get('news2douyin-research', []),
-              'mcp_ready': (CAUSAL_TOOLS if causal else RESEARCH_TOOLS) <= set(servers.get('news2douyin-research', [])),
-              'search_ready': causal_web_ready(servers) if causal else 'web_search_exa' in servers.get('exa', [])}
+              'mcp_ready': (CAUSAL_ANALYSIS_TOOLS if causal and analysis_only else CAUSAL_TOOLS if causal else RESEARCH_TOOLS) <= set(servers.get('news2douyin-research', [])),
+              'search_ready': False if analysis_only else causal_web_ready(servers) if causal else 'web_search_exa' in servers.get('exa', [])}
     try:
         if not result['account_ready']:
             raise ValueError('尚未配置模型认证，请在 RunDesk 完成认证')
         if result['configuration_errors']:
             raise ValueError('RunDesk 配置探测未通过，请检查模型和 MCP 配置')
-        if causal: validate_causal_tools(servers)
+        if causal: validate_causal_tools(servers, analysis_only=analysis_only)
         elif library_only: validate_library_tools(servers)
         else: validate_search_tools(servers, config)
-        result.update(ready=True, message=('模型认证与因果工具检查完成；Exa 为可选补充，尚未验证调查质量'
+        result.update(ready=True, message=('模型认证与搜索树解读工具检查完成；本轮不检索或改写树'
+                      if causal and analysis_only else '模型认证与因果工具检查完成；Exa 为可选补充，尚未验证调查质量'
                       if causal else '模型认证、研究工具和 Exa 检查完成；尚未验证真实研究质量'))
     except ValueError as exc:
         result.update(ready=False, message=str(exc))

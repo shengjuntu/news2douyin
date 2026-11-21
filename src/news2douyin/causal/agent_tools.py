@@ -1,5 +1,6 @@
 """Case-scoped, evidence-backed investigation tools for an existing research run."""
 from datetime import date, datetime
+import hashlib
 import re
 from typing import Annotated, Literal
 from uuid import uuid4
@@ -15,7 +16,7 @@ from ..storage.models import utc_now_iso
 from ..storage.utils import dumps, loads
 from . import service as causal
 from .chronology import CHINESE_DATE, LITERAL, eligible, interval, sqlite_utc_bound
-from .models import CausalAgentLink, CausalAgentNote, CausalAgentQuery, CausalNode
+from .models import CausalAgentLink, CausalAgentNote, CausalAgentQuery, CausalJob, CausalNode, CausalProgramStep
 from .retrieval import retrieve
 
 
@@ -27,9 +28,9 @@ Key = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_
 Day = Annotated[str, StringConstraints(pattern=r'^\d{4}-\d{2}-\d{2}$')]
 Reason = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]
 Relation = Literal['possible_cause', 'context', 'contradicts', 'document_reference']
-_ENGLISH_DATE = re.compile(
-    r'\b(?:January|February|March|April|May|June|July|August|September|October|November|December)'
-    r'\s+\d{1,2},\s*\d{4}\b', re.IGNORECASE)
+_MONTH = r'(?:January|February|March|April|May|June|July|August|September|October|November|December)'
+_ENGLISH_DATE = re.compile(r'\b(?:' + _MONTH + r'\s+\d{1,2},\s*\d{4}|\d{1,2}\s+' +
+                           _MONTH + r'\s+\d{4})\b', re.IGNORECASE)
 
 
 class AgentArgs(BaseModel):
@@ -169,24 +170,52 @@ def _in_scope(candidate, lower, upper, anchor):
 
 
 def _get(engine, args):
+    from ..research.causal_dispatch import analysis_only, ANALYSIS_TOOLS
     with Session(engine) as session:
         link, case, research_case, run = _scope(session, args.run_id)
+        analysis = analysis_only(session, run.run_id)
+        # Already-saved sources are bounded by the research case cap. No source
+        # is registered, fetched or modified by this read-only tree tool.
+        source_index = {row.source_id: row for row in session.exec(select(ResearchSource).where(
+            ResearchSource.case_id == research_case.case_id))} if analysis else {}
         nodes = []
-        rows = session.exec(select(CausalNode, CausalAgentNote).outerjoin(
+        rows = list(session.exec(select(CausalNode, CausalAgentNote, CausalProgramStep, CausalJob).outerjoin(
             CausalAgentNote, CausalAgentNote.node_key == CausalNode.key
-        ).where(CausalNode.case_key == case.key).order_by(CausalNode.depth, CausalNode.key).limit(causal.MAX_TREE_NODES))
-        for node, note in rows:
-            nodes.append(dict(key=node.key, parent_key=node.parent_key, ref=node.ref, text=node.text[:800],
+        ).outerjoin(CausalProgramStep, CausalProgramStep.node_key == CausalNode.key
+        ).outerjoin(CausalJob, CausalJob.node_key == CausalNode.key
+        ).where(CausalNode.case_key == case.key).order_by(CausalNode.depth, CausalNode.key).limit(causal.MAX_TREE_NODES)))
+        completed_steps = sum(bool(job and job.state in {'ready', 'failed'}) for _node, _note, _step, job in rows)
+        for node, note, step, job in rows:
+            sources = loads(node.sources_json, [])
+            evidence = _program_evidence(research_case, sources, source_index) if analysis else _claim_evidence(sources)[:1]
+            value = dict(key=node.key, parent_key=node.parent_key, ref=node.ref, text=node.text[:800],
                               occurred_at=node.occurred_at, published_at=node.published_at, depth=node.depth,
                               time_status=node.time_status, relation=note.relation if note else '',
-                              expandable=_expandable(node, note),
-                              evidence=_claim_evidence(loads(node.sources_json, []))[:1],
-                              stop_reason=note.stop_reason if note else ''))
-        return dict(case_key=case.key, run_id=run.run_id, event_at=case.event_at, text=case.text,
+                              expandable=False if analysis else _expandable(node, note), evidence=evidence,
+                              stop_reason=(step.stop_reason if step else '') or (note.stop_reason if note else ''))
+            if analysis:
+                value.update(queries=loads(step.queries_json, []) if step else [],
+                    candidate_count=step.candidate_count if step else None,
+                    retrieval_mode=step.retrieval_mode if step else '',
+                    job_state=job.state if job else '', job_error=job.error if job else '',
+                    source_refs=[dict(url=source.get('url', ''), title=source.get('title', ''),
+                        kind=source.get('kind', ''), published_at=source.get('published_at', ''),
+                        quote=source.get('quote', '')[:1500]) for source in sources if isinstance(source, dict)][:8],
+                    notice='已有树中的线索与原摘录；evidence 为空时不能作为已核对的事实证据。')
+                if node.depth and not job and not value['stop_reason']:
+                    value['stop_reason'] = causal.program_leaf_reason(
+                        {**value, 'expandable': bool(causal._program_child(node)) and node.depth < causal.MAX_DEPTH},
+                        steps=completed_steps, node_count=len(rows))
+            nodes.append(value)
+        result = dict(case_key=case.key, run_id=run.run_id, event_at=case.event_at, text=case.text,
                     date_from=link.date_from, cutoff=run.cutoff or research_case.cutoff, nodes=nodes,
-                    limits=dict(searches=MAX_SEARCHES, searches_per_parent=SEARCHES_PER_PARENT,
+                    limits=dict(searches=0 if analysis else MAX_SEARCHES, searches_per_parent=0 if analysis else SEARCHES_PER_PARENT,
                                 branches_per_depth=causal.BEAM_WIDTH, max_depth=causal.MAX_DEPTH,
                                 max_children=causal.RESULTS))
+        if analysis:
+            result.update(analysis_only=True, allowed_tools=sorted(ANALYSIS_TOOLS),
+                notice='程序搜索已结束。本轮仅阅读、核验和综合，不检索或修改树；搜索完成不表示因果已证实。')
+        return result
 
 
 def _search_result(row, lower, upper):
@@ -274,7 +303,8 @@ def _quote_dates(value):
             continue
     for text in _ENGLISH_DATE.findall(value):
         try:
-            dates.append(datetime.strptime(text, '%B %d, %Y').date().isoformat())
+            format_string = '%d %B %Y' if text[0].isdigit() else '%B %d, %Y'
+            dates.append(datetime.strptime(text, format_string).date().isoformat())
         except ValueError:
             continue
     return [point for value in dates if (point := interval(value))]
@@ -314,26 +344,81 @@ def _retrospective(candidate, relation, anchor, upper, lower, cutoff):
             'sources': [{**source, 'retrospective': True} for source in candidate['sources']]}
 
 
-def _register_local_excerpt(session, research_case, run, ref, source):
+def _local_quote(source, *, program=False):
+    quote = max((line.strip() for line in source['quote'].splitlines() if '\x00' not in line),
+                key=len, default='')
+    # add_source uses paragraphs of at most 1500 characters; analysis citations
+    # must remain a real continuous slice of the first registered paragraph.
+    return quote[:1500] if program else quote
+
+
+def _register_local_excerpt(session, research_case, run, ref, source, *, program_case_key=''):
     if source['kind'] not in _LOCAL_EXCERPT_KINDS or not source_url(source['url']):
         return source
     # Research evidence cites a single real paragraph. Keep any wider
     # multiline excerpt intact in the tree and register a literal slice.
-    quote = max((line.strip() for line in source['quote'].splitlines() if '\x00' not in line),
-                key=len, default='')
+    quote = _local_quote(source, program=bool(program_case_key))
     if not quote:
         return source
     published = source['published_at']
+    provenance = dict(content_kind='excerpt', source_kind=source['kind'], run_id=run.run_id,
+                      candidate_ref=ref, published_at=published)
+    if source.get('search_id'):
+        provenance['search_id'] = source['search_id']
+    if program_case_key:
+        provenance['causal_case_key'] = program_case_key
+        provenance['registration'] = 'existing_program_tree_excerpt'
     try:
         row = research.add_source(
             session, research_case, title=source['title'], url=source['url'], text=quote,
             kind='causal_excerpt', published_at=published,
-            provenance=dict(content_kind='excerpt', source_kind=source['kind'], run_id=run.run_id,
-                            search_id=source['search_id'], candidate_ref=ref, published_at=published))
+            provenance=provenance)
     except ValueError:
         # The research source cap must not discard verified tree evidence.
         return source
     return {**source, 'source_id': row.source_id, 'paragraph_id': 'P1', 'citation_quote': quote}
+
+
+def register_program_sources(session, link, research_case, run):
+    """Register existing literal tree excerpts at enqueue, without changing it.
+
+    Program retrieval predates this research run, so no agent query receipt is
+    invented. Only the same eligible local excerpt kinds as the older handoff
+    enter the case; headlines and event metadata remain non-citable leads.
+    """
+    rows = session.exec(select(CausalNode.ref, CausalNode.sources_json).where(
+        CausalNode.case_key == link.case_key).order_by(CausalNode.depth, CausalNode.key).limit(causal.MAX_TREE_NODES))
+    for ref, sources_json in rows:
+        for source in loads(sources_json, [])[:8]:
+            if not isinstance(source, dict) or any(not isinstance(source.get(field), str)
+                for field in ('kind', 'url', 'quote', 'title', 'published_at')):
+                continue
+            _register_local_excerpt(session, research_case, run, ref, source, program_case_key=link.case_key)
+
+
+def _program_evidence(research_case, sources, source_index):
+    evidence = []
+    for source in sources:
+        if not isinstance(source, dict):
+            continue
+        source_id = source.get('source_id', '')
+        paragraph_id = source.get('paragraph_id', '')
+        quote = source.get('citation_quote', source.get('quote', ''))
+        registered = source_index.get(source_id)
+        if registered is None and source.get('kind') in _LOCAL_EXCERPT_KINDS and isinstance(source.get('quote'), str):
+            quote = _local_quote(source, program=True)
+            content_hash = hashlib.sha256(quote.encode()).hexdigest()
+            source_id = 'src_' + research.digest([research_case.case_id, source.get('url', ''), 'causal_excerpt', content_hash])[:24]
+            registered, paragraph_id = source_index.get(source_id), 'P1'
+        if registered is None or registered.kind in {'search_snippet', 'event_metadata'} or not quote:
+            continue
+        paragraph = next((row.get('text', '') for row in loads(registered.paragraphs_json, [])
+                          if row.get('id') == paragraph_id), '')
+        if isinstance(quote, str) and quote in paragraph:
+            item = dict(source_id=registered.source_id, paragraph_id=paragraph_id, quote=quote)
+            if item not in evidence:
+                evidence.append(item)
+    return evidence[:8]
 
 
 def _claim_evidence(sources):
@@ -438,5 +523,8 @@ def call(engine, name, args):
         values = _TOOLS[name][0].model_validate(args)
     except ValidationError:
         raise ValueError('调查工具参数格式无效，请核对工具定义') from None
+    from ..research.causal_dispatch import require_allowed
+    with Session(engine) as session:
+        require_allowed(session, values.run_id, name, args)
     return {'causal_get_investigation': _get, 'causal_search_events': _search,
             'causal_save_step': _save}[name](engine, values)

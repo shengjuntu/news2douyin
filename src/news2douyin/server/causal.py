@@ -19,7 +19,7 @@ class InvestigationInput(BaseModel):
     event_key: Annotated[str, StringConstraints(strip_whitespace=True, max_length=160)] = ''
     focus_key: Annotated[str, StringConstraints(strip_whitespace=True, max_length=100)] = ''
     automatic: bool = False
-    runner: Literal['local', 'agent'] = 'local'
+    runner: Literal['local', 'program', 'agent'] = 'local'
     date_from: Annotated[str, StringConstraints(strip_whitespace=True, max_length=10)] = ''
 
 
@@ -69,7 +69,7 @@ def register(app, engine, render):
 
     @app.post('/api/causal/investigations', status_code=202, dependencies=[Depends(same_origin)])
     def create(payload: InvestigationInput):
-        local = payload.runner == 'local'
+        local = payload.runner != 'agent'
         if local:
             _configured()
         try:
@@ -77,7 +77,8 @@ def register(app, engine, render):
                 agent.check_config(app.state.research)
             with session_scope(engine) as session:
                 key = service.create(session, payload.text, payload.event_at, payload.event_key,
-                                     payload.automatic, focus_key=payload.focus_key, queue_local=local)
+                                     payload.automatic, focus_key=payload.focus_key, queue_local=local,
+                                     program=payload.runner == 'program', date_from=payload.date_from)
                 if local:
                     result = service.view(session, key)
                 else:

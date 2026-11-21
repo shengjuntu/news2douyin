@@ -60,6 +60,20 @@ class CausalFocus(SQLModel, table=True):
     focus_key: str = Field(index=True)
 
 
+class CausalProgram(SQLModel, table=True):
+    case_key: str = Field(primary_key=True)
+    date_from: str
+
+
+class CausalProgramStep(SQLModel, table=True):
+    node_key: str = Field(primary_key=True)
+    case_key: str
+    queries_json: str = '[]'
+    candidate_count: int = 0
+    retrieval_mode: str = ''
+    stop_reason: str = ''
+
+
 class CausalAgentLink(SQLModel, table=True):
     case_key: str = Field(primary_key=True)
     research_case_id: str = Field(index=True, unique=True)

@@ -2,7 +2,10 @@
 from collections import defaultdict
 from datetime import date, datetime, timezone
 from itertools import zip_longest
+from math import fsum, hypot, isfinite
+import os
 import re
+import unicodedata
 
 from sqlalchemy import func, or_, union_all
 from sqlalchemy.orm import aliased
@@ -13,8 +16,9 @@ from ..desk.rules import ALIASES
 from ..event_embeddings.documents import profile
 from ..event_embeddings.runtime import vector_client
 from ..event_embeddings.search import find_similar
+from ..event_embeddings.models import EventEmbeddingJob, EventEmbeddingRecord
 from ..intake.official_models import OfficialEvent
-from ..llm.client.embedding import EmbeddingError
+from ..llm.client.embedding import EmbeddingError, EmbeddingConfigurationError
 from ..research.materials import LEAD_KINDS
 from ..search.index import index_available
 from ..search.service import _match
@@ -146,25 +150,29 @@ def _candidate(ref, label, sources, upper, *, event_key='', occurred_at='', simi
                 published_at=min(known, default=''), sources=evidence, similarity=similarity)
 
 
-def _curated(session, terms, indexed, lower, upper, exclude, similarities):
+def _curated(session, terms, indexed, lower, upper, exclude, similarities, *, event_keys=None, limit=MAX_RESULTS):
     title = func.coalesce(EventState.title_override, Event.event_title)
     prefix = (select(Event.event_key, func.substr(title, 1, 500), func.substr(Event.summary, 1, 850))
               .outerjoin(EventState, EventState.event_key == Event.event_key)
               .where(or_(EventState.merged_into.is_(None), EventState.merged_into == ''),
-                     Event.event_key.not_in(exclude), _window(Event.first_seen_at, lower, upper)))
+                     Event.event_key.not_in(exclude)))
+    if event_keys is None:
+        prefix = prefix.where(_window(Event.first_seen_at, lower, upper))
+    else:
+        prefix = prefix.where(Event.event_key.in_(event_keys))
     lexical = {}
-    if terms:
+    if terms and event_keys is None:
         statement = (prefix.where(_search(Event, (Event.event_title, Event.summary, Event.topic), terms, indexed))
                      .order_by(Event.first_seen_at.desc(), Event.event_key).limit(MAX_RESULTS))
         if not indexed:
             pool = select(Event.id).where(_window(Event.first_seen_at, lower, upper))
             statement = statement.where(Event.id.in_(pool.order_by(Event.first_seen_at.desc()).limit(LOCAL_SCAN)))
         lexical = {key: (title, summary) for key, title, summary in session.exec(statement)}
-    keys = sorted(similarities, key=lambda key: -similarities[key])
+    keys = list(event_keys) if event_keys is not None else sorted(similarities, key=lambda key: -similarities[key])
     matches = {key: (title, summary) for key, title, summary in session.exec(
         prefix.where(Event.event_key.in_(keys))
     )} if keys else {}
-    keys = list(dict.fromkeys((*keys, *lexical)))[:MAX_RESULTS]
+    keys = list(dict.fromkeys((*keys, *lexical)))[:limit]
     matches.update(lexical)
     keys = [key for key in keys if key in matches]
     if not keys:
@@ -214,6 +222,231 @@ def _curated(session, terms, indexed, lower, upper, exclude, similarities):
         if candidate['sources']:
             result.append(candidate)
     return result
+
+
+# The program-controlled tree has a wider recall budget than the legacy
+# interactive tool. All new behavior is opt-in through retrieve_for_tree.
+TREE_RESULT_LIMIT = 32
+TREE_POOL_LIMIT = 144
+TREE_SLICES = 4
+TREE_PER_SLICE = 24
+TREE_EMBED_BATCH = 16
+
+
+def _tree_terms(queries, event_text):
+    """Broaden Chinese phrases without requiring a new tokenizer dependency."""
+    base = _terms(queries)
+    chunks = []
+    for value in queries:
+        for run in re.findall(r'[\u3400-\u9fff]{4,}', value):
+            chunks.extend(run[i:i+4] for i in range(0, len(run)-3, 2))
+    # Parent terms aid recall, but never displace the proposed mechanisms.
+    return list(dict.fromkeys([*base, *chunks, *_terms([event_text[:500]])]))[:32]
+
+
+def _tree_point(value):
+    parsed = datetime.fromisoformat(value.replace('Z', '+00:00'))
+    return parsed.replace(tzinfo=timezone.utc) if parsed.tzinfo is None else parsed.astimezone(timezone.utc)
+
+
+def _tree_bins(lower, upper):
+    start,stop = _tree_point(lower),_tree_point(upper)
+    if start >= stop:
+        return []
+    points = [start+(stop-start)*i/TREE_SLICES for i in range(TREE_SLICES+1)]
+    return [(a.replace(tzinfo=None).isoformat(timespec='seconds'),
+             b.replace(tzinfo=None).isoformat(timespec='seconds')) for a,b in zip(points, points[1:])]
+
+
+def _tree_pool(session, terms, indexed, lower, upper, exclude):
+    """Stratify by source/occurrence clocks, not merely newest ingestion IDs.
+
+    Each slice reads at most 24 event keys, 24 article keys and 12 official
+    leads. SQL LIMITs bound returned payloads; they are not a promise that a
+    backend can evaluate every full-text predicate without an index scan.
+    """
+    event_keys, article_keys, official = [], [], []
+    excluded_articles = select(ArticleEventLink.article_key).where(ArticleEventLink.event_key.in_(exclude))
+    for first,last in _tree_bins(lower, upper):
+        published = or_(_window(Article.published_at, first, last), Article.published_at == first[:10])
+        unknown = (Article.published_at == '') & _window(Article.fetched_at, first, last)
+        source_time = select(ArticleEventLink.event_key).join(Article, Article.article_key == ArticleEventLink.article_key).where(
+            ArticleEventLink.event_key == Event.event_key, published).correlate(Event).exists()
+        occurred = select(EventMoment.event_key).where(EventMoment.event_key == Event.event_key,
+            EventMoment.reviewed.is_(True), EventMoment.deleted.is_(False), EventMoment.time_kind == 'occurred',
+            EventMoment.date_start >= first[:10], EventMoment.date_start <= last[:10]).correlate(Event).exists()
+        undated = (_window(Event.first_seen_at, first, last) & ~select(ArticleEventLink.event_key).join(
+            Article, Article.article_key == ArticleEventLink.article_key).where(
+                ArticleEventLink.event_key == Event.event_key, Article.published_at != '').correlate(Event).exists())
+        statement = (select(Event.event_key).outerjoin(EventState, EventState.event_key == Event.event_key)
+            .where(or_(EventState.merged_into.is_(None), EventState.merged_into == ''), Event.event_key.not_in(exclude),
+                or_(source_time, occurred, undated), _search(Event, (Event.event_title, Event.summary, Event.topic), terms, indexed))
+            .order_by(Event.event_key).limit(TREE_PER_SLICE)
+            .execution_options(n2d_query_name='causal.tree.event_recall'))
+        if not indexed:
+            # Bound the temporal candidate set *before* broad LIKE predicates.
+            # Each time slice has its own cap, rather than only taking today's
+            # newest imported events. Deriving the temporal set can still scan
+            # source/moment indexes; LIMIT is not a global I/O guarantee.
+            pool = (select(Event.event_key).where(or_(source_time, occurred, undated))
+                .order_by(Event.event_key).limit(LOCAL_SCAN).correlate(None))
+            statement = statement.where(Event.event_key.in_(pool))
+        event_keys.extend(session.exec(statement))
+        statement = (select(Article.article_key).where(or_(published, unknown), Article.is_duplicate.is_(False),
+            Article.article_key.not_in(excluded_articles),
+            _search(Article, (Article.title, Article.content), terms, indexed))
+            .order_by(Article.published_at, Article.article_key).limit(TREE_PER_SLICE)
+            .execution_options(n2d_query_name='causal.tree.article_recall'))
+        if not indexed:
+            pool = (select(Article.id).where(or_(published, unknown))
+                .order_by(Article.published_at, Article.article_key).limit(LOCAL_SCAN).correlate(None))
+            statement = statement.where(Article.id.in_(pool))
+        article_keys.extend(session.exec(statement))
+        official.extend(_official(session, terms, first, last))
+    event_keys = list(dict.fromkeys(event_keys))
+    curated = _curated(session, terms, indexed, lower, upper, sorted(exclude), {},
+        event_keys=event_keys, limit=TREE_PER_SLICE*TREE_SLICES) if event_keys else []
+    keys = list(dict.fromkeys(article_keys))
+    articles = []
+    if keys:
+        for row in session.exec(select(*_article_fields()).where(Article.article_key.in_(keys))
+                .execution_options(n2d_query_name='causal.tree.article_material')):
+            source = _article_source(row, terms)
+            if source:
+                articles.append(_candidate('article:'+row[0], source['title']+'\n'+source['quote'], [source], upper))
+    # Prefer one curated interpretation for a report. Still keep distinct
+    # curated events even when they share reporting, as in the legacy path.
+    urls = {canonicalize_url(item['sources'][0]['url']) for item in curated}
+    found, refs, identical = [], set(exclude), set()
+    for group in zip_longest(curated, articles, official):
+        for item in group:
+            if not item or item['ref'] in refs or not item['sources']:
+                continue
+            uri = canonicalize_url(item['sources'][0]['url'])
+            fingerprint = (unicodedata.normalize('NFKC',' '.join(item['text'].split())).casefold(),uri)
+            if fingerprint in identical:
+                continue
+            if not item['event_key'] and uri in urls:
+                continue
+            refs.add(item['ref']);urls.add(uri);identical.add(fingerprint);found.append(item)
+            if len(found) >= TREE_POOL_LIMIT:
+                return found
+    return found
+
+
+def _tree_unit(value):
+    if not isinstance(value, list) or not value or any(type(x) not in (int,float) for x in value):
+        raise EmbeddingError('本地候选向量格式无效')
+    try:
+        size = hypot(*value)
+    except (ValueError, OverflowError):
+        raise EmbeddingError('本地候选向量不是有效有限数值') from None
+    if not size or not isfinite(size):
+        raise EmbeddingError('本地候选向量不是有效有限数值')
+    return [x/size for x in value]
+
+
+def _tree_lexical(candidate, terms):
+    text = (' '.join([candidate['text'], *(source['quote'] for source in candidate['sources'])])).casefold()
+    return sum(term.casefold() in text for term in terms)/max(1,len(terms))
+
+
+def retrieve_for_tree(engine, queries: list[str], *, lower: str, upper: str,
+                      exclude: set[str], event_text: str='') -> list[dict]:
+    """Wide local recall followed by ephemeral hybrid ranking (no writes/web).
+
+    Candidate DTOs remain compatible with retrieve. ``retrieval`` adds safe
+    diagnostics; vector scores are cosine similarities, never probabilities.
+    A missing/explicitly disabled embedding service uses labelled lexical
+    ranking. A configured service failure raises instead of claiming no hits.
+    """
+    queries = _queries(queries)
+    if not queries or not _tree_bins(lower, upper):
+        return []
+    terms = _tree_terms(queries, event_text)
+    if not terms:
+        return []
+    with Session(engine) as session:
+        indexed = index_available(session)
+        candidates = _tree_pool(session, terms, indexed, lower, upper, set(exclude))
+    pool_count = len(candidates)
+    # Apply real source clocks; ingestion clocks above are recall hints only.
+    from .chronology import eligible, interval
+    floor, ceiling = _tree_point(lower), _tree_point(upper)
+    retained = []
+    for item in candidates:
+        occurrence = interval(item.get('occurred_at', ''))
+        if occurrence and occurrence[1] <= floor:
+            continue
+        sources = [source for source in item['sources'] if not (
+            (stamp := interval(source.get('published_at',''))) and stamp[1] <= floor)]
+        if valid := eligible({**item,'sources':sources}, None, ceiling):
+            retained.append(valid)
+    candidates = retained
+    if not candidates:
+        return []
+    client, fallback = None, ''
+    try:
+        client = vector_client()
+    except EmbeddingConfigurationError:
+        from ..event_embeddings.queue import enabled
+        if not os.getenv('EMBEDDING_BASE_URL','').strip() or not enabled():
+            fallback = 'unconfigured' if not os.getenv('EMBEDDING_BASE_URL','').strip() else 'disabled'
+        else:
+            raise
+    vectors, computed, query_vectors = {}, set(), []
+    if client is not None:
+        inputs = [*queries, *([event_text[:4000]] if event_text.strip() else [])]
+        query_vectors = [_tree_unit(v) for v in client.get_embedding(inputs)]
+        if len(query_vectors) != len(inputs) or len({len(v) for v in query_vectors}) != 1:
+            raise EmbeddingError('归因查询返回向量数量或维度不符')
+        dimensions = len(query_vectors[0])
+        keys = [item['event_key'] for item in candidates if item['event_key']]
+        if keys:
+            with Session(engine) as session:
+                rows = session.exec(select(EventEmbeddingRecord.event_key, EventEmbeddingRecord.embedding)
+                    .join(EventEmbeddingJob, EventEmbeddingJob.event_key == EventEmbeddingRecord.event_key)
+                    .where(EventEmbeddingRecord.event_key.in_(keys), EventEmbeddingRecord.profile == profile(client),
+                        EventEmbeddingJob.state == 'ready').execution_options(n2d_query_name='causal.tree.stored_vectors')).all()
+            for key,raw in rows:
+                try:
+                    value = _tree_unit(loads(raw, []))
+                    if len(value) == dimensions:vectors[key] = value
+                except EmbeddingError:
+                    continue
+        missing = [item for item in candidates if item['event_key'] not in vectors]
+        for start in range(0,len(missing),TREE_EMBED_BATCH):
+            part = missing[start:start+TREE_EMBED_BATCH]
+            texts = [('\n'.join([item['text'], *(source['quote'] for source in item['sources'])]))[:1800] for item in part]
+            result = client.get_embedding(texts)
+            if len(result) != len(part):
+                raise EmbeddingError('本地候选返回向量数量不符')
+            for item,value in zip(part,result):
+                unit = _tree_unit(value)
+                if len(unit) != dimensions:raise EmbeddingError('本地候选返回向量维度不符')
+                vectors[item['ref']] = unit;computed.add(item['ref'])
+    scored = []
+    for item in candidates:
+        lexical = _tree_lexical(item, terms)
+        vector = vectors.get(item['ref'], vectors.get(item['event_key']))
+        semantic = None
+        if vector is not None:
+            scores = [max(-1.,min(1.,fsum(a*b for a,b in zip(vector,q)))) for q in query_vectors]
+            hypotheses = max(scores[:len(queries)])
+            semantic = .8*hypotheses+.2*scores[-1] if len(scores)>len(queries) else hypotheses
+        rank_score = .8*semantic+.2*lexical if semantic is not None else lexical
+        item = {**item,'similarity':semantic if semantic is not None else 0.,'retrieval':dict(
+            mode='lexical_embedding' if client is not None else 'lexical', embedding_state=fallback or 'ready',
+            pool_count=pool_count,eligible_count=len(candidates),pool_limit=TREE_POOL_LIMIT,vector_score=semantic,
+            vector_ranked_count=len(candidates) if client is not None else 0,
+            hypothesis_queries=len(queries),parent_vector_used=bool(client is not None and event_text.strip()),
+            lexical_score=lexical,rank_score=rank_score,
+            candidate_vector='computed' if item['ref'] in computed else 'stored' if vector is not None else 'none',
+            time_basis='source_publication_or_reviewed_occurrence',score_kind='ranking_not_probability')}
+        item['retrieval']['keyword_indexed'] = indexed
+        scored.append(item)
+    scored.sort(key=lambda item:(-item['retrieval']['rank_score'],item['ref']))
+    return scored[:TREE_RESULT_LIMIT]
 
 
 def _articles(session, terms, indexed, lower, upper, exclude):

@@ -4,6 +4,7 @@ from threading import Event, Thread
 
 from .model import CausalModelError, configure
 from .service import claim, complete, investigate
+from . import tree_worker
 
 log = logging.getLogger(__name__)
 
@@ -20,14 +21,26 @@ class CausalWorker:
         if job is None:
             return False
         try:
-            results = investigate(self.engine, job)
+            if getattr(job, 'program', False):
+                step = tree_worker.investigate(self.engine, job)
+            else:
+                results = investigate(self.engine, job)
+        except tree_worker.ProgramStepFailure as exc:
+            complete(self.engine, job, error=str(exc), queries=exc.queries,
+                     candidate_count=exc.candidate_count, stop_reason=str(exc),
+                     retrieval_mode=exc.retrieval_mode)
         except CausalModelError as exc:
             complete(self.engine, job, error=str(exc))
         except Exception as exc:
             log.warning('Causal investigation lookup failed (%s)', type(exc).__name__)
             complete(self.engine, job, error='本轮本地检索失败，稍后可重试')
         else:
-            complete(self.engine, job, results)
+            if getattr(job, 'program', False):
+                complete(self.engine, job, step.results, queries=step.queries,
+                         candidate_count=step.candidate_count, stop_reason=step.stop_reason,
+                         retrieval_mode=step.retrieval_mode)
+            else:
+                complete(self.engine, job, results)
         return True
 
     def _loop(self):

@@ -5,6 +5,7 @@
   const el = id => document.getElementById(id);
   const form = el('causal-form');
   const tree = el('causal-tree');
+  const treeToggle = el('causal-tree-toggle');
   const history = el('causal-history');
   const agentForm = el('causal-agent-form');
   const agentMessage = 'causal-agent-message';
@@ -15,7 +16,8 @@
   const pageRoot = localPath(config.page_root) ? config.page_root : '/radar/causes';
   const focusKey = config.focus_key || '';
   const panel = el('causal-panel');
-  const stateLabels = {pending:'排队中', running:'查找中', failed:'查找失败'};
+  const stateLabels = {pending:'排队中', running:'查找中', ready:'已查找', failed:'查找失败'};
+  const programLabels = {pending:'等待查找', running:'逐层查找中', completed:'查找完成', partial:'部分完成'};
   const timeLabels = {earlier:'有更早公开证据', unknown:'先后未明', root:'待查事件'};
   const agentLabels = {
     draft:'待开始', queued:'排队中', preparing:'正在准备环境', starting:'正在提交',
@@ -28,6 +30,7 @@
   const relationLabels = {
     possible_cause:'可能前因', context:'背景', contradicts:'反证', document_reference:'参考线索'
   };
+  const retrievalLabels = {lexical_only:'关键词', lexical:'关键词', lexical_embedding:'关键词＋向量', hybrid:'关键词＋向量'};
   const repairLabels = {
     queued:'已排队', running:'补采中', partial:'仍有缺口', failed:'失败', completed:'已完成',
     submit_digest:'等待重算', awaiting_digest:'正在重算', completed_partial:'已用部分批次重算'
@@ -125,10 +128,10 @@
     throw error;
   }
 
-  function disclosure(label, key, open) {
+  function disclosure(label, key, open, defaultOpen = false) {
     const details = node('details');
     details.dataset.disclosure = key;
-    details.open = open.has(key);
+    details.open = open.get(key) ?? defaultOpen;
     details.append(node('summary', label));
     return details;
   }
@@ -157,8 +160,16 @@
     return details;
   }
 
-  function renderTree(items, caseKey, agentMode) {
-    const open = new Set([...tree.querySelectorAll('details[data-disclosure][open]')].map(item => item.dataset.disclosure));
+  function updateTreeToggle() {
+    const branches = [...tree.querySelectorAll('details[data-branch]')];
+    treeToggle.hidden = !branches.length;
+    treeToggle.textContent = branches.some(branch => !branch.open) ? '展开全部分支' : '折叠全部分支';
+  }
+
+  function renderTree({nodes:items, key:caseKey, agent, program, working}) {
+    const open = new Map([...tree.querySelectorAll('details[data-disclosure]')].map(
+      details => [details.dataset.disclosure, details.open]
+    ));
     const focused = document.activeElement?.dataset?.expand;
     const siblings = new Map();
     for (const item of items) {
@@ -182,15 +193,34 @@
           item.time_status !== 'root' && item.occurred_at && '发生 ' + item.occurred_at,
           item.published_at && '报道 ' + item.published_at].filter(Boolean);
         if (meta.length) card.append(node('p', meta.join(' · '), 'causal-node-meta'));
-        if (item.reason) card.append(node('p', item.reason));
+        if (item.hypothesis) card.append(node('p', '假设 · ' + item.hypothesis));
+        if (item.reason && item.reason !== item.hypothesis) card.append(node('p', item.reason));
         const evidence = showEvidence(item, open);
         if (evidence) card.append(evidence);
+        const retrieval = retrievalLabels[item.retrieval_mode];
+        if (item.queries?.length || Number.isInteger(item.candidate_count) || retrieval) {
+          const label = ['检索过程', retrieval, Number.isInteger(item.candidate_count) && item.candidate_count + ' 条候选']
+            .filter(Boolean).join(' · ');
+          if (item.queries?.length) {
+            const details = disclosure(label, 'query:' + item.key, open);
+            details.className = 'causal-queries';
+            const queries = node('ul');
+            for (const query of item.queries) queries.append(node('li', query));
+            details.append(queries);
+            card.append(details);
+          } else {
+            card.append(node('p', label, 'causal-node-meta'));
+          }
+        }
 
+        const branches = siblings.get(item.key) || [];
         const actions = node('div', undefined, 'row causal-node-actions');
         if (item.event_key) actions.append(link(withBack('/events/' + encodeURIComponent(item.event_key), caseKey), '查看整理事件'));
         if (stateLabels[item.job_state]) actions.append(node('span', stateLabels[item.job_state]));
-        if (!agentMode && !['pending', 'running'].includes(item.job_state)) {
-          const label = {failed:'重试查找', ready:'重新查找'}[item.job_state] || '沿此线索查找';
+        const programRetry = !working && item.expandable && !branches.length &&
+          (item.time_status === 'root' || ['ready', 'failed'].includes(item.job_state));
+        if (!agent && (!program || programRetry) && !['pending', 'running'].includes(item.job_state)) {
+          const label = {failed:'重试查找', ready:'重新查找'}[item.job_state] || (program ? '重新查找' : '沿此线索查找');
           const button = node('button', label, 'ghost');
           button.type = 'button';
           button.dataset.expand = item.key;
@@ -200,19 +230,19 @@
         if (actions.childNodes.length) card.append(actions);
         if (item.job_error) card.append(node('p', item.job_error, 'small causal-node-error'));
 
-        const branches = siblings.get(item.key) || [];
         if (item.stop_reason) {
           card.append(node('p', '停止追查 · ' + item.stop_reason, 'small muted'));
         } else if (!branches.length && item.job_state === 'ready') {
           card.append(node('p', '暂无可继续追查的候选。', 'small muted'));
         }
         entry.append(card);
-        if (branches.length) entry.append(renderList(branches.slice(0, 3), depth + 1));
-        if (branches.length > 3) {
-          const more = disclosure('查看其余 ' + (branches.length - 3) + ' 条', 'branches:' + item.key, open);
-          more.className = 'causal-other';
-          more.append(renderList(branches.slice(3), depth + 1));
-          entry.append(more);
+        if (branches.length) {
+          const children = disclosure('第 ' + (depth + 1) + ' 层 · ' + branches.length + ' 条线索',
+            'branches:' + item.key, open, depth === 0);
+          children.className = 'causal-child-group';
+          children.dataset.branch = '';
+          children.append(renderList(branches, depth + 1));
+          entry.append(children);
         }
         list.append(entry);
       }
@@ -220,6 +250,7 @@
     }
 
     tree.replaceChildren(renderList(siblings.get('') || [], 0));
+    updateTreeToggle();
     if (focused) [...tree.querySelectorAll('[data-expand]')].find(button => button.dataset.expand === focused)?.focus();
   }
 
@@ -232,13 +263,17 @@
     for (const button of tree.querySelectorAll('[data-expand]')) button.disabled = submitting || current.working;
   }
 
-  function renderAgent(agent, newCase, caseKey) {
+  function renderAgent(agent, program, working, newCase, caseKey) {
     if (!agentForm) return;
     const resumable = resumableAgent.has(agent?.status);
-    el('causal-agent').hidden = false;
-    agentForm.hidden = Boolean(agent && !resumable && !retryableAgent.has(agent.status));
-    el('causal-agent-submit').textContent = resumable ? '继续 RunDesk 研究' :
-      agent && agent.status !== 'draft' ? '重试 RunDesk 研究' : '交给 RunDesk';
+    el('causal-agent').hidden = !agent && working;
+    agentForm.hidden = working || Boolean(agent && !resumable && !retryableAgent.has(agent.status));
+    const date = agentForm.elements.date_from;
+    date.hidden = date.disabled = Boolean(program);
+    el('causal-agent-date-label').hidden = Boolean(program);
+    const action = program ? '解读' : '研究';
+    el('causal-agent-submit').textContent = resumable ? '继续 RunDesk ' + action :
+      agent && agent.status !== 'draft' ? '重试 RunDesk ' + action : '交给 RunDesk ' + action;
     const status = el('causal-agent-status');
     status.hidden = !agent;
     status.textContent = agent ? agentLabels[agent.status] || '状态待核' : '';
@@ -278,6 +313,8 @@
 
   function render(data) {
     const changed = !current || Boolean(current.agent) !== Boolean(data.agent) ||
+      Boolean(current.program) !== Boolean(data.program) || current.key !== data.key ||
+      (data.program && current.working !== data.working) ||
       JSON.stringify(current.nodes) !== JSON.stringify(data.nodes);
     const newCase = current?.key !== data.key;
     const changedRepairs = newCase || JSON.stringify(current.coverage?.repairs) !== JSON.stringify(data.coverage?.repairs);
@@ -285,23 +322,33 @@
     pollingKey = data.key;
     setRoot(form.elements.event_key.value);
     el('causal-result').hidden = false;
-    el('causal-progress').textContent = data.working ? '查找中' :
-      data.nodes.some(item => item.job_state === 'failed') ? '有分支待重试' : '本轮已结束';
+    const program = data.program;
+    el('causal-progress').textContent = programLabels[program?.status] || (data.working ? '查找中' :
+      data.nodes.some(item => item.job_state === 'failed') ? '有分支待重试' : '本轮已结束');
+    const progress = el('causal-program-progress');
+    progress.hidden = !program;
+    progress.textContent = program ? [
+      program.date_from && '查找起始日 ' + program.date_from,
+      '已查 ' + program.completed,
+      program.queued > 0 && '待查 ' + program.queued,
+      program.failed > 0 && '失败 ' + program.failed
+    ].filter(Boolean).join(' · ') : '';
     const anchor = el('causal-anchor');
     anchor.hidden = !data.event_at;
     anchor.textContent = data.event_at ? '检索时间 ' + data.event_at : '';
     el('causal-coverage').textContent = data.coverage?.message || '';
     localLink('causal-archive', data.coverage?.archive_path);
     const eventResearch = data.research_path?.startsWith('/events/');
-    localLink('causal-research', eventResearch ? withBack(data.research_path, data.key) : data.research_path);
+    const researchPath = eventResearch ? withBack(data.research_path, data.key) : data.research_path;
+    localLink('causal-research', program ? '' : researchPath);
     el('causal-research').textContent = eventResearch ? '补充检索' : '研究助手设置';
-    renderAgent(data.agent, newCase, data.key);
+    renderAgent(data.agent, program, data.working, newCase, data.key);
     if (newCase) {
       repairForm.elements.day.value = data.coverage?.suggested_day || '';
       message('', false, repairMessage);
     }
     if (changedRepairs) renderRepairs(data.coverage?.repairs || []);
-    if (changed) renderTree(data.nodes, data.key, Boolean(data.agent));
+    if (changed) renderTree(data);
     setControls();
   }
 
@@ -377,19 +424,18 @@
       message('请填写事件描述。', true);
       return;
     }
-    const runner = values.get('runner') === 'agent' ? 'agent' : 'local';
+    const isProgram = values.get('runner') === 'program';
     changeCase(apiRoot, {
       text, event_at:String(values.get('event_at') || '').trim(),
-      event_key:values.get('event_key') || '', automatic:runner === 'local' && values.has('automatic'),
-      focus_key:focusKey, runner, date_from:values.get('date_from') || ''
+      event_key:values.get('event_key') || '', automatic:isProgram || (!focusKey && values.has('automatic')),
+      focus_key:focusKey, runner:isProgram ? 'program' : 'local', date_from:isProgram ? (values.get('date_from') || '') : ''
     }, true);
   });
   function updateRunnerForm() {
-    const agent = form.elements.runner.value === 'agent';
-    el('causal-automatic').hidden = agent;
-    el('causal-date-options').hidden = !agent;
-    form.elements.date_from.disabled = !agent;
-    el('causal-submit').textContent = agent ? '用 RunDesk 查找' : '查找前因';
+    const program = form.elements.runner.value === 'program';
+    el('causal-date-options').hidden = !program;
+    form.elements.date_from.disabled = !program;
+    el('causal-at-label').textContent = program ? '事件时间' : '事件时间（可选）';
   }
   if (form.elements.runner) {
     form.elements.runner.addEventListener('change', updateRunnerForm);
@@ -398,8 +444,8 @@
   agentForm?.addEventListener('submit', event => {
     event.preventDefault();
     if (!current || current.working) return;
-    changeCase(apiRoot + '/' + encodeURIComponent(current.key) + '/agent',
-      {date_from:agentForm.elements.date_from.value}, false, agentMessage);
+    const payload = current.program ? {} : {date_from:agentForm.elements.date_from.value};
+    changeCase(apiRoot + '/' + encodeURIComponent(current.key) + '/agent', payload, false, agentMessage);
   });
   el('causal-root-clear').addEventListener('click', () => {
     setRoot('');
@@ -424,6 +470,15 @@
       changeCase(apiRoot + '/' + encodeURIComponent(current.key) + '/expand',
         {node_key:button.dataset.expand, automatic:false}, false);
     }
+  });
+  tree.addEventListener('toggle', event => {
+    if (event.target.matches('details[data-branch]')) updateTreeToggle();
+  }, true);
+  treeToggle.addEventListener('click', () => {
+    const branches = [...tree.querySelectorAll('details[data-branch]')];
+    const open = branches.some(branch => !branch.open);
+    for (const branch of branches) branch.open = open;
+    updateTreeToggle();
   });
 
   function requestRepair(day, retry = false) {

@@ -1,9 +1,10 @@
 """Persistent investigation tree and bounded branch expansion."""
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from time import time
 from urllib.parse import quote
 from uuid import uuid4
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import func, or_
 from sqlmodel import Session, select
@@ -15,11 +16,13 @@ from ..desk.service import current_membership
 from ..intake.models import DailyRepairJob
 from ..research import service as research_service
 from ..research.models import ResearchRun
+from ..search.dates import timezone_name
 from ..storage.articles import lock_news
 from ..storage.models import Event, EventMoment, EventState, utc_now_iso
 from ..storage.utils import dumps, loads
 from .chronology import eligible, inferred, interval, sqlite_utc_bound
-from .models import CausalAgentLink, CausalAgentNote, CausalArchiveLink, CausalFocus, CausalInvestigation, CausalJob, CausalNode
+from .models import (CausalAgentLink, CausalAgentNote, CausalArchiveLink, CausalFocus,
+                     CausalInvestigation, CausalJob, CausalNode, CausalProgram, CausalProgramStep)
 
 ACTIVE = ('pending', 'running')
 BEAM_WIDTH = 3
@@ -27,6 +30,7 @@ LOOKBACK = timedelta(days=90)
 LEASE_SECONDS = 480
 MAX_DEPTH = 10
 MAX_TREE_NODES = 160
+PROGRAM_MAX_STEPS = 18
 RESULTS = 8
 
 
@@ -64,7 +68,25 @@ def _new_job(case, node, automatic):
                      due_at=time(), state='pending', automatic=automatic)
 
 
-def create(session, text, event_at, event_key, automatic, *, focus_key='', queue_local=True):
+def _program_date(root_at, date_from, now):
+    point = interval(root_at)
+    if point is None:
+        raise ValueError('逐层查找需要根事件的发生日期，请填写事件时间或选择已有核对日期的事件')
+    if point[0] > now:
+        raise ValueError('根事件发生日期不能晚于当前时间')
+    if not date_from:
+        local_day = point[0].astimezone(ZoneInfo(timezone_name())).date()
+        date_from = (local_day - timedelta(days=min(LOOKBACK.days, (local_day - date.min).days))).isoformat()
+    beginning = interval(date_from)
+    if len(date_from) != 10 or not beginning:
+        raise ValueError('最早查找日期须为 YYYY-MM-DD')
+    if beginning[0] >= point[0]:
+        raise ValueError('最早查找日期须早于根事件发生时间')
+    return date_from
+
+
+def create(session, text, event_at, event_key, automatic, *, focus_key='', queue_local=True,
+           program=False, date_from=''):
     if focus_key:
         lock_news(session, 'watch:' + focus_key)
         require_active(session, focus_key)
@@ -79,12 +101,16 @@ def create(session, text, event_at, event_key, automatic, *, focus_key='', queue
     if event_at and interval(event_at) is None:
         raise ValueError('请输入有效日期或 ISO 时间')
     known = event_at or reviewed_at or inferred(text, now)
+    if program:
+        date_from = _program_date(known, date_from, now)
     case = CausalInvestigation(key='ci_' + uuid4().hex, text=text, event_at=known, event_key=event_key)
     root = CausalNode(key='cn_' + uuid4().hex, case_key=case.key, text=text, event_key=event_key,
                       ref=event.event_key if event else '', occurred_at=known, time_status='root')
     session.add(case)
     if focus_key:
         session.add(CausalFocus(case_key=case.key, focus_key=focus_key))
+    if program:
+        session.add(CausalProgram(case_key=case.key, date_from=date_from))
     session.add(root)
     if queue_local:
         session.add(_new_job(case, root, automatic))
@@ -106,6 +132,23 @@ def _count(session, case_key):
                         .where(CausalNode.case_key == case_key)).one()
 
 
+def _program_child(node):
+    return (node.time_status == 'earlier'
+            and (interval(node.occurred_at) or interval(node.published_at))
+            and any(source.get('quote') and source.get('kind') != 'local_headline'
+                    for source in loads(node.sources_json, [])))
+
+
+def program_leaf_reason(node, *, steps, node_count):
+    if node['time_status'] != 'earlier':
+        return '原文或事件的前置时间待核，本分支暂不展开'
+    if node['depth'] >= MAX_DEPTH or node_count >= MAX_TREE_NODES or steps >= PROGRAM_MAX_STEPS:
+        return '已到达本次调查的搜索上限'
+    if not node['expandable']:
+        return '缺少带日期的原文依据，本分支暂不展开'
+    return '已保留线索，本层优先展开其他候选'
+
+
 def expand(session, case_key, node_key, automatic):
     lock_news(session, 'causal:' + case_key)
     case = _require(session, case_key)
@@ -122,6 +165,12 @@ def expand(session, case_key, node_key, automatic):
         raise CausalConflict('当前调查还在运行，完成后可继续展开')
     if node.depth >= MAX_DEPTH or _count(session, case_key) >= MAX_TREE_NODES:
         raise CausalConflict('这次调查已达到线索上限，可以从该线索新开一次调查')
+    if session.get(CausalProgram, case_key):
+        if node.depth and not _program_child(node):
+            raise CausalConflict('这条线索缺少可核对的时间或原文依据')
+        if existing is None and session.exec(select(func.count()).select_from(CausalJob)
+                                             .where(CausalJob.case_key == case_key)).one() >= PROGRAM_MAX_STEPS:
+            raise CausalConflict('本次调查已达到搜索节点上限')
     session.merge(_new_job(case, node, automatic))
     case.updated_at = utc_now_iso()
     session.commit()
@@ -161,16 +210,24 @@ def view(session, case_key, *, focus_key=''):
     bound_focus = focus.focus_key if focus else ''
     if focus_key and focus_key != bound_focus:
         raise KeyError('调查不在该焦点')
-    rows = session.exec(select(CausalNode, CausalJob, CausalAgentNote)
+    program_scope = session.get(CausalProgram, case_key)
+    rows = session.exec(select(CausalNode, CausalJob, CausalAgentNote, CausalProgramStep)
                         .outerjoin(CausalJob, CausalJob.node_key == CausalNode.key)
                         .outerjoin(CausalAgentNote, CausalAgentNote.node_key == CausalNode.key)
+                        .outerjoin(CausalProgramStep, CausalProgramStep.node_key == CausalNode.key)
                         .where(CausalNode.case_key == case_key)
                         .order_by(CausalNode.depth, CausalNode.score.desc(), CausalNode.key)).all()
     nodes = []
-    for node, job, note in rows:
+    for node, job, note, step in rows:
         item = node.model_dump(exclude={'case_key', 'ref', 'sources_json'})
+        if program_scope:
+            item.update(queries=loads(step.queries_json, []) if step else [],
+                        candidate_count=step.candidate_count if step else None,
+                        retrieval_mode=step.retrieval_mode if step else '',
+                        expandable=(not node.depth or bool(_program_child(node))) and node.depth < MAX_DEPTH)
         nodes.append(dict(**item, sources=loads(node.sources_json, []), job_state=job.state if job else '',
-                          job_error=job.error if job else '', stop_reason=note.stop_reason if note else '',
+                          job_error=job.error if job else '', stop_reason=(step.stop_reason if step else '')
+                          or (note.stop_reason if note else ''),
                           relation=note.relation if note and node.parent_key else ''))
     context = interval(case.event_at) or interval(case.created_at)
     day = min(context[0], datetime.now(timezone.utc)).astimezone(BEIJING).date()
@@ -191,7 +248,19 @@ def view(session, case_key, *, focus_key=''):
                      error=link.last_error or (run.error if run else ''),
                      run_id=run.run_id if run else '', date_from=link.date_from,
                      research_path='/research/' + quote(link.research_case_id, safe=''))
-    return dict(**case.model_dump(), nodes=nodes, focus_key=bound_focus, agent=agent,
+    program = None
+    if program_scope:
+        states = [item['job_state'] for item in nodes]
+        queued = sum(status in ACTIVE for status in states)
+        completed, failed = states.count('ready'), states.count('failed')
+        status = ('running' if completed or failed or 'running' in states else 'pending') if queued else (
+            'partial' if failed else 'completed')
+        program = dict(date_from=program_scope.date_from, status=status, queued=queued, completed=completed, failed=failed)
+        if not queued:
+            for item in nodes:
+                if item['depth'] and not item['job_state'] and not item['stop_reason']:
+                    item['stop_reason'] = program_leaf_reason(item, steps=completed + failed, node_count=len(nodes))
+    return dict(**case.model_dump(), nodes=nodes, focus_key=bound_focus, agent=agent, program=program,
                 working=any(item['job_state'] in ACTIVE for item in nodes)
                 or bool(agent and agent['status'] in research_service.ACTIVE),
                 coverage=dict(message='可按日期核对 GDELT 归档。补采完成后，在原调查重新查该分支。',
@@ -206,6 +275,7 @@ class Claim:
     node_key: str
     lease: str
     automatic: bool
+    program: bool = False
 
 
 def claim(engine):
@@ -223,7 +293,8 @@ def claim(engine):
         row.lease = uuid4().hex
         row.due_at = now + LEASE_SECONDS
         row.state = 'running'
-        result = Claim(row.case_key, row.node_key, row.lease, row.automatic)
+        result = Claim(row.case_key, row.node_key, row.lease, row.automatic,
+                       session.get(CausalProgram, row.case_key) is not None)
         session.commit()
         return result
 
@@ -271,7 +342,33 @@ def investigate(engine, claimed):
     return sorted(results, key=lambda item: (item['time_status'] != 'earlier', -item['score'], item['ref']))[:RESULTS]
 
 
-def complete(engine, claimed, results=(), error=''):
+def _schedule_program(session, case, depth):
+    jobs = select(CausalJob.node_key).where(CausalJob.case_key == case.key)
+    if session.exec(jobs.where(CausalJob.state.in_(ACTIVE)).limit(1)).first():
+        return
+    remaining = PROGRAM_MAX_STEPS - session.exec(select(func.count()).select_from(
+        jobs.subquery())).one()
+    if remaining <= 0 or depth + 1 >= MAX_DEPTH or _count(session, case.key) >= MAX_TREE_NODES:
+        return
+    scheduled = set(session.exec(select(CausalNode.ref).where(CausalNode.key.in_(jobs))))
+    candidates = session.exec(select(CausalNode).where(
+        CausalNode.case_key == case.key, CausalNode.depth == depth + 1,
+        CausalNode.time_status == 'earlier', CausalNode.key.not_in(jobs))
+        .order_by(CausalNode.score.desc(), CausalNode.key))
+    selected = []
+    for child in candidates:
+        if child.ref not in scheduled and _program_child(child):
+            selected.append(child)
+            scheduled.add(child.ref)
+        if len(selected) == min(remaining, BEAM_WIDTH):
+            break
+    for child in selected:
+        child.beam_selected = True
+        session.add(_new_job(case, child, False))
+
+
+def complete(engine, claimed, results=(), error='', *, queries=(), candidate_count=0,
+             retrieval_mode='', stop_reason=''):
     with Session(engine) as session:
         lock_news(session, 'causal:' + claimed.case_key)
         job = session.exec(select(CausalJob).where(CausalJob.node_key == claimed.node_key)
@@ -286,8 +383,10 @@ def complete(engine, claimed, results=(), error=''):
         previous_branches = set(session.exec(
             select(CausalNode.ref).join(CausalJob, CausalJob.node_key == CausalNode.key)
             .where(CausalNode.case_key == case.key, CausalNode.ref != '', CausalNode.parent_key != node.key)
-        ))
+        )) if not claimed.program else set()
         remaining = MAX_TREE_NODES - _count(session, case.key)
+        if claimed.program:
+            remaining = min(remaining, RESULTS - len(existing))
         next_nodes = []
         for item in results:
             ref = item['ref']
@@ -303,7 +402,12 @@ def complete(engine, claimed, results=(), error=''):
             child.time_status, child.reason, child.score = item['time_status'], item['reason'], item['score']
             child.sources_json = dumps(item['sources'])
             session.add(child)
-            if (claimed.automatic and child.time_status == 'earlier' and child.depth < MAX_DEPTH
+            if claimed.program:
+                note = session.get(CausalAgentNote, child.key) or CausalAgentNote(
+                    node_key=child.key, case_key=case.key)
+                note.relation = item.get('relation') or 'context'
+                session.add(note)
+            if (not claimed.program and claimed.automatic and child.time_status == 'earlier' and child.depth < MAX_DEPTH
                     and ref not in previous_branches and session.get(CausalJob, child.key) is None):
                 next_nodes.append(child)
         for child in next_nodes[:BEAM_WIDTH]:
@@ -312,4 +416,10 @@ def complete(engine, claimed, results=(), error=''):
         job.lease, job.due_at = '', 0
         job.state, job.error = ('failed' if error else 'ready'), error
         case.updated_at = utc_now_iso()
+        if claimed.program:
+            session.merge(CausalProgramStep(node_key=node.key, case_key=case.key, queries_json=dumps(queries),
+                                            candidate_count=candidate_count, retrieval_mode=retrieval_mode,
+                                            stop_reason=stop_reason or error))
+            session.flush()
+            _schedule_program(session, case, node.depth)
         session.commit()

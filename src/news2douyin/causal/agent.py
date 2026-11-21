@@ -13,7 +13,7 @@ from ..search.dates import timezone_name
 from ..storage.articles import lock_news
 from ..storage.models import utc_now_iso
 from .chronology import interval
-from .models import CausalAgentLink, CausalFocus, CausalJob
+from .models import CausalAgentLink, CausalFocus, CausalJob, CausalProgram
 from .service import ACTIVE, CausalConflict, _require, view
 
 
@@ -58,7 +58,11 @@ def bind(session, case_key, requested_from):
         raise CausalConflict('本地查找还在运行，完成后可交给 RunDesk')
 
     link = session.get(CausalAgentLink, case_key)
-    earliest = _date_from(case, requested_from, link.date_from if link else '')
+    program = session.get(CausalProgram, case_key)
+    if program and requested_from and requested_from != program.date_from:
+        raise CausalConflict('RunDesk 解读使用本次搜索树的原有日期范围')
+    existing_from = program.date_from if program else link.date_from if link else ''
+    earliest = _date_from(case, requested_from, existing_from)
     if link:
         run = session.get(ResearchRun, link.current_run_id) if link.current_run_id else None
         if run and run.status in research.ACTIVE:

@@ -80,6 +80,10 @@ class ResearchTools:
         self.engine, self.settings = engine, settings
 
     def call(self, name, args):
+        from . import causal_dispatch
+        if isinstance(args, dict) and isinstance(args.get('run_id'), str):
+            with Session(self.engine) as session:
+                causal_dispatch.require_allowed(session, args['run_id'], name, args)
         if isinstance(name, str) and name.startswith('causal_'):
             from ..causal.agent_tools import call
             return call(self.engine, name, args)
@@ -110,7 +114,13 @@ class ResearchTools:
             svc.locked(s)
             case, run = svc.active_run(s, run_id, enforce_time=name not in {'research_get_case', 'research_save_report'})
             if name == 'research_get_case':
-                return svc.detail(s, case.case_id)
+                result = svc.detail(s, case.case_id)
+                if causal_dispatch.analysis_only(s, run_id):
+                    result['analysis_only'] = True
+                    result['search_policy'] = dict(execution_owner='none', web_action='disabled', library_action='disabled',
+                        allowed_tools=sorted(causal_dispatch.ANALYSIS_TOOLS),
+                        notice='本轮仅解读已完成搜索树与课题已有证据；不能补材、重新检索或修改树。')
+                return result
             if fresh_read:
                 row = s.get(ResearchSource, args['source_id'])
                 if not row or row.case_id != case.case_id:
@@ -207,6 +217,9 @@ class ResearchTools:
             raise ValueError(error) from None
 
     def record_search(self, args):
+        from . import causal_dispatch
+        with Session(self.engine) as session:
+            causal_dispatch.require_allowed(session, args.get('run_id', ''), 'research_record_search', args)
         results, error = args['results'], args.get('error', '')
         if len(results) > 20 or len(error) > 2000 or (error and results):
             raise ValueError('最多保存 20 条搜索线索；错误与成功结果不能同时提交')
