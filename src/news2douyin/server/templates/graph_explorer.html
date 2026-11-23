@@ -1,10 +1,10 @@
 {% extends 'base.html' %}
 {% block title %}{{ selected.name if selected else '全局活动图' if mode == 'global' else '焦点图' }} · 图谱{% endblock %}
 {% block graph_libraries %}
-<link rel="stylesheet" href="/research-assets/graph-explorer.css">
+<link rel="stylesheet" href="/research-assets/graph-explorer.css?v=0.52.0">
 {% endblock %}
 {% block content %}
-<div id="graph-explorer" data-endpoint="{{ endpoint }}" data-module="/research-assets/vendor/cosmos-graph-3.6.0.min.js"{% if mode == 'focus' and selected %} data-focus-key="{{ selected.key }}"{% endif %}>
+<div id="graph-explorer" data-endpoint="{{ endpoint }}" data-lens="{{ lens }}" data-module="/research-assets/vendor/cosmos-graph-3.6.0.min.js"{% if mode == 'focus' and selected %} data-focus-key="{{ selected.key }}"{% endif %}>
   <div class="graph-explorer-heading">
     <h1>{{ selected.name if selected else '全局活动图' if mode == 'global' else '焦点图' }}</h1>
     {% if selected %}<a href="/focus/{{ selected.key|urlencode }}">返回焦点 →</a>{% endif %}
@@ -23,6 +23,18 @@
         {% for item in choices %}<option value="{{ item.key }}"{% if item.key == selected.key %} selected{% endif %}>{{ item.name }}</option>{% endfor %}
       </select>
       {% endif %}
+      {% if lens == 'people' %}
+      <input type="hidden" name="lens" value="people">
+      <label for="graph-days">材料范围</label>
+      <select name="days" id="graph-days">
+        {% for value in day_options %}<option value="{{ value }}"{% if value == days %} selected{% endif %}>{{ value }} 天</option>{% endfor %}
+      </select>
+      <label for="graph-until">截至日期</label>
+      <input type="date" name="until" id="graph-until" value="{{ until }}">
+      {% elif mode == 'focus' %}
+      {% if days != 30 %}<input type="hidden" name="days" value="{{ days }}">{% endif %}
+      {% if until %}<input type="hidden" name="until" value="{{ until }}">{% endif %}
+      {% endif %}
       <label for="graph-limit">节点上限</label>
       <select name="limit" id="graph-limit">
         {% for value in node_limits %}<option value="{{ value }}"{% if value == limit %} selected{% endif %}>{{ value }}</option>{% endfor %}
@@ -32,16 +44,21 @@
     {% endif %}
   </div>
   {% if endpoint %}
+  {% if mode == 'focus' and selected %}
+  <nav class="graph-explorer-mode" aria-label="焦点图视图">
+    <a href="{{ all_url }}"{% if lens == 'all' %} class="on" aria-current="page"{% endif %}>全部</a>
+    <a href="{{ people_url }}"{% if lens == 'people' %} class="on" aria-current="page"{% endif %}>人物与组织</a>
+  </nav>
+  {% endif %}
   <div class="graph-explorer-toolbar">
     <label for="graph-search">搜索节点</label>
-    <input id="graph-search" type="search" placeholder="事件、人物或地点" autocomplete="off" maxlength="160">
+    <input id="graph-search" type="search" placeholder="{{ '人物或组织名称' if lens == 'people' else '事件、人物或地点' }}" autocomplete="off" maxlength="160">
     <div class="row" aria-label="视图操作">
       <button id="graph-zoom-out" class="ghost" type="button" aria-label="缩小" disabled>−</button>
       <button id="graph-zoom-in" class="ghost" type="button" aria-label="放大" disabled>＋</button>
       <button id="graph-fit" class="ghost" type="button" disabled>适合视图</button>
       <button id="graph-clear" class="ghost" type="button" disabled>清除选中</button>
       {% if mode == 'focus' and selected %}
-      <a href="/focus/{{ selected.key|urlencode }}?view=people">人物图</a>
       <a id="graph-causal-jump" href="#causal-panel">事件溯源</a>
       {% endif %}
     </div>
@@ -59,7 +76,7 @@
     </section>
   </div>
   <noscript><p>请启用 JavaScript 查看节点和关系。</p></noscript>
-  <script type="module" src="/research-assets/graph-explorer.js?v=0.46.1"></script>
+  <script type="module" src="/research-assets/graph-explorer.js?v=0.52.0"></script>
   {% else %}
   <p>还没有可查看的焦点图。<a href="/focus?new=1">新建焦点</a></p>
   {% endif %}

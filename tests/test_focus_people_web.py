@@ -70,12 +70,27 @@ def test_focus_people_opens_from_both_views_and_shares_evidence_and_identity(tmp
         excluded = client.get(f'/api/focus/{excluded_focus}/people', params=interval).json()
         assert excluded['items'] == []
         graph = client.get('/graphs', params={'view': 'focus', 'focus': focus_a})
-        assert f'/focus/{focus_a}?view=people' in graph.text
+        assert f'/graphs?view=focus&amp;focus={focus_a}&amp;lens=people' in graph.text
+        lens_params = {'view': 'focus', 'focus': focus_a, 'lens': 'people', **interval}
+        canvas = client.get('/graphs', params=lens_params)
+        assert canvas.status_code == 200
+        assert 'data-lens="people"' in canvas.text and 'id="graph-canvas"' in canvas.text
+        snapshot = client.get('/api/graphs', params=lens_params)
+        assert snapshot.status_code == 200, snapshot.text
+        snapshot = snapshot.json()
+        assert snapshot['backend'] == 'focus_evidence'
+        person = next(node for node in snapshot['nodes'] if node['kind'] == 'Person')
+        assert person['id'] == identity['key']
+        assert person['activities'][0]['source_path'] == timeline['source_path']
+        assert snapshot['edges'][0]['evidence'][0]['source_path'] == timeline['source_path']
+        assert person['url'] and client.get(person['url']).status_code == 200
+        without = client.get('/api/graphs', params={**lens_params, 'focus': excluded_focus}).json()
+        assert without['nodes'] == [] and without['empty_reason']
         page = client.get(f'/focus/{focus_a}', params={
             'view': 'people', 'person': identity['key'], 'people_days': 30, 'people_until': '2024-06-12',
         })
         assert page.status_code == 200, page.text
-        for text in ('人物图', '陈澄', '海港研究所', '2024-06-10',
+        for text in ('人物与组织', '陈澄', '海港研究所', '2024-06-10',
                      'article_people?revision=1#m-' + mention['id']):
             assert text in page.text
         source = client.get(timeline['source_path'].split('#', 1)[0])

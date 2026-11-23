@@ -45,7 +45,7 @@
     </header>
     <nav class="focus-view-tabs" aria-label="焦点内容">
       <a href="/focus/{{ w.key|urlencode }}"{% if view=='events' %} aria-current="page"{% endif %}>事件</a>
-      <a href="?view=people"{% if view=='people' %} aria-current="page"{% endif %}>人物图</a>
+      <a href="/graphs?view=focus&amp;focus={{ w.key|urlencode }}&amp;lens=people{% if view=='people' and people %}&amp;days={{ people.days }}&amp;until={{ people.until|urlencode }}{% endif %}">人物与组织</a>
       <a href="?view=leads"{% if view=='leads' %} aria-current="page"{% endif %}>候选报道</a>
       <a href="?view=archive"{% if view=='archive' %} aria-current="page"{% endif %}>档案</a>
     </nav>

@@ -2,20 +2,36 @@
 from typing import Literal
 from urllib.parse import urlencode
 
-from fastapi import HTTPException, Query
+from fastapi import Depends, HTTPException, Query
 from fastapi.responses import HTMLResponse
 from sqlmodel import Session
 
+from ..desk.people_view import DAY_OPTIONS
+from ..search.dates import calendar_day
 from .tasks import task_call
+
+
+def _graph_scope(view: Literal['global', 'focus'] = 'global',
+                 lens: Literal['all', 'people'] = 'all',
+                 days: int = Query(30), until: str = Query('', max_length=10)):
+    if lens == 'people' and view != 'focus':
+        raise HTTPException(422, '人物与组织视图需要指定焦点')
+    if days not in DAY_OPTIONS:
+        raise HTTPException(422, '人物材料窗口须为30、90或365天')
+    if until:
+        task_call(calendar_day, until, 'Asia/Shanghai')
+    return view, lens, days, until
 
 
 def register(app, engine, render):
     from ..desk.graph_explorer import DEFAULT_LIMIT, MAX_LIMIT, explore, focuses
+    from ..desk.people_graph import people_graph
 
     @app.get('/graphs', response_class=HTMLResponse, include_in_schema=False)
-    def page(view: Literal['global', 'focus'] = 'global', focus: str = Query('', max_length=100),
+    def page(focus: str = Query('', max_length=100),
              limit: int = Query(DEFAULT_LIMIT, ge=20, le=MAX_LIMIT),
-             investigation: str = Query('', max_length=35)):
+             investigation: str = Query('', max_length=35), scope=Depends(_graph_scope)):
+        view, lens, days, until = scope
         choices = []
         if view == 'focus':
             with Session(engine) as session:
@@ -28,18 +44,31 @@ def register(app, engine, render):
             params['focus'] = selected['key']
         if limit != DEFAULT_LIMIT:
             params['limit'] = limit
-        endpoint = '/api/graphs?' + urlencode(params) if view == 'global' or selected else ''
+        window = {}
+        if days != 30:
+            window['days'] = days
+        if until:
+            window['until'] = until
+        people_params = {**params, 'lens': 'people', **window}
+        endpoint = '/api/graphs?' + urlencode(people_params if lens == 'people' else params)
         return render('graph_explorer.html', active='graphs', mode=view, choices=choices,
-                      selected=selected, endpoint=endpoint, limit=limit,
+                      selected=selected, endpoint=endpoint if view == 'global' or selected else '',
+                      lens=lens, days=days, until=until, day_options=DAY_OPTIONS, limit=limit,
+                      all_url='/graphs?' + urlencode({**params, **window}),
+                      people_url='/graphs?' + urlencode(people_params),
                       causal_page_root='/graphs?' + urlencode(params) if selected else '',
                       task_key=investigation if selected else '',
                       node_limits=sorted({100, DEFAULT_LIMIT, 480, MAX_LIMIT, limit}))
 
     @app.get('/api/graphs')
-    def data(view: Literal['global', 'focus'] = 'global', focus: str = Query('', max_length=100),
-             limit: int = Query(DEFAULT_LIMIT, ge=20, le=MAX_LIMIT)):
+    def data(focus: str = Query('', max_length=100),
+             limit: int = Query(DEFAULT_LIMIT, ge=20, le=MAX_LIMIT), scope=Depends(_graph_scope)):
+        view, lens, days, until = scope
         if view == 'focus' and not focus:
             raise HTTPException(422, '请为焦点图提供焦点编号')
         if view == 'global' and focus:
             raise HTTPException(422, '焦点编号只用于焦点图')
+        if lens == 'people':
+            with Session(engine) as session:
+                return task_call(people_graph, session, focus, days=days, until=until, limit=limit)
         return task_call(explore, engine, app.state.desk.graph, view=view, focus=focus, limit=limit)

@@ -58,12 +58,18 @@ def test_missing_deleted_or_invalid_graphs_have_explicit_responses(client):
     assert client.get('/api/graphs', params={'view': 'focus'}).status_code == 422
     assert client.get('/api/graphs', params={'limit': 1000}).status_code == 422
     assert client.get('/api/graphs', params={'view': 'raw'}).status_code == 422
+    for url in ('/graphs', '/api/graphs'):
+        assert client.get(url, params={'view': 'global', 'lens': 'people'}).status_code == 422
+        assert client.get(url, params={'view': 'focus', 'lens': 'invalid'}).status_code == 422
+        assert client.get(url, params={'view': 'focus', 'lens': 'people', 'days': 31}).status_code == 422
+        assert client.get(url, params={'view': 'focus', 'lens': 'people', 'until': '2026-02-30'}).status_code == 422
     watch = _create_focus(client, 'Archived focus')
     key = watch['key']
     result = client.request('DELETE', f'/api/focus/{key}', json={'version': watch['version']})
     assert result.status_code == 200, result.text
     for url in ('/graphs', '/api/graphs'):
         assert client.get(url, params={'view': 'focus', 'focus': key}).status_code == 404
+        assert client.get(url, params={'view': 'focus', 'focus': key, 'lens': 'people'}).status_code == 404
 
 
 def test_focus_graph_investigations_are_saved_under_the_selected_focus(client, monkeypatch):

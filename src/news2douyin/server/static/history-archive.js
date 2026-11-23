@@ -7,13 +7,18 @@
   const form = el('range');
   if (!form) return;
 
+  const relayCommand = el('relay-command');
+  if (relayCommand && globalThis.location?.origin) {
+    relayCommand.textContent = 'python gdelt_history_relay.py --server ' + globalThis.location.origin;
+  }
+
   const labels = {
     idle:'等待启动', planning:'正在核对官方清单', queued:'排队中', pending:'排队中',
     running:'补档中', paused:'已暂停', pausing:'正在暂停', complete:'已完成', completed:'已完成',
     ready:'已可查', available:'已可查', partial:'部分可查', gap:'待补档', missing:'官网清单未列',
     not_expected:'该年代没有此数据', not_requested:'按需补查', failed:'补档失败',
     retry:'待重试', waiting:'等待补档', retry_wait:'待重试', error:'补档失败',
-    disk_low:'磁盘空间不足', download:'下载', downloading:'下载', downloaded:'待转换',
+    disk_low:'磁盘空间不足', download:'下载', downloading:'下载', verifying:'校验已接收文件', downloaded:'待转换',
     convert:'转换 Parquet', converting:'转换 Parquet', publish:'提交分区', publishing:'提交分区'
   };
   const kindLabels = {events:'Events', gkg:'GKG', mentions:'Mentions'};
@@ -127,6 +132,17 @@
 
   function render(data) {
     latest = data;
+    const relay = data.source === 'relay';
+    el('source').textContent = relay
+      ? (data.relay_token_configured === false ? '本地上传 · 待配置令牌' : '本地上传')
+      : '服务器直连';
+    el('relay-poll-row').hidden = !relay;
+    if (relay) {
+      el('relay-poll').textContent = data.relay_last_poll_at
+        ? new Date(data.relay_last_poll_at * 1000).toLocaleString('zh-CN')
+        : '服务启动后尚未联系';
+    }
+    el('download-label').textContent = relay ? '服务器已接收' : '已下载';
     if (!loaded && data.date_from && data.date_to) {
       form.elements.date_from.value = data.date_from;
       form.elements.date_to.value = data.date_to;

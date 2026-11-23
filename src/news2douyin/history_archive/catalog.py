@@ -39,6 +39,12 @@ _MASTER_LIMIT = 256 * 1024 ** 2
 _LEGACY_LIMIT = 4 * 1024 ** 2
 _LEGACY_TTL = 24 * 60 * 60
 _MASTER_TTL = 60 * 60
+RELAY_CATALOGS = (_MASTER, 'events/filesizes', 'events/md5sums', 'gkg/filesizes', 'gkg/md5sums')
+
+
+class RelayCatalogNeeded(Exception):
+    """The local downloader has not handed off a current catalog yet."""
+
 
 
 @dataclass(frozen=True)
@@ -128,14 +134,36 @@ def _looks_like_catalog(path, relative):
     return False
 
 
-def _catalog(relative, cache_dir, stop, *, archive_end=None):
-    target = Path(cache_dir) / relative.replace('/', '-')
+def _fresh(target, relative, archive_end):
     recent = archive_end is not None and archive_end >= datetime.now(timezone.utc).date() - timedelta(days=1)
     ttl = _MASTER_TTL if relative == _MASTER and recent else _LEGACY_TTL
+    try:
+        return time() - target.stat().st_mtime <= ttl
+    except FileNotFoundError:
+        return False
+
+
+def needed_relay_catalogs(start, end, cache_dir):
+    """Report exactly the catalogs used by Events/GKG planning for this date range."""
+    required = []
+    if end >= V1_LAST_DAY:
+        required.append(_MASTER)
+    if start <= V1_LAST_DAY:
+        required.extend(RELAY_CATALOGS[1:3])
+        if end >= GKG_START:
+            required.extend(RELAY_CATALOGS[3:])
+    return [relative for relative in required
+            if not _fresh(Path(cache_dir) / relative.replace('/', '-'), relative, end)]
+
+
+def _catalog(relative, cache_dir, stop, *, archive_end=None, local_only=False):
+    target = Path(cache_dir) / relative.replace('/', '-')
     limit = _MASTER_LIMIT if relative == _MASTER else _LEGACY_LIMIT
     with _CATALOG_LOCK:
         _check_stop(stop)
-        if not target.exists() or time() - target.stat().st_mtime > ttl:
+        if not _fresh(target, relative, archive_end):
+            if local_only:
+                raise RelayCatalogNeeded(relative)
             _transfer(relative, target, limit, stop)
     return target
 
@@ -188,9 +216,9 @@ def _legacy_values(path, periods, *, checksum=False):
     return values
 
 
-def _legacy_packages(kind, lower, upper, cache_dir, stop):
-    sizes_path = _catalog(f'{kind}/filesizes', cache_dir, stop)
-    checksums_path = _catalog(f'{kind}/md5sums', cache_dir, stop)
+def _legacy_packages(kind, lower, upper, cache_dir, stop, *, local_only=False):
+    sizes_path = _catalog(f'{kind}/filesizes', cache_dir, stop, local_only=local_only)
+    checksums_path = _catalog(f'{kind}/md5sums', cache_dir, stop, local_only=local_only)
     periods = {}
     with sizes_path.open(encoding='ascii', errors='replace') as stream:
         for line in stream:
@@ -254,7 +282,7 @@ def _modern_packages(path, kinds, lower, upper, stop):
             yield ArchivePackage(name, kind, 2, day, day, stamp, f'{HOST}/gdeltv2/{name}', *metadata)
 
 
-def list_packages(date_from, date_to, kinds, *, cache_dir, stop=None):
+def list_packages(date_from, date_to, kinds, *, cache_dir, stop=None, local_only=False):
     """Return available archives intersecting the inclusive UTC date interval."""
     requested = frozenset(kinds)
     if not requested or not requested.issubset(KINDS):
@@ -263,13 +291,13 @@ def list_packages(date_from, date_to, kinds, *, cache_dir, stop=None):
         raise ValueError('invalid GDELT history date range')
     packages = []
     if date_to >= V1_LAST_DAY:
-        master = _catalog(_MASTER, cache_dir, stop, archive_end=date_to)
+        master = _catalog(_MASTER, cache_dir, stop, archive_end=date_to, local_only=local_only)
         packages.extend(_modern_packages(master, requested, date_from, date_to, stop))
     if date_from <= V1_LAST_DAY:
         for kind in KINDS[:2]:
             start = START_DATE if kind == 'events' else GKG_START
             if kind in requested and date_to >= start:
-                packages.extend(_legacy_packages(kind, date_from, date_to, cache_dir, stop))
+                packages.extend(_legacy_packages(kind, date_from, date_to, cache_dir, stop, local_only=local_only))
     order = {kind: len(KINDS) - index for index, kind in enumerate(KINDS)}
     return sorted(packages, key=lambda item: (item.date_to, item.version, item.stamp, order[item.kind]), reverse=True)
 

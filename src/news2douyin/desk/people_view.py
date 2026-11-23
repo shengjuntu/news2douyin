@@ -23,6 +23,7 @@ from ..storage.sql import time_value
 from .focus_lifecycle import require_active
 from .focus_read import _membership, entry_day
 from .models import RadarEntry
+from .people_evidence import evidence_from_sources
 
 
 EVENT_LIMIT = 120
@@ -192,17 +193,34 @@ def _activity(action, argument):
         event_path='/events/'+quote(action.get('event_key', ''), safe=''))
 
 
-def page(session, watch, *, person='', days=30, until=''):
-    """Read current focus membership and pinned source identities; never mutate."""
-    if (not isinstance(person, str) or len(person) > 160 or re.search(r'[\x00-\x1f\x7f]', person)):
-        raise ValueError('人物编号无效')
+def read_focus_evidence(session, watch, days, until):
+    """Load the same current, bounded material for the graph and activity timeline."""
     beginning, end = _window(days, until)
     key = watch if isinstance(watch, str) else watch.key
     with session.no_autoflush:
         current = require_active(session, key)
         sources, checked, coverage = _materials(session, current.key, beginning, end)
-    from .people_evidence import evidence_from_sources
     projected = evidence_from_sources(sources, checked)
+    limits = projected['limits']
+    coverage.update(date_from=beginning, date_to=end, time_basis='material_observed',
+                    time_basis_label='北京时间材料日期', evidence_limits=limits,
+                    truncated=bool(coverage['events_truncated'] or coverage['source_caps']
+                                   or coverage['mentions_truncated'] or coverage['oversized_sources']
+                                   or coverage['oversized_mentions'] or limits['truncated']))
+    return projected, coverage
+
+
+def empty_reason(coverage):
+    if not coverage['sampled_events']:
+        return '这个材料窗口还没有已收录事件。'
+    return '已收录材料尚无当前版本的可追溯人物动作；不会从名单或共现补造关系。'
+
+
+def page(session, watch, *, person='', days=30, until=''):
+    """Read current focus membership and pinned source identities; never mutate."""
+    if (not isinstance(person, str) or len(person) > 160 or re.search(r'[\x00-\x1f\x7f]', person)):
+        raise ValueError('人物编号无效')
+    projected, coverage = read_focus_evidence(session, watch, days, until)
     entities = {entity['key']: entity for entity in projected['entities']}
     actions = {action['key']: action for action in projected['actions']}
     activities = defaultdict(dict)
@@ -275,20 +293,13 @@ def page(session, watch, *, person='', days=30, until=''):
         organizations.sort(key=lambda row: (-row['activity_count'], row['name'].casefold(), row['relation']))
         organization_truncated = len(organizations) > ORGANIZATION_LIMIT
         selected['organizations'] = organizations[:ORGANIZATION_LIMIT]
-    limits = projected.get('limits', {})
-    truncated = bool(coverage['events_truncated'] or coverage['source_caps'] or coverage['mentions_truncated']
-                     or coverage['oversized_sources'] or coverage['oversized_mentions'] or limits.get('truncated')
-                     or people_truncated or activity_truncated or organization_truncated)
+    truncated = coverage['truncated'] or people_truncated or activity_truncated or organization_truncated
     coverage.update(people_limit=PEOPLE_LIMIT, activities_limit=ACTIVITY_LIMIT,
                     organizations_limit=ORGANIZATION_LIMIT, people_truncated=people_truncated,
                     activities_truncated=activity_truncated, organizations_truncated=organization_truncated,
-                    evidence_limits=limits, truncated=truncated)
+                    truncated=truncated)
     notice = ('所选人物不在这个材料窗口内，未自动切换人物。' if requested and not selected else
               '仅展示当前焦点已收录材料中的有据人物动作；名称归组不等于身份已核实。')
-    empty = ('这个材料窗口还没有已收录事件。' if not coverage['sampled_events'] else
-             '已收录材料尚无当前版本的可追溯人物动作；不会从名单或共现补造关系。') if not items else ''
     return dict(items=items, selected=selected, requested_person=requested,
-        selection_missing=bool(requested and not selected), days=days, until=end,
-        window=dict(date_from=beginning, date_to=end, time_basis='material_observed',
-                    time_basis_label='北京时间材料日期', **coverage),
-        truncated=truncated, notice=notice, empty_reason=empty)
+        selection_missing=bool(requested and not selected), days=days, until=coverage['date_to'],
+        window=coverage, truncated=truncated, notice=notice, empty_reason=empty_reason(coverage) if not items else '')

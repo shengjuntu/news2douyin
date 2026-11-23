@@ -3,6 +3,7 @@ from collections import defaultdict
 from contextlib import contextmanager
 from datetime import date, datetime, timedelta, timezone
 import logging
+import os
 from math import isfinite
 from shutil import disk_usage
 from threading import Event, Thread
@@ -84,10 +85,15 @@ class ArchiveWorker:
     def __init__(self, engine, storage_root):
         self.engine = engine
         self.root = archive_root(storage_root)
+        self.archive_source = os.getenv('NEWS2DOUYIN_HISTORY_ARCHIVE_SOURCE', 'direct').strip().lower() or 'direct'
+        if self.archive_source not in ('direct', 'relay'):
+            raise ValueError('NEWS2DOUYIN_HISTORY_ARCHIVE_SOURCE 须为 direct 或 relay')
+        self.catalog_dir = self.root / ('relay-catalog' if self.archive_source == 'relay' else 'catalog')
         self.stop_event = Event()
         self.wake_event = Event()
         self.pause_event = Event()
         self.thread = None
+        self.relay_last_poll_at = None
         self.status_error = ''
 
     @contextmanager
@@ -190,7 +196,7 @@ class ArchiveWorker:
 
     def _prepare(self, job):
         packages = catalog.list_packages(job.date_from, job.date_to, _kinds(job.mentions),
-                                         cache_dir=self.root / 'catalog', stop=self)
+                                         cache_dir=self.catalog_dir, stop=self, local_only=self.archive_source == 'relay')
         if self.is_set():
             raise InterruptedError()
         by_group = defaultdict(list)
@@ -268,6 +274,105 @@ class ArchiveWorker:
             session.add(part)
             session.add(group)
 
+    def _require_relay(self):
+        if self.archive_source != 'relay':
+            raise RuntimeError('历史归档尚未切换至本地中转模式。')
+
+    @staticmethod
+    def _planning_jobs():
+        return (select(HistoryJob).where(HistoryJob.state == 'planning')
+                .order_by((HistoryJob.key == MAIN), HistoryJob.serial))
+
+    def relay_work(self, limit=96):
+        self._require_relay()
+        if type(limit) is not int or not 1 <= limit <= 96:
+            raise ValueError('中转批次大小须在 1 至 96 之间')
+        self.relay_last_poll_at = time()
+        with Session(self.engine) as session:
+            control = session.get(HistoryControl, 'archive')
+            if control and control.paused:
+                return dict(catalogs=[], packages=[], paused=True, waiting='paused')
+            plans = session.exec(self._planning_jobs()).all()
+            needed = set()
+            for job in plans:
+                needed.update(catalog.needed_relay_catalogs(job.date_from, job.date_to, self.catalog_dir))
+            # At most one incoming group ahead of the converter. Selecting the group
+            # first also avoids sorting millions of individual ZIPs on every poll.
+            group = session.exec(select(HistoryGroup.key).where(HistoryGroup.state == 'pending')
+                .order_by(HistoryGroup.priority.desc(), HistoryGroup.date_to.desc(), HistoryGroup.key)
+                .limit(1)).first()
+            parts = (session.exec(select(HistoryPart).where(
+                HistoryPart.group_key == group, HistoryPart.state == 'pending')
+                .order_by(HistoryPart.stamp.desc(), HistoryPart.key).limit(limit)).all() if group else [])
+            packages = [dict(name=p.key, url=p.url, size=p.size, md5=p.md5) for p in parts]
+            active = session.exec(select(HistoryJob.key).where(HistoryJob.state == 'running').limit(1)).first()
+        waiting = ('catalog' if needed else 'uploads' if packages else 'planning' if plans else
+                   'conversion' if active or group else 'idle')
+        return dict(catalogs=sorted(needed), packages=packages, paused=False, waiting=waiting)
+
+    @staticmethod
+    def _relay_item(session, name):
+        part = session.get(HistoryPart, name)
+        if part is None:
+            raise KeyError('归档清单未登记该 ZIP')
+        return part
+
+    def relay_part(self, name):
+        self._require_relay()
+        with Session(self.engine) as session:
+            part = self._relay_item(session, name)
+            return dict(name=part.key, url=part.url, size=part.size, md5=part.md5, state=part.state)
+
+    def _allow_relay_write(self, session, part):
+        control = session.get(HistoryControl, 'archive')
+        if control and control.paused:
+            raise RuntimeError('归档任务已暂停')
+        if part.state == 'failed':
+            raise RuntimeError('归档文件已记为失败，请先在归档页面重试')
+
+    def relay_receive(self, name, temporary_path, size, md5):
+        """Accept an fsynced server temp file already hashed while receiving the body."""
+        self._require_relay()
+        with self._write() as session:
+            part = self._relay_item(session, name)
+            if (size, md5) != (part.size, part.md5):
+                raise ValueError('上传的文件与官方清单所列长度或 MD5 不符')
+            if part.state == 'ready':
+                return dict(name=name, state='ready')
+            self._allow_relay_write(session, part)
+            target = self._staged(part)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            # Identical duplicate requests need no replacement. In particular a
+            # conversion already reading this path keeps a stable file handle.
+            if part.state != 'downloaded' or not target.is_file():
+                os.replace(temporary_path, target)
+                catalog._sync_directory(target.parent)
+            if part.state != 'downloaded':
+                group = session.get(HistoryGroup, part.group_key)
+                group.downloaded_files += 1
+                group.downloaded_bytes += part.size
+                part.state, part.error = 'downloaded', ''
+                session.add_all((group, part))
+        self.wake_event.set()
+        return dict(name=name, state='staged')
+
+    def relay_fail(self, name, status):
+        """A terminal upstream HTTP result never overrides previously accepted bytes."""
+        self._require_relay()
+        if type(status) is not int or status not in (404, 410):
+            raise ValueError('仅接受上游 HTTP 404 或 410')
+        with self._write() as session:
+            part = self._relay_item(session, name)
+            if part.state != 'pending':
+                return dict(name=name, state='staged' if part.state == 'downloaded' else part.state)
+            self._allow_relay_write(session, part)
+            group = session.get(HistoryGroup, part.group_key)
+            group.failed_files += 1
+            part.state, part.error = 'failed', 'HTTP ' + str(status)
+            session.add_all((group, part))
+        self.wake_event.set()
+        return dict(name=name, state='failed')
+
     def _download(self, group, part):
         package = catalog.ArchivePackage(name=part.key, kind=group.kind, version=group.version,
             date_from=group.date_from, date_to=group.date_to, stamp=part.stamp,
@@ -299,6 +404,11 @@ class ArchiveWorker:
             # downloading before the ledger committed.
             present = hashes(path) if path.is_file() else None
             if not present or present[1] != part.md5 or present[2] != part.size:
+                if self.archive_source == 'relay':
+                    # A manual deletion or disk failure after receipt must allow
+                    # the downloader to offer the same catalog item again.
+                    self._record_part(part.key, 'pending', '等待中转重新上传')
+                    continue
                 try:
                     self._download(group, part)
                     present = hashes(path)
@@ -447,15 +557,18 @@ class ArchiveWorker:
         if self.is_set():
             return False
         with Session(self.engine) as session:
-            cooldown = session.get(HistoryProviderCooldown, PROVIDER)
-            if cooldown and cooldown.resume_at > time():
-                return False
-            planned = session.exec(select(HistoryJob).where(HistoryJob.state == 'planning')
-                                   .order_by((HistoryJob.key == MAIN), HistoryJob.serial).limit(1)).first()
+            if self.archive_source == 'relay':
+                planned = next((j for j in session.exec(self._planning_jobs())
+                                if not catalog.needed_relay_catalogs(j.date_from, j.date_to, self.catalog_dir)), None)
+            else:
+                cooldown = session.get(HistoryProviderCooldown, PROVIDER)
+                if cooldown and cooldown.resume_at > time():
+                    return False
+                planned = session.exec(self._planning_jobs().limit(1)).first()
         if planned:
             try:
                 self._prepare(planned)
-            except InterruptedError:
+            except (InterruptedError, catalog.RelayCatalogNeeded):
                 return False
             except IntakeHTTPError as exc:
                 if exc.status == 429:
@@ -465,7 +578,15 @@ class ArchiveWorker:
             except Exception as exc:
                 self._plan_failed(planned, exc)
             return True
-        due = (HistoryGroup.state == 'pending', HistoryGroup.retry_at <= time())
+        due = [HistoryGroup.state == 'pending']
+        if self.archive_source == 'relay':
+            # Publish a group as a batch once each expected ZIP was supplied or
+            # explicitly reported unavailable. Never claim a waiting group closed.
+            due.append(HistoryGroup.downloaded_files + HistoryGroup.failed_files >= HistoryGroup.total_files)
+            due.append(~select(HistoryPart.key).where(HistoryPart.group_key == HistoryGroup.key,
+                                                      HistoryPart.state == 'pending').exists())
+        else:
+            due.append(HistoryGroup.retry_at <= time())
         with Session(self.engine) as session:
             if not session.exec(select(HistoryGroup.key).where(*due).limit(1)).first():
                 return False
@@ -474,7 +595,8 @@ class ArchiveWorker:
                     HistoryGroup.priority.desc(), HistoryGroup.date_to.desc(), HistoryGroup.key).limit(1)).first()
             if not group:
                 return False
-            group.state, group.phase = 'running', 'downloading'
+            group.state = 'running'
+            group.phase = 'verifying' if self.archive_source == 'relay' else 'downloading'
             session.add(group)
             group_key = group.key
             session.flush()
@@ -584,7 +706,7 @@ class ArchiveWorker:
             main = session.get(HistoryJob, MAIN)
             control = session.get(HistoryControl, 'archive')
             cooldown = session.get(HistoryProviderCooldown, PROVIDER)
-            retry_at = cooldown.resume_at if cooldown and cooldown.resume_at > time() else None
+            retry_at = cooldown.resume_at if self.archive_source == 'direct' and cooldown and cooldown.resume_at > time() else None
             groups = select(HistoryGroup)
             if main:
                 groups = groups.where(*_ranges(main.date_from, main.date_to, main.mentions))
@@ -609,7 +731,9 @@ class ArchiveWorker:
                      'running' if running or current else main.state if main else 'idle')
             parent = next(path for path in (self.root, *self.root.parents) if path.is_dir())
             disk = disk_usage(parent)
-            return dict(state=state, date_from=main.date_from.isoformat() if main else '',
+            return dict(state=state, source=self.archive_source, relay_last_poll_at=self.relay_last_poll_at,
+                        relay_token_configured=bool(os.getenv('NEWS2DOUYIN_HISTORY_RELAY_TOKEN', '').strip()),
+                        date_from=main.date_from.isoformat() if main else '',
                         date_to=main.date_to.isoformat() if main else '', mentions=main.mentions if main else False,
                         progress=progress, disk=dict(free_bytes=disk.free, total_bytes=disk.total),
                         current=_group_data(current) if current else None, through=self._through(session, main),

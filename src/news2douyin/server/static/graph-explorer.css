@@ -67,6 +67,14 @@ main:has(#graph-explorer) { max-width: 1520px; }
 .graph-explorer-data { margin: 8px 0; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 5px 8px; }
 .graph-explorer-data dt { color: var(--graph-muted); }
 .graph-explorer-data dd { margin: 0; overflow-wrap: anywhere; }
+#graph-detail h4 { margin: 14px 0 6px; }
+.graph-evidence-list { list-style: none; margin: 0; padding: 0 0 0 10px; border-left: 2px solid #496685; }
+.graph-evidence-list li { padding: 6px 0 10px; overflow-wrap: anywhere; }
+.graph-evidence-list small { color: var(--graph-muted); }
+.graph-evidence-list p { margin: 3px 0; }
+.graph-evidence-list blockquote { margin: 4px 0 6px; color: #c2d4e5; white-space: pre-wrap; }
+.graph-evidence-links { display: flex; flex-wrap: wrap; gap: 6px 12px; }
+.graph-evidence-button { width: 100%; margin-bottom: 4px; text-align: left; overflow-wrap: anywhere; }
 #graph-explorer[data-graphic="empty"] #graph-canvas,
 #graph-explorer[data-graphic="unavailable"] #graph-canvas,
 #graph-explorer[data-graphic="empty"] .graph-explorer-plot,

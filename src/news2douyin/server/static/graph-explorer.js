@@ -117,6 +117,33 @@ function showDetails(parent, details) {
   if (rows.childElementCount) parent.append(rows)
 }
 
+function evidenceList(rows) {
+  const list = element('ol', '', 'graph-evidence-list')
+  for (const row of rows) {
+    const item = element('li')
+    const date = text(row.time)
+    const timeLabel = {reported_occurrence: '报道所述日期', published: '报道发布'}[row.time_kind]
+    const metadata = [date && timeLabel ? timeLabel + ' ' + date.slice(0, 10) : '日期待核',
+      text(row.status_label), text(row.role_label)].filter(Boolean)
+    item.append(element('small', metadata.join(' · ')))
+    const title = text(row.title) || text(row.event_title)
+    if (title) item.append(element('p', title))
+    if (text(row.evidence)) item.append(element('blockquote', row.evidence))
+    const links = element('div', '', 'graph-evidence-links')
+    for (const [path, prefix, label] of [[row.source_path, '/articles/', '报道原文'], [row.event_path, '/events/', '整理事件']]) {
+      const target = safeLink(path)
+      if (target?.origin !== window.location.origin || !target.pathname.startsWith(prefix)) continue
+      if (prefix === '/events/') target.searchParams.set('back', window.location.pathname + window.location.search)
+      const link = element('a', label)
+      link.href = target.href
+      links.append(link)
+    }
+    if (links.childElementCount) item.append(links)
+    list.append(item)
+  }
+  return list
+}
+
 function unpack(data) {
   if (!Array.isArray(data?.nodes) || !Array.isArray(data?.edges)) throw new Error('图谱数据格式不完整。')
   const nodes = []
@@ -128,7 +155,8 @@ function unpack(data) {
     const kind = text(input.kind)
     const style = kindInfo(kind)
     indices.set(id, nodes.length)
-    nodes.push({id, title: text(input.title) || id, kind: normalized(kind), style, url: input.url, details: input.details})
+    nodes.push({id, title: text(input.title) || id, kind: normalized(kind), style,
+      url: input.url, details: input.details, activities: input.activities || [], activityCount: input.activity_count})
     neighbors.push([])
   }
 
@@ -138,7 +166,8 @@ function unpack(data) {
     const target = indices.get(input?.target)
     if (source === undefined || target === undefined) continue
     const index = edges.length
-    edges.push({source, target, label: relationLabel(input.kind), details: input.details})
+    edges.push({source, target, label: text(input.label) || relationLabel(input.kind), details: input.details,
+      directed: input.directed, evidence: input.evidence || [], evidenceCount: input.evidence_count})
     neighbors[source].push({index, node: target, outgoing: true})
     if (source !== target) neighbors[target].push({index, node: source, outgoing: false})
   }
@@ -146,6 +175,7 @@ function unpack(data) {
 }
 
 function installGraph(root) {
+  const peopleLens = root.dataset.lens === 'people'
   const control = id => root.querySelector('#' + id)
   const canvas = control('graph-canvas')
   const query = control('graph-search')
@@ -165,7 +195,7 @@ function installGraph(root) {
   canvas.append(tooltip)
 
   let nodes = [], neighbors = [], edges = [], order = [], matches = []
-  let selected, filter = '', pageSize = 24
+  let selected, selectedEdge, filter = '', pageSize = 24
   let graph
   const resultButtons = new Map()
   const typeButtons = new Map()
@@ -181,14 +211,18 @@ function installGraph(root) {
       if (index === selected) button.setAttribute('aria-current', 'true')
       else button.removeAttribute('aria-current')
     }
-    clear.disabled = selected === undefined
+    clear.disabled = selected === undefined && selectedEdge === undefined
   }
 
   function updateHighlights() {
     if (!graph) return
     let points
     let links
-    if (selected !== undefined) {
+    if (selectedEdge !== undefined) {
+      const edge = edges[selectedEdge]
+      points = [edge.source, edge.target]
+      links = [selectedEdge]
+    } else if (selected !== undefined) {
       points = [...new Set([selected, ...neighbors[selected].map(row => row.node)])]
       links = neighbors[selected].map(row => row.index)
     } else if (filter || query.value.trim()) {
@@ -207,6 +241,7 @@ function installGraph(root) {
   }
 
   function select(index, center = false, focusPanel = false) {
+    selectedEdge = undefined
     selected = nodes[index] ? index : undefined
     markSelected()
     updateHighlights()
@@ -215,6 +250,16 @@ function installGraph(root) {
     if (center && graph && selected !== undefined) {
       graph.zoomToPointByIndex(selected, movement, Math.max(1.5, graph.getZoomLevel()), false, false)
     }
+  }
+
+  function selectEdge(index, focusPanel = false) {
+    if (!edges[index]) return
+    selected = undefined
+    selectedEdge = index
+    markSelected()
+    updateHighlights()
+    renderDetail()
+    if (focusPanel) details.querySelector('h3')?.focus()
   }
 
   function rowButton(index, onClick) {
@@ -229,10 +274,39 @@ function installGraph(root) {
     return button
   }
 
+  function edgeButton(index, label) {
+    const button = element('button', label, 'ghost graph-evidence-button')
+    button.type = 'button'
+    button.addEventListener('click', () => selectEdge(index, true))
+    return button
+  }
+
+  function renderEdgeDetail(edge) {
+    const title = element('h3', nodes[edge.source].title + (edge.directed ? ' → ' : ' · ') + nodes[edge.target].title)
+    title.tabIndex = -1
+    details.append(title, element('p', edge.label, 'graph-explorer-related-title'))
+    const count = edge.evidenceCount || edge.evidence.length
+    details.append(element('h4', '关系证据'))
+    if (edge.evidence.length) {
+      if (count > edge.evidence.length) details.append(element('small', `显示 ${edge.evidence.length} / ${count} 条`))
+      details.append(evidenceList(edge.evidence))
+    } else details.append(element('p', '这条关系暂无可查看的原文证据。'))
+    const parallel = neighbors[edge.source].filter(row => row.node === edge.target && row.index !== selectedEdge)
+    if (parallel.length) {
+      details.append(element('h4', '两者的其他关系'))
+      for (const row of parallel) details.append(edgeButton(row.index, edges[row.index].label))
+    }
+    for (const index of [edge.source, edge.target]) details.append(rowButton(index, () => select(index, true, true)))
+  }
+
   function renderDetail() {
     details.replaceChildren()
+    if (selectedEdge !== undefined) {
+      renderEdgeDetail(edges[selectedEdge])
+      return
+    }
     if (selected === undefined) {
-      const prompt = nodes.length ? '选择一个节点查看关系。' : '此图暂无可查看节点。'
+      const prompt = nodes.length ? (peopleLens ? '点人物看活动，点关系线看证据。' : '选择一个节点查看关系。') : '此图暂无可查看节点。'
       details.append(element('p', prompt, 'graph-explorer-muted'))
       return
     }
@@ -244,7 +318,7 @@ function installGraph(root) {
     const target = safeLink(node.url)
     if (target) {
       const local = target.origin === window.location.origin
-      const anchor = element('a', local ? '打开详情' : '打开原文 ↗')
+      const anchor = element('a', peopleLens && node.kind === 'person' ? '查看人物时间线' : local ? '打开详情' : '打开原文 ↗')
       anchor.href = target.href
       if (!local) {
         anchor.target = '_blank'
@@ -265,6 +339,14 @@ function installGraph(root) {
         details.append(anchor)
       }
     }
+    if (peopleLens && node.kind === 'person') {
+      details.append(element('h4', '活动时间线'))
+      if (node.activityCount > node.activities.length) {
+        details.append(element('small', `显示 ${node.activities.length} / ${node.activityCount} 条活动`))
+      }
+      if (node.activities.length) details.append(evidenceList(node.activities))
+      else details.append(element('p', '此范围暂无可查看的活动。', 'graph-explorer-muted'))
+    }
     const related = neighbors[selected]
     details.append(element('p', related.length ? `直接关系 ${related.length}` : '图中暂无直接关系。', 'graph-explorer-related-title'))
     if (!related.length) return
@@ -273,8 +355,13 @@ function installGraph(root) {
     for (const row of related) {
       const edge = edges[row.index]
       const item = element('li')
-      const relation = element('p', `${row.outgoing ? '指向' : '来自'} · ${edge.label}`, 'graph-explorer-relation')
-      item.append(relation, rowButton(row.node, () => select(row.node, true, true)))
+      if (peopleLens) {
+        const label = nodes[row.node].title + ' · ' + edge.label
+        item.append(edgeButton(row.index, label))
+      } else {
+        const relation = element('p', `${row.outgoing ? '指向' : '来自'} · ${edge.label}`, 'graph-explorer-relation')
+        item.append(relation, rowButton(row.node, () => select(row.node, true, true)))
+      }
       showDetails(item, edge.details)
       list.append(item)
     }
@@ -320,6 +407,7 @@ function installGraph(root) {
     })
     for (const [kind, button] of typeButtons) button.setAttribute('aria-pressed', String(kind === filter))
     if (selected !== undefined && !matches.includes(selected)) select(undefined)
+    if (selectedEdge !== undefined && !matches.includes(edges[selectedEdge].source) && !matches.includes(edges[selectedEdge].target)) select(undefined)
     pageSize = 24
     updateResults()
     updateHighlights()
@@ -402,7 +490,7 @@ function installGraph(root) {
         pointDefaultStrokeWidth: .9,
         pointGreyoutOpacity: .37,
         linkDefaultColor: '#7190b7',
-        linkDefaultWidth: 1.1,
+        linkDefaultWidth: peopleLens ? 2.3 : 1.1,
         linkOpacity: .62,
         linkGreyoutOpacity: .19,
         linkDefaultArrows: nodes.length <= 110,
@@ -419,7 +507,10 @@ function installGraph(root) {
         initialZoomLevel: nodes.length === 1 ? 1.5 : undefined,
         rescalePositions: false,
         randomSeed: 17,
-        onClick: index => select(index),
+        onPointClick: index => select(index),
+        onBackgroundClick: () => select(undefined),
+        onLinkClick: peopleLens ? index => selectEdge(index) : undefined,
+        hoveredLinkCursor: peopleLens ? 'pointer' : 'auto',
         onMouseMove: hover,
       })
       graph = instance
@@ -442,6 +533,7 @@ function installGraph(root) {
       instance.setPointColors(colors)
       instance.setPointSizes(sizes)
       instance.setLinks(links)
+      if (peopleLens) instance.setLinkArrows(edges.map(edge => edge.directed === true))
       instance.render()
       updateHighlights()
       canvas.querySelector('canvas')?.addEventListener('webglcontextlost', () => {
@@ -487,8 +579,13 @@ function installGraph(root) {
       ;({nodes, neighbors, edges} = unpack(data))
       const counts = `${nodes.length} 个节点 · ${edges.length} 条关系`
       const fromGraph = data.backend === 'falkordb'
-      summary.textContent = `${counts} · ${fromGraph ? 'FalkorDB' : '关系库快照'}`
-      metadataNotice = [
+      summary.textContent = `${counts} · ${peopleLens ? '焦点材料' : fromGraph ? 'FalkorDB' : '关系库快照'}`
+      const scope = data.window
+      metadataNotice = peopleLens ? [
+        scope?.date_from && scope.date_to ? `材料收录日期 ${scope.date_from} 至 ${scope.date_to}。` : '',
+        Number.isInteger(scope?.sampled_events) ? `本次读取 ${scope.sampled_events} 个事件。` : '',
+        data.truncated ? '仅展示读取范围内的部分材料。' : '',
+      ].filter(Boolean).join(' ') : [
         Object.hasOwn(READ_REASONS, data.reason) ? READ_REASONS[data.reason] : '',
         fromGraph && data.state === 'partial' ? '当前显示已经读取的图数据。' : '',
         !fromGraph && nodes.length ? '当前显示关系库快照。' : '',
@@ -497,7 +594,8 @@ function installGraph(root) {
       renderDetail()
       if (!nodes.length) {
         root.dataset.graphic = 'empty'
-        report(fromGraph ? '所选范围暂无可显示的图谱。' : '所选范围的关系库快照暂无可显示的节点。')
+        report(peopleLens ? text(data.empty_reason) || '当前材料中暂无可显示的人物。'
+          : fromGraph ? '所选范围暂无可显示的图谱。' : '所选范围的关系库快照暂无可显示的节点。')
         return
       }
       order = nodes.map((_, index) => index).sort((a, b) => neighbors[b].length - neighbors[a].length || a - b)
