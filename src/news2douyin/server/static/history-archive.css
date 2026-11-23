@@ -13,6 +13,8 @@
 .archive-message[data-error="true"] { color: #ffa29e; }
 .archive-status-line h2 { margin: 0; }
 .archive-status p { margin: 7px 0 0; }
+.archive-transfer { margin: 8px 0 12px; }
+.archive-transfer progress { display: block; width: min(100%, 460px); margin-bottom: 5px; accent-color: #81a4ed; }
 .archive-meters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin-block: 16px; }
 .archive-meter > div { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
 .archive-meter progress { display: block; width: 100%; height: 11px; margin: 8px 0 4px; accent-color: var(--archive-accent); }

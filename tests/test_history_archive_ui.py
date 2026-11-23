@@ -47,8 +47,9 @@ def test_history_archive_product_routes(tmp_path):
         assert page.status_code == 200
         assert '历史归档' in page.text and '已可查询' in page.text and '调查加急补档' in page.text
         assert 'name="mentions" type="checkbox"' in page.text
-        assert 'href="/admin/history-archive/relay-client.py"' in page.text
-        assert 'archive-source' in page.text and 'archive-relay-command' in page.text
+        assert 'id="archive-current-file"' in page.text
+        assert client.get('/admin/history-archive/relay-client.py').status_code == 404
+        assert client.get(base + '/relay/work').status_code == 404
         assert 'href="/admin/history-archive"' in page.text
         asset = client.get('/research-assets/history-archive.js')
         assert asset.status_code == 200 and base in asset.text

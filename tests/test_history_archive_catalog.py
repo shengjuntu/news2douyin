@@ -76,7 +76,7 @@ class _Response:
     def __init__(self, body=b'', status=200, headers=None):
         self.body = body
         self.status_code = status
-        self.headers = headers or {}
+        self.headers = {'Content-Length': str(len(body)), **(headers or {})}
 
     def __enter__(self):
         return self

@@ -1,15 +1,15 @@
 {% extends 'base.html' %}
 {% block title %}历史归档 · news2douyin{% endblock %}
 {% block graph_libraries %}
-<link rel="stylesheet" href="/research-assets/history-archive.css?v=0.51.1">
-<script src="/research-assets/history-archive.js?v=0.53.0" defer></script>
+<link rel="stylesheet" href="/research-assets/history-archive.css?v=0.54.0">
+<script src="/research-assets/history-archive.js?v=0.54.0" defer></script>
 {% endblock %}
 {% block content %}
 <section class="history-archive" aria-labelledby="archive-title">
   <div class="archive-heading">
     <div>
       <h1 id="archive-title">历史归档</h1>
-      <p class="muted">从新到旧补下载英文 Events 和全字段 GKG。归档转成 Parquet 后即可用于因果搜索。</p>
+      <p class="muted">服务器从新到旧补下载英文 Events 和全字段 GKG，转成 Parquet 后即可用于因果搜索。</p>
     </div>
     <a href="/radar/causes">查找事件前因</a>
   </div>
@@ -19,17 +19,10 @@
     <label class="archive-option"><input name="mentions" type="checkbox"> 同时补下载全部英文 Mentions</label>
     <button type="submit" id="archive-start">开始补档</button>
   </form>
-  <details class="card archive-failure-box">
-    <summary>本地下载器</summary>
-    <p>在线路较好的电脑运行下载器，将官方清单和 ZIP 传回此服务。日期范围和进度在本页管理。</p>
-    <p><a href="/admin/history-archive/relay-client.py" download="gdelt_history_relay.py">下载 Python 脚本</a> · Python 3.10 及以上</p>
-    <p>服务器设置 <code>NEWS2DOUYIN_HISTORY_ARCHIVE_SOURCE=relay</code>，两端设置相同的 <code>NEWS2DOUYIN_HISTORY_RELAY_TOKEN</code>。重启服务后，在本机执行</p>
-    <pre><code id="archive-relay-command">python gdelt_history_relay.py --server &lt;news2douyin 服务地址&gt;</code></pre>
-  </details>
   <div class="row archive-actions" aria-label="任务控制">
     <button class="ghost" type="button" id="archive-pause" disabled>暂停</button>
     <button class="ghost" type="button" id="archive-resume" disabled>继续</button>
-    <button class="ghost" type="button" id="archive-retry" disabled>重试失败项</button>
+    <button class="ghost" type="button" id="archive-retry" disabled>立即重试</button>
     <span class="muted small">归档日期按 UTC 显示</span>
   </div>
   <p id="archive-message" class="archive-message" role="status" hidden></p>
@@ -40,10 +33,14 @@
       <span class="badge" id="archive-state">读取中</span>
     </div>
     <p id="archive-current" class="muted" hidden></p>
+    <div class="archive-transfer" id="archive-transfer" hidden>
+      <progress id="archive-current-file" aria-label="当前文件的下载进度"></progress>
+      <small class="muted" id="archive-current-bytes"></small>
+    </div>
     <p id="archive-task-range" class="muted small" hidden></p>
     <div class="archive-meters">
       <div class="archive-meter">
-        <div><label for="archive-downloaded" id="archive-download-label">已下载</label><strong id="archive-downloaded-count">—</strong></div>
+        <div><label for="archive-downloaded">已下载</label><strong id="archive-downloaded-count">—</strong></div>
         <progress id="archive-downloaded" max="1"></progress>
         <small id="archive-downloaded-bytes" class="muted"></small>
       </div>
@@ -54,8 +51,6 @@
       </div>
     </div>
     <dl class="archive-status-facts">
-      <div><dt>历史归档来源</dt><dd id="archive-source">—</dd></div>
-      <div id="archive-relay-poll-row" hidden><dt>下载器上次联系</dt><dd id="archive-relay-poll">—</dd></div>
       <div><dt>最早连续可查日期</dt><dd id="archive-through">—</dd></div>
       <div><dt>待重试文件</dt><dd id="archive-errors">—</dd></div>
       <div><dt>磁盘可用</dt><dd id="archive-disk">—</dd></div>
@@ -82,7 +77,7 @@
     <ul id="archive-requests"></ul>
   </details>
   <details class="card archive-failure-box" id="archive-failure-box" hidden>
-    <summary>最近失败</summary>
+    <summary>最近下载与归档问题</summary>
     <ul id="archive-failures"></ul>
   </details>
 </section>

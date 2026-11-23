@@ -7,7 +7,6 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, ConfigDict, StringConstraints, model_validator
 
-from .history_relay import register_relay
 from .research import same_origin
 
 
@@ -42,8 +41,6 @@ def _reply(value, status=200):
 
 
 def register_history_archive(app, render):
-    register_relay(app)
-
     def worker():
         service = getattr(app.state, 'history_archive', None)
         if service is None:

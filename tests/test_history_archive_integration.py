@@ -55,7 +55,8 @@ class FixtureTransport:
 
     class Response:
         def __init__(self, body, status=200):
-            self.body, self.status_code, self.headers = body, status, {}
+            self.body, self.status_code = body, status
+            self.headers = {'Content-Length': str(len(body))}
 
         def __enter__(self):
             return self

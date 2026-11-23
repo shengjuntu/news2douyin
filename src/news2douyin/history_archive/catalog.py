@@ -3,17 +3,14 @@
 from calendar import monthrange
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
-from hashlib import md5, sha256
-import os
 from pathlib import Path
 import re
-from tempfile import NamedTemporaryFile
 from threading import Lock
 from time import time
 
 import requests
 
-from ..intake.service import response_error, timeout
+from .download import ArchiveTransferError, check_stop as _check_stop, transfer_catalog, transfer_zip
 
 HOST = 'https://data.gdeltproject.org'
 START_DATE = date(1979, 1, 1)
@@ -39,12 +36,6 @@ _MASTER_LIMIT = 256 * 1024 ** 2
 _LEGACY_LIMIT = 4 * 1024 ** 2
 _LEGACY_TTL = 24 * 60 * 60
 _MASTER_TTL = 60 * 60
-RELAY_CATALOGS = (_MASTER, 'events/filesizes', 'events/md5sums', 'gkg/filesizes', 'gkg/md5sums')
-
-
-class RelayCatalogNeeded(Exception):
-    """The local downloader has not handed off a current catalog yet."""
-
 
 
 @dataclass(frozen=True)
@@ -58,63 +49,6 @@ class ArchivePackage:
     url: str
     size: int
     md5: str
-
-
-def _check_stop(stop):
-    if stop is not None and stop.is_set():
-        raise InterruptedError('historical archive task stopped')
-
-
-def _sync_directory(path):
-    if hasattr(os, 'O_DIRECTORY'):
-        try:
-            fd = os.open(path, os.O_DIRECTORY)
-            try:
-                os.fsync(fd)
-            finally:
-                os.close(fd)
-        except OSError:
-            # Some supported filesystems cannot fsync directory descriptors.
-            pass
-
-
-def _transfer(relative, destination, max_bytes, stop, *, package=None):
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    temporary = None
-    received = 0
-    digest = md5(usedforsecurity=False) if package else None
-    fingerprint = sha256() if package else None
-    try:
-        with NamedTemporaryFile(dir=destination.parent, prefix=destination.name + '.', suffix='.part',
-                                delete=False) as output:
-            temporary = Path(output.name)
-            _check_stop(stop)
-            with requests.get(f'{HOST}/{relative}', stream=True, timeout=timeout(),
-                              headers={'Accept-Encoding': 'identity'}, allow_redirects=False) as response:
-                response_error(response)
-                for block in response.iter_content(128 * 1024):
-                    _check_stop(stop)
-                    received += len(block)
-                    if received > max_bytes:
-                        raise ValueError('archive_download_size_limit')
-                    output.write(block)
-                    if digest is not None:
-                        digest.update(block)
-                        fingerprint.update(block)
-            if not received:
-                raise ValueError('archive_empty_response')
-            if package and (received != package.size or digest.hexdigest() != package.md5.lower()):
-                raise ValueError('archive_checksum_or_size_mismatch')
-            output.flush()
-            os.fsync(output.fileno())
-        if package is None and not _looks_like_catalog(temporary, relative):
-            raise ValueError('archive_invalid_catalog')
-        os.replace(temporary, destination)
-        _sync_directory(destination.parent)
-        return {'compressed_bytes': received, 'md5': digest.hexdigest(), 'sha256': fingerprint.hexdigest()} if package else None
-    finally:
-        if temporary is not None:
-            temporary.unlink(missing_ok=True)
 
 
 def _looks_like_catalog(path, relative):
@@ -134,37 +68,17 @@ def _looks_like_catalog(path, relative):
     return False
 
 
-def _fresh(target, relative, archive_end):
+def _catalog(relative, cache_dir, stop, *, archive_end=None, progress=None):
+    target = Path(cache_dir) / relative.replace('/', '-')
     recent = archive_end is not None and archive_end >= datetime.now(timezone.utc).date() - timedelta(days=1)
     ttl = _MASTER_TTL if relative == _MASTER and recent else _LEGACY_TTL
-    try:
-        return time() - target.stat().st_mtime <= ttl
-    except FileNotFoundError:
-        return False
-
-
-def needed_relay_catalogs(start, end, cache_dir):
-    """Report exactly the catalogs used by Events/GKG planning for this date range."""
-    required = []
-    if end >= V1_LAST_DAY:
-        required.append(_MASTER)
-    if start <= V1_LAST_DAY:
-        required.extend(RELAY_CATALOGS[1:3])
-        if end >= GKG_START:
-            required.extend(RELAY_CATALOGS[3:])
-    return [relative for relative in required
-            if not _fresh(Path(cache_dir) / relative.replace('/', '-'), relative, end)]
-
-
-def _catalog(relative, cache_dir, stop, *, archive_end=None, local_only=False):
-    target = Path(cache_dir) / relative.replace('/', '-')
     limit = _MASTER_LIMIT if relative == _MASTER else _LEGACY_LIMIT
     with _CATALOG_LOCK:
         _check_stop(stop)
-        if not _fresh(target, relative, archive_end):
-            if local_only:
-                raise RelayCatalogNeeded(relative)
-            _transfer(relative, target, limit, stop)
+        if not target.exists() or time() - target.stat().st_mtime > ttl:
+            observe = (lambda received, total: progress(relative, received, total)) if progress else None
+            transfer_catalog(requests.get, f'{HOST}/{relative}', target, limit, stop, observe,
+                             lambda path: _looks_like_catalog(path, relative))
     return target
 
 
@@ -216,9 +130,9 @@ def _legacy_values(path, periods, *, checksum=False):
     return values
 
 
-def _legacy_packages(kind, lower, upper, cache_dir, stop, *, local_only=False):
-    sizes_path = _catalog(f'{kind}/filesizes', cache_dir, stop, local_only=local_only)
-    checksums_path = _catalog(f'{kind}/md5sums', cache_dir, stop, local_only=local_only)
+def _legacy_packages(kind, lower, upper, cache_dir, stop, progress):
+    sizes_path = _catalog(f'{kind}/filesizes', cache_dir, stop, progress=progress)
+    checksums_path = _catalog(f'{kind}/md5sums', cache_dir, stop, progress=progress)
     periods = {}
     with sizes_path.open(encoding='ascii', errors='replace') as stream:
         for line in stream:
@@ -282,7 +196,7 @@ def _modern_packages(path, kinds, lower, upper, stop):
             yield ArchivePackage(name, kind, 2, day, day, stamp, f'{HOST}/gdeltv2/{name}', *metadata)
 
 
-def list_packages(date_from, date_to, kinds, *, cache_dir, stop=None, local_only=False):
+def list_packages(date_from, date_to, kinds, *, cache_dir, stop=None, progress=None):
     """Return available archives intersecting the inclusive UTC date interval."""
     requested = frozenset(kinds)
     if not requested or not requested.issubset(KINDS):
@@ -291,18 +205,18 @@ def list_packages(date_from, date_to, kinds, *, cache_dir, stop=None, local_only
         raise ValueError('invalid GDELT history date range')
     packages = []
     if date_to >= V1_LAST_DAY:
-        master = _catalog(_MASTER, cache_dir, stop, archive_end=date_to, local_only=local_only)
+        master = _catalog(_MASTER, cache_dir, stop, archive_end=date_to, progress=progress)
         packages.extend(_modern_packages(master, requested, date_from, date_to, stop))
     if date_from <= V1_LAST_DAY:
         for kind in KINDS[:2]:
             start = START_DATE if kind == 'events' else GKG_START
             if kind in requested and date_to >= start:
-                packages.extend(_legacy_packages(kind, date_from, date_to, cache_dir, stop, local_only=local_only))
+                packages.extend(_legacy_packages(kind, date_from, date_to, cache_dir, stop, progress))
     order = {kind: len(KINDS) - index for index, kind in enumerate(KINDS)}
     return sorted(packages, key=lambda item: (item.date_to, item.version, item.stamp, order[item.kind]), reverse=True)
 
 
-def download_package(package, destination, *, stop=None, max_bytes=None):
+def download_package(package, destination, *, stop=None, max_bytes=None, progress=None):
     """Download a catalog entry, checking its bytes and MD5 before publishing."""
     if package.kind not in KINDS or package.size <= 0 or not _MD5.fullmatch(package.md5):
         raise ValueError('invalid GDELT archive metadata')
@@ -323,4 +237,4 @@ def download_package(package, destination, *, stop=None, max_bytes=None):
     maximum = package.size if max_bytes is None else min(max_bytes, package.size)
     if package.size > maximum:
         raise ValueError('archive_download_size_limit')
-    return _transfer(relative, Path(destination), maximum, stop, package=package)
+    return transfer_zip(requests.get, package.url, Path(destination), package.size, package.md5.lower(), stop, progress)
