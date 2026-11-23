@@ -8,7 +8,7 @@ import os
 import re
 import unicodedata
 
-from sqlalchemy import func, or_, union, union_all
+from sqlalchemy import case, func, or_, union, union_all
 from sqlalchemy.orm import aliased
 from sqlmodel import Session, select
 
@@ -20,7 +20,7 @@ from ..event_embeddings.search import find_similar
 from ..event_embeddings.models import EventEmbeddingJob, EventEmbeddingRecord
 from ..intake.official_models import OfficialEvent
 from ..intake.models import IntakeBatch
-from ..llm.client.embedding import EmbeddingError, EmbeddingConfigurationError
+from ..llm.client.embedding import EmbeddingClient, EmbeddingError, EmbeddingConfigurationError
 from ..research.materials import LEAD_KINDS
 from ..search.index import index_available
 from ..search.service import _match
@@ -32,6 +32,7 @@ from ..storage.models import Article, ArticleEventLink, Event, EventMoment, Even
 from ..storage.sql import json_text
 from ..storage.utils import loads
 from .chronology import eligible, interval
+from . import vector_recall
 
 MAX_QUERIES = 3
 MAX_TERMS = 12
@@ -42,7 +43,7 @@ LOCAL_SCAN = 3000
 
 
 def _queries(values):
-    return list(dict.fromkeys(' '.join(value.split())[:200]
+    return list(dict.fromkeys(' '.join(value.split())[:240]
                               for value in values if isinstance(value, str) and value.strip()))[:MAX_QUERIES]
 
 
@@ -183,10 +184,17 @@ def _curated(session, terms, indexed, lower, upper, exclude, similarities, *, ev
 
     # A small indexed link page per event avoids materializing a large workspace.
     links = []
+    clock_bounds = (_tree_point(lower), _tree_point(upper)) if event_keys is not None else None
+    if clock_bounds is not None:
+        start, stop = vector_recall.date_envelope(*clock_bounds)
     for key in keys:
-        page = (select(ArticleEventLink.event_key, ArticleEventLink.article_key)
-                .where(ArticleEventLink.event_key == key).order_by(ArticleEventLink.article_key).limit(8).subquery())
-        links.append(select(page))
+        page = select(ArticleEventLink.event_key, ArticleEventLink.article_key).where(ArticleEventLink.event_key == key)
+        if clock_bounds is not None:
+            # A historical source may have been backfilled after many newer reports.
+            page = page.join(Article, Article.article_key == ArticleEventLink.article_key).order_by(
+                case((Article.published_at.between(lower[:10], upper), 0),
+                     (Article.published_at.between(start, stop), 1), else_=2), Article.is_duplicate)
+        links.append(select(page.order_by(ArticleEventLink.article_key).limit(8).subquery()))
     joined = union_all(*links).subquery() if len(links) > 1 else links[0].subquery()
     sources = defaultdict(list)
     for event_key, *row in session.exec(select(joined.c.event_key, *_article_fields()).select_from(joined)
@@ -220,7 +228,10 @@ def _curated(session, terms, indexed, lower, upper, exclude, similarities, *, ev
                                               item.get('published_at'), 'reviewed_moment'))
                 occurred = _day(start) if any(pinned) else ''
         name, summary = matches[key]
-        candidate = _candidate(key, '\n'.join(filter(None, (name, summary))), (*pinned, *sources[key]),
+        evidence = [source for source in (*pinned, *sources[key]) if source]
+        if clock_bounds:
+            evidence.sort(key=lambda source: not _dated_evidence(source, *clock_bounds))
+        candidate = _candidate(key, '\n'.join(filter(None, (name, summary))), evidence,
                                upper, event_key=key, occurred_at=occurred, similarity=similarities.get(key, 0.))
         if candidate['sources']:
             result.append(candidate)
@@ -247,6 +258,8 @@ class TreePool:
     excluded: set[str]
     candidates: list[dict]
     local: dict
+    client: EmbeddingClient | None
+    query_vectors: list[list[float]]
 
 
 @dataclass(frozen=True)
@@ -260,13 +273,14 @@ class TreeRanking:
 
 def _tree_terms(queries, event_text):
     """Broaden Chinese phrases without requiring a new tokenizer dependency."""
-    base = _terms(queries)
-    chunks = []
+    groups = []
     for value in queries:
+        terms = _terms([value])
         for run in re.findall(r'[\u3400-\u9fff]{4,}', value):
-            chunks.extend(run[i:i+4] for i in range(0, len(run)-3, 2))
-    # Parent terms aid recall, but never displace the proposed mechanisms.
-    return list(dict.fromkeys([*base, *chunks, *_terms([event_text[:500]])]))[:32]
+            terms.extend(run[i:i+4] for i in range(0, len(run)-3, 2))
+        groups.append(terms)
+    interleaved = [term for row in zip_longest(*groups) for term in row if term]
+    return list(dict.fromkeys([*interleaved, *_terms([event_text[:500]])]))[:32]
 
 
 def _tree_point(value):
@@ -369,22 +383,27 @@ def _tree_pool(session, terms, indexed, lower, upper, exclude, *, recall_article
                 articles.append(_candidate('article:'+row[0], source['title']+'\n'+source['quote'], [source], upper))
     # Prefer one curated interpretation for a report. Still keep distinct
     # curated events even when they share reporting, as in the legacy path.
-    urls = {canonicalize_url(item['sources'][0]['url']) for item in curated}
+    ordered = [item for group in zip_longest(curated, articles, official) for item in group if item]
+    return _unique_tree_candidates(ordered, exclude), recall_count
+
+
+def _unique_tree_candidates(items, exclude):
+    urls = {canonicalize_url(item['sources'][0]['url']) for item in items if item['event_key'] and item['sources']}
     found, refs, identical = [], set(exclude), set()
-    for group in zip_longest(curated, articles, official):
-        for item in group:
-            if not item or item['ref'] in refs or not item['sources']:
-                continue
-            uri = canonicalize_url(item['sources'][0]['url'])
-            fingerprint = (unicodedata.normalize('NFKC',' '.join(item['text'].split())).casefold(),uri)
-            if fingerprint in identical:
-                continue
-            if not item['event_key'] and uri in urls:
-                continue
-            refs.add(item['ref']);urls.add(uri);identical.add(fingerprint);found.append(item)
-            if len(found) >= TREE_POOL_LIMIT:
-                return found, recall_count
-    return found, recall_count
+    for item in items:
+        if item['ref'] in refs or not item['sources']:
+            continue
+        uri = canonicalize_url(item['sources'][0]['url'])
+        fingerprint = (unicodedata.normalize('NFKC', ' '.join(item['text'].split())).casefold(), uri)
+        if fingerprint in identical or (not item['event_key'] and uri in urls):
+            continue
+        refs.add(item['ref'])
+        urls.add(uri)
+        identical.add(fingerprint)
+        found.append(item)
+        if len(found) == TREE_POOL_LIMIT:
+            break
+    return found
 
 
 def _tree_unit(value):
@@ -422,15 +441,37 @@ def _dated_evidence(source, floor, ceiling):
                 and floor <= stamp[0] < ceiling and stamp[1] <= ceiling)
 
 
+def _encode_tree_queries(queries, event_text, checkpoint):
+    try:
+        client = vector_client()
+    except EmbeddingConfigurationError:
+        from ..event_embeddings.queue import enabled
+        if not os.getenv('EMBEDDING_BASE_URL', '').strip():
+            return None, [], 'unconfigured'
+        if not enabled():
+            return None, [], 'disabled'
+        raise
+    inputs = [*queries, *([event_text[:4000]] if event_text.strip() else [])]
+    if checkpoint:
+        checkpoint()
+    vectors = [_tree_unit(v) for v in client.get_embedding(inputs)]
+    if len(vectors) != len(inputs) or len({len(v) for v in vectors}) != 1:
+        raise EmbeddingError('归因查询返回向量数量或维度不符')
+    return client, vectors, 'ready'
+
+
 def collect_tree_pool(engine, queries: list[str], *, lower: str, upper: str,
-                      exclude: set[str], event_text: str = '') -> TreePool:
+                      exclude: set[str], event_text: str = '', checkpoint=None) -> TreePool:
     """Collect a bounded local pool and retain diagnostics even for empty steps."""
+    # The model accepts up to 240 characters per hypothesis. Keep the complete
+    # phrase (including source-language terms) when encoding or reporting it.
     queries = _queries(queries)
     terms = _tree_terms(queries, event_text)
     local = dict(status='unknown', recall_count=0, pool_count=0, eligible_count=0,
                  dated_evidence_count=0, vector_ranked_count=0, keyword_indexed=False)
-    candidates = []
-    if queries and terms and _tree_bins(lower, upper):
+    candidates, query_vectors, client = [], [], None
+    if queries and lower < upper:
+        floor, ceiling = _tree_point(lower), _tree_point(upper)
         with Session(engine) as session:
             indexed = index_available(session)
             local.update(_local_coverage(session, lower, upper))
@@ -443,14 +484,44 @@ def collect_tree_pool(engine, queries: list[str], *, lower: str, upper: str,
                 recall_articles = dated is not None or session.exec(select(Article.id).where(
                     Article.published_at == '', _window(Article.fetched_at, lower, upper)).limit(1)
                     .execution_options(n2d_query_name='causal.tree.historical_article_probe')).first() is not None
-            pool, count = _tree_pool(session, terms, indexed, lower, upper, exclude, recall_articles=recall_articles)
-        floor, ceiling = _tree_point(lower), _tree_point(upper)
+            pool, count = (_tree_pool(session, terms, indexed, lower, upper, exclude, recall_articles=recall_articles)
+                           if terms else ([], 0))
         # Ingestion clocks are recall hints only. Evidence uses original dates.
         candidates = [value for item in pool if (value := _tree_eligible(item, floor, ceiling))]
-        local.update(recall_count=count, pool_count=len(pool), eligible_count=len(candidates),
-                     keyword_indexed=indexed, dated_evidence_count=sum(any(
-                         _dated_evidence(source, floor, ceiling) for source in item['sources']) for item in candidates))
-    return TreePool(queries, terms, event_text, lower, upper, set(exclude), candidates, local)
+        def has_dated_source(item):
+            return any(_dated_evidence(source, floor, ceiling) for source in item['sources'])
+
+        local.update(recall_count=count, pool_count=len(pool), keyword_indexed=indexed,
+                     keyword_pool_count=len(pool), keyword_dated_count=sum(map(has_dated_source, candidates)))
+        client, query_vectors, state = _encode_tree_queries(queries, event_text, checkpoint)
+        local['embedding_state'] = state
+        if client is not None:
+            neighbors, scanned = vector_recall.nearest(engine, profile(client), query_vectors[:len(queries)],
+                                                       floor, ceiling, exclude, checkpoint)
+            by_key = {item['event_key']: item for item in candidates if item['event_key']}
+            needed = list(dict.fromkeys(key for group in neighbors for key in group if key not in by_key))
+            if needed:
+                with Session(engine) as session:
+                    material = _curated(session, terms, indexed, lower, upper, exclude, {},
+                                        event_keys=needed, limit=len(needed))
+                for item in material:
+                    value = _tree_eligible(item, floor, ceiling)
+                    if value:
+                        by_key[item['event_key']] = value
+            hits = []
+            for group in neighbors:
+                grounded = [key for key in group if key in by_key and has_dated_source(by_key[key])]
+                hits.append(grounded[:vector_recall.HITS_PER_HYPOTHESIS])
+            vector_keys = list(dict.fromkeys(key for group in hits for key in group))
+            candidates = _unique_tree_candidates([*(by_key[key] for key in vector_keys), *candidates], exclude)
+            retained = {item['ref'] for item in candidates}
+            lexical = {item['ref'] for item in pool}
+            additions = len((set(vector_keys) & retained) - lexical)
+            local.update(vector_scanned_count=scanned, vector_only_count=additions,
+                         recall_count=count + additions, pool_count=min(TREE_POOL_LIMIT, len(pool) + additions),
+                         hypothesis_hits=[[key for key in group if key in retained] for group in hits])
+        local.update(eligible_count=len(candidates), dated_evidence_count=sum(map(has_dated_source, candidates)))
+    return TreePool(queries, terms, event_text, lower, upper, set(exclude), candidates, local, client, query_vectors)
 
 
 def _history_candidate(item, floor, ceiling):
@@ -509,7 +580,11 @@ def _tree_merge(pool, historical):
     # A verified historical excerpt supersedes an undated copy of the same URL.
     local = [item for item in pool.candidates if not all(canonicalize_url(source['url']) in extra_urls
                                                         for source in item['sources'])]
-    return (supplements + local)[:TREE_POOL_LIMIT], historical_refs
+    protected = {key for group in pool.local.get('hypothesis_hits', []) for key in group}
+    first = [item for item in local if item['ref'] in protected]
+    rest = [item for item in local if item['ref'] not in protected]
+    merged = (first + supplements + rest)[:TREE_POOL_LIMIT]
+    return merged, historical_refs.intersection(item['ref'] for item in merged)
 
 
 def rank_tree_pool(engine, pool: TreePool, *, historical=(), checkpoint=None) -> TreeRanking:
@@ -519,23 +594,9 @@ def rank_tree_pool(engine, pool: TreePool, *, historical=(), checkpoint=None) ->
     local = dict(pool.local)
     if not candidates:
         return TreeRanking([], local)
-    client, fallback = None, ''
-    try:
-        client = vector_client()
-    except EmbeddingConfigurationError:
-        from ..event_embeddings.queue import enabled
-        if not os.getenv('EMBEDDING_BASE_URL','').strip() or not enabled():
-            fallback = 'unconfigured' if not os.getenv('EMBEDDING_BASE_URL','').strip() else 'disabled'
-        else:
-            raise
-    vectors, computed, query_vectors = {}, set(), []
+    client, query_vectors = pool.client, pool.query_vectors
+    vectors, computed = {}, set()
     if client is not None:
-        inputs = [*queries, *([event_text[:4000]] if event_text.strip() else [])]
-        if checkpoint is not None:
-            checkpoint()
-        query_vectors = [_tree_unit(v) for v in client.get_embedding(inputs)]
-        if len(query_vectors) != len(inputs) or len({len(v) for v in query_vectors}) != 1:
-            raise EmbeddingError('归因查询返回向量数量或维度不符')
         dimensions = len(query_vectors[0])
         keys = [item['event_key'] for item in candidates if item['event_key']]
         if keys:
@@ -579,7 +640,7 @@ def rank_tree_pool(engine, pool: TreePool, *, historical=(), checkpoint=None) ->
                 local['vector_ranked_count'] += 1
         rank_score = .8*semantic+.2*lexical if semantic is not None else lexical
         item = {**item,'similarity':semantic if semantic is not None else 0.,'retrieval':dict(
-            mode=mode, embedding_state=fallback or 'ready',
+            mode=mode, embedding_state=local['embedding_state'],
             pool_count=local['pool_count']+len(historical_refs),eligible_count=len(candidates),pool_limit=TREE_POOL_LIMIT,
             vector_score=semantic,
             vector_ranked_count=len(candidates) if client is not None else 0,
@@ -590,7 +651,16 @@ def rank_tree_pool(engine, pool: TreePool, *, historical=(), checkpoint=None) ->
         item['retrieval']['keyword_indexed'] = local['keyword_indexed']
         scored.append(item)
     scored.sort(key=lambda item:(-item['retrieval']['rank_score'],item['ref']))
-    return TreeRanking(scored[:TREE_RESULT_LIMIT], local, mode, len(historical_refs), historical_ranked)
+    # Keep each hypothesis represented even when the others yield many close
+    # matches. Remaining slots follow the shared lexical/semantic ranking.
+    reserved = {key for group in local.get('hypothesis_hits', []) for key in group}
+    reserved.intersection_update(item['ref'] for item in scored)
+    for item in scored:
+        if len(reserved) >= TREE_RESULT_LIMIT:
+            break
+        reserved.add(item['ref'])
+    return TreeRanking([item for item in scored if item['ref'] in reserved], local, mode,
+                       len(historical_refs), historical_ranked)
 
 
 def retrieve_for_tree(engine, queries: list[str], *, lower: str, upper: str,

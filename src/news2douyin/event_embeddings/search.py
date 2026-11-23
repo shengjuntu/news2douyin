@@ -32,7 +32,8 @@ def _recent(profile, lower, upper):
     )
 
 
-def _unit(vector):
+def unit_vector(vector):
+    """Normalize a finite, nonzero stored or query embedding."""
     if not isinstance(vector, list) or not vector or any(type(value) not in (int, float) for value in vector):
         return None
     try:
@@ -56,7 +57,7 @@ def _portable(connection, recent, query, limit):
                 vector = json.loads(serialized)
             except (ValueError, TypeError, RecursionError):
                 continue
-            if isinstance(vector, list) and len(vector) == len(query) and (unit := _unit(vector)):
+            if isinstance(vector, list) and len(vector) == len(query) and (unit := unit_vector(vector)):
                 yield _item(key, title, timestamp, fsum(a * b for a, b in zip(query, unit)))
 
     # Stream records, keeping only the best matches. Stable order resolves ties.
@@ -127,7 +128,7 @@ def find_similar(session, *, profile: str, vector: list[float], lower: str, uppe
     Exact cosine scores are computed over that bounded set. PostgreSQL's optional
     pgvector path applies the same window and candidate cap as the portable path.
     """
-    query = _unit(vector)
+    query = unit_vector(vector)
     if query is None or limit <= 0:
         return []
     recent = _recent(profile, lower, upper)

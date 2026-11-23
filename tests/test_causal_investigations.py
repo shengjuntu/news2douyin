@@ -51,7 +51,8 @@ class ControlledBoundaries:
         self.free('configure'); self.calls.append(('configure',))
         return object()
 
-    def propose(self, settings, target):
+    def propose(self, settings, target, *, lower, upper):
+        assert lower < upper
         self.free('model.propose'); self.calls.append(('propose', target))
         if self.failure == 'model':
             raise model.CausalModelError('合成归因模型暂不可用，请明确重试')
@@ -65,7 +66,8 @@ class ControlledBoundaries:
         return [deepcopy(row) for row in self.by_target.get(queries[0], self.results)
                 if row['ref'] not in exclude]
 
-    def rank(self, settings, target, candidates):
+    def rank(self, settings, target, candidates, *, hypotheses):
+        assert hypotheses == [target]
         self.free('model.rank'); self.calls.append(('rank', target))
         self.seen_candidates.append(deepcopy(candidates))
         return [dict(ref=row['ref'], reason='候选解释，因果待核：保存资料存在时间先后联系。',
@@ -81,7 +83,7 @@ def causal_case(request, tmp_path, monkeypatch):
     app = create_app(db_url=url, storage_root=str(tmp_path/'runs'))
     fake = ControlledBoundaries(app.state.engine)
     monkeypatch.setattr(model, 'configure', fake.configure)
-    monkeypatch.setattr(model, 'propose', fake.propose)
+    monkeypatch.setattr(model, 'propose_hypotheses', fake.propose)
     monkeypatch.setattr(model, 'rank', fake.rank)
     monkeypatch.setattr(retrieval, 'retrieve', fake.retrieve)
     from news2douyin.server import causal as routes

@@ -195,6 +195,7 @@ JSON结构必须是 {"queries":["检索词1","search query 2"]}；信息不足�
 
 _HYPOTHESES = _COMMON + '''
 任务是为target提出0至3条待证的前因或机制假说短语，供程序检索并核查资料，不是直接回答原因。
+参照给定的UTC检索时间窗，设想在目标之前可能出现的可观测事件。每条用一句可独立检索的事件描述，写清谁可能做了什么，以及这怎样与目标相关。
 每条应包含可能的主体、先前行为或条件、与目标相连的可观察机制；不同假说覆盖不同解释或相反证据。
 用“可能”“待查”等表述区分待验证解释和已知事实。不得把模型常识、猜测日期、未提供的引文或统计数字当成证据。
 不要只重复目标，也不要只列“原因”“历史”“背景”等泛词。可使用中英文，避免同义重复，每条最多240字符。
@@ -204,6 +205,7 @@ _HYPOTHESES = _COMMON + '''
 
 _RANK = _COMMON + '''
 任务是评估candidates中哪些已给材料能支持解释target的前因或机制，按解释价值排序。
+若提供hypotheses，它们是待证的搜索假设。判断每条材料支持、削弱或仅提及哪种机制，也可保留材料支持的其他解释。所有引文都须来自该候选的来源摘录。
 similarity只是召回相似度，不能直接当作因果分。核查行为、主体、时间与来源摘录；报道时间不冒充发生时间。
 候选晚于目标、时间未知、同题转载、只有共现或只有观点时明确局限，不将它们包装成已验证原因。不能用一个候选的证据替另一个候选作证。
 没有支持的候选可以省略或给低分；没有可用支持时返回 {"rankings":[]}，不凑数量。
@@ -234,13 +236,12 @@ def propose(settings, target: str) -> list[str]:
     return output
 
 
-def propose_hypotheses(settings, target: str) -> list[str]:
-    """Propose bounded, explicitly unverified phrases before program retrieval.
-
-    This is separate from the legacy manual query helper. Nothing returned here
-    is a news event, evidence object or approved explanation.
-    """
-    value = _chat(settings, _HYPOTHESES, {'target': _target(target)}, tokens=1600)
+def propose_hypotheses(settings, target: str, *, lower='', upper='') -> list[str]:
+    """Generate unverified, independently searchable causes before retrieval."""
+    payload = {'target': _target(target)}
+    if lower and upper:
+        payload['search_window_utc'] = {'from_inclusive': lower, 'before': upper}
+    value = _chat(settings, _HYPOTHESES, payload, tokens=1600)
     rows = value.get('hypotheses')
     if not isinstance(rows, list) or len(rows) > 10:
         raise CausalModelError('归因模型假说结构无效，请重试。')
@@ -257,7 +258,7 @@ def propose_hypotheses(settings, target: str) -> list[str]:
     return output
 
 
-def rank(settings, target: str, candidates: list[dict]) -> list[dict]:
+def rank(settings, target: str, candidates: list[dict], *, hypotheses=()) -> list[dict]:
     """Rank exact supplied refs; validate a verbatim anchor before returning.
 
     ``reason`` includes that anchor and a fixed hypothesis label. No generated
@@ -268,7 +269,10 @@ def rank(settings, target: str, candidates: list[dict]) -> list[dict]:
     prepared = _candidates(candidates)
     if not prepared:
         return []
-    value = _chat(settings, _RANK, {'target': target, 'candidates': prepared}, tokens=6000)
+    payload = {'target': target, 'candidates': prepared}
+    if hypotheses:
+        payload['hypotheses'] = list(hypotheses)
+    value = _chat(settings, _RANK, payload, tokens=6000)
     rows = value.get('rankings')
     if not isinstance(rows, list) or len(rows) > len(prepared):
         raise CausalModelError('归因模型候选排序结构无效，请重试。')

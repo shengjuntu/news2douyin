@@ -49,12 +49,13 @@ class ProgramBoundaries:
         self.free('configure')
         return object()
 
-    def hypotheses(self, _settings, target):
+    def hypotheses(self, _settings, target, *, lower, upper):
         self.free('hypotheses')
+        assert lower < upper
         self.calls.append(('hypotheses', target))
         return [] if self.empty_hypotheses else ['待查假说：先前运输条件可能影响 '+target]
 
-    def retrieve(self, engine, queries, *, lower, upper, exclude, event_text):
+    def retrieve(self, engine, queries, *, lower, upper, exclude, event_text, checkpoint):
         self.free('retrieval/embedding')
         assert engine is self.engine and queries[0].startswith('待查假说：')
         self.calls.append(('retrieve', event_text, lower, upper, set(exclude)))
@@ -71,8 +72,9 @@ class ProgramBoundaries:
         return SimpleNamespace(rows=pool.rows + historical, local=pool.local, mode='',
                                history_eligible_count=len(historical), history_ranked_count=len(historical))
 
-    def rank(self, _settings, target, rows):
+    def rank(self, _settings, target, rows, *, hypotheses):
         self.free('rank')
+        assert hypotheses == ['待查假说：先前运输条件可能影响 '+target]
         self.calls.append(('rank', target))
         self.rank_inputs.append(deepcopy(rows))
         if self.failure == 'rank':

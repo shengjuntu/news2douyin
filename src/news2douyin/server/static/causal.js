@@ -193,14 +193,19 @@
     const steps = [localCoverageLabels[local?.status], historyLabels[history?.status]].filter(Boolean);
     const mode = retrievalLabels[item.retrieval_mode];
     const active = ['pending', 'running'].includes(item.job_state);
-    const label = [active ? '上轮检索' : '检索过程', ...steps, mode,
-      Number.isInteger(item.candidate_count) && item.candidate_count + ' 条候选'].filter(Boolean).join(' · ');
+    const retrieving = active && report?.phase === 'retrieving';
+    const label = [retrieving ? '正在按假设检索' : active ? '上轮检索' : '检索过程', ...steps, mode,
+      !retrieving && Number.isInteger(item.candidate_count) && item.candidate_count + ' 条候选'].filter(Boolean).join(' · ');
     if (!steps.length && !item.queries?.length && !Number.isInteger(item.candidate_count) && !mode) return null;
     const list = node('ul', undefined, 'causal-node-meta');
     if (local) {
       const facts = countFacts([['召回记录', local.recall_count], ['候选入池', local.pool_count], ['通过初筛', local.eligible_count],
-        ['有更早原文证据', local.dated_evidence_count], ['参与向量排序', local.vector_ranked_count]]);
+        ['有更早原文证据', local.dated_evidence_count], ['比对历史事件向量', local.vector_scanned_count],
+        ['仅由向量找到', local.vector_only_count], ['参与向量排序', local.vector_ranked_count]]);
       if (facts.length) list.append(node('li', ['本地检索', ...facts].join(' · ')));
+      if (local.embedding_state === 'unconfigured' || local.embedding_state === 'disabled') {
+        list.append(node('li', local.embedding_state === 'disabled' ? '向量检索已关闭，使用关键词检索' : '向量检索未配置，使用关键词检索'));
+      }
     }
     if (history && history.status !== 'skipped') {
       const window = [history.date_from, history.date_to].filter(Boolean).join(' 至 ');
@@ -225,9 +230,13 @@
     details.className = 'causal-queries';
     if (list.childNodes.length) details.append(list);
     if (item.queries?.length) {
-      const queries = node('ul');
-      for (const query of item.queries) queries.append(node('li', query));
-      details.append(queries);
+      const queries = node('ol');
+      for (const [index, query] of item.queries.entries()) {
+        const hits = local?.hypothesis_hits?.[index];
+        const suffix = Array.isArray(hits) ? ' · 向量召回 ' + hits.length + ' 条有原文的事件' : '';
+        queries.append(node('li', query + suffix));
+      }
+      details.append(node('strong', '归因模型提出的前因假设'), queries);
     }
     return details;
   }

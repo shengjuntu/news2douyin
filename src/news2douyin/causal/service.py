@@ -311,15 +311,21 @@ def claim(engine):
         return result
 
 
-def renew(engine, claimed):
+def renew(engine, claimed, *, hypotheses=None):
     now = time()
-    with engine.begin() as connection:
-        refreshed = connection.execute(update(CausalJob).where(
+    with Session(engine) as session:
+        refreshed = session.execute(update(CausalJob).where(
             CausalJob.case_key == claimed.case_key, CausalJob.node_key == claimed.node_key,
             CausalJob.state == 'running', CausalJob.lease == claimed.lease, CausalJob.due_at > now,
         ).values(due_at=now + LEASE_SECONDS)).rowcount
-    if not refreshed:
-        raise CausalLeaseLost()
+        if not refreshed:
+            raise CausalLeaseLost()
+        if hypotheses is not None:
+            session.merge(CausalProgramStep(node_key=claimed.node_key, case_key=claimed.case_key,
+                                           queries_json=dumps(hypotheses)))
+            session.merge(CausalProgramRetrieval(node_key=claimed.node_key,
+                          report_json=dumps({'phase': 'retrieving'})))
+        session.commit()
 
 
 def _snapshot(engine, claimed):
@@ -345,14 +351,16 @@ def _snapshot(engine, claimed):
 
 
 def investigate(engine, claimed):
-    from .model import configure, propose, rank
+    from .model import configure, propose_hypotheses, rank
     from .retrieval import retrieve
 
     target, anchor, as_of, exclude = _snapshot(engine, claimed)
     settings = configure()
-    queries = propose(settings, target) or [target]
     upper = sqlite_utc_bound(as_of)
     lower = sqlite_utc_bound(as_of - LOOKBACK) if as_of.year > 1 else '0001-01-01T00:00:00'
+    queries = propose_hypotheses(settings, target, lower=lower, upper=upper)
+    if not queries:
+        return []
     candidates = [
         allowed for item in retrieve(engine, queries, lower=lower, upper=upper, exclude=exclude)
         if (allowed := eligible(item, anchor, as_of))
@@ -360,7 +368,7 @@ def investigate(engine, claimed):
     if not candidates:
         return []
     by_ref = {item['ref']: item for item in candidates}
-    decisions = rank(settings, target, candidates)
+    decisions = rank(settings, target, candidates, hypotheses=queries)
     results = [{**by_ref[decision['ref']], **decision} for decision in decisions if decision['ref'] in by_ref]
     return sorted(results, key=lambda item: (item['time_status'] != 'earlier', -item['score'], item['ref']))[:RESULTS]
 

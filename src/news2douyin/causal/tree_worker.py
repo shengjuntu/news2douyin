@@ -10,6 +10,7 @@ from time import monotonic
 
 from sqlmodel import Session
 
+from ..llm.client.embedding import EmbeddingError
 from . import history, model, retrieval, service
 from .chronology import eligible, interval, sqlite_utc_bound
 from .models import CausalInvestigation, CausalNode
@@ -131,14 +132,20 @@ def investigate(engine, claimed, *, storage_root=None):
 
     try:
         settings = model.configure()
-        queries = model.propose_hypotheses(settings, target)
+        bounds = dict(lower=sqlite_utc_bound(lower), upper=sqlite_utc_bound(upper))
+        queries = model.propose_hypotheses(settings, target, **bounds)
         if not queries:
             return ProgramStep([], [], 0, '归因模型未提出可核查的前因假说，本分支停止。')
-        bounds = dict(lower=sqlite_utc_bound(lower), upper=sqlite_utc_bound(upper))
-        pool = retrieval.collect_tree_pool(engine, queries, **bounds, exclude=excluded, event_text=target)
+        service.renew(engine, claimed, hypotheses=queries)
+        pool = retrieval.collect_tree_pool(engine, queries, **bounds, exclude=excluded,
+                                           event_text=target, checkpoint=checkpoint)
         report = dict(local=pool.local, history=dict(status='skipped'))
-        if pool.local.get('status') == 'gap' or not pool.local.get('dated_evidence_count'):
+        # A nearest neighbor can always be returned from a populated index.
+        # It alone must not suppress the existing archive lookup.
+        if pool.local.get('status') == 'gap' or not pool.local.get('keyword_dated_count', pool.local.get('dated_evidence_count')):
             trigger = 'local_gap' if pool.local.get('status') == 'gap' else 'no_dated_candidates'
+            if trigger != 'local_gap' and pool.local.get('dated_evidence_count'):
+                trigger = 'no_dated_keyword_candidates'
             checkpoint(force=True)
             kwargs = {'engine': engine, 'storage_root': storage_root} if storage_root is not None else {}
             supplement = history.search_history(queries, **bounds, event_text=target, checkpoint=checkpoint, **kwargs)
@@ -173,7 +180,7 @@ def investigate(engine, claimed, *, storage_root=None):
             return ProgramStep([], queries, count,
                 '本轮未取得符合日期与出处要求的候选。', mode, report)
         checkpoint()
-        decisions = model.rank(settings, target, candidates)
+        decisions = model.rank(settings, target, candidates, hypotheses=queries)
         by_ref = {item['ref']: item for item in candidates}
         results, saved_refs = [], set()
         for decision in decisions:
@@ -204,6 +211,9 @@ def investigate(engine, claimed, *, storage_root=None):
         return ProgramStep(results, queries, count, stop, mode, report)
     except service.CausalLeaseLost:
         raise
+    except EmbeddingError:
+        raise ProgramStepFailure('事件向量服务配置或请求失败，可在原节点重试。', queries=queries,
+                                 candidate_count=count, retrieval_mode=mode, retrieval_report=report) from None
     except model.CausalModelError as exc:
         raise ProgramStepFailure(str(exc), queries=queries, candidate_count=count,
                                  retrieval_mode=mode, retrieval_report=report) from None
