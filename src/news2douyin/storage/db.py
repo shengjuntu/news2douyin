@@ -133,6 +133,7 @@ def load_models() -> None:
     from ..georisk import models as georisk_models
     from ..event_embeddings import models as event_embedding_models
     from ..causal import models as causal_models
+    from ..history_archive import models as history_archive_models
 
 
 def create_schema(engine) -> None:

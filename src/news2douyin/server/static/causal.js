@@ -2,6 +2,8 @@
   'use strict';
 
   const apiRoot = '/api/causal/investigations';
+  const archivePage = '/admin/history-archive';
+  const archiveApi = '/api/history-archive/request';
   const el = id => document.getElementById(id);
   const form = el('causal-form');
   const tree = el('causal-tree');
@@ -33,19 +35,27 @@
   const retrievalLabels = {lexical_only:'关键词', lexical:'关键词', lexical_embedding:'关键词＋向量', hybrid:'关键词＋向量'};
   const localCoverageLabels = {gap:'本地缺档', covered:'本地有历史记录', unknown:'本地覆盖待核对'};
   const historyLabels = {
-    skipped:'未触发上游补查', unconfigured:'上游补查未配置', out_of_range:'日期早于 GDELT 2.0 覆盖范围',
-    no_keywords:'缺少上游检索词', error:'上游补查失败', no_results:'上游所查时段无结果',
-    unverified:'上游有线索待核实', verified:'已核实上游原文'
+    skipped:'未触发历史补查', unconfigured:'历史补查未配置', out_of_range:'日期超出归档范围',
+    no_keywords:'缺少历史检索词', error:'历史补查失败', no_results:'所查时段无结果',
+    unverified:'有线索待核实', verified:'已核实原文', archive_gap:'历史归档待补齐'
   };
   const historyErrorLabels = {
     invalid_configuration:'历史补查配置无效', missing_dependency:'缺少 BigQuery 依赖',
     credentials_or_access:'BigQuery 凭据或权限有误', bytes_limit:'超出 BigQuery 扫描量上限',
-    query_timeout:'BigQuery 查询超时', query_quota:'达到 BigQuery 配额上限', query_failed:'BigQuery 查询失败'
+    query_timeout:'BigQuery 查询超时', query_quota:'达到 BigQuery 配额上限', query_failed:'BigQuery 查询失败',
+    archive_query_failed:'历史归档查询失败'
   };
   const repairLabels = {
     queued:'已排队', running:'补采中', partial:'仍有缺口', failed:'失败', completed:'已完成',
     submit_digest:'等待重算', awaiting_digest:'正在重算', completed_partial:'已用部分批次重算'
   };
+  const archiveLabels = {waiting:'正在等补档', queued:'补档已排队', ready:'补档已完成',
+    running:'正在补档', partial:'部分归档可查询', failed:'补档失败'};
+  const archiveCoverageLabels = {gap:'缺档', partial:'部分可查', covered:'已可查', ready:'已可查',
+    unavailable:'该年代没有此数据', not_expected:'该年代没有此数据', unknown:'状态待核'};
+  const historyKinds = {events:'Events', gkg:'GKG', mentions:'Mentions'};
+  const pendingArchive = item => ['waiting', 'queued', 'running'].includes(item.archive_request?.state);
+  const archiveCoverageState = value => typeof value === 'string' ? value : value?.state || value?.status;
   let current = null;
   let pollingKey = config.task_key || '';
   let pollTimer, pollRequest, submitting = false;
@@ -198,8 +208,14 @@
         ['已读取页面', history.fetched_count],
         ['已核实日期和出处', history.verified_count], ['纳入候选', history.eligible_count],
         ['参与向量排序', history.ranked_count]]);
+      const coverage = Object.entries(history.coverage || {}).flatMap(([kind, value]) => {
+        const status = archiveCoverageLabels[archiveCoverageState(value)];
+        return historyKinds[kind] && status ? [historyKinds[kind] + ' ' + status] : [];
+      });
       const notes = [window && window + '（UTC）', history.window_limited && '仅查此时间窗',
+        history.coverage_incomplete && !coverage.length && '归档覆盖不完整',
         history.verification_limited && '还有线索未核查', historyErrorLabels[history.error_code], ...facts].filter(Boolean);
+      notes.push(...coverage);
       if (notes.length) list.append(node('li', ['GDELT 补查', ...notes].join(' · ')));
     }
     const ranking = countFacts([['交给模型判断', report?.ranked_count], ['保留为分支', report?.selected_count]]);
@@ -220,6 +236,37 @@
     const branches = [...tree.querySelectorAll('details[data-branch]')];
     treeToggle.hidden = !branches.length;
     treeToggle.textContent = branches.some(branch => !branch.open) ? '展开全部分支' : '折叠全部分支';
+  }
+
+  function addArchiveAction(actions, item) {
+    const status = item.archive_request;
+    if (status) {
+      const dates = [status.date_from, status.date_to].filter(Boolean).join(' 至 ');
+      actions.append(link(archivePage, [archiveLabels[status.state] || '查看历史归档', dates].filter(Boolean).join(' · ')));
+    }
+    if (pendingArchive(item)) return;
+    const history = item.retrieval?.history;
+    const stage = status?.state;
+    const fallback = ['failed', 'partial'].includes(stage) ? status : history;
+    if (!fallback?.date_from || !fallback.date_to) return;
+    const covered = ['covered', 'ready', 'unavailable', 'not_expected'];
+    const mainReady = history?.coverage && ['events', 'gkg'].every(kind =>
+      covered.includes(archiveCoverageState(history.coverage[kind])));
+    const needsMentions = mainReady && ['gap', 'partial', 'unknown'].includes(
+      archiveCoverageState(history.coverage.mentions)
+    ) && ['no_results', 'unverified', 'verified', 'archive_gap'].includes(history.status);
+    const needsArchive = (history?.status === 'archive_gap' || history?.coverage_incomplete) && !mainReady;
+    if (!needsArchive && !needsMentions && !['failed', 'partial'].includes(stage)) return;
+    const mentions = fallback === status ? Boolean(status.mentions) : Boolean(needsMentions);
+    const label = stage === 'failed' ? '重试补档' : mentions ? '补更多报道' : '补这个时间窗';
+    const button = node('button', label, 'ghost');
+    button.type = 'button';
+    button.dataset.archiveNode = item.key;
+    button.dataset.dateFrom = fallback.date_from;
+    button.dataset.dateTo = fallback.date_to;
+    button.dataset.mentions = String(mentions);
+    button.setAttribute('aria-label', label + '：' + item.text.slice(0, 100));
+    actions.append(button);
   }
 
   function renderTree({nodes:items, key:caseKey, agent, program, working}) {
@@ -262,7 +309,8 @@
         if (stateLabels[item.job_state]) actions.append(node('span', stateLabels[item.job_state]));
         const programRetry = !working && item.expandable && !branches.length &&
           (item.time_status === 'root' || ['ready', 'failed'].includes(item.job_state));
-        if (!agent && (!program || programRetry) && !['pending', 'running'].includes(item.job_state)) {
+        if (program && !agent) addArchiveAction(actions, item);
+        if (!agent && !pendingArchive(item) && (!program || programRetry) && !['pending', 'running'].includes(item.job_state)) {
           const label = {failed:'重试查找', ready:'重新查找'}[item.job_state] || (program ? '重新查找' : '沿此线索查找');
           const button = node('button', label, 'ghost');
           button.type = 'button';
@@ -271,6 +319,7 @@
           actions.append(button);
         }
         if (actions.childNodes.length) card.append(actions);
+        if (item.archive_request?.error) card.append(node('p', item.archive_request.error, 'small causal-node-error'));
         if (item.job_error) card.append(node('p', item.job_error, 'small causal-node-error'));
 
         if (item.stop_reason && !['pending', 'running'].includes(item.job_state)) {
@@ -304,6 +353,7 @@
     el('causal-repair-refresh').disabled = submitting;
     for (const button of repairList.querySelectorAll('[data-retry-day]')) button.disabled = submitting;
     for (const button of tree.querySelectorAll('[data-expand]')) button.disabled = submitting || current.working;
+    for (const button of tree.querySelectorAll('[data-archive-node]')) button.disabled = submitting || current.working;
   }
 
   function renderAgent(agent, program, working, newCase, caseKey) {
@@ -379,8 +429,9 @@
     const anchor = el('causal-anchor');
     anchor.hidden = !data.event_at;
     anchor.textContent = data.event_at ? '检索时间 ' + data.event_at : '';
-    el('causal-coverage').textContent = data.coverage?.message || '';
-    localLink('causal-archive', data.coverage?.archive_path);
+    el('causal-coverage').textContent = program ? '' : data.coverage?.message || '';
+    localLink('causal-archive', program ? archivePage : data.coverage?.archive_path);
+    repairForm.closest('.causal-repair').hidden = Boolean(program);
     const eventResearch = data.research_path?.startsWith('/events/');
     const researchPath = eventResearch ? withBack(data.research_path, data.key) : data.research_path;
     localLink('causal-research', program ? '' : researchPath);
@@ -403,7 +454,7 @@
 
   function schedulePolling(delay = 2300) {
     clearTimeout(pollTimer);
-    if (pollingKey && !document.hidden && !submitting && (!current || current.working)) {
+    if (pollingKey && !document.hidden && !submitting && (!current || current.working || current.nodes.some(pendingArchive))) {
       pollTimer = setTimeout(refreshCase, delay);
     }
   }
@@ -508,12 +559,41 @@
     openPanel();
   });
   tree.addEventListener('click', event => {
+    const archive = event.target.closest('button[data-archive-node]');
+    if (archive && current) {
+      submitArchiveWindow(current.key, archive.dataset);
+      return;
+    }
     const button = event.target.closest('button[data-expand]');
     if (button && current) {
       changeCase(apiRoot + '/' + encodeURIComponent(current.key) + '/expand',
         {node_key:button.dataset.expand, automatic:false}, false);
     }
   });
+
+  async function submitArchiveWindow(caseKey, {archiveNode, dateFrom, dateTo, mentions}) {
+    if (submitting) return;
+    stopPolling();
+    submitting = true;
+    setControls();
+    message('正在提交历史补档…');
+    try {
+      await request(archiveApi, {
+        payload:{case_key:caseKey, node_key:archiveNode, date_from:dateFrom, date_to:dateTo, mentions:mentions === 'true'},
+        signal:AbortSignal.timeout(15000)
+      });
+      const next = await request(scopedRead(apiRoot + '/' + encodeURIComponent(caseKey)),
+        {signal:AbortSignal.timeout(12000)});
+      render(next);
+      message('已加入历史补档队列。');
+    } catch (error) {
+      message(error.name === 'TimeoutError' ? '提交超时，请到历史归档核对任务。' : error.message, true);
+    } finally {
+      submitting = false;
+      setControls();
+      schedulePolling();
+    }
+  }
   tree.addEventListener('toggle', event => {
     if (event.target.matches('details[data-branch]')) updateTreeToggle();
   }, true);

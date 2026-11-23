@@ -10,8 +10,9 @@ log = logging.getLogger(__name__)
 
 
 class CausalWorker:
-    def __init__(self, engine):
+    def __init__(self, engine, storage_root=None):
         self.engine = engine
+        self.storage_root = storage_root
         self.stop_event = Event()
         self.wake_event = Event()
         self.thread = None
@@ -22,7 +23,10 @@ class CausalWorker:
             return False
         try:
             if getattr(job, 'program', False):
-                step = tree_worker.investigate(self.engine, job)
+                if self.storage_root is None:
+                    step = tree_worker.investigate(self.engine, job)
+                else:
+                    step = tree_worker.investigate(self.engine, job, storage_root=self.storage_root)
             else:
                 results = investigate(self.engine, job)
         except CausalLeaseLost:

@@ -114,7 +114,7 @@ def _metadata(rows):
     return count, next(iter(modes)) if len(modes) == 1 else ''
 
 
-def investigate(engine, claimed):
+def investigate(engine, claimed, *, storage_root=None):
     """Propose hypotheses, recall/re-embed evidence, then rank exact candidates."""
     target, anchor, lower, upper, excluded = _snapshot(engine, claimed)
     if lower >= upper:
@@ -140,7 +140,8 @@ def investigate(engine, claimed):
         if pool.local.get('status') == 'gap' or not pool.local.get('dated_evidence_count'):
             trigger = 'local_gap' if pool.local.get('status') == 'gap' else 'no_dated_candidates'
             checkpoint(force=True)
-            supplement = history.search_history(queries, **bounds, event_text=target, checkpoint=checkpoint)
+            kwargs = {'engine': engine, 'storage_root': storage_root} if storage_root is not None else {}
+            supplement = history.search_history(queries, **bounds, event_text=target, checkpoint=checkpoint, **kwargs)
             report['history'] = {**supplement.diagnostics, 'trigger': trigger}
             historical = supplement.candidates
         else:
@@ -167,6 +168,8 @@ def investigate(engine, claimed):
         if not candidates:
             if report['history'].get('status') == 'error':
                 raise ProgramStepFailure('本地没有合格候选，GDELT 历史补查失败，可重新查找。')
+            if report['history'].get('status') == 'archive_gap':
+                return ProgramStep([], queries, count, '调查时间窗存在历史档案缺口，可补档后继续。', mode, report)
             return ProgramStep([], queries, count,
                 '本轮未取得符合日期与出处要求的候选。', mode, report)
         checkpoint()

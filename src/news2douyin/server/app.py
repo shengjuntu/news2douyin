@@ -111,6 +111,8 @@ def create_app(*, db_url: str | None = None, storage_root: str = 'runs_v7') -> F
             app.state.event_embeddings.start()
         with startup.phase('workers.causal'):
             app.state.causal.start()
+        with startup.phase('workers.history_archive'):
+            app.state.history_archive.launch()
         with startup.phase('workers.ngram_enrichment'):
             app.state.ngram_worker.start()
         with startup.phase('workers.daily_radar'):
@@ -119,6 +121,7 @@ def create_app(*, db_url: str | None = None, storage_root: str = 'runs_v7') -> F
         try:
             yield
         finally:
+            app.state.history_archive.stop()
             app.state.digest_worker.stop()
             app.state.ngram_worker.stop()
             app.state.causal.stop()
@@ -173,7 +176,9 @@ def create_app(*, db_url: str | None = None, storage_root: str = 'runs_v7') -> F
     from ..event_embeddings.runtime import EventEmbeddingWorker
     app.state.event_embeddings = EventEmbeddingWorker(engine)
     from ..causal.runtime import CausalWorker
-    app.state.causal = CausalWorker(engine)
+    app.state.causal = CausalWorker(engine, storage_root)
+    from ..history_archive.service import ArchiveWorker
+    app.state.history_archive = ArchiveWorker(engine, storage_root)
     from ..intake.runtime import IntakeWorker
     from ..intake.projection import ProjectionWorker
     with startup.phase('application.intake'):

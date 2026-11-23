@@ -154,7 +154,7 @@ def program_leaf_reason(node, *, steps, node_count):
     return '已保留线索，本层优先展开其他候选'
 
 
-def expand(session, case_key, node_key, automatic):
+def expand(session, case_key, node_key, automatic, *, commit=True):
     lock_news(session, 'causal:' + case_key)
     case = _require(session, case_key)
     if session.get(CausalAgentLink, case_key):
@@ -178,7 +178,8 @@ def expand(session, case_key, node_key, automatic):
             raise CausalConflict('本次调查已达到搜索节点上限')
     session.merge(_new_job(case, node, automatic))
     case.updated_at = utc_now_iso()
-    session.commit()
+    if commit:
+        session.commit()
 
 
 def recent(session, focus_key=''):
@@ -210,12 +211,15 @@ def request_archive(engine, case_key, day, retry):
 
 
 def view(session, case_key, *, focus_key=''):
+    from ..history_archive.service import requests_for_case
+
     case = _require(session, case_key)
     focus = session.get(CausalFocus, case_key)
     bound_focus = focus.focus_key if focus else ''
     if focus_key and focus_key != bound_focus:
         raise KeyError('调查不在该焦点')
     program_scope = session.get(CausalProgram, case_key)
+    archive_requests = requests_for_case(session, case_key) if program_scope else {}
     rows = session.exec(select(CausalNode, CausalJob, CausalAgentNote, CausalProgramStep, CausalProgramRetrieval)
                         .outerjoin(CausalJob, CausalJob.node_key == CausalNode.key)
                         .outerjoin(CausalAgentNote, CausalAgentNote.node_key == CausalNode.key)
@@ -231,6 +235,7 @@ def view(session, case_key, *, focus_key=''):
                         candidate_count=step.candidate_count if step else None,
                         retrieval_mode=step.retrieval_mode if step else '',
                         retrieval=loads(report.report_json, {}) if report else {},
+                        archive_request=archive_requests.get(node.key),
                         expandable=(not node.depth or bool(_program_child(node))) and node.depth < MAX_DEPTH)
         nodes.append(dict(**item, sources=loads(node.sources_json, []), job_state=job.state if job else '',
                           job_error=job.error if job else '', stop_reason=(step.stop_reason if step else '')

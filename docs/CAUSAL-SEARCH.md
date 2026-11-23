@@ -6,26 +6,21 @@
 
 焦点图谱默认使用「程序逐层查找」。根事件需要已核对的发生日期，可以在表单填写，也可以使用选中事件或文字中唯一明确的日期。可指定最早查找日期，留空时从根日期往前取 90 天。
 
-程序对每个节点调用独立配置的归因模型，生成可核对的前因假设。关键词扩大对本地事件、报道和有本地来源的 GDELT 线索的召回范围。本地缺少合格的带日期原文时，可以补查 GDELT BigQuery。配置向量后，用父事件与假设的向量重排候选，再由归因模型按原文证据筛选。树里的「可能前因」仍是待审核的候选解释。
+程序对每个节点调用独立配置的归因模型，生成可核对的前因假设。关键词扩大对本地事件、报道和有本地来源的 GDELT 线索的召回范围。本地缺少合格的带日期原文时，会用 DuckDB 查询已经转换的 GDELT 归档。配置向量后，用父事件与假设的向量重排候选，再由归因模型按原文证据筛选。树里的「可能前因」仍是待审核的候选解释。
 
 每层最多继续 3 个有日期和原文的分支，每棵树最多查找 18 个节点。节点的「检索」详情显示本地召回、初筛、带日期的原文证据以及历史补查结果，即使最终没有候选也会保留。若没有可继续查找的材料，分支停在当前节点。升级和配置完成后，可打开旧调查，在停下的原节点点「重新查找」。
 
-### 配置 GDELT 历史补查
+### GDELT 历史归档
 
-用源码安装时添加 `causal-history` 到所需扩展，例如 `python -m pip install '.[research,llm,ngrams,causal-history]'`。安装本版本的 wheel 时也可附加 `[causal-history]`。正式 Docker 镜像已安装该扩展。
+打开「运行管理 → 历史归档」（`/admin/history-archive`），选择 UTC 日期范围并开始。英文 Events 和全字段 GKG 从新到旧补。Mentions 可全量下载，也可在调查中针对需要更多来源的时间窗补查。任务数据库和 Parquet 分开保存，所有调查共用归档。
 
-在 `.env` 中设置有权创建 BigQuery 查询任务的 Google Cloud 项目，并给应用提供 Application Default Credentials（ADC）。容器部署时，凭据文件路径必须在容器内可访问，例如将已有凭据文件以只读方式挂载后配置 `GOOGLE_APPLICATION_CREDENTIALS`。
+默认文件目录是 `--storage-root` 下的 `history_archive/`。如需用单独的大容量磁盘，在服务环境设置 `NEWS2DOUYIN_HISTORY_ARCHIVE_DIR` 指向其绝对路径。容器内应挂载该目录。英文三类数据的全历史下载以约 3 TB 可用空间规划。页面显示预计 ZIP 字节数、已经下载和可以查询的不同进度、分区覆盖以及错误。暂停或重启后会复用校验通过的小包。传输中断的单个小包会从头重取。
 
-```dotenv
-NEWS2DOUYIN_CAUSAL_HISTORY_BIGQUERY_PROJECT=your-google-cloud-project
-NEWS2DOUYIN_CAUSAL_HISTORY_LOOKBACK_DAYS=90
-NEWS2DOUYIN_CAUSAL_HISTORY_MAX_BYTES_BILLED=12884901888
-# GOOGLE_APPLICATION_CREDENTIALS=/path/visible/to/news2douyin/credentials.json
-```
+遇到 GDELT 限流，历史归档队列会等到页面显示的恢复时间再继续。运行中提交的失败重试会保留，等当前批次落盘后处理。
 
-有一条合格的带日期本地原文时，程序通常直接使用本地候选。需要补查时，只查询父节点之前的一个历史窗口，起点受调查最早日期和 GDELT 2.0 覆盖范围约束。以 UTC 日期裁剪 BigQuery 分区，取回的报道仍须满足树的精确时间边界。每次查询有扫描计费字节上限。页面会标明实际查询日期和只查询了部分日期的情况。[GDELT 分区表](https://blog.gdeltproject.org/announcing-partitioned-gdelt-bigquery-tables/) · [BigQuery ADC](https://cloud.google.com/bigquery/docs/authentication)
+GDELT 2.0 按 UTC 日期组织 15 分钟小包，旧版 Events 使用官方年、月、日归档，旧版 GKG 仅在公开范围内补档。下载完成后分批转换到 ZSTD Parquet，核对每包文件哈希、行数和异常行后发布。异常的原始字节保存在对应分区的独立文件中。交接期保留原归档版本标记，历史 Events 更早的记录可能缺少来源链接。归档状态显示清单未列出的批次。实时接收目录的文件由其原有流程管理。
 
-Events 和 Mentions 提供报道链接与编码线索。程序读取出版方网页，核对公开日期和原文摘录后才能形成可排序候选。只找到链接、原文不可读或日期待核时，检索详情会显示相应结果。「日报管理」仍可按日核对归档并提交批次补采。
+程序默认查父节点之前 90 天的已提交分区，由 `NEWS2DOUYIN_CAUSAL_HISTORY_LOOKBACK_DAYS` 调整。节点显示实际查询日期、各类数据覆盖以及核实结果。缺档时可直接点「补这个时间窗」。原节点在补档结束后进入查找队列。已有分区可以先提供线索，再补 Mentions 交叉核查。程序仍会核对出版方公开日期与原文摘录，GDELT 的收录时间与发生日期单独处理。
 
 ## RunDesk 解读
 

@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+{% block title %}历史归档 · news2douyin{% endblock %}
+{% block graph_libraries %}
+<link rel="stylesheet" href="/research-assets/history-archive.css?v=0.51.1">
+<script src="/research-assets/history-archive.js?v=0.51.1" defer></script>
+{% endblock %}
+{% block content %}
+<section class="history-archive" aria-labelledby="archive-title">
+  <div class="archive-heading">
+    <div>
+      <h1 id="archive-title">历史归档</h1>
+      <p class="muted">从新到旧补下载英文 Events 和全字段 GKG。归档转成 Parquet 后即可用于因果搜索。</p>
+    </div>
+    <a href="/radar/causes">查找事件前因</a>
+  </div>
+  <form id="archive-range" class="card archive-range">
+    <label>起始日 <input type="date" name="date_from" required min="{{ first_date }}" max="{{ today }}" value="{{ first_date }}"></label>
+    <label>结束日 <input type="date" name="date_to" required min="{{ first_date }}" max="{{ today }}" value="{{ today }}"></label>
+    <label class="archive-option"><input name="mentions" type="checkbox"> 同时补下载全部英文 Mentions</label>
+    <button type="submit" id="archive-start">开始补档</button>
+  </form>
+  <div class="row archive-actions" aria-label="任务控制">
+    <button class="ghost" type="button" id="archive-pause" disabled>暂停</button>
+    <button class="ghost" type="button" id="archive-resume" disabled>继续</button>
+    <button class="ghost" type="button" id="archive-retry" disabled>重试失败项</button>
+    <span class="muted small">归档日期按 UTC 显示</span>
+  </div>
+  <p id="archive-message" class="archive-message" role="status" hidden></p>
+
+  <section class="card archive-status" aria-labelledby="archive-status-title">
+    <div class="row archive-status-line">
+      <h2 id="archive-status-title">任务进度</h2>
+      <span class="badge" id="archive-state">读取中</span>
+    </div>
+    <p id="archive-current" class="muted" hidden></p>
+    <p id="archive-task-range" class="muted small" hidden></p>
+    <div class="archive-meters">
+      <div class="archive-meter">
+        <div><label for="archive-downloaded">已下载</label><strong id="archive-downloaded-count">—</strong></div>
+        <progress id="archive-downloaded" max="1"></progress>
+        <small id="archive-downloaded-bytes" class="muted"></small>
+      </div>
+      <div class="archive-meter">
+        <div><label for="archive-ready">已可查询</label><strong id="archive-ready-count">—</strong></div>
+        <progress id="archive-ready" max="1"></progress>
+        <small id="archive-ready-bytes" class="muted"></small>
+      </div>
+    </div>
+    <dl class="archive-status-facts">
+      <div><dt>最早连续可查日期</dt><dd id="archive-through">—</dd></div>
+      <div><dt>待重试文件</dt><dd id="archive-errors">—</dd></div>
+      <div><dt>磁盘可用</dt><dd id="archive-disk">—</dd></div>
+    </dl>
+  </section>
+
+  <section aria-labelledby="archive-coverage-title">
+    <h2 id="archive-coverage-title">归档覆盖</h2>
+    <div class="archive-table-wrap" tabindex="0" aria-label="归档覆盖明细">
+      <table>
+        <thead><tr><th scope="col">日期范围</th><th scope="col">数据流</th><th scope="col">状态</th><th scope="col">可查 ZIP</th><th scope="col">失败</th><th scope="col">官网未列</th><th scope="col">异常行</th></tr></thead>
+        <tbody id="archive-coverage"><tr><td colspan="7">读取覆盖状态…</td></tr></tbody>
+      </table>
+    </div>
+    <div class="row archive-pages" aria-label="覆盖分页">
+      <button type="button" class="ghost" id="archive-previous" disabled>上一页</button>
+      <span id="archive-page-label" class="small muted"></span>
+      <button type="button" class="ghost" id="archive-next" disabled>下一页</button>
+    </div>
+  </section>
+
+  <details class="card archive-failure-box" id="archive-request-box" hidden>
+    <summary>调查加急补档</summary>
+    <ul id="archive-requests"></ul>
+  </details>
+  <details class="card archive-failure-box" id="archive-failure-box" hidden>
+    <summary>最近失败</summary>
+    <ul id="archive-failures"></ul>
+  </details>
+</section>
+{% endblock %}

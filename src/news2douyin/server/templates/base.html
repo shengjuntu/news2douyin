@@ -65,20 +65,20 @@ button:disabled { opacity:.45; cursor:not-allowed; }
 </head>
 <body>
 <header>
-  <div class="logo">news2douyin<span class="dot">·</span>0.50.0</div>
+  <div class="logo">news2douyin<span class="dot">·</span>0.51.1</div>
   {% if standalone %}<span class="muted">资源 / 国家与地区</span>{% else %}<nav>
     <a href="/radar" class="{{ 'on' if active=='radar' }}">事件雷达</a>
     <a href="/focus" class="{{ 'on' if active=='focus' }}">焦点</a>
     <a href="/graphs" class="{{ 'on' if active=='graphs' }}">图谱</a>
     <a href="/workbench" class="{{ 'on' if active=='workbench' }}">内容工作台</a>
     <a href="/articles" class="{{ 'on' if active=='articles' }}">新闻库</a>
-    <details class="desk-menu"><summary>运行管理</summary><div><a href="/admin">运行概览</a><a href="/admin/daily-radar">日报管理</a><a href="/knowledge">知识处理状态</a><a href="/knowledge/browser">图数据库浏览器</a><a href="/intake">全量采集接收</a><a href="/profiles">定向采集策略</a><a href="/research/settings">研究助手设置</a><a href="/tasks">执行任务</a><a href="/runs">采集记录</a><a href="/setup">首次运行检查</a><a href="/country-reference.html">国家与地区</a></div></details>
+    <details class="desk-menu"><summary>运行管理</summary><div><a href="/admin">运行概览</a><a href="/admin/daily-radar">日报管理</a><a href="/admin/history-archive" class="{{ 'on' if active=='history-archive' }}" {% if active=='history-archive' %}aria-current="page"{% endif %}>历史归档</a><a href="/knowledge">知识处理状态</a><a href="/knowledge/browser">图数据库浏览器</a><a href="/intake">全量采集接收</a><a href="/profiles">定向采集策略</a><a href="/research/settings">研究助手设置</a><a href="/tasks">执行任务</a><a href="/runs">采集记录</a><a href="/setup">首次运行检查</a><a href="/country-reference.html">国家与地区</a></div></details>
   </nav>{% endif %}
 </header>
 <main>
 {% if work is defined %}{% include 'work_header.html' %}{% endif %}
 {% block content %}{% endblock %}
 </main>
-<footer>news2douyin 0.50.0{% if not standalone %} · <a href="/docs">API</a>{% endif %}</footer>
+<footer>news2douyin 0.51.1{% if not standalone %} · <a href="/docs">API</a>{% endif %}</footer>
 </body>
 </html>

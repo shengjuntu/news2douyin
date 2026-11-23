@@ -71,7 +71,7 @@
       <a id="causal-archive" hidden>核对归档覆盖</a>
       <a id="causal-research" hidden>研究助手设置</a>
     </div>
-    <details class="card causal-repair">
+    <details class="card causal-repair" id="causal-repair">
       <summary>补采 GDELT 归档</summary>
       <form id="causal-repair-form" class="row" method="post">
         <label>日期（北京时间） <input type="date" name="day" required></label>
@@ -89,4 +89,4 @@
 </div>
 <script type="application/json" id="causal-config">{{ {'task_key': task_key|default(''), 'page_root': causal_page_root|default('/radar/causes'),
     'focus_key': causal_focus_key|default('')}|tojson }}</script>
-<script src="/research-assets/causal.js?v=0.50.0" defer></script>
+<script src="/research-assets/causal.js?v=0.51.1" defer></script>

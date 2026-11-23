@@ -53,6 +53,8 @@ def register_webui_routes(app: FastAPI, engine, scheduler, storage_root: str) ->
 
     from .causal import register as register_causal
     register_causal(app, engine, render)
+    from .history_archive import register_history_archive
+    register_history_archive(app, render)
 
     @app.get('/resources/countries', response_class=HTMLResponse, include_in_schema=False, name='country_directory_legacy')
     @app.get('/country-reference.html', response_class=HTMLResponse)

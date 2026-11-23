@@ -471,6 +471,10 @@ def _history_candidate(item, floor, ceiling):
             event_id = value.get('gdelt_event_id', '')
             if isinstance(event_id, str) and re.fullmatch(r'[0-9]{1,20}', event_id):
                 source['gdelt_event_id'] = event_id
+            if type(version := value.get('gdelt_version')) is int and version in (1, 2):
+                source['gdelt_version'] = version
+            if (kind := value.get('archive_source_type')) in ('events', 'mentions', 'gkg'):
+                source['archive_source_type'] = kind
             evidence.append(source)
     if not evidence:
         return None

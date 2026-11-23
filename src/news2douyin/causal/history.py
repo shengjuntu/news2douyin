@@ -10,24 +10,21 @@ import unicodedata
 from urllib.parse import urlsplit
 
 from ..dedup.normalize import STOPWORDS, canonicalize_url
+from ..history_archive.search import find_leads
 from ..desk.rules import ALIASES
 from ..research.sources import safe_fetch
 from ..selection.source_content import source_url
 from ..selection.source_fetch import _decode, _description, _headline, _PreviewReader
 from .chronology import interval
 
-PROJECT_ENV = 'NEWS2DOUYIN_CAUSAL_HISTORY_BIGQUERY_PROJECT'
-BYTES_ENV = 'NEWS2DOUYIN_CAUSAL_HISTORY_MAX_BYTES_BILLED'
 DAYS_ENV = 'NEWS2DOUYIN_CAUSAL_HISTORY_LOOKBACK_DAYS'
-ARCHIVE_START = date(2015, 2, 19)
+ARCHIVE_START = date(1979, 1, 1)
 DEFAULT_LOOKBACK = 90
-DEFAULT_BYTES_BILLED = 12 * 1024 ** 3
 MAX_LEADS = 48
 MAX_FETCHES = 12
 FETCH_SECONDS = 6
 PUBLISHER_BUDGET_SECONDS = 48
 MAX_DOCUMENT_BYTES = 2 * 1024 ** 2
-QUERY_SECONDS = 65
 _WORD = re.compile(r'[a-z][a-z0-9]{2,}|[\u3400-\u9fff]{2,12}')
 _GENERIC = frozenset(('possible', 'potential', 'cause', 'before', 'after', 'event',
                       'mechanism', 'possible cause', 'report', 'history', 'timeline'))
@@ -37,53 +34,6 @@ _ARTICLE_TYPES = frozenset(('Article', 'NewsArticle', 'ReportageNewsArticle',
                            'AnalysisNewsArticle', 'BackgroundNewsArticle',
                            'OpinionNewsArticle', 'ReviewNewsArticle', 'BlogPosting',
                            'LiveBlogPosting', 'SocialMediaPosting'))
-
-
-# Both public tables are ingestion-time partitioned. GDELT times select leads
-# only; they are not publisher dates or evidence of an event's actual time.
-_SQL = """WITH events AS (
-  SELECT GlobalEventID AS event_id,
-    REGEXP_REPLACE(LOWER(CONCAT(COALESCE(Actor1Name, ''), ' ',
-      COALESCE(Actor2Name, ''), ' ', COALESCE(Actor1CountryCode, ''), ' ',
-      COALESCE(Actor2CountryCode, ''), ' ', COALESCE(ActionGeo_FullName, ''), ' ',
-      COALESCE(Actor1Geo_FullName, ''), ' ', COALESCE(Actor2Geo_FullName, ''), ' ',
-      COALESCE(SOURCEURL, ''))), r'[-_/]+', ' ') AS terms
-  FROM `gdelt-bq.gdeltv2.events_partitioned`
-  WHERE _PARTITIONTIME >= TIMESTAMP(@date_from)
-    AND _PARTITIONTIME < TIMESTAMP(@date_end)
-    AND SQLDATE >= @event_from AND SQLDATE < @event_end
-), mentions AS (
-  SELECT GlobalEventID AS event_id, MentionIdentifier AS url,
-    COALESCE(Confidence, 0) AS confidence, MentionTimeDate AS mention_time
-  FROM `gdelt-bq.gdeltv2.eventmentions_partitioned`
-  WHERE _PARTITIONTIME >= TIMESTAMP(@date_from)
-    AND _PARTITIONTIME < TIMESTAMP(@date_end)
-    AND MentionType = 1
-    AND (STARTS_WITH(MentionIdentifier, 'https://') OR STARTS_WITH(MentionIdentifier, 'http://'))
-), ranked AS (
-  SELECT m.*,
-    (SELECT COUNT(*) FROM UNNEST(@keywords) AS keyword WHERE STRPOS(e.terms, keyword) > 0)
-    + 2 * (SELECT COUNT(*) FROM UNNEST(@keywords) AS keyword
-      WHERE STRPOS(REGEXP_REPLACE(LOWER(m.url), r'[-_/]+', ' '), keyword) > 0) AS relevance
-  FROM mentions AS m JOIN events AS e USING (event_id)
-), unique_urls AS (
-  SELECT * FROM ranked WHERE relevance > 0
-  QUALIFY ROW_NUMBER() OVER (
-    PARTITION BY url ORDER BY relevance DESC, confidence DESC, mention_time DESC, event_id
-  ) = 1
-), per_event AS (
-  SELECT * FROM unique_urls
-  QUALIFY ROW_NUMBER() OVER (
-    PARTITION BY event_id ORDER BY relevance DESC, confidence DESC, mention_time DESC, url
-  ) <= 2
-)
-SELECT event_id, url FROM per_event
-QUALIFY ROW_NUMBER() OVER (
-  PARTITION BY COALESCE(NET.REG_DOMAIN(url), NET.HOST(url), url)
-  ORDER BY relevance DESC, confidence DESC, mention_time DESC, event_id, url
-) <= 4
-ORDER BY relevance DESC, confidence DESC, mention_time DESC, event_id, url
-LIMIT @lead_limit"""
 
 
 @dataclass
@@ -128,57 +78,6 @@ def _keywords(queries, event_text):
                  if term not in STOPWORDS and term not in _GENERIC)
         values.extend(list(dict.fromkeys(terms))[:14])
     return list(dict.fromkeys(values))[:40]
-
-
-def _query_error(error):
-    reasons = {item.get('reason') for item in getattr(error, 'errors', ()) or ()
-               if isinstance(item, dict)}
-    if 'bytesBilledLimitExceeded' in reasons or 'exceeded limit for bytes billed' in str(error).casefold():
-        return 'bytes_limit'
-    if 'stopped' in reasons or 'timeout' in reasons or isinstance(error, TimeoutError):
-        return 'query_timeout'
-    if 'rateLimitExceeded' in reasons or 'quotaExceeded' in reasons:
-        return 'query_quota'
-    if type(error).__name__ in ('DefaultCredentialsError', 'RefreshError', 'Forbidden', 'Unauthorized'):
-        return 'credentials_or_access'
-    return 'query_failed'
-
-
-def _run_query(project, start, end, keywords, max_bytes):
-    try:
-        from google.cloud import bigquery
-    except ImportError:
-        raise _HistoryError('missing_dependency') from None
-    client, job = None, None
-    try:
-        client = bigquery.Client(project=project, location='US')
-        config = bigquery.QueryJobConfig(
-            use_legacy_sql=False, maximum_bytes_billed=max_bytes,
-            job_timeout_ms=QUERY_SECONDS * 1000,
-            query_parameters=[
-                bigquery.ScalarQueryParameter('date_from', 'DATE', start),
-                bigquery.ScalarQueryParameter('date_end', 'DATE', end),
-                bigquery.ScalarQueryParameter('event_from', 'INT64', int(start.strftime('%Y%m%d'))),
-                bigquery.ScalarQueryParameter('event_end', 'INT64', int(end.strftime('%Y%m%d'))),
-                bigquery.ArrayQueryParameter('keywords', 'STRING', keywords),
-                bigquery.ScalarQueryParameter('lead_limit', 'INT64', MAX_LEADS),
-            ],
-        )
-        job = client.query(_SQL, job_config=config, retry=None, job_retry=None, timeout=12)
-        rows = [dict(row) for row in job.result(max_results=MAX_LEADS, page_size=MAX_LEADS,
-                                               retry=None, job_retry=None, timeout=QUERY_SECONDS)]
-        return rows, job.total_bytes_billed or 0
-    except Exception as exc:
-        code = _query_error(exc)
-        if job is not None and code in ('query_timeout', 'query_failed'):
-            try:
-                job.cancel(retry=None, timeout=5)
-            except Exception:
-                pass
-        raise _HistoryError(code) from None
-    finally:
-        if client is not None:
-            client.close()
 
 
 class _PublisherReader(_PreviewReader):
@@ -303,21 +202,21 @@ def _publisher_excerpt(url, keywords, timeout):
     return dict(url=final, title=title, quote=quote, published_at=published, kind='publisher_history')
 
 
-def search_history(queries, lower, upper, *, event_text='', checkpoint=None):
-    """Use one bounded archive query, retaining only dated publisher excerpts."""
+def search_history(queries, lower, upper, *, event_text='', checkpoint=None,
+                   engine=None, storage_root=None):
+    """Read published DuckDB groups, retaining only dated publisher excerpts."""
     result = HistoryResult(diagnostics=dict(
-        status='unconfigured', provider='gdelt_bigquery', date_from='', date_to='',
+        status='unconfigured', provider='gdelt_archive', date_from='', date_to='',
         archive_hit_count=0, lead_count=0, attempted_count=0, fetched_count=0, verified_count=0,
         missing_publication_count=0, outside_window_count=0, missing_excerpt_count=0,
-        bytes_billed=0, window_limited=False, lead_limit_reached=False, verification_limited=False,
+        coverage={}, coverage_incomplete=False, window_limited=False, lead_limit_reached=False,
+        verification_limited=False,
     ))
     report = result.diagnostics
-    project = os.getenv(PROJECT_ENV, '').strip()
-    if not project:
+    if engine is None or storage_root is None:
         return result
     try:
         lookback = _setting(DAYS_ENV, DEFAULT_LOOKBACK, 366)
-        max_bytes = _setting(BYTES_ENV, DEFAULT_BYTES_BILLED, 1024 ** 4)
     except _HistoryError as exc:
         report.update(status='error', error_code=str(exc))
         return result
@@ -339,25 +238,38 @@ def search_history(queries, lower, upper, *, event_text='', checkpoint=None):
     if checkpoint is not None:
         checkpoint()
     try:
-        rows, billed = _run_query(project, start, end, keywords, max_bytes)
-    except _HistoryError as exc:
-        report.update(status='error', error_code=str(exc))
+        lookup = find_leads(engine, storage_root, start, end, keywords, MAX_LEADS, cutoff=ceiling)
+    except (OSError, RuntimeError):
+        report.update(status='error', error_code='archive_query_failed')
         return result
+    except Exception as exc:
+        # Preserve a short operator-facing code without exposing local paths.
+        import duckdb
+        if not isinstance(exc, duckdb.Error):
+            raise
+        report.update(status='error', error_code='archive_query_failed')
+        return result
+    rows = lookup.rows
+    report['coverage'] = lookup.coverage
+    report['coverage_incomplete'] = any(
+        coverage['state'] in ('gap', 'partial') for kind, coverage in lookup.coverage.items()
+        if kind in ('events', 'gkg')
+    )
     if checkpoint is not None:
         checkpoint()
     leads = {}
     for row in rows:
         url = source_url(row.get('url'))
         if url and '\\' not in url:
-            leads.setdefault(canonicalize_url(url), (url, str(row['event_id'])))
-    report.update(archive_hit_count=len(rows), lead_count=len(leads), bytes_billed=billed,
+            leads.setdefault(canonicalize_url(url), (url, row))
+    report.update(archive_hit_count=len(rows), lead_count=len(leads),
                   lead_limit_reached=len(rows) == MAX_LEADS)
     if not leads:
-        report['status'] = 'no_results'
+        report['status'] = 'archive_gap' if report['coverage_incomplete'] else 'no_results'
         return result
     deadline = monotonic() + PUBLISHER_BUDGET_SECONDS
     seen = set()
-    for url, event_id in leads.values():
+    for url, row in leads.values():
         timeout = min(FETCH_SECONDS, deadline - monotonic())
         if report['attempted_count'] == MAX_FETCHES or timeout <= 0:
             report['verification_limited'] = True
@@ -384,7 +296,10 @@ def search_history(queries, lower, upper, *, event_text='', checkpoint=None):
             continue
         seen.add(key)
         ref = 'gdelt-history:' + hashlib.sha256(key.encode()).hexdigest()
-        evidence['gdelt_event_id'] = event_id
+        if row.get('event_id') is not None:
+            evidence['gdelt_event_id'] = str(row['event_id'])
+        evidence['gdelt_version'] = row.get('version')
+        evidence['archive_source_type'] = row.get('source_kind')
         result.candidates.append(dict(ref=ref, event_key='', occurred_at='',
             published_at=evidence['published_at'], similarity=0.,
             text=evidence['title'] + '\n' + evidence['quote'], sources=[evidence]))
