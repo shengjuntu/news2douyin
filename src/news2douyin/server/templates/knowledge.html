@@ -3,7 +3,7 @@
 {% set knowledge=state %}{% include 'graph_status.html' %}
 {% set index=state.indexes|default({}) %}{% set gc=state.gc|default({}) %}{% set projection=state.projection|default({}) %}{% set kinds=projection.by_kind|default({}) %}
 <div class="grid">
-<section class="card"><h2>事件抽取</h2><div id="knowledge-extraction">{% for k,n in state.extraction.items() %}<p>{{ {'baseline':'等待规则抽取','rule_running':'规则抽取中','model_queued':'等待模型抽取','model_running':'模型抽取中','model_wait':'模型重试等待','ready':'本轮完成','metadata_only':'仅元数据，等待原文','error':'抽取失败'}.get(k,k) }}：{{ n }}</p>{% else %}<p>尚无原文版本。</p>{% endfor %}</div>
+<section class="card"><h2>事件抽取</h2><div id="knowledge-extraction">{% for k,n in state.extraction.items() %}<p>{{ {'baseline':'等待规则抽取','focus_baseline':'焦点优先等待抽取','rule_running':'规则抽取中','model_queued':'等待模型抽取','model_running':'模型抽取中','model_wait':'模型重试等待','ready':'本轮完成','metadata_only':'仅元数据，等待原文','error':'抽取失败'}.get(k,k) }}：{{ n }}</p>{% else %}<p>尚无原文版本。</p>{% endfor %}</div>
 <p id="knowledge-methods">规则完成 {{ state.methods.get('rules',0) }} · 模型完成 {{ state.methods.get('model',0) }}</p><p class="muted">抽取结果待核。</p><button id="retry-extraction" class="ghost" type="button">重试失败抽取（最多 100 项）</button></section>
 <section class="card"><h2>图更新与分析</h2>
 <p id="knowledge-indexes">{% if index.state|default('unknown')=='ready' %}图索引已就绪{% elif index.state|default('unknown')=='error' %}图索引检查需要重试{% elif index.state|default('unknown') in ['checking','building'] %}图索引准备中{% else %}图索引状态待检查{% endif %}{% if index.ready is defined and index.ready is not none and index.required is defined and index.required is not none %} · {{ index.ready }} / {{ index.required }}{% endif %}</p>

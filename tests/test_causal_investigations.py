@@ -66,11 +66,12 @@ class ControlledBoundaries:
         return [deepcopy(row) for row in self.by_target.get(queries[0], self.results)
                 if row['ref'] not in exclude]
 
-    def rank(self, settings, target, candidates, *, hypotheses):
+    def rank(self, settings, target, candidates, *, hypotheses, before_batch):
+        before_batch()
         assert hypotheses == [target]
         self.free('model.rank'); self.calls.append(('rank', target))
         self.seen_candidates.append(deepcopy(candidates))
-        return [dict(ref=row['ref'], reason='候选解释，因果待核：保存资料存在时间先后联系。',
+        return [dict(ref=row['ref'], evidence_source='S1', evidence_quote=row['sources'][0]['quote'], reason='候选解释，因果待核：保存资料存在时间先后联系。',
                      score=row.get('fixture_score', .8)) for row in candidates]
 
 

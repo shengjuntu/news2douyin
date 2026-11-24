@@ -5,6 +5,7 @@ from fastapi import Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 from ..desk.models import DeskMeta, Watch
+from ..desk.focus_event_models import FocusEventGraph
 from ..storage.articles import lock_news
 from .research import same_origin
 
@@ -40,9 +41,15 @@ def register(app,engine,render):
         prefix=app.state.desk.graph.prefix
         graphs=[dict(name=prefix+'_active_global',label='全局活动知识图')]
         from ..desk.focus_lifecycle import is_deleted
-        graphs.extend(dict(name=prefix+'_focus_'+w.key,
-            label=w.name+(' · 已删除焦点的存档图' if is_deleted(s,w.key) else ''))
-            for w in s.exec(select(Watch).order_by(Watch.name)))
+        for watch, version, name, built_version in s.exec(select(Watch, FocusEventGraph.watch,
+                FocusEventGraph.graph_name, FocusEventGraph.published_version)
+                .outerjoin(FocusEventGraph, FocusEventGraph.watch == Watch.key).order_by(Watch.name)):
+            if version and name and watch.version == built_version:
+                graphs.append(dict(name=prefix+'_'+name, label=watch.name+' · GDELT 事件图'))
+            elif version is None:
+                graphs.append(dict(name=prefix+'_focus_'+watch.key,
+                    label=watch.name+(' · 已删除焦点的存档图' if is_deleted(s,watch.key) else ' · 旧研究图')))
+
         return render('graph_browser.html',active='knowledge',browser_url=url,graphs=graphs)
 
     @app.post('/api/knowledge/browser-setting',dependencies=[Depends(same_origin)])

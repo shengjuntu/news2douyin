@@ -52,7 +52,7 @@ class DeskWorker:
     def start(self):
         self.stop_event.clear()
         targets=[self.index_loop,self.read_loop,self.model_loop,self.graph_loop,
-                 self.focus_build_loop,self.focus_history_loop,self.focus_judge_loop]
+                 self.focus_build_loop,self.focus_history_loop,self.focus_judge_loop,self.focus_event_graph_loop]
         if self.storage_root is not None:
             targets.append(self.focus_lead_loop)
         for target in targets:
@@ -83,6 +83,10 @@ class DeskWorker:
 
     def read_loop(self):
         self.extract_loop(model=False)
+
+    def focus_event_graph_loop(self):
+        from .focus_event_runtime import step
+        self.focus_loop(lambda engine: step(engine, self.graph), idle=5)
 
     def focus_build_loop(self):
         from .focus_jobs import build_step
@@ -124,9 +128,13 @@ class DeskWorker:
     def extract_loop(self, model):
         from ..extraction.service import step
         failures=0
+        turns=0
         while not self.stop_event.is_set():
             try:
-                changed = step(self.engine, model)
+                # Even sustained manual focus requests leave a turn for ordinary
+                # revisions and expired leases. Empty queues yield to each other.
+                changed = step(self.engine, model, regular_first=(turns % 4 == 3))
+                turns += 1
                 failures=0
             except Exception as exc:
                 failures+=1

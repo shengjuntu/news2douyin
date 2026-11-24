@@ -3,6 +3,7 @@ from collections import defaultdict
 from contextlib import contextmanager
 from datetime import date, datetime, timedelta, timezone
 import logging
+import os
 from math import isfinite
 from shutil import disk_usage
 from threading import Event, Thread
@@ -15,10 +16,10 @@ from sqlmodel import Session, select
 from ..intake.runtime import ReceiverBusy, ReceiverLock
 from ..intake.service import IntakeHTTPError
 from ..storage.articles import lock_news
-from . import catalog, convert
+from . import audit, catalog, convert
 from .paths import archive_root
 from .models import (HistoryControl, HistoryGroup, HistoryJob, HistoryPart,
-                     HistoryProviderCooldown, HistoryPublication)
+                     HistoryProviderCooldown, HistoryPublication, HistoryPublicationCheck)
 
 log = logging.getLogger(__name__)
 LOCK = 'history-archive'
@@ -71,11 +72,12 @@ def _group_data(group):
 def query_groups(engine, start, end):
     """Read only committed Parquet files. The requested dates are inclusive."""
     with Session(engine) as session:
-        rows = session.exec(select(HistoryGroup, HistoryPublication.path)
+        rows = session.exec(select(HistoryGroup, HistoryPublication.path, HistoryPublicationCheck.file_signature)
                             .join(HistoryPublication, HistoryPublication.group_key == HistoryGroup.key)
+                            .outerjoin(HistoryPublicationCheck, HistoryPublicationCheck.path == HistoryPublication.path)
                             .where(*_ranges(start, end))
                             .order_by(HistoryGroup.date_to.desc(), HistoryPublication.path)).all()
-        return [{**_group_data(group), 'path': path} for group, path in rows]
+        return [{**_group_data(group), 'path': path, 'file_signature': signature} for group, path, signature in rows]
 
 
 def requests_for_case(session, case_key):
@@ -94,6 +96,7 @@ class ArchiveWorker:
         self.pause_event = Event()
         self.thread = None
         self.status_error = ''
+        self.volume_token = ''
         self.transfer = None
         self.waiting_transfer = None
 
@@ -140,7 +143,17 @@ class ArchiveWorker:
     def retry(self):
         with self._write() as session:
             self._retry_failed(session)
-            session.exec(update(HistoryJob).where(HistoryJob.state == 'failed').values(state='planning', error=''))
+            from ..causal.models import CausalAgentLink, CausalNode
+
+            session.exec(update(HistoryJob).where(HistoryJob.state == 'failed', HistoryJob.case_key == '')
+                         .values(state='planning', error=''))
+            failed = session.exec(select(HistoryJob.key, HistoryJob.case_key, HistoryJob.node_key).where(
+                HistoryJob.state == 'failed', HistoryJob.case_key != '').order_by(HistoryJob.case_key)).all()
+            for key, case_key, node_key in failed:
+                lock_news(session, 'causal:' + case_key)
+                if session.get(CausalAgentLink, case_key) is None and session.get(CausalNode, node_key):
+                    session.exec(update(HistoryJob).where(HistoryJob.key == key, HistoryJob.state == 'failed')
+                                 .values(state='planning', error=''))
             session.exec(update(HistoryGroup).where(HistoryGroup.state == 'pending', HistoryGroup.retry_at > 0)
                          .values(retry_at=0, error=''))
             catalog_wait = session.get(HistoryProviderCooldown, CATALOG_PROVIDER)
@@ -173,25 +186,31 @@ class ArchiveWorker:
             raise ValueError('调查与节点必须同时指定。')
         if (date_to - date_from).days >= 366:
             raise ValueError('每次调查补档最多指定 366 天。')
-        if case_key:
-            from ..causal.models import CausalNode, CausalProgram, CausalProgramRetrieval
-            from ..storage.utils import loads
-            with Session(self.engine) as session:
+        key = 'node:' + node_key if node_key else 'window:' + uuid4().hex
+        with self._write() as session:
+            if case_key:
+                from ..causal.models import CausalAgentLink, CausalJob, CausalNode, CausalProgram, CausalProgramRetrieval
+                from ..storage.utils import loads
+
+                # Serialize against handoff and the completion that publishes a new tree.
+                lock_news(session, 'causal:' + case_key)
+                if session.get(CausalAgentLink, case_key):
+                    raise ValueError('这项调查已交给 RunDesk，不能再提交节点补档。')
+                if session.exec(select(CausalJob.node_key).where(CausalJob.case_key == case_key,
+                        CausalJob.state.in_(('pending', 'running'))).limit(1)).first():
+                    raise ValueError('当前调查还在运行，查找完成后可提交补档。')
                 node = session.get(CausalNode, node_key)
                 report = session.get(CausalProgramRetrieval, node_key)
                 if not node or node.case_key != case_key or not session.get(CausalProgram, case_key):
                     raise KeyError('在该调查中找不到程序查找节点。')
                 history = loads(report.report_json, {}).get('history', {}) if report else {}
-                # The queued range comes from the node's checked search window.
-                # The browser may narrow it but cannot extend it into the future.
-                try:
-                    floor, ceiling = (date.fromisoformat(history[field]) for field in ('date_from', 'date_to'))
-                except (ValueError, KeyError):
-                    raise ValueError('该节点尚无可补档的历史范围，请先运行查找。') from None
-                if date_from < floor or date_to > ceiling:
+                windows = history.get('windows') or [history]
+                checked = [(window.get('date_from'), window.get('date_to')) for window in windows
+                           if window.get('date_from') and window.get('date_to') and window.get('status') != 'error']
+                if not checked:
+                    raise ValueError('该节点尚无可补档的历史范围，请先运行查找。')
+                if not any(lo <= date_from.isoformat() <= date_to.isoformat() <= hi for lo, hi in checked):
                     raise ValueError('补档日期超出该节点实际查找范围。')
-        key = 'node:' + node_key if node_key else 'window:' + uuid4().hex
-        with self._write() as session:
             previous = session.get(HistoryJob, key)
             if previous and previous.state in ('failed', 'partial'):
                 self._retry_failed(session, *_ranges(date_from, date_to, mentions))
@@ -319,6 +338,7 @@ class ArchiveWorker:
             raise
         finally:
             self.transfer = None
+        audit.confirm_volume(self)
         self._record_part(part.key, 'downloaded')
 
     def _process(self, group):
@@ -344,6 +364,7 @@ class ArchiveWorker:
                 raise InterruptedError()
             if part.state == 'failed':
                 continue
+            audit.confirm_volume(self)
             path = self._staged(part)
             # Reuse a verified ZIP left in staging after restart or completed
             # downloading before the ledger committed.
@@ -391,12 +412,15 @@ class ArchiveWorker:
             published = convert.convert_group(self.root, group.kind, group.version, group.period,
                                                sources, stop=self.is_set)
         # Durable files are visible to readers only after this transaction.
+        audit.confirm_volume(self)
         with self._write() as session:
             current = session.get(HistoryGroup, group.key)
             if published:
                 relative = published.parquet.relative_to(self.root).as_posix()
                 if not session.get(HistoryPublication, relative):
                     session.add(HistoryPublication(path=relative, group_key=group.key))
+                session.merge(HistoryPublicationCheck(path=relative, file_signature=audit.file_signature(published.parquet),
+                                                       invalid_rows=published.invalid_rows))
                 ready = list(session.exec(select(HistoryPart).where(HistoryPart.key.in_(selected))))
                 for part in ready:
                     part.state = 'ready'
@@ -468,6 +492,24 @@ class ArchiveWorker:
             jobs = [(job.key, job.serial) for job in session.exec(
                 select(HistoryJob).where(HistoryJob.state == 'running').order_by(HistoryJob.serial))]
         for key, serial in jobs:
+            if self.is_set():
+                return
+            with Session(self.engine) as session:
+                job = session.get(HistoryJob, key)
+                conditions = _ranges(job.date_from, job.date_to, job.mentions)
+                if session.exec(select(HistoryGroup.key).where(
+                        *conditions, HistoryGroup.state.in_(ACTIVE_GROUP)).limit(1)).first():
+                    continue
+                if job.case_key and session.exec(select(CausalJob.node_key).where(
+                        CausalJob.case_key == job.case_key, CausalJob.state.in_(causal.ACTIVE)).limit(1)).first():
+                    continue
+                keys = session.exec(select(HistoryGroup.key).where(*conditions, HistoryGroup.ready_files > 0)).all()
+            audit.bind_volume(self)
+            repaired = False
+            for offset in range(0, len(keys), 50):
+                repaired |= audit.reconcile(self, keys[offset:offset + 50])
+            if repaired:
+                continue
             with self._write() as session:
                 job = session.get(HistoryJob, key)
                 if not job or job.serial != serial or job.state != 'running':
@@ -476,15 +518,16 @@ class ArchiveWorker:
                 if session.exec(select(HistoryGroup.key).where(
                         *conditions, HistoryGroup.state.in_(ACTIVE_GROUP)).limit(1)).first():
                     continue
-                groups = list(session.exec(select(HistoryGroup.state, HistoryGroup.ready_files).where(*conditions)))
-                has_data = any(count for _, count in groups)
-                all_ready = bool(groups) and all(state == 'ready' for state, _ in groups)
+                groups = session.exec(select(HistoryGroup.state).where(*conditions)).all()
+                has_data = session.exec(select(HistoryPublication.path).join(
+                    HistoryGroup, HistoryGroup.key == HistoryPublication.group_key).where(*conditions).limit(1)).first() is not None
+                all_ready = has_data and all(state == 'ready' for state in groups)
                 if job.case_key and has_data:
                     if session.exec(select(CausalJob.node_key).where(
                         CausalJob.case_key == job.case_key, CausalJob.state.in_(causal.ACTIVE)).limit(1)).first():
                         continue
                     try:
-                        causal.expand(session, job.case_key, job.node_key, False, commit=False)
+                        causal.expand(session, job.case_key, job.node_key, False, commit=False, repair_serial=job.serial)
                     except causal.CausalConflict:
                         # An unrelated request may just have started a case job.
                         if session.exec(select(CausalJob.node_key).where(
@@ -503,6 +546,17 @@ class ArchiveWorker:
                 session.add(job)
 
     def step(self):
+        try:
+            result = self._step()
+        except (audit.VolumeUnavailable, PermissionError) as exc:
+            self.status_error = str(exc) if isinstance(exc, audit.VolumeUnavailable) else '无法读取归档目录，请核对挂载和访问权限。'
+            return False
+        except InterruptedError:
+            return False
+        self.status_error = ''
+        return result
+
+    def _step(self):
         self._finalize()
         if self.is_set():
             return False
@@ -517,6 +571,7 @@ class ArchiveWorker:
                 planned = session.exec(select(HistoryJob).where(HistoryJob.state == 'planning')
                                        .order_by((HistoryJob.key == MAIN), HistoryJob.serial).limit(1)).first()
         if planned:
+            audit.bind_volume(self)
             try:
                 self._prepare(planned)
             except InterruptedError:
@@ -539,6 +594,7 @@ class ArchiveWorker:
         with Session(self.engine) as session:
             if not session.exec(select(HistoryGroup.key).where(*due).limit(1)).first():
                 return False
+        audit.bind_volume(self)
         with self._write() as session:
             group = session.exec(select(HistoryGroup).where(*due).order_by(
                     HistoryGroup.priority.desc(), HistoryGroup.date_to.desc(), HistoryGroup.key).limit(1)).first()
@@ -551,6 +607,9 @@ class ArchiveWorker:
             session.expunge(group)
         try:
             return self._process(group)
+        except audit.VolumeUnavailable:
+            self._defer(group_key, 0, '等待归档卷恢复。')
+            raise
         except InterruptedError as exc:
             self._defer(group_key, 0, str(exc)[:160])
             return False
@@ -592,28 +651,37 @@ class ArchiveWorker:
     def _loop(self):
         ownership = ReceiverLock(self.root.parent)
         ownership.path = self.root / 'worker.lock'
+        initialized = False
         try:
-            ownership.acquire()
-            self.status_error = ''
-            with self._write() as session:
-                control = session.get(HistoryControl, 'archive')
-                if control and control.paused:
-                    self.pause_event.set()
-                session.exec(update(HistoryGroup).where(HistoryGroup.state == 'running')
-                             .values(state='pending', phase='', retry_at=0))
-            self._clean_committed()
-            convert.discard_staging(self.root)
             while not self.stop_event.is_set():
                 self.wake_event.clear()
                 try:
+                    if ownership.file and (not ownership.path.is_file() or not os.path.samestat(
+                            ownership.path.stat(), os.fstat(ownership.file.fileno()))):
+                        ownership.release()
+                        initialized = False
+                    if not ownership.file:
+                        ownership.acquire()
+                    if not initialized:
+                        audit.bind_volume(self)
+                        with self._write() as session:
+                            control = session.get(HistoryControl, 'archive')
+                            if control and control.paused:
+                                self.pause_event.set()
+                            session.exec(update(HistoryGroup).where(HistoryGroup.state == 'running')
+                                         .values(state='pending', phase='', retry_at=0))
+                        self._clean_committed()
+                        convert.discard_staging(self.root)
+                        initialized = True
                     worked = self.step()
+                except (audit.VolumeUnavailable, ReceiverBusy, OSError) as exc:
+                    self.status_error = str(exc) if isinstance(exc, audit.VolumeUnavailable) else '归档目录不可用，或已由另一个运行实例管理。'
+                    worked = False
                 except Exception as exc:
                     log.warning('Historical archive worker waiting to retry (%s)', type(exc).__name__)
                     worked = False
                 if not worked and not self.stop_event.is_set():
                     self.wake_event.wait(4)
-        except (ReceiverBusy, OSError):
-            self.status_error = '归档目录不可用，或已由另一个运行实例管理。'
         finally:
             ownership.release()
 
@@ -621,9 +689,17 @@ class ArchiveWorker:
         for path in (self.root / 'staging').glob('*.zip'):
             with Session(self.engine) as session:
                 part = session.get(HistoryPart, path.name)
-                if (not part or part.state != 'ready' or not part.publication_path
-                        or not (self.root / part.publication_path).is_file()):
+                if not part or part.state != 'ready' or not part.publication_path:
                     continue
+                receipt = session.get(HistoryPublicationCheck, part.publication_path)
+                publication = self.root / part.publication_path
+                signature = receipt.file_signature if receipt else ''
+            try:
+                # An old staging ZIP can repair its partition without another download.
+                if not signature or audit.file_signature(publication) != signature:
+                    continue
+            except OSError:
+                continue
             try:
                 path.unlink()
             except OSError:

@@ -1,4 +1,4 @@
-"""The graph, the focus tab and its API open the same evidence-backed view."""
+"""The extracted activity timeline remains available from the focus tab."""
 import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session
@@ -15,7 +15,7 @@ from test_postgres_integration import postgres_url
 
 
 @pytest.mark.parametrize('database', ('sqlite', 'postgres'))
-def test_focus_people_opens_from_both_views_and_shares_evidence_and_identity(tmp_path, monkeypatch, database, request):
+def test_focus_keeps_grounded_people_timeline_separate_from_official_graph(tmp_path, monkeypatch, database, request):
     monkeypatch.setenv('NEWS2DOUYIN_FALKOR_URL', '')
     monkeypatch.setenv('NEWS2DOUYIN_TIMEZONE', 'Asia/Shanghai')
     database_url = (request.getfixturevalue('postgres_url') if database == 'postgres'
@@ -78,14 +78,9 @@ def test_focus_people_opens_from_both_views_and_shares_evidence_and_identity(tmp
         snapshot = client.get('/api/graphs', params=lens_params)
         assert snapshot.status_code == 200, snapshot.text
         snapshot = snapshot.json()
-        assert snapshot['backend'] == 'focus_evidence'
-        person = next(node for node in snapshot['nodes'] if node['kind'] == 'Person')
-        assert person['id'] == identity['key']
-        assert person['activities'][0]['source_path'] == timeline['source_path']
-        assert snapshot['edges'][0]['evidence'][0]['source_path'] == timeline['source_path']
-        assert person['url'] and client.get(person['url']).status_code == 200
-        without = client.get('/api/graphs', params={**lens_params, 'focus': excluded_focus}).json()
-        assert without['nodes'] == [] and without['empty_reason']
+        assert snapshot['backend'] == 'official_focus'
+        assert snapshot['nodes'] == [] and snapshot['state'] == 'unbuilt'
+        assert '重建焦点图' in canvas.text
         page = client.get(f'/focus/{focus_a}', params={
             'view': 'people', 'person': identity['key'], 'people_days': 30, 'people_until': '2024-06-12',
         })

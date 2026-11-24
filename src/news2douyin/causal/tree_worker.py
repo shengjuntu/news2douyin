@@ -8,12 +8,14 @@ from dataclasses import dataclass, field
 from math import isfinite
 from time import monotonic
 
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from ..llm.client.embedding import EmbeddingError
 from . import history, model, retrieval, service
-from .chronology import eligible, interval, sqlite_utc_bound
-from .models import CausalInvestigation, CausalNode
+from .chronology import bind_citation, eligible, interval, sqlite_utc_bound
+from .models import CausalInvestigation, CausalNode, CausalProgramRetrieval, CausalProgramStep
+from ..history_archive.models import HistoryJob
+from ..storage.utils import loads
 
 
 RELATIONS = frozenset(('possible_cause', 'context', 'contradicts', 'document_reference'))
@@ -60,6 +62,8 @@ def _snapshot(engine, claimed):
         while current:
             if current.key in visited or len(visited) > service.MAX_DEPTH:
                 raise ProgramStepFailure('程序调查节点链无效，未进行检索。')
+            if current.parent_key and not service._program_child(current):
+                raise ProgramStepFailure('此分支的引文与事前日期尚待核对，请从父节点重新查找。')
             visited.add(current.key)
             excluded.update(value for value in (current.ref, current.event_key) if value)
             point = interval(current.occurred_at) or interval(current.published_at)
@@ -115,6 +119,36 @@ def _metadata(rows):
     return count, next(iter(modes)) if len(modes) == 1 else ''
 
 
+def _previous_history(engine, claimed):
+    with Session(engine) as session:
+        retrieval_row = session.get(CausalProgramRetrieval, claimed.node_key)
+        step = session.get(CausalProgramStep, claimed.node_key)
+        job = session.get(HistoryJob, 'node:' + claimed.node_key)
+        report = loads(retrieval_row.report_json, {}) if retrieval_row else {}
+        previous = report.get('history', {})
+        scan = previous.get('scan', {})
+        repair = None
+        if job and job.state in ('partial', 'ready'):
+            requested = report.get('repair_job_serial') == job.serial
+            legacy = 'continue_history' not in report and job.serial != scan.get('repair_serial')
+            if requested or legacy:
+                repair = {'serial': job.serial, 'from': job.date_from, 'to': job.date_to}
+        # A continuation uses the same model-generated hypotheses: visited
+        # intervals are meaningful only for the search that produced them.
+        resume = repair or (report.get('continue_history') and scan.get('can_continue'))
+        queries = loads(step.queries_json, []) if step and resume else []
+        carried = []
+        if resume and scan:
+            for child in session.exec(select(CausalNode).where(CausalNode.case_key == claimed.case_key,
+                    CausalNode.parent_key == claimed.node_key).order_by(CausalNode.key)):
+                sources = [source for source in loads(child.sources_json, [])
+                           if source.get('kind') == 'publisher_history']
+                if child.ref.startswith('gdelt-history:') and sources:
+                    carried.append(dict(ref=child.ref, event_key='', occurred_at='', text=child.text,
+                                        published_at=child.published_at, sources=sources, similarity=0.))
+        return previous, repair, queries, carried
+
+
 def investigate(engine, claimed, *, storage_root=None):
     """Propose hypotheses, recall/re-embed evidence, then rank exact candidates."""
     target, anchor, lower, upper, excluded = _snapshot(engine, claimed)
@@ -133,7 +167,10 @@ def investigate(engine, claimed, *, storage_root=None):
     try:
         settings = model.configure()
         bounds = dict(lower=sqlite_utc_bound(lower), upper=sqlite_utc_bound(upper))
-        queries = model.propose_hypotheses(settings, target, **bounds)
+        previous, repair, saved_queries, carried = (_previous_history(engine, claimed) if storage_root is not None
+                                                    else ({}, None, [], []))
+        report = {'history': previous} if previous else {}
+        queries = saved_queries or model.propose_hypotheses(settings, target, **bounds)
         if not queries:
             return ProgramStep([], [], 0, '归因模型未提出可核查的前因假说，本分支停止。')
         service.renew(engine, claimed, hypotheses=queries)
@@ -142,15 +179,33 @@ def investigate(engine, claimed, *, storage_root=None):
         report = dict(local=pool.local, history=dict(status='skipped'))
         # A nearest neighbor can always be returned from a populated index.
         # It alone must not suppress the existing archive lookup.
-        if pool.local.get('status') == 'gap' or not pool.local.get('keyword_dated_count', pool.local.get('dated_evidence_count')):
+        hits = pool.local.get('keyword_hypothesis_hits', [])
+        uncovered = [query for query, count in zip(queries, hits) if not count] if len(hits) == len(queries) else []
+        has_keyword_evidence = pool.local.get('keyword_dated_count', pool.local.get('dated_evidence_count'))
+        if repair or saved_queries or uncovered or pool.local.get('status') == 'gap' or not has_keyword_evidence:
             trigger = 'local_gap' if pool.local.get('status') == 'gap' else 'no_dated_candidates'
             if trigger != 'local_gap' and pool.local.get('dated_evidence_count'):
                 trigger = 'no_dated_keyword_candidates'
             checkpoint(force=True)
             kwargs = {'engine': engine, 'storage_root': storage_root} if storage_root is not None else {}
-            supplement = history.search_history(queries, **bounds, event_text=target, checkpoint=checkpoint, **kwargs)
-            report['history'] = {**supplement.diagnostics, 'trigger': trigger}
-            historical = supplement.candidates
+            history_queries = uncovered or queries
+            if repair:
+                trigger = 'archive_repaired'
+                history_queries = previous.get('search_hypotheses') or history_queries
+                kwargs['repair'] = repair
+            elif saved_queries:
+                trigger = 'history_continuation'
+                history_queries = previous.get('search_hypotheses') or history_queries
+            elif uncovered and len(uncovered) < len(queries):
+                trigger = 'hypothesis_without_evidence'
+            if previous.get('scan') and (saved_queries or repair):
+                kwargs['previous'] = previous
+            supplement = history.search_history(history_queries, **bounds, event_text=target, checkpoint=checkpoint, **kwargs)
+            report['history'] = {**supplement.diagnostics, 'trigger': trigger, 'search_hypotheses': history_queries}
+            fresh_refs = {item['ref'] for item in supplement.candidates}
+            retained = [item for item in carried if item['ref'] not in fresh_refs]
+            historical = [*supplement.candidates, *retained]
+            report['history']['previous_candidate_count'] = len(retained)
         else:
             historical = []
         ranked = retrieval.rank_tree_pool(engine, pool, historical=historical, checkpoint=checkpoint)
@@ -171,16 +226,20 @@ def investigate(engine, claimed, *, storage_root=None):
                 candidates.append(candidate)
         if len(candidates) > model.MAX_CANDIDATES:
             raise ProgramStepFailure('本轮程序召回超出单步候选上限，未保存候选。')
-        report.update(ranked_count=len(candidates), selected_count=0)
+        report.update(prepared_count=len(candidates), ranked_count=0, selected_count=0)
         if not candidates:
             if report['history'].get('status') == 'error':
                 raise ProgramStepFailure('本地没有合格候选，GDELT 历史补查失败，可重新查找。')
             if report['history'].get('status') == 'archive_gap':
                 return ProgramStep([], queries, count, '调查时间窗存在历史档案缺口，可补档后继续。', mode, report)
-            return ProgramStep([], queries, count,
-                '本轮未取得符合日期与出处要求的候选。', mode, report)
-        checkpoint()
-        decisions = model.rank(settings, target, candidates, hypotheses=queries)
+            if report['history'].get('scan', {}).get('can_continue'):
+                return ProgramStep([], queries, count, '本轮未找到有据候选，可继续查更早归档。', mode, report)
+            return ProgramStep([], queries, count, '本轮未取得符合日期与出处要求的候选。', mode, report)
+        def batch_done(size):
+            report['ranked_count'] += size
+
+        decisions = model.rank(settings, target, candidates, hypotheses=queries,
+                               before_batch=checkpoint, after_batch=batch_done)
         by_ref = {item['ref']: item for item in candidates}
         results, saved_refs = [], set()
         for decision in decisions:
@@ -195,7 +254,7 @@ def investigate(engine, claimed, *, storage_root=None):
             saved_refs.add(ref)
             # The model may explain/order a supplied candidate. It may never
             # replace its source, text, event identity or either time clock.
-            results.append({**by_ref[ref], 'reason': reason, 'score': float(score), 'relation': relation})
+            results.append(bind_citation(by_ref[ref], decision, anchor, upper))
         results.sort(key=lambda item: (item['time_status'] != 'earlier', -item['score'], item['ref']))
         results = results[:service.RESULTS]
         report['selected_count'] = len(results)

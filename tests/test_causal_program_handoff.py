@@ -207,3 +207,41 @@ def test_analysis_docker_admission_does_not_weaken_older_causal_role():
     assert validate_runtime(runtime, config, causal=True, analysis_only=True)['id'] == 'env'
     with pytest.raises(ValueError, match='因果'):
         validate_runtime(runtime, config, causal=True)
+
+
+def test_program_handoff_registers_only_the_cited_version_and_quote(program_case):
+    app, _, _, _, _ = program_case
+    cited = 'The negotiators signed the earlier agreement.'
+    with Session(app.state.engine) as session:
+        child = session.get(CausalNode, 'cn_program_child')
+        older, = loads(child.sources_json, [])
+        child.published_at = '2014-01-15'
+        child.sources_json = dumps([older, dict(older, url='https://source.example/second',
+            quote='Unrelated introduction. '+cited, cited_quote=cited, modified_at=child.published_at)])
+        session.commit()
+    run_id, tools = begin(program_case)
+    tree = tools.call('causal_get_investigation', dict(run_id=run_id))
+    child = next(node for node in tree['nodes'] if node['key'] == 'cn_program_child')
+    registered, = child['evidence']
+    assert registered['quote'] == cited
+    with Session(app.state.engine) as session:
+        source = session.get(ResearchSource, registered['source_id'])
+        assert source.url == 'https://source.example/second'
+        assert source.published_at == '2014-01-15'
+        assert loads(source.provenance_json, {})['first_published_at'] == '2014-01-02'
+
+
+def test_handoff_already_registered_by_older_version_reuses_existing_paragraph(program_case):
+    app, _, _, _, _ = program_case
+    run_id, tools = begin(program_case)
+    cited = 'established a joint commission'
+    with Session(app.state.engine) as session:
+        child = session.get(CausalNode, 'cn_program_child')
+        child.reason = '候选解释，因果待核。\n来源摘录：“'+cited+'”'
+        session.commit()
+    tree = tools.call('causal_get_investigation', dict(run_id=run_id))
+    child = next(node for node in tree['nodes'] if node['key'] == 'cn_program_child')
+    evidence, = child['evidence']
+    assert evidence['quote'] == cited
+    source = tools.call('research_read_source', dict(run_id=run_id, source_id=evidence['source_id']))
+    assert source['paragraphs'] == [dict(id='P1', text=QUOTE)]

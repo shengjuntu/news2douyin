@@ -9,10 +9,10 @@ const KINDS = {
   event: ['事件', '#62d2e1', [.38, .82, .88, 1]],
   event_mention: ['事件提及', '#62d2e1', [.38, .82, .88, 1]],
   occurrence_candidate: ['事件线索', '#62d2e1', [.38, .82, .88, 1]],
-  source_event: ['来源事件', '#72c4db', [.45, .77, .86, 1]],
+  source_event: ['GDELT 事件', '#72c4db', [.45, .77, .86, 1]],
   gdelt_actor: ['GDELT 行动者', '#e8b0d3', [.91, .69, .83, 1]],
   gdelt_place: ['GDELT 地点', '#9ace9a', [.60, .81, .60, 1]],
-  gdelt_document: ['GDELT 文档', '#91a9f8', [.57, .66, .97, 1]],
+  gdelt_document: ['报道', '#91a9f8', [.57, .66, .97, 1]],
   gkg_subject: ['GKG 主题', '#f2cc79', [.95, .80, .47, 1]],
   attention_topic: ['热榜话题', '#ff9c77', [.99, .61, .47, 1]],
   attention_source_item: ['热榜条目', '#91a9f8', [.57, .66, .97, 1]],
@@ -49,7 +49,13 @@ const RELATIONS = {
 const DETAIL_NAMES = {
   article: '报道', code: '代码', domain: '来源域名', evidence: '证据', identity: '实体状态',
   quote: '原文摘录', reason: '收录依据', relation_type: '关系类型', revision: '原文版本', role: '角色',
-  scope: '关注范围', seen: '最近更新', status: '状态', type: '类型', weight: '关联权重',
+  scope: '关注范围', seen: '最近观测', status: '状态', type: '类型', weight: '关联权重',
+  external_id: 'GlobalEventID', event_date: '官方事件日期', country: '国家或地区', basis: '焦点匹配依据',
+  feed: '数据流', batch: '原始批次', row: '原始行号', identifier: '文档标识', gkg_record: 'GKG 记录',
+  mention_key: 'Mentions 索引键', confidence: 'GDELT 提及置信度', sentence: '句号',
+  observed: 'GDELT 首次收录', first_seen: '首次提及', first_feed: '首次数据流',
+  first_batch: '首次批次', first_row: '首次原始行号',
+  latitude: '纬度', longitude: '经度', quad_class: 'CAMEO 四分类', goldstein: 'Goldstein 分值',
 }
 const READ_REASONS = {
   unconfigured: '尚未配置图数据库。',
@@ -176,6 +182,7 @@ function unpack(data) {
 
 function installGraph(root) {
   const peopleLens = root.dataset.lens === 'people'
+  const focusGraph = Boolean(root.dataset.rebuild)
   const control = id => root.querySelector('#' + id)
   const canvas = control('graph-canvas')
   const query = control('graph-search')
@@ -286,11 +293,12 @@ function installGraph(root) {
     title.tabIndex = -1
     details.append(title, element('p', edge.label, 'graph-explorer-related-title'))
     const count = edge.evidenceCount || edge.evidence.length
-    details.append(element('h4', '关系证据'))
+    if (focusGraph) showDetails(details, edge.details)
+    else details.append(element('h4', '关系证据'))
     if (edge.evidence.length) {
       if (count > edge.evidence.length) details.append(element('small', `显示 ${edge.evidence.length} / ${count} 条`))
       details.append(evidenceList(edge.evidence))
-    } else details.append(element('p', '这条关系暂无可查看的原文证据。'))
+    } else if (!focusGraph) details.append(element('p', '这条关系暂无可查看的原文证据。'))
     const parallel = neighbors[edge.source].filter(row => row.node === edge.target && row.index !== selectedEdge)
     if (parallel.length) {
       details.append(element('h4', '两者的其他关系'))
@@ -306,6 +314,7 @@ function installGraph(root) {
       return
     }
     if (selected === undefined) {
+      if (peopleLens && !nodes.length) return
       const prompt = nodes.length ? (peopleLens ? '点人物看活动，点关系线看证据。' : '选择一个节点查看关系。') : '此图暂无可查看节点。'
       details.append(element('p', prompt, 'graph-explorer-muted'))
       return
@@ -326,11 +335,11 @@ function installGraph(root) {
       }
       const eventKey = root.dataset.focusKey && node.kind === 'event' && local && !target.search && !target.hash
         ? target.pathname.match(/^\/events\/([A-Za-z0-9_-]{1,160})$/)?.[1] : undefined
-      if (eventKey) {
+      if (eventKey || (focusGraph && node.kind === 'source_event')) {
         const investigate = element('button', '以此事件查前因', 'ghost')
         investigate.type = 'button'
         investigate.addEventListener('click', () => {
-          document.dispatchEvent(new CustomEvent('n2d:causal-root', {detail: {eventKey, title: node.title}}))
+          document.dispatchEvent(new CustomEvent('n2d:causal-root', {detail: {eventKey: eventKey || '', title: node.title, eventDate: node.details?.event_date}}))
         })
         const actions = element('div', '', 'row')
         actions.append(anchor, investigate)
@@ -339,7 +348,7 @@ function installGraph(root) {
         details.append(anchor)
       }
     }
-    if (peopleLens && node.kind === 'person') {
+    if (!focusGraph && peopleLens && node.kind === 'person') {
       details.append(element('h4', '活动时间线'))
       if (node.activityCount > node.activities.length) {
         details.append(element('small', `显示 ${node.activities.length} / ${node.activityCount} 条活动`))
@@ -355,7 +364,7 @@ function installGraph(root) {
     for (const row of related) {
       const edge = edges[row.index]
       const item = element('li')
-      if (peopleLens) {
+      if (focusGraph || peopleLens) {
         const label = nodes[row.node].title + ' · ' + edge.label
         item.append(edgeButton(row.index, label))
       } else {
@@ -509,8 +518,8 @@ function installGraph(root) {
         randomSeed: 17,
         onPointClick: index => select(index),
         onBackgroundClick: () => select(undefined),
-        onLinkClick: peopleLens ? index => selectEdge(index) : undefined,
-        hoveredLinkCursor: peopleLens ? 'pointer' : 'auto',
+        onLinkClick: focusGraph || peopleLens ? index => selectEdge(index) : undefined,
+        hoveredLinkCursor: focusGraph || peopleLens ? 'pointer' : 'auto',
         onMouseMove: hover,
       })
       graph = instance
@@ -533,7 +542,7 @@ function installGraph(root) {
       instance.setPointColors(colors)
       instance.setPointSizes(sizes)
       instance.setLinks(links)
-      if (peopleLens) instance.setLinkArrows(edges.map(edge => edge.directed === true))
+      if (focusGraph || peopleLens) instance.setLinkArrows(edges.map(edge => edge.directed === true))
       instance.render()
       updateHighlights()
       canvas.querySelector('canvas')?.addEventListener('webglcontextlost', () => {
@@ -571,6 +580,69 @@ function installGraph(root) {
     action()
   })
 
+  const rebuild = control('graph-rebuild')
+  const buildNotice = control('graph-build-status')
+  const days = control('graph-days')
+  const until = control('graph-until')
+  const focus = control('graph-focus-key')
+  let busy = false, pollTimer
+
+  function showBuildNotice(message) {
+    if (!buildNotice) return
+    buildNotice.textContent = message
+    buildNotice.hidden = !message
+  }
+
+  function buildState(data, polling = false) {
+    const active = ['queued', 'building'].includes(data.state)
+    busy = active
+    rebuild.disabled = busy || focus.value !== root.dataset.focusKey
+    if (active) {
+      showBuildNotice('正在后台重建，完成后会自动显示新图。')
+      clearTimeout(pollTimer)
+      pollTimer = setTimeout(async () => {
+        try {
+          const response = await fetch(root.dataset.rebuild, {cache: 'no-store'})
+          if (!response.ok) throw new Error()
+          buildState(await response.json(), true)
+        } catch {
+          busy = false
+          rebuild.disabled = focus.value !== root.dataset.focusKey
+          showBuildNotice('暂时无法读取重建进度，可刷新页面。')
+        }
+      }, 2500)
+    } else if (data.state === 'error') {
+      showBuildNotice('重建失败，可以重新提交。' + (data.built_at ? '下方仍为最近一次完成的图。' : ''))
+    } else if (polling) {
+      window.location.reload()
+    } else if (data.state === 'unbuilt') {
+      showBuildNotice('选择事件日期后，点击「重建焦点图」。')
+    } else {
+      showBuildNotice('')
+    }
+  }
+
+  focus?.addEventListener('change', () => {
+    rebuild.disabled = busy || focus.value !== root.dataset.focusKey
+  })
+  rebuild?.addEventListener('click', async () => {
+    if (busy || focus.value !== root.dataset.focusKey || !until.reportValidity()) return
+    rebuild.disabled = busy = true
+    showBuildNotice('正在提交重建…')
+    try {
+      const url = new URL(root.dataset.rebuild, window.location.href)
+      url.searchParams.set('days', days.value)
+      if (until.value) url.searchParams.set('until', until.value)
+      const response = await fetch(url, {method:'POST', headers:{Accept:'application/json'}})
+      if (!response.ok) throw new Error()
+      buildState(await response.json())
+    } catch {
+      busy = false
+      rebuild.disabled = focus.value !== root.dataset.focusKey
+      showBuildNotice('无法提交重建，请重试。')
+    }
+  })
+
   async function load() {
     try {
       const response = await fetch(root.dataset.endpoint, {headers: {Accept: 'application/json'}})
@@ -579,23 +651,32 @@ function installGraph(root) {
       ;({nodes, neighbors, edges} = unpack(data))
       const counts = `${nodes.length} 个节点 · ${edges.length} 条关系`
       const fromGraph = data.backend === 'falkordb'
-      summary.textContent = `${counts} · ${peopleLens ? '焦点材料' : fromGraph ? 'FalkorDB' : '关系库快照'}`
+      const scopeCounts = data.counts || {}
+      summary.textContent = focusGraph
+        ? `${counts} · 本次构建 ${scopeCounts.events || 0} 个事件、${scopeCounts.reports || 0} 篇报道、${scopeCounts.gkg_reports || 0} 篇关联 GKG`
+        : `${counts} · ${fromGraph ? 'FalkorDB' : '关系库快照'}`
       const scope = data.window
-      metadataNotice = peopleLens ? [
-        scope?.date_from && scope.date_to ? `材料收录日期 ${scope.date_from} 至 ${scope.date_to}。` : '',
-        Number.isInteger(scope?.sampled_events) ? `本次读取 ${scope.sampled_events} 个事件。` : '',
-        data.truncated ? '仅展示读取范围内的部分材料。' : '',
+      metadataNotice = focusGraph ? [
+        scope?.date_from && scope.date_to ? `图谱事件日期 ${scope.date_from} 至 ${scope.date_to}。` : '',
+        data.truncated ? '当前显示部分事件或证据。' : '',
       ].filter(Boolean).join(' ') : [
         Object.hasOwn(READ_REASONS, data.reason) ? READ_REASONS[data.reason] : '',
         fromGraph && data.state === 'partial' ? '当前显示已经读取的图数据。' : '',
         !fromGraph && nodes.length ? '当前显示关系库快照。' : '',
         data.truncated ? '本次读取达到节点、关系或邻域上限。' : '',
       ].filter(Boolean).join(' ')
+      if (focusGraph) {
+        const params = new URL(window.location.href).searchParams
+        if (data.requested && !params.has('days') && !params.has('until')) {
+          days.value = String(data.requested.days)
+          until.value = data.requested.until
+        }
+        buildState(data)
+      }
       renderDetail()
       if (!nodes.length) {
         root.dataset.graphic = 'empty'
-        report(peopleLens ? text(data.empty_reason) || '当前材料中暂无可显示的人物。'
-          : fromGraph ? '所选范围暂无可显示的图谱。' : '所选范围的关系库快照暂无可显示的节点。')
+        report(focusGraph ? text(data.empty_reason) : '所选范围暂无可显示的图谱。')
         return
       }
       order = nodes.map((_, index) => index).sort((a, b) => neighbors[b].length - neighbors[a].length || a - b)

@@ -76,15 +76,17 @@ def _pg_time(element,compiler,**kw):
 
 def install_sql_functions(connection):
     if connection.dialect.name!='postgresql':return
+    # The exception handlers open subtransactions, which PostgreSQL forbids in
+    # parallel queries even when the input parses successfully.
     connection.exec_driver_sql("""CREATE OR REPLACE FUNCTION n2d_jsonb_or_null(raw text)
-        RETURNS jsonb LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE AS $n2d$
+        RETURNS jsonb LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL UNSAFE AS $n2d$
         BEGIN RETURN raw::jsonb;
         EXCEPTION WHEN data_exception THEN RETURN NULL;
         END $n2d$""")
     # Explicit UTC for timestamps without an offset matches SQLite's historical
     # behavior and avoids depending on a deployment's PostgreSQL TimeZone.
     connection.exec_driver_sql("""CREATE OR REPLACE FUNCTION n2d_timestamp_or_null(raw text)
-        RETURNS timestamptz LANGUAGE plpgsql STABLE STRICT PARALLEL SAFE AS $n2d$
+        RETURNS timestamptz LANGUAGE plpgsql STABLE STRICT PARALLEL UNSAFE AS $n2d$
         BEGIN
           IF raw !~ '^\\d{4}-\\d{2}-\\d{2}([T ]\\d{2}:\\d{2}(:\\d{2}(\\.\\d+)?)?([Zz]|[+-]\\d{2}:\\d{2})?)?$' THEN RETURN NULL; END IF;
           IF raw ~ '([Zz]|[+-]\\d{2}:\\d{2})$' THEN RETURN raw::timestamptz; END IF;

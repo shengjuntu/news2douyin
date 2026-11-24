@@ -1,4 +1,4 @@
-# news2douyin 0.55.0 · 事件雷达和选题工作台
+# news2douyin 0.57.0 · 事件雷达和选题工作台
 
 可独立部署 TradeView，与本服务交换只读数据。配置后，事件页可以查看市场日线与事件窗口，TradeView 可以按日期查已整理事件及其报道来源。[互通配置与 API](docs/TRADE-VIEW-INTEROP.md)
 
@@ -76,8 +76,12 @@ v0.33 使用三个连续日期的公开 GKG 归档复核了选题质量和转载
 Python 3.10+。先停止原服务，备份原数据库、运行目录与配置，然后在原环境安装：
 
 ```bash
-python -m pip install --upgrade "./release-0.55.0/news2douyin-0.55.0-py3-none-any.whl[research,ngrams]"
+python -m pip install --upgrade "./release-0.57.0/news2douyin-0.57.0-py3-none-any.whl[research,ngrams]"
 ```
+
+从 0.56.1 升级可沿用现有数据库和归档。升级后进入「图谱 → 焦点图」，选一个日期范围并点「重建焦点图」。首次按报道反查官方事件时，后台会为 Mentions 建立精确检索所需的索引。
+
+从 0.55.0 升级时沿用现有数据库、配置和归档目录。服务启动会为溯源历史轮次和归档校验建立新表。备份或迁移归档卷时，要包含根目录中的 `.news2douyin-volume`。旧归档第一次涉及补档核对时需要读取对应分区，较大的请求窗口会增加磁盘读取量。
 
 源码安装使用 `python -m pip install '.[research,ngrams]'`。仅使用原有正文读取时可省略 `ngrams`。CLI与服务默认读取 `NEWS2DOUYIN_DATABASE_URL`，显式 `--db-url` 优先；两者都未设置时才使用SQLite兼容默认值。`postgresql://` 自动规范为 `postgresql+psycopg://`。原SQLite用户可沿用原启动参数；迁移到PostgreSQL需要先停服务，运行迁移工具，保持原 `storage_root` 和图实例。不要通过连到空库代替迁移。
 

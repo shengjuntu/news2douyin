@@ -112,7 +112,14 @@ def add_source(s, case, *, title, url, text, kind, published_at='', provenance=N
         raise ValueError('资料正文为空')
     if published_at:
         try:
-            date = timestamp(published_at)
+            if kind == 'causal_excerpt' and re.fullmatch(r'\d{4}-\d{2}-\d{2}', published_at):
+                from ..causal.chronology import interval
+                period = interval(published_at)
+                if period is None:
+                    raise ValueError('资料日期无效')
+                date = period[1]
+            else:
+                date = timestamp(published_at)
             if date > timestamp(case.cutoff):
                 raise ValueError('资料发布时间晚于课题截止时间')
         except ValueError as exc:

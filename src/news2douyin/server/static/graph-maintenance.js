@@ -20,7 +20,7 @@
     if (number(recent.rate_per_second) && number(recent.window_seconds)) line += ' · 近 ' + Math.round(recent.window_seconds) + ' 秒确认率 ' + recent.rate_per_second.toLocaleString('zh-CN', {maximumFractionDigits:3}) + ' 项/秒';
     return line;
   }
-  const extractionLabels = {baseline:'等待规则抽取',rule_running:'规则抽取中',model_queued:'等待模型抽取',model_running:'模型抽取中',model_wait:'模型重试等待',ready:'本轮完成',metadata_only:'仅元数据，等待原文',error:'抽取失败'};
+  const extractionLabels = {baseline:'等待规则抽取',focus_baseline:'焦点优先等待抽取',rule_running:'规则抽取中',model_queued:'等待模型抽取',model_running:'模型抽取中',model_wait:'模型重试等待',ready:'本轮完成',metadata_only:'仅元数据，等待原文',error:'抽取失败'};
   function embeddingCounts(counts) {
     return '已生成 ' + counts.ready + ' · 待处理 ' + counts.pending + ' · 处理中 ' + counts.running + ' · 失败 ' + counts.failed;
   }

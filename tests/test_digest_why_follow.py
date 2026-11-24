@@ -120,3 +120,38 @@ def test_postgres_material_to_question_and_cutoff(postgres_url):
         test_scope_word_and_confirmed_question_are_different_paths_and_are_frozen(db)
     finally:
         db.dispose()
+
+
+def test_edition_ranking_and_explanation_share_current_dated_membership(engine):
+    from news2douyin.desk.focus_models import FocusDefinition
+    from news2douyin.digest.sources import _watch_names
+    from news2douyin.digest.why_follow import _member_details
+
+    with Session(engine) as session:
+        watch = Watch(key='ports', name='港口', kind='长期事件', scope='ferry', created=STAMP)
+        judgment = FocusCandidate(key='first', watch='ports', event='e', scope_version=1,
+            event_fingerprint='1', status='done', decision='core', updated=STAMP)
+        session.add_all([watch, judgment, FocusDefinition(watch='ports', description='港口', spec_json='{}',
+            scope_version=1, updated=STAMP), WatchEvent(watch='ports', event='e', first_seen=STAMP)])
+        session.commit()
+        end = '2025-03-17T00:00:00Z'
+
+        def admitted():
+            score_names = _watch_names(session, ['e'], end)
+            evidence = _member_details(session, ['e'], end)
+            assert set(score_names['e']) == {name for event, name in evidence if event == 'e'}
+            return score_names['e']
+
+        assert admitted() == ['港口']
+        watch.version = 2
+        definition = session.get(FocusDefinition, watch.key)
+        definition.scope_version = 2
+        session.add_all([watch, definition])
+        session.commit()
+        assert admitted() == []
+        session.add(FocusCandidate(key='later', watch='ports', event='e', scope_version=2,
+            event_fingerprint='1', status='done', decision='core', updated='2025-03-17T01:00:00+01:00'))
+        session.commit()
+        assert admitted() == []
+        end = '2025-03-17T00:00:01Z'
+        assert admitted() == ['港口']

@@ -16,8 +16,6 @@ from .chronology import interval
 
 
 HITS_PER_HYPOTHESIS = 6
-# Inspect additional neighbors because a dated record can lack a usable quote.
-NEIGHBORS_TO_CHECK = HITS_PER_HYPOTHESIS * 4
 BATCH_SIZE = 256
 
 
@@ -32,7 +30,8 @@ def _dated_keys(session, profile, floor, ceiling, excluded, checkpoint):
     start, stop = date_envelope(floor, ceiling)
     publications = (select(ArticleEventLink.event_key, Article.published_at.label('stamp'))
                     .select_from(Article).join(ArticleEventLink, ArticleEventLink.article_key == Article.article_key)
-                    .where(Article.published_at >= start, Article.published_at < stop, Article.url != ''))
+                    .where(Article.published_at >= start, Article.published_at < stop, Article.url != '',
+                           Article.content != '', Article.provider != 'newsnow'))
     occurrences = select(EventMoment.event_key, EventMoment.date_start.label('stamp')).where(
         EventMoment.date_start >= start, EventMoment.date_start < stop, EventMoment.reviewed.is_(True),
         EventMoment.deleted.is_(False), EventMoment.time_kind == 'occurred', EventMoment.certainty == 'exact')
@@ -55,7 +54,32 @@ def _dated_keys(session, profile, floor, ceiling, excluded, checkpoint):
                 yield key
 
 
-def nearest(engine, profile, vectors, floor, ceiling, excluded, checkpoint=None):
+def _merge_neighbors(best, scored, verify, session, checkpoint):
+    """Only verified rows consume slots. Read more of each batch when a hit is rejected."""
+    pending = [iter(sorted(group)) for group in scored]
+    checked = {}
+    while True:
+        pages = []
+        for known, candidates in zip(best, pending):
+            page = list(islice(candidates, HITS_PER_HYPOTHESIS))
+            if len(known) == HITS_PER_HYPOTHESIS:
+                page = [hit for hit in page if hit < known[-1]]
+            pages.append(page)
+        if not any(pages):
+            return
+        keys = {key for page in pages for _, key in page if key not in checked}
+        if keys:
+            if checkpoint:
+                checkpoint()
+            accepted = verify(session, keys) if verify else keys
+            checked.update((key, key in accepted) for key in keys)
+        for known, page in zip(best, pages):
+            known.extend(hit for hit in page if checked[hit[1]])
+            known.sort()
+            del known[HITS_PER_HYPOTHESIS:]
+
+
+def nearest(engine, profile, vectors, floor, ceiling, excluded, checkpoint=None, *, verify=None):
     """Exact cosine neighbors of each unit query among earlier, ready events."""
     best = [[] for _ in vectors]
     scanned = 0
@@ -70,6 +94,7 @@ def nearest(engine, profile, vectors, floor, ceiling, excluded, checkpoint=None)
                        EventEmbeddingRecord.event_key.in_(batch))
                 .execution_options(n2d_query_name='causal.tree.vector_page')).all()
             scanned += len(rows)
+            scored = [[] for _ in vectors]
             for key, raw in rows:
                 try:
                     values = json.loads(raw)
@@ -80,11 +105,9 @@ def nearest(engine, profile, vectors, floor, ceiling, excluded, checkpoint=None)
                 vector = unit_vector(values)
                 if vector is None:
                     continue
-                for query, group in zip(vectors, best):
+                for query, group in zip(vectors, scored):
                     score = fsum(map(mul, vector, query))
                     if score > 0:
                         group.append((-score, key))
-            for group in best:
-                group.sort()
-                del group[NEIGHBORS_TO_CHECK:]
+            _merge_neighbors(best, scored, verify, session, checkpoint)
     return [[key for _, key in group] for group in best], scanned

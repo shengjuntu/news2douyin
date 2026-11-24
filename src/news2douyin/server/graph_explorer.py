@@ -1,4 +1,4 @@
-"""Read-only views of the global activity graph and each visible Focus graph."""
+"""Global activity graph and GDELT focus graph pages."""
 from typing import Literal
 from urllib.parse import urlencode
 
@@ -8,6 +8,7 @@ from sqlmodel import Session
 
 from ..desk.people_view import DAY_OPTIONS
 from ..search.dates import calendar_day
+from .research import same_origin
 from .tasks import task_call
 
 
@@ -17,7 +18,7 @@ def _graph_scope(view: Literal['global', 'focus'] = 'global',
     if lens == 'people' and view != 'focus':
         raise HTTPException(422, '人物与组织视图需要指定焦点')
     if days not in DAY_OPTIONS:
-        raise HTTPException(422, '人物材料窗口须为30、90或365天')
+        raise HTTPException(422, '事件窗口须为30、90或365天')
     if until:
         task_call(calendar_day, until, 'Asia/Shanghai')
     return view, lens, days, until
@@ -25,7 +26,7 @@ def _graph_scope(view: Literal['global', 'focus'] = 'global',
 
 def register(app, engine, render):
     from ..desk.graph_explorer import DEFAULT_LIMIT, MAX_LIMIT, explore, focuses
-    from ..desk.people_graph import people_graph
+    from ..desk import focus_event_runtime
 
     @app.get('/graphs', response_class=HTMLResponse, include_in_schema=False)
     def page(focus: str = Query('', max_length=100),
@@ -50,7 +51,7 @@ def register(app, engine, render):
         if until:
             window['until'] = until
         people_params = {**params, 'lens': 'people', **window}
-        endpoint = '/api/graphs?' + urlencode(people_params if lens == 'people' else params)
+        endpoint = '/api/graphs?' + urlencode(people_params if lens == 'people' else {**params, **window})
         return render('graph_explorer.html', active='graphs', mode=view, choices=choices,
                       selected=selected, endpoint=endpoint if view == 'global' or selected else '',
                       lens=lens, days=days, until=until, day_options=DAY_OPTIONS, limit=limit,
@@ -68,7 +69,20 @@ def register(app, engine, render):
             raise HTTPException(422, '请为焦点图提供焦点编号')
         if view == 'global' and focus:
             raise HTTPException(422, '焦点编号只用于焦点图')
-        if lens == 'people':
+        if view == 'focus':
             with Session(engine) as session:
-                return task_call(people_graph, session, focus, days=days, until=until, limit=limit)
+                return task_call(focus_event_runtime.read, session, focus, lens=lens, limit=limit)
         return task_call(explore, engine, app.state.desk.graph, view=view, focus=focus, limit=limit)
+
+    @app.get('/api/graphs/focus/{key}/rebuild')
+    def rebuild_status(key: str):
+        with Session(engine) as session:
+            return task_call(focus_event_runtime.status, session, key)
+
+    @app.post('/api/graphs/focus/{key}/rebuild', status_code=202, dependencies=[Depends(same_origin)])
+    def rebuild(key: str, days: int = Query(30), until: str = Query('', max_length=10)):
+        if days not in DAY_OPTIONS:
+            raise HTTPException(422, '事件窗口须为30、90或365天')
+        with Session(engine) as session:
+            return task_call(focus_event_runtime.request, session, key, days=days, until=until)
+

@@ -8,7 +8,7 @@ No model, database, graph write or remote read is performed here.
 """
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 import re
 from typing import Mapping
 
@@ -79,6 +79,16 @@ def _version(source, checked_versions):
     if supplied is not None and version_id is not None and supplied != version_id:
         return None
     return article, revision, version_id or supplied
+
+
+def time_order(value):
+    """Order validated action clocks by instant, treating day-only values as UTC dates."""
+    if not value:
+        return float('-inf')
+    instant = datetime.fromisoformat(value.replace('Z', '+00:00'))
+    if instant.tzinfo is None:
+        instant = instant.replace(tzinfo=timezone.utc)
+    return instant.timestamp()
 
 
 def _clock(action, source):
@@ -160,6 +170,8 @@ def evidence_from_sources(sources, checked_versions):
     if not isinstance(sources, (list,tuple)) or not isinstance(checked_versions, Mapping):
         raise ValueError('人物活动来源或当前版本映射无效')
     entities, actions, relations = {}, {}, {}
+    without_person = set()
+    example_sources = {}
     limits = dict(truncated=len(sources)>MAX_SOURCES, max_sources=MAX_SOURCES,
         max_actions=MAX_ACTIONS,max_entities=MAX_ENTITIES,max_relations=MAX_RELATIONS,
         stale_sources=0,rejected_actions=0,invalid_actions=0,invalid_arguments=0)
@@ -208,7 +220,14 @@ def evidence_from_sources(sources, checked_versions):
                     field=argument.get('field',raw.get('field','')),start=argument.get('start'),end=argument.get('end'),
                     participation=role in _ACTING,role_link='PARTICIPATES_IN' if role in _ACTING else
                         'TARGET_OF' if role=='target' else 'MENTIONED_IN')))
-            if not any(entity['kind']=='Person' for entity,_ in prepared):continue
+            if not any(entity['kind']=='Person' for entity,_ in prepared):
+                # A revision may belong to more than one event in this focus.
+                mention_id = _text(raw.get('id'), 160)
+                without_person.add((article, revision, mention_id or quote))
+                if len(example_sources) < 3:
+                    example_sources.setdefault((article, revision), dict(article_key=article,
+                        revision=revision, mention_id=mention_id, title=_text(source.get('title'), 2000)))
+                continue
             included=[]
             for entity,argument in prepared:
                 key = entity['key']
@@ -264,4 +283,6 @@ def evidence_from_sources(sources, checked_versions):
                         field=action['field'],start=action['start'],end=action['end'],
                         literal_phrase=explicit[2] if explicit else '',relation_basis='literal_statement' if explicit else 'same_extracted_action',
                         status=status,review=review,formal_affiliation=False))
-    return dict(entities=list(entities.values()),actions=list(actions.values()),relations=list(relations.values()),limits=limits)
+    limits['statements_without_person'] = len(without_person)
+    return dict(entities=list(entities.values()), actions=list(actions.values()), relations=list(relations.values()),
+                limits=limits, examples_without_person=[] if actions else list(example_sources.values()))

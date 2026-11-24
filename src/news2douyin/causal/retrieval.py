@@ -1,12 +1,15 @@
 """Bounded retrieval of local, source-attributed leads for an investigation."""
 from collections import defaultdict
+from contextlib import closing
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from itertools import zip_longest
 from math import fsum, hypot, isfinite
 import os
 import re
+from time import perf_counter
 import unicodedata
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import case, func, or_, union, union_all
 from sqlalchemy.orm import aliased
@@ -22,6 +25,7 @@ from ..intake.official_models import OfficialEvent
 from ..intake.models import IntakeBatch
 from ..llm.client.embedding import EmbeddingClient, EmbeddingError, EmbeddingConfigurationError
 from ..research.materials import LEAD_KINDS
+from ..search.dates import timezone_name
 from ..search.index import index_available
 from ..search.service import _match
 from ..selection.event_content import candidates as source_candidates, mention_sources
@@ -29,9 +33,9 @@ from ..selection.source_content import source_url, usable_title
 from ..selection.source_models import SourcePreview
 from ..storage.articles import identity_key
 from ..storage.models import Article, ArticleEventLink, Event, EventMoment, EventState
-from ..storage.sql import json_text
+from ..storage.sql import json_text, time_value
 from ..storage.utils import loads
-from .chronology import eligible, interval
+from .chronology import eligible, excerpt_time, interval
 from . import vector_recall
 
 MAX_QUERIES = 3
@@ -69,6 +73,37 @@ def _encode(queries):
 
 def _window(column, lower, upper):
     return (column >= lower) & (column < upper)
+
+
+def _publication_window(column, floor, ceiling):
+    """Indexed date envelope plus UTC comparison before applying a SQL LIMIT.
+
+    Unzoned publication times have day precision in _publication. Map their
+    dates to the configured local calendar rather than the database timezone.
+    """
+    start, stop = vector_recall.date_envelope(floor, ceiling)
+    zone = ZoneInfo(timezone_name())
+    first = floor.astimezone(zone).date().isoformat()
+    last = (ceiling - timedelta(microseconds=1)).astimezone(zone).date().isoformat()
+    # Use the same whole-second precision as _publication. SQLite's JULIANDAY
+    # rounds .999999 to the next second; strip fractions before the SQL cast.
+    # Normalize ISO compact offsets to the colon form recognized by both DBs.
+    clock = func.substr(column, 11)
+    length = func.length(column)
+    offset = case(
+        (column.like('%Z'), 'Z'),
+        (or_(clock.like('%+__:__'), clock.like('%-__:__')), func.substr(column, length - 5)),
+        (or_(clock.like('%+____'), clock.like('%-____')),
+         func.substr(column, length - 4, 3) + ':' + func.substr(column, length - 1)),
+        (or_(clock.like('%+__'), clock.like('%-__')), func.substr(column, length - 2) + ':00'),
+    )
+    base = case((func.substr(column, 17, 1) == ':', func.substr(column, 1, 19)),
+                else_=func.substr(column, 1, 16))
+    instant = time_value(base.concat(offset))
+    dated = (offset.is_(None) & func.substr(column, 1, 10).between(first, last)
+             & time_value(column).is_not(None))
+    timed = (instant >= time_value(floor.isoformat())) & (instant < time_value(ceiling.isoformat()))
+    return _window(column, start, stop) & (timed | dated)
 
 
 def _search(model, columns, terms, indexed):
@@ -154,6 +189,56 @@ def _candidate(ref, label, sources, upper, *, event_key='', occurred_at='', simi
                 published_at=min(known, default=''), sources=evidence, similarity=similarity)
 
 
+def _linked_sources(session, keys, terms, clock_bounds):
+    start, stop = vector_recall.date_envelope(*clock_bounds)
+    # A small indexed link page per event avoids materializing a large workspace.
+    links = []
+    for key in keys:
+        page = select(ArticleEventLink.event_key, ArticleEventLink.article_key).where(ArticleEventLink.event_key == key)
+        # Prioritize usable dated source material. A later page is read if the
+        # first eight linked articles don't provide three different originals.
+        page = page.join(Article, Article.article_key == ArticleEventLink.article_key).order_by(
+            case((Article.published_at.between(start, stop), 0), else_=1), Article.is_duplicate)
+        links.append(select(page.order_by(ArticleEventLink.article_key).limit(8).subquery()))
+    joined = union_all(*links).subquery() if len(links) > 1 else links[0].subquery()
+    sources = defaultdict(list)
+    sampled = defaultdict(set)
+    for event_key, *row in session.exec(select(joined.c.event_key, *_article_fields()).select_from(joined)
+                                        .join(Article, Article.article_key == joined.c.article_key)
+                                        .order_by(joined.c.event_key, Article.is_duplicate, Article.id)):
+        sampled[event_key].add(row[0])
+        sources[event_key].append(_article_source(row, terms))
+
+    for key, tried in sampled.items():
+        if len(sources[key]) < 8:
+            continue  # The first page already included every linked article.
+        found = {canonicalize_url(src['url']) for src in sources[key]
+                 if src and _dated_evidence(src, *clock_bounds)}
+        if len(found) >= MAX_EVIDENCE:
+            continue
+        more = (select(*_article_fields()).select_from(ArticleEventLink)
+                .join(Article, Article.article_key == ArticleEventLink.article_key)
+                .where(ArticleEventLink.event_key == key, Article.article_key.not_in(tried),
+                       Article.content != '', Article.provider != 'newsnow',
+                       _publication_window(Article.published_at, *clock_bounds))
+                .order_by(Article.is_duplicate, Article.id)
+                .execution_options(yield_per=16, n2d_query_name='causal.tree.more_event_evidence'))
+        with closing(session.exec(more)) as rows:
+            for row in rows:
+                src = _article_source(row, terms)
+                if not src or not _dated_evidence(src, *clock_bounds):
+                    continue
+                url = canonicalize_url(src['url'])
+                if url in found:
+                    continue
+                found.add(url)
+                sources[key].append(src)
+                if len(found) >= MAX_EVIDENCE:
+                    break
+
+    return sources
+
+
 def _curated(session, terms, indexed, lower, upper, exclude, similarities, *, event_keys=None, limit=MAX_RESULTS):
     title = func.coalesce(EventState.title_override, Event.event_title)
     prefix = (select(Event.event_key, func.substr(title, 1, 500), func.substr(Event.summary, 1, 850))
@@ -182,25 +267,8 @@ def _curated(session, terms, indexed, lower, upper, exclude, similarities, *, ev
     if not keys:
         return []
 
-    # A small indexed link page per event avoids materializing a large workspace.
-    links = []
-    clock_bounds = (_tree_point(lower), _tree_point(upper)) if event_keys is not None else None
-    if clock_bounds is not None:
-        start, stop = vector_recall.date_envelope(*clock_bounds)
-    for key in keys:
-        page = select(ArticleEventLink.event_key, ArticleEventLink.article_key).where(ArticleEventLink.event_key == key)
-        if clock_bounds is not None:
-            # A historical source may have been backfilled after many newer reports.
-            page = page.join(Article, Article.article_key == ArticleEventLink.article_key).order_by(
-                case((Article.published_at.between(lower[:10], upper), 0),
-                     (Article.published_at.between(start, stop), 1), else_=2), Article.is_duplicate)
-        links.append(select(page.order_by(ArticleEventLink.article_key).limit(8).subquery()))
-    joined = union_all(*links).subquery() if len(links) > 1 else links[0].subquery()
-    sources = defaultdict(list)
-    for event_key, *row in session.exec(select(joined.c.event_key, *_article_fields()).select_from(joined)
-                                        .join(Article, Article.article_key == joined.c.article_key)
-                                        .order_by(joined.c.event_key, Article.is_duplicate, Article.id)):
-        sources[event_key].append(_article_source(row, terms))
+    clock_bounds = (_tree_point(lower), _tree_point(upper))
+    sources = _linked_sources(session, keys, terms, clock_bounds)
 
     # Only a single exact, evidence-backed occurrence date can date the whole
     # event conservatively. Progress entries with reported dates stay separate.
@@ -229,8 +297,7 @@ def _curated(session, terms, indexed, lower, upper, exclude, similarities, *, ev
                 occurred = _day(start) if any(pinned) else ''
         name, summary = matches[key]
         evidence = [source for source in (*pinned, *sources[key]) if source]
-        if clock_bounds:
-            evidence.sort(key=lambda source: not _dated_evidence(source, *clock_bounds))
+        evidence.sort(key=lambda source: not _dated_evidence(source, *clock_bounds))
         candidate = _candidate(key, '\n'.join(filter(None, (name, summary))), evidence,
                                upper, event_key=key, occurred_at=occurred, similarity=similarities.get(key, 0.))
         if candidate['sources']:
@@ -302,12 +369,9 @@ def _local_coverage(session, lower, upper):
     floor, ceiling = _tree_point(lower), _tree_point(upper)
 
     def has_dated_row(column, *conditions):
-        days = (column >= lower[:10]) & (column <= upper)
-        rows = session.exec(select(column).where(days, *conditions).order_by(column).limit(8)
-                             .execution_options(n2d_query_name='causal.tree.local_dated_coverage')).all()
-        if any(stamp[0] < ceiling and stamp[1] >= floor for value in rows if (stamp := interval(value))):
-            return True
-        return None if len(rows) == 8 else False
+        statement = (select(column).where(_publication_window(column, floor, ceiling), *conditions)
+                     .limit(1).execution_options(n2d_query_name='causal.tree.local_dated_coverage'))
+        return session.exec(statement).first() is not None
 
     dated_articles = has_dated_row(Article.published_at, Article.url != '')
     dated_moments = has_dated_row(EventMoment.date_start, EventMoment.reviewed.is_(True),
@@ -319,8 +383,7 @@ def _local_coverage(session, lower, upper):
     archive = session.exec(select(IntakeBatch.key).where(IntakeBatch.state == 'archived',
         _window(IntakeBatch.stamp, floor.strftime('%Y%m%d%H%M%S'), ceiling.strftime('%Y%m%d%H%M%S'))).limit(1)
         .execution_options(n2d_query_name='causal.tree.local_archive_coverage')).first() is not None
-    uncertain = archive or dated_articles is None or dated_moments is None
-    return dict(status='covered' if dated_articles or dated_moments or official else 'unknown' if uncertain else 'gap',
+    return dict(status='covered' if dated_articles or dated_moments or official else 'unknown' if archive else 'gap',
                 dated_articles_present=dated_articles, reviewed_occurrence_present=dated_moments,
                 official_events_present=official, archive_receipt_present=archive)
 
@@ -335,7 +398,7 @@ def _tree_pool(session, terms, indexed, lower, upper, exclude, *, recall_article
     event_keys, article_keys, official, official_ids = [], [], [], set()
     excluded_articles = select(ArticleEventLink.article_key).where(ArticleEventLink.event_key.in_(exclude))
     for first,last in _tree_bins(lower, upper):
-        published = or_(_window(Article.published_at, first, last), Article.published_at == first[:10])
+        published = _publication_window(Article.published_at, _tree_point(first), _tree_point(last))
         unknown = (Article.published_at == '') & _window(Article.fetched_at, first, last)
         source_time = (select(ArticleEventLink.event_key).select_from(Article)
                        .join(ArticleEventLink, ArticleEventLink.article_key == Article.article_key).where(published))
@@ -479,7 +542,7 @@ def collect_tree_pool(engine, queries: list[str], *, lower: str, upper: str,
             if session.bind.dialect.name == 'postgresql' and local['status'] == 'gap':
                 # PostgreSQL has a publication index, while the undated
                 # fallback clock need only be checked once for an empty era.
-                dated = session.exec(select(Article.id).where(_window(Article.published_at, lower[:10], upper))
+                dated = session.exec(select(Article.id).where(_publication_window(Article.published_at, floor, ceiling))
                     .limit(1).execution_options(n2d_query_name='causal.tree.historical_article_probe')).first()
                 recall_articles = dated is not None or session.exec(select(Article.id).where(
                     Article.published_at == '', _window(Article.fetched_at, lower, upper)).limit(1)
@@ -493,25 +556,41 @@ def collect_tree_pool(engine, queries: list[str], *, lower: str, upper: str,
 
         local.update(recall_count=count, pool_count=len(pool), keyword_indexed=indexed,
                      keyword_pool_count=len(pool), keyword_dated_count=sum(map(has_dated_source, candidates)))
+        # A common actor or location does not cover two competing mechanisms.
+        # Only match the hypotheses' distinguishing terms in dated source text.
+        dated_quotes = [[src['quote'].casefold() for src in item['sources']
+                         if _dated_evidence(src, floor, ceiling)] for item in candidates]
+        term_sets = [set(_tree_terms([query], '')) for query in queries]
+        local['keyword_hypothesis_hits'] = []
+        for index, words in enumerate(term_sets):
+            distinct = words.difference(*(other for i, other in enumerate(term_sets) if i != index))
+            hits = sum(any(word in quote for quote in excerpts for word in distinct)
+                       for excerpts in dated_quotes)
+            local['keyword_hypothesis_hits'].append(hits)
         client, query_vectors, state = _encode_tree_queries(queries, event_text, checkpoint)
         local['embedding_state'] = state
         if client is not None:
-            neighbors, scanned = vector_recall.nearest(engine, profile(client), query_vectors[:len(queries)],
-                                                       floor, ceiling, exclude, checkpoint)
             by_key = {item['event_key']: item for item in candidates if item['event_key']}
-            needed = list(dict.fromkeys(key for group in neighbors for key in group if key not in by_key))
-            if needed:
-                with Session(engine) as session:
-                    material = _curated(session, terms, indexed, lower, upper, exclude, {},
-                                        event_keys=needed, limit=len(needed))
-                for item in material:
-                    value = _tree_eligible(item, floor, ceiling)
-                    if value:
-                        by_key[item['event_key']] = value
-            hits = []
-            for group in neighbors:
-                grounded = [key for key in group if key in by_key and has_dated_source(by_key[key])]
-                hits.append(grounded[:vector_recall.HITS_PER_HYPOTHESIS])
+
+            def materialize(session, keys):
+                needed = sorted(set(keys) - by_key.keys())
+                material = _curated(session, terms, indexed, lower, upper, exclude, {},
+                                    event_keys=needed, limit=len(needed)) if needed else []
+                return {item['event_key']: value for item in material
+                        if (value := _tree_eligible(item, floor, ceiling)) and has_dated_source(value)}
+
+            def verify(session, keys):
+                existing = {key for key in keys if key in by_key and has_dated_source(by_key[key])}
+                return existing | materialize(session, keys).keys()
+
+            started = perf_counter()
+            hits, scanned = vector_recall.nearest(engine, profile(client), query_vectors[:len(queries)],
+                                                  floor, ceiling, exclude, checkpoint, verify=verify)
+            local['vector_scan_ms'] = round((perf_counter() - started) * 1000)
+            selected_keys = {key for group in hits for key in group}
+            with Session(engine) as session:
+                by_key.update(materialize(session, selected_keys))
+            hits = [[key for key in group if key in by_key] for group in hits]
             vector_keys = list(dict.fromkeys(key for group in hits for key in group))
             candidates = _unique_tree_candidates([*(by_key[key] for key in vector_keys), *candidates], exclude)
             retained = {item['ref'] for item in candidates}
@@ -538,6 +617,11 @@ def _history_candidate(item, floor, ceiling):
             continue
         source = _source(value.get('url'), value.get('title'), quote[:1200], value.get('published_at'),
                          HISTORICAL_PUBLISHER_KIND)
+        if source and 'modified_at' in value:
+            source['modified_at'] = _publication(value['modified_at'])
+            stamp = interval(excerpt_time(source))
+            if not stamp or not (floor <= stamp[0] < ceiling and stamp[1] <= ceiling):
+                continue
         if source and _dated_evidence(source, floor, ceiling):
             event_id = value.get('gdelt_event_id', '')
             if isinstance(event_id, str) and re.fullmatch(r'[0-9]{1,20}', event_id):
@@ -671,7 +755,7 @@ def retrieve_for_tree(engine, queries: list[str], *, lower: str, upper: str,
 
 
 def _articles(session, terms, indexed, lower, upper, exclude):
-    publish = or_(_window(Article.published_at, lower, upper), Article.published_at == lower[:10])
+    publish = _publication_window(Article.published_at, _tree_point(lower), _tree_point(upper))
     unknown = (Article.published_at == '') & _window(Article.fetched_at, lower, upper)
     excluded = select(ArticleEventLink.article_key).where(ArticleEventLink.event_key.in_(exclude))
     statement = (select(*_article_fields()).where(or_(publish, unknown), Article.is_duplicate.is_(False),

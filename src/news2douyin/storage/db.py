@@ -116,6 +116,7 @@ def load_models() -> None:
     from ..desk import focus_models
     from ..desk import graph_maintenance_models
     from ..desk import graph_focus_models
+    from ..desk import focus_event_models
     from ..extraction import models as extraction_models
     from ..knowledge import models as knowledge_models
     from ..workbench import models as workbench_models

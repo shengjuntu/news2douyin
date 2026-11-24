@@ -1,0 +1,18 @@
+.people-coverage {
+  margin: .75rem 0 1rem;
+  padding: .55rem .8rem;
+  border-left: 2px solid #425965;
+  color: #b8c9d5;
+  font-size: .9rem;
+}
+.people-coverage summary { cursor: pointer; }
+.people-coverage ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .4rem 1.2rem;
+  margin: .7rem 0;
+  padding: 0;
+  list-style: none;
+}
+.people-coverage b { color: #e1eaf0; font-variant-numeric: tabular-nums; }
+.people-coverage [data-people-repair-status] { margin: .4rem 0; }

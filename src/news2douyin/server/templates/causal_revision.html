@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% block title %}事件溯源 · 历史记录{% endblock %}
+{% block graph_libraries %}{% endblock %}
+{% block content %}
+<p><a href="{{ revision.current_path }}">返回当前调查</a></p>
+<h1>重查前的分支</h1>
+<p>记录时间 <time>{{ revision.saved_at }}</time></p>
+{% set root = revision.nodes[0] %}
+{% for item in revision.nodes %}
+<article class="card">
+  <h2>{{ item.text }}</h2>
+  {% if item.parent_key and item.key != root.key %}
+    {% for parent in revision.nodes if parent.key == item.parent_key %}<p>上级事件 · {{ parent.text }}</p>{% endfor %}
+  {% endif %}
+  {% if item.occurred_at %}<p>发生 {{ item.occurred_at }}</p>{% endif %}
+  {% if item.reason %}<p>{{ item.reason }}</p>{% endif %}
+  {% if item.queries %}
+  <details><summary>待核前因</summary><ul>{% for query in item.queries %}<li>{{ query }}</li>{% endfor %}</ul></details>
+  {% endif %}
+  {% if item.sources %}
+  <details><summary>当时使用的来源</summary>
+    {% for source in item.sources %}
+    {% if source.url and source.url.startswith(('https://', 'http://')) %}
+    <a href="{{ source.url }}" target="_blank" rel="noopener noreferrer">{{ source.title or source.url }}</a>
+    {% else %}{{ source.title }}{% endif %}
+    {% if source.published_at %}<small>{{ source.published_at }}</small>{% endif %}
+    <blockquote>{{ source.cited_quote or source.quote }}</blockquote>
+    {% endfor %}
+  </details>
+  {% endif %}
+  {% if item.stop_reason %}<p>{{ item.stop_reason }}</p>{% endif %}
+  {% if item.previous_revision %}<p><a href="/radar/causes/{{ revision.case_key|urlencode }}/revisions/{{ item.previous_revision }}">查看更早记录</a></p>{% endif %}
+</article>
+{% endfor %}
+{% endblock %}

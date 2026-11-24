@@ -72,14 +72,16 @@ class ProgramBoundaries:
         return SimpleNamespace(rows=pool.rows + historical, local=pool.local, mode='',
                                history_eligible_count=len(historical), history_ranked_count=len(historical))
 
-    def rank(self, _settings, target, rows, *, hypotheses):
+    def rank(self, _settings, target, rows, *, hypotheses, before_batch, after_batch):
+        before_batch()
         self.free('rank')
         assert hypotheses == ['待查假说：先前运输条件可能影响 '+target]
         self.calls.append(('rank', target))
         self.rank_inputs.append(deepcopy(rows))
         if self.failure == 'rank':
             raise model.CausalModelError('归因模型没有返回有效 JSON。')
-        return [dict(ref=row['ref'], reason='候选解释，因果待核：来源记载了先前条件。',
+        after_batch(len(rows))
+        return [dict(ref=row['ref'], evidence_source='S1', evidence_quote=row['sources'][0]['quote'], reason='候选解释，因果待核：来源记载了先前条件。',
                      score=row.get('fixture_score', .8),
                      **({'relation': row['fixture_relation']} if 'fixture_relation' in row else {}))
                 for row in rows]

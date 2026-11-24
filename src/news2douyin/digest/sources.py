@@ -14,12 +14,14 @@ from datetime import date, datetime, timezone
 from urllib.parse import urlsplit
 from .calendar import day_bounds_utc
 
-from sqlalchemy import func, or_
+from sqlalchemy import and_, func, or_
 from sqlmodel import Session, select
 
 from ..attention.models import AttentionEventMatch, AttentionItem, AttentionTopic
 from ..desk.focus_lifecycle import visible_watch
+from ..desk.focus_models import FocusBackfill, FocusDefinition
 from ..desk.models import RadarEntry, Watch, WatchEvent
+from ..desk.service import current_membership
 from ..desk.rules import CHANGE, IMPACT
 from ..intake.official_models import OfficialEvent, OfficialMention
 from ..selection.service import CAMEO_LABELS
@@ -27,7 +29,7 @@ from ..selection.source_content import source_url, text, usable_title
 from ..selection.source_models import SourcePreview
 from ..storage.articles import identity_key
 from ..storage.models import Article, ArticleEventLink, ArticleIdentity, ArticleVersion
-from ..storage.sql import json_text
+from ..storage.sql import json_text, time_value
 from .ranking import Candidate
 from .source_breadth import HostSample
 from .signals import action_passage
@@ -265,12 +267,30 @@ def _official_batches(session, query, start, end, day, stats, checkpoint, includ
                 reconstruction=reconstruction, legacy_eligible=legacy, legacy_excerpt=legacy_excerpt)
 
 
+def edition_memberships(events, end):
+    """Current admissible memberships with evidence available by this edition's cutoff."""
+    cutoff = time_value(end)
+    # A rebuilt issue can use only a scope version known before its cutoff.
+    # Older mutable scopes have no reliable snapshot; skip them on replay.
+    known_scope = or_(
+        WatchEvent.choice != 'auto',
+        and_(FocusDefinition.scope_version == Watch.version, time_value(FocusDefinition.updated) < cutoff),
+        and_(FocusDefinition.watch.is_(None), or_(
+            Watch.version == 1,
+            and_(FocusBackfill.scope_version == Watch.version, time_value(FocusBackfill.updated) < cutoff))))
+    return (select(WatchEvent.event, Watch.name, Watch.key)
+            .join(Watch, Watch.key == WatchEvent.watch)
+            .outerjoin(FocusDefinition, FocusDefinition.watch == Watch.key)
+            .outerjoin(FocusBackfill, FocusBackfill.watch == Watch.key)
+            .where(known_scope, WatchEvent.event.in_(events), WatchEvent.choice != 'exclude',
+                   time_value(WatchEvent.first_seen) < cutoff,
+                   Watch.enabled.is_(True), visible_watch(), current_membership(accepted_before=end))
+            .order_by(WatchEvent.event, Watch.name))
+
+
 def _watch_names(session, events, end):
     found = defaultdict(list)
-    query = select(WatchEvent.event, Watch.name).join(Watch, Watch.key == WatchEvent.watch).where(
-        WatchEvent.event.in_(events), WatchEvent.choice != 'exclude', WatchEvent.first_seen < end,
-        Watch.enabled == True, visible_watch()).order_by(WatchEvent.event, Watch.name)
-    for event, name in session.exec(query):
+    for event, name, _ in session.exec(edition_memberships(events, end)):
         found[event].append(name)
     return found
 

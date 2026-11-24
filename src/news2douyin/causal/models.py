@@ -79,6 +79,25 @@ class CausalProgramRetrieval(SQLModel, table=True):
     report_json: str = '{}'
 
 
+class CausalProgramRevision(SQLModel, table=True):
+    __table_args__ = (Index('ix_causalprogramrevision_history', 'case_key', 'node_key', 'id'),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    case_key: str
+    node_key: str
+    saved_at: str = Field(default_factory=utc_now_iso)
+    nodes_json: str
+
+
+class CausalRetiredVisit(SQLModel, table=True):
+    """Preserve lifetime search and automatic-branch budgets after replacement."""
+    node_key: str = Field(primary_key=True)
+    case_key: str = Field(index=True)
+    ref: str
+    depth: int
+    beam_selected: bool
+
+
 class CausalAgentLink(SQLModel, table=True):
     case_key: str = Field(primary_key=True)
     research_case_id: str = Field(index=True, unique=True)

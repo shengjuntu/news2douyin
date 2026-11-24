@@ -5,6 +5,7 @@ from zoneinfo import ZoneInfo
 
 from sqlmodel import Session, select
 
+from ..history_archive.models import HistoryJob
 from ..desk.focus_lifecycle import require_active
 from ..research import service as research
 from ..research.models import ResearchRun
@@ -56,6 +57,10 @@ def bind(session, case_key, requested_from):
     if session.exec(select(CausalJob.node_key).where(CausalJob.case_key == case_key,
                                                       CausalJob.state.in_(ACTIVE)).limit(1)).first():
         raise CausalConflict('本地查找还在运行，完成后可交给 RunDesk')
+
+    if session.exec(select(HistoryJob.key).where(HistoryJob.case_key == case_key,
+                    HistoryJob.state.in_(('planning', 'running'))).limit(1)).first():
+        raise CausalConflict('调查补档尚未结束，请等待原节点重新查找完成后再解读')
 
     link = session.get(CausalAgentLink, case_key)
     program = session.get(CausalProgram, case_key)

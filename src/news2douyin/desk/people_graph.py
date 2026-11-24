@@ -1,10 +1,10 @@
 """Focus-scoped network over the same source evidence as the person timelines."""
 from collections import defaultdict
-from datetime import datetime, timezone
 from itertools import combinations
 from urllib.parse import quote, urlencode
 
 from ..extraction.schema import LABELS, stable_id
+from .people_evidence import time_order
 from .people_view import _source_path, empty_reason, read_focus_evidence
 
 # A long participant list is still useful in timelines, without drawing a clique.
@@ -18,16 +18,6 @@ EDGE_LABELS = {
     'joint_participation': '同一行动的参与方',
 }
 DIRECTED = {'member_of', 'serves_at', 'represents'}
-
-
-def _time_order(action):
-    # people_evidence emits only validated ISO dates or offset-aware datetimes.
-    if not action['time']:
-        return (float('-inf'), action['key'])
-    instant = datetime.fromisoformat(action['time'].replace('Z', '+00:00'))
-    if instant.tzinfo is None:
-        instant = instant.replace(tzinfo=timezone.utc)
-    return (instant.timestamp(), action['key'])
 
 
 def _excerpt(text, phrase):
@@ -77,7 +67,7 @@ def people_graph(session, focus, *, days=30, until='', limit=240):
     projected, window = read_focus_evidence(session, focus, days, until)
     entities = {row['key']: row for row in projected['entities']}
     actions = {row['key']: row for row in projected['actions']}
-    time_order = {key: _time_order(row) for key, row in actions.items()}
+    times = {key: (time_order(row['time']), key) for key, row in actions.items()}
     activities = defaultdict(lambda: defaultdict(set))
     links, crowded = _collect_links(projected, entities, activities)
 
@@ -95,7 +85,7 @@ def people_graph(session, focus, *, days=30, until='', limit=240):
         if len(shown) + missing > limit:
             continue
         shown[source] = shown[target] = None
-        keys = sorted(links[key], key=time_order.__getitem__, reverse=True)
+        keys = sorted(links[key], key=times.__getitem__, reverse=True)
         label = EDGE_LABELS[kind]
         if status != 'reported':
             label = LABELS[status] + ' · ' + label
@@ -118,7 +108,7 @@ def people_graph(session, focus, *, days=30, until='', limit=240):
         if entity['kind'] == 'Person':
             url = '/focus/' + quote(focus_key, safe='') + '?' + urlencode({
                 'view': 'people', 'person': key, 'people_days': days, 'people_until': window['date_to']})
-            action_keys = sorted(activities[key], key=time_order.__getitem__, reverse=True)
+            action_keys = sorted(activities[key], key=times.__getitem__, reverse=True)
             for action_key in action_keys[:ACTIVITY_PREVIEW]:
                 row = _evidence(actions[action_key])
                 roles = '、'.join(LABELS[role] for role in sorted(activities[key][action_key]))

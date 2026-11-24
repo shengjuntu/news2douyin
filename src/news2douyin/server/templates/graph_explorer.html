@@ -4,7 +4,7 @@
 <link rel="stylesheet" href="/research-assets/graph-explorer.css?v=0.52.0">
 {% endblock %}
 {% block content %}
-<div id="graph-explorer" data-endpoint="{{ endpoint }}" data-lens="{{ lens }}" data-module="/research-assets/vendor/cosmos-graph-3.6.0.min.js"{% if mode == 'focus' and selected %} data-focus-key="{{ selected.key }}"{% endif %}>
+<div id="graph-explorer" data-endpoint="{{ endpoint }}" data-lens="{{ lens }}" data-module="/research-assets/vendor/cosmos-graph-3.6.0.min.js"{% if mode == 'focus' and selected %} data-focus-key="{{ selected.key }}" data-rebuild="/api/graphs/focus/{{ selected.key|urlencode }}/rebuild"{% endif %}>
   <div class="graph-explorer-heading">
     <h1>{{ selected.name if selected else '全局活动图' if mode == 'global' else '焦点图' }}</h1>
     {% if selected %}<a href="/focus/{{ selected.key|urlencode }}">返回焦点 →</a>{% endif %}
@@ -23,23 +23,21 @@
         {% for item in choices %}<option value="{{ item.key }}"{% if item.key == selected.key %} selected{% endif %}>{{ item.name }}</option>{% endfor %}
       </select>
       {% endif %}
-      {% if lens == 'people' %}
-      <input type="hidden" name="lens" value="people">
-      <label for="graph-days">材料范围</label>
+      {% if lens == 'people' %}<input type="hidden" name="lens" value="people">{% endif %}
+      {% if mode == 'focus' %}
+      <label for="graph-days">事件日期</label>
       <select name="days" id="graph-days">
         {% for value in day_options %}<option value="{{ value }}"{% if value == days %} selected{% endif %}>{{ value }} 天</option>{% endfor %}
       </select>
       <label for="graph-until">截至日期</label>
       <input type="date" name="until" id="graph-until" value="{{ until }}">
-      {% elif mode == 'focus' %}
-      {% if days != 30 %}<input type="hidden" name="days" value="{{ days }}">{% endif %}
-      {% if until %}<input type="hidden" name="until" value="{{ until }}">{% endif %}
       {% endif %}
       <label for="graph-limit">节点上限</label>
       <select name="limit" id="graph-limit">
         {% for value in node_limits %}<option value="{{ value }}"{% if value == limit %} selected{% endif %}>{{ value }}</option>{% endfor %}
       </select>
       <button type="submit" class="ghost">打开</button>
+      {% if selected %}<button id="graph-rebuild" type="button" class="ghost">重建焦点图</button>{% endif %}
     </form>
     {% endif %}
   </div>
@@ -64,6 +62,7 @@
     </div>
   </div>
   <p id="graph-status" role="status" aria-live="polite">正在加载图谱…</p>
+  {% if selected %}<p id="graph-build-status" class="desk-meta" role="status" aria-live="polite" hidden></p>{% endif %}
   <div class="graph-explorer-layout">
     <section class="graph-explorer-plot" aria-label="交互关系图">
       <div id="graph-canvas" tabindex="0" aria-label="关系图，可使用节点列表访问同一材料"></div>
@@ -76,7 +75,7 @@
     </section>
   </div>
   <noscript><p>请启用 JavaScript 查看节点和关系。</p></noscript>
-  <script type="module" src="/research-assets/graph-explorer.js?v=0.52.0"></script>
+  <script type="module" src="/research-assets/graph-explorer.js?v=0.57.0"></script>
   {% else %}
   <p>还没有可查看的焦点图。<a href="/focus?new=1">新建焦点</a></p>
   {% endif %}

@@ -4,6 +4,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date, timedelta, timezone
 
+from .audit import file_signature
 from .paths import archive_root
 from tempfile import TemporaryDirectory
 from threading import Timer
@@ -84,8 +85,6 @@ def _paths(storage_root, groups, start, end):
     paths, coverage = defaultdict(list), defaultdict(set)
     for group in groups:
         path = (root / group['path']).resolve()
-        if not path.is_relative_to(root) or path.suffix != '.parquet' or not path.is_file():
-            continue
         kind, version = group['kind'], group['version']
         if kind not in FIRST_DAY or version not in (1, 2):
             continue
@@ -93,15 +92,36 @@ def _paths(storage_root, groups, start, end):
         finish = min(end - timedelta(days=1), _day(group['date_to']))
         if days > finish:
             continue
-        paths[kind, version].append(str(path))
-        state = 'ready' if group['state'] == 'ready' else 'partial'
+        signature = group.get('file_signature')
+        try:
+            readable = path.is_relative_to(root) and path.suffix == '.parquet' and path.is_file()
+            if readable and signature:
+                readable = file_signature(path) == signature
+            elif readable:
+                # Before the first 0.56 audit, catch missing/truncated legacy outputs
+                # without hashing a whole historical window on an interactive read.
+                with path.open('rb') as stream:
+                    header = stream.read(4)
+                    stream.seek(-4, 2)
+                    readable = header == stream.read(4) == b'PAR1'
+                if path.name == 'data.parquet':
+                    # The manifest is published after the immutable payload. If an
+                    # old shard was later edited in place, let the worker verify it.
+                    readable = readable and path.stat().st_mtime_ns <= path.with_name('manifest.json').stat().st_mtime_ns
+        except OSError:
+            readable = False
+        if readable:
+            paths[kind, version].append(str(path))
+            state = 'ready' if group['state'] == 'ready' else 'partial'
+        else:
+            state = 'unreadable'
         for step in range((finish - days).days + 1):
             coverage[kind, state].add(days + timedelta(days=step))
     report = {}
     for kind, earliest in FIRST_DAY.items():
         expected = max(0, (end - max(earliest, start)).days)
-        ready = coverage[kind, 'ready']
-        covered = ready | coverage[kind, 'partial']
+        covered = coverage[kind, 'ready'] | coverage[kind, 'partial']
+        ready = coverage[kind, 'ready'] - coverage[kind, 'unreadable']
         state = ('not_expected' if not expected else 'gap' if not covered else
                  'covered' if len(ready) == expected else 'partial')
         report[kind] = dict(state=state, ready_days=len(ready),

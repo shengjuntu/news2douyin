@@ -1,0 +1,33 @@
+{% macro people_coverage(focus, days, until='', scope=none, show=false) %}
+{% set counts = scope or {} %}
+{% set extraction = counts.get('extraction', {}) %}
+{% macro metric(key, label, unit, value) -%}
+  <li data-metric="{{ key }}"{% if not value %} hidden{% endif %}>{{ label }} <b>{{ value or 0 }}</b> {{ unit }}</li>
+{%- endmacro %}
+<details data-people-coverage class="people-coverage" data-days="{{ days }}" data-until="{{ until }}"
+         data-endpoint="/api/focus/{{ focus|urlencode }}/people/extraction"
+         {% if not counts.get('sampled_events') %}hidden{% endif %}{% if show %} open{% endif %}>
+  <summary>材料覆盖 · 本次读取 <span data-count="sampled_events">{{ counts.get('sampled_events', 0) }}</span> 个事件，核对来源 <span data-count="checked_sources">{{ counts.get('checked_sources', 0) }}</span> / <span data-count="sampled_sources">{{ counts.get('sampled_sources', 0) }}</span> 条</summary>
+  <ul aria-label="来源与抽取覆盖">
+    {% for key, label in [
+      ('recovered_legacy_sources', '已核定的旧来源'), ('assignment_recovered_sources', '其中由当前事件的来源记录核定'), ('ambiguous_legacy_sources', '旧来源版本有歧义'),
+      ('missing_source_versions', '找不到原文版本'), ('removed_source_links', '事件来源关联已移除'),
+      ('stale_sources', '版本已过期'), ('invalid_sources', '来源记录格式错误')
+    ] %}{{ metric(key, label, '条记录', counts.get(key)) }}{% endfor %}
+    {% for key, label in [
+      ('versions', '核定原文'), ('unqueued', '无抽取记录'), ('queued', '排队中'), ('running', '抽取中'),
+      ('retrying', '等待重试'), ('failed', '抽取失败'), ('metadata_only', '仅有元数据'),
+      ('completed_empty', '抽取完成、零陈述'), ('rejected_only_versions', '陈述均已被驳回'),
+      ('with_mentions', '已有陈述'), ('with_person_actions', '有人物动作'), ('unknown', '队列状态待核')
+    ] %}{{ metric('extraction.' ~ key, label, '个版本', extraction.get(key)) }}{% endfor %}
+    {{ metric('extraction.statements_without_person', '未识别出可核实人物的陈述', '条', extraction.get('statements_without_person')) }}
+  </ul>
+  {% set examples = extraction.get('examples_without_person', []) %}
+  <div data-people-examples{% if not examples %} hidden{% endif %}>
+    <span>核对陈述原文</span>
+    <ul>{% for item in examples if item.source_path.startswith('/articles/') %}<li><a href="{{ item.source_path }}">{{ item.title or '查看原文' }}</a></li>{% endfor %}</ul>
+  </div>
+  <button type="button" class="ghost" data-people-repair{% if not extraction.get('repair_candidates') %} hidden{% endif %}>检查并补抽取</button>
+  <p data-people-repair-status role="status" aria-live="polite" hidden></p>
+</details>
+{% endmacro %}

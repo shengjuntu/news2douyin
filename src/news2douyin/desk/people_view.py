@@ -10,25 +10,28 @@ import json
 import re
 from urllib.parse import quote
 
-from sqlalchemy import and_, func, or_, tuple_
+from sqlalchemy import and_, false, func, or_, tuple_
+from sqlalchemy.orm import aliased
 from sqlmodel import select
 
 from ..extraction.models import MentionReview, TextMention
 from ..extraction.schema import LABELS
 from ..search.dates import calendar_day
 from ..selection.source_content import source_url
-from ..storage.models import ArticleEventLink, ArticleVersion
+from ..storage.models import Article, ArticleEventLink, ArticleVersion, EventState
 from ..storage.queries import all_rows
 from ..storage.sql import time_value
 from .focus_lifecycle import require_active
 from .focus_read import _membership, entry_day
 from .models import RadarEntry
-from .people_evidence import evidence_from_sources
+from .people_evidence import evidence_from_sources, time_order
+from .people_coverage import coverage_values, extraction_summary, version_coverage_columns
 
 
 EVENT_LIMIT = 120
 SOURCES_PER_EVENT = 6
 SOURCE_JSON_LIMIT = 196_608
+ASSIGNMENT_NOTES_LIMIT = 65_536
 MENTION_LIMIT = 800
 MENTION_JSON_LIMIT = 24_576
 ACTIONS_PER_SOURCE = 24
@@ -41,7 +44,7 @@ DAY_OPTIONS = (30, 90, 365)
 def _json(value):
     try:
         return json.loads(value)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, RecursionError):
         return None
 
 
@@ -53,12 +56,39 @@ def _window(days, until):
     return beginning.isoformat(), end.isoformat()
 
 
-def _materials(session, focus, beginning, end):
+def _editorial_notes(session, events, stats):
+    """Only legacy projections need the current event's editorial version pins."""
+    if not events:
+        return {}
+    rows = all_rows(session, select(EventState.event_key,
+        func.substr(EventState.source_notes_json, 1, ASSIGNMENT_NOTES_LIMIT + 1).label('notes'))
+        .where(EventState.event_key.in_(events)).limit(len(events)), name='focus_people.editorial_pins')
+    notes = {}
+    for row in rows:
+        oversized = len(row.notes or '') > ASSIGNMENT_NOTES_LIMIT
+        stats['source_caps'] |= oversized
+        # Unknown/malformed notes must not be treated as proof that no pin exists.
+        notes[row.event_key] = None if oversized else _json(row.notes)
+    return notes
+
+
+def _material_sources(session, focus, beginning, end):
     day = entry_day(session, 'observed')
     members = _membership(focus).subquery()
-    recent = (select(RadarEntry.key.label('event_key'), RadarEntry.seen.label('seen'))
+    # Give linked current extraction evidence priority over empty recent
+    # events. This is one indexed SQL query; material payloads remain bounded.
+    linked = ArticleEventLink
+    latest = (select(ArticleVersion.id).where(ArticleVersion.article_key == linked.article_key)
+              .order_by(ArticleVersion.revision.desc()).limit(1).correlate(linked).scalar_subquery())
+    extracted = (select(linked.id).join(TextMention, TextMention.version_id == latest)
+                 .outerjoin(MentionReview, MentionReview.id == TextMention.id)
+                 .where(linked.event_key == RadarEntry.key,
+                        or_(MentionReview.id.is_(None), MentionReview.decision != 'rejected'))
+                 .correlate(RadarEntry).exists())
+    recent = (select(RadarEntry.key.label('event_key'), RadarEntry.seen.label('seen'),
+                     extracted.label('has_actions'))
         .where(RadarEntry.key.in_(select(members.c.key)), day >= beginning, day <= end)
-        .order_by(time_value(RadarEntry.seen).desc(), RadarEntry.key)
+        .order_by(extracted.desc(), time_value(RadarEntry.seen).desc(), RadarEntry.key)
         .limit(EVENT_LIMIT + 1).subquery())
     # Sort only keys/clocks before fetching bounded JSON snippets. Offset
     # timestamps compare by their instant, not their string spelling.
@@ -66,12 +96,14 @@ def _materials(session, focus, beginning, end):
         func.substr(RadarEntry.title, 1, 500).label('title'), RadarEntry.seen,
         func.substr(RadarEntry.sources, 1, SOURCE_JSON_LIMIT + 1).label('sources'))
         .join(recent, recent.c.event_key == RadarEntry.key)
-        .order_by(time_value(recent.c.seen).desc(), RadarEntry.key))
+        .order_by(recent.c.has_actions.desc(), time_value(recent.c.seen).desc(), RadarEntry.key))
     rows = all_rows(session, query, name='focus_people.admitted_material')
     stats = dict(sampled_events=min(len(rows), EVENT_LIMIT), event_limit=EVENT_LIMIT,
                  events_truncated=len(rows) > EVENT_LIMIT, source_limit=SOURCES_PER_EVENT,
                  oversized_sources=0, invalid_sources=0, stale_sources=0, source_caps=False,
-                 checked_sources=0, removed_source_links=0, mention_limit=MENTION_LIMIT,
+                 sampled_sources=0, legacy_sources=0, recovered_legacy_sources=0,
+                 assignment_recovered_sources=0, ambiguous_legacy_sources=0,
+                 missing_source_versions=0, checked_sources=0, removed_source_links=0, mention_limit=MENTION_LIMIT,
                  mentions_truncated=False, oversized_mentions=0)
     sources = []
     for row in rows[:EVENT_LIMIT]:
@@ -84,13 +116,23 @@ def _materials(session, focus, beginning, end):
             continue
         stats['source_caps'] |= len(values) > SOURCES_PER_EVENT
         for source in values[:SOURCES_PER_EVENT]:
+            stats['sampled_sources'] += 1
             if not isinstance(source, dict):
                 stats['invalid_sources'] += 1
                 continue
             article = source.get('key', source.get('article_key', source.get('article', '')))
+            legacy = 'revision' not in source
+            if legacy:
+                stats['legacy_sources'] += 1
             revision = source.get('revision')
-            if (not isinstance(article, str) or not article or len(article) > 160
-                    or type(revision) is not int or revision < 1):
+            version_id = source.get('version_id')
+            content_hash = source.get('content_hash')
+            minimum_id = 1 if legacy else 0
+            if (not isinstance(article, str) or not article.strip() or len(article) > 160
+                    or any(source[name] != article for name in ('key', 'article_key', 'article') if name in source)
+                    or not legacy and (type(revision) is not int or revision < 1)
+                    or version_id is not None and (type(version_id) is not int or version_id < minimum_id)
+                    or content_hash is not None and not isinstance(content_hash, str)):
                 stats['invalid_sources'] += 1
                 continue
             sources.append({**source, 'article_key': article, 'key': article,
@@ -107,29 +149,91 @@ def _materials(session, focus, beginning, end):
               .where(ArticleVersion.article_key.in_(keys))
               .group_by(ArticleVersion.article_key).subquery())
     pairs = sorted({(source['event_key'], source['article_key']) for source in sources})
-    versions = all_rows(session, select(ArticleEventLink.event_key, ArticleVersion.article_key,
-        ArticleVersion.revision, ArticleVersion.id).select_from(ArticleEventLink)
-        .join(ArticleVersion, ArticleVersion.article_key == ArticleEventLink.article_key)
-        .join(latest, and_(ArticleVersion.article_key == latest.c.article,
-                          ArticleVersion.revision == latest.c.revision))
+    hash_only = {source['article_key'] for source in sources if 'revision' not in source
+                 and not source.get('version_id') and source.get('content_hash')}
+    repeated_hash = false()
+    if hash_only:
+        older = aliased(ArticleVersion)
+        repeated_hash = and_(ArticleVersion.article_key.in_(hash_only),
+            select(older.id).where(older.article_key == ArticleVersion.article_key,
+                older.content_hash == ArticleVersion.content_hash, older.revision < ArticleVersion.revision)
+                .correlate(ArticleVersion).exists())
+    legacy_events = {source['event_key'] for source in sources if 'revision' not in source}
+    editorial_notes = _editorial_notes(session, legacy_events, stats)
+    current_metadata = (func.substr(Article.title, 1, 2000).label('current_title'),
+                        func.substr(Article.url, 1, 4096).label('current_url'),
+                        func.substr(Article.published_at, 1, 64).label('current_publication')) if legacy_events else ()
+    versions = all_rows(session, select(ArticleEventLink.event_key, ArticleEventLink.article_key,
+        ArticleVersion.revision, ArticleVersion.id, ArticleVersion.content_hash, ArticleVersion.origin,
+        repeated_hash.label('repeated_hash'), *current_metadata, *version_coverage_columns(ArticleVersion.id))
+        .select_from(ArticleEventLink)
+        .outerjoin(Article, Article.article_key == ArticleEventLink.article_key)
+        .outerjoin(latest, latest.c.article == Article.article_key)
+        .outerjoin(ArticleVersion, and_(ArticleVersion.article_key == latest.c.article,
+                                       ArticleVersion.revision == latest.c.revision))
         .where(tuple_(ArticleEventLink.event_key, ArticleEventLink.article_key).in_(pairs))
-        .distinct().limit(len(pairs) + 1),
-        name='focus_people.current_source_versions')
-    checked = {row.article_key: dict(revision=row.revision, version_id=row.id) for row in versions}
+        .distinct().limit(len(pairs) + 1), name='focus_people.current_source_versions')
     live_pairs = {(row.event_key, row.article_key) for row in versions}
+    by_article = {row.article_key: row for row in versions if row.id is not None}
+    checked = {key: dict(revision=row.revision, version_id=row.id, **coverage_values(row))
+               for key, row in by_article.items()}
     valid = []
     for source in sources:
         if (source['event_key'], source['article_key']) not in live_pairs:
             stats['removed_source_links'] += 1
             continue
-        version = checked.get(source['article_key'])
-        if (not version or version['revision'] != source['revision']
-                or source.get('version_id') not in (None, 0, version['version_id'])):
+        row = by_article.get(source['article_key'])
+        if row is None:
+            stats['missing_source_versions'] += 1
+            continue
+        # Only a missing field marks an old-format source. Explicit stale pins
+        # are never advanced. Link, ID and any stored content hash must agree.
+        version_id = source.get('version_id')
+        content_hash = source.get('content_hash')
+        if (source.get('revision', row.revision) != row.revision
+                or version_id and version_id != row.id or content_hash and content_hash != row.content_hash):
             stats['stale_sources'] += 1
             continue
-        source['version_id'] = version['version_id']
+        if 'revision' not in source:
+            # A migration baseline is a snapshot taken later, not evidence that
+            # the source originally referenced this text. Repeated content hashes
+            # (e.g. A -> B -> A) likewise cannot identify a revision by themselves.
+            first_original = row.revision == 1 and row.origin not in ('legacy_baseline', 'intake_history')
+            own_pin = bool(version_id or content_hash and not row.repeated_hash)
+            notes = editorial_notes.get(source['event_key'], {})
+            if not isinstance(notes, dict):
+                stats['ambiguous_legacy_sources'] += 1
+                continue
+            article_key = source['article_key']
+            if article_key in notes:
+                note = notes[article_key]
+                if (not isinstance(note, dict) or type(note.get('revision')) is not int or note['revision'] < 1
+                        or 'content_hash' in note and not isinstance(note['content_hash'], str)):
+                    stats['ambiguous_legacy_sources'] += 1
+                    continue
+                if note['revision'] != row.revision or note.get('content_hash') and note['content_hash'] != row.content_hash:
+                    stats['stale_sources'] += 1
+                    continue
+                if not own_pin:
+                    # This current editorial assignment may post-date the radar
+                    # snapshot. Display the linked article's current metadata.
+                    source.update(title=row.current_title, url=row.current_url, when='',
+                                  time_kind='', published_at=row.current_publication,
+                                  revision_basis='current_event_assignment')
+                    stats['assignment_recovered_sources'] += 1
+            elif not own_pin and not first_original:
+                stats['ambiguous_legacy_sources'] += 1
+                continue
+            source['revision'] = row.revision
+            stats['recovered_legacy_sources'] += 1
+        source['version_id'] = row.id
         valid.append(source)
     stats['checked_sources'] = len(valid)
+    return valid, checked, stats
+
+
+def _materials(session, focus, beginning, end):
+    valid, checked, stats = _material_sources(session, focus, beginning, end)
     ids = sorted({source['version_id'] for source in valid})
     if not ids:
         return [], checked, stats
@@ -201,6 +305,11 @@ def read_focus_evidence(session, watch, days, until):
         current = require_active(session, key)
         sources, checked, coverage = _materials(session, current.key, beginning, end)
     projected = evidence_from_sources(sources, checked)
+    summary = extraction_summary(sources, checked, projected)
+    summary['examples_without_person'] = [
+        dict(title=example['title'] or example['article_key'], source_path=_source_path(example))
+        for example in projected['examples_without_person']]
+    coverage['extraction'] = summary
     limits = projected['limits']
     coverage.update(date_from=beginning, date_to=end, time_basis='material_observed',
                     time_basis_label='北京时间材料日期', evidence_limits=limits,
@@ -213,7 +322,26 @@ def read_focus_evidence(session, watch, days, until):
 def empty_reason(coverage):
     if not coverage['sampled_events']:
         return '这个材料窗口还没有已收录事件。'
-    return '已收录材料尚无当前版本的可追溯人物动作；不会从名单或共现补造关系。'
+    stats = coverage['extraction']
+    if not stats['versions']:
+        message = '本次检查未取得可核定版本的来源，暂无可追溯的人物动作。'
+    elif stats['statements_without_person']:
+        message = f"已检查的陈述中有 {stats['statements_without_person']} 条未提供可核实的人物，暂无可展示的人物动作。"
+    elif stats['rejected_only_versions']:
+        message = '已核对的版本中有陈述被全部驳回，暂无其他可展示的人物动作。'
+    elif stats['completed_empty']:
+        message = f"其中 {stats['completed_empty']} 个版本已完成抽取，未产出陈述，当前没有可展示的人物动作。"
+    elif stats['failed'] or stats['retrying']:
+        message = '部分来源的陈述抽取失败或等待重试，当前未取得可展示的人物动作。'
+    elif stats['queued'] or stats['running'] or stats['unqueued']:
+        message = '部分来源尚待抽取或正在抽取，当前未取得可展示的人物动作。'
+    elif stats['metadata_only']:
+        message = '已核对的来源中有仅含元数据的线索，当前未取得可展示的人物动作。'
+    else:
+        message = '已检查的当前版本材料中未找到可追溯的人物动作。'
+    if coverage.get('truncated'):
+        return message + '所选窗口仍有材料未检查。'
+    return message
 
 
 def page(session, watch, *, person='', days=30, until=''):
@@ -233,7 +361,7 @@ def page(session, watch, *, person='', days=30, until=''):
     items = []
     for ident, values in activities.items():
         entity = entities[ident]
-        latest = max((row['time'] for row in values.values()), default='')
+        latest = max((row['time'] for row in values.values()), key=time_order, default='')
         items.append(dict(key=ident, name=entity['name'], activity_count=len({row['key'] for row in values.values()}),
                           latest_at=latest, provisional=bool(entity.get('provisional', True)),
                           identity_label=entity.get('identity_label', '名称归组，身份待核')))
@@ -250,7 +378,7 @@ def page(session, watch, *, person='', days=30, until=''):
         items = [*items[:PEOPLE_LIMIT - 1], selected_item]
     if selected_item:
         selected = dict(selected_item)
-        rows = sorted(activities[selected_key].values(), key=lambda row: (row['time'], row['key'], row['role']), reverse=True)
+        rows = sorted(activities[selected_key].values(), key=lambda row: (time_order(row['time']), row['key'], row['role']), reverse=True)
         activity_truncated = len(rows) > ACTIVITY_LIMIT
         selected['activities'] = rows[:ACTIVITY_LIMIT]
         groups = {}
@@ -284,7 +412,7 @@ def page(session, watch, *, person='', days=30, until=''):
             else:
                 current_row, seen = groups[ident]
                 seen.add(relation.get('action_key'))
-                if row['time'] > current_row['time']:
+                if time_order(row['time']) > time_order(current_row['time']):
                     groups[ident] = (row, seen)
         organizations = []
         for row, seen in groups.values():

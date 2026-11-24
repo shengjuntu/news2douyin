@@ -341,7 +341,7 @@ def _upsert(s,document,*,pointer=None,discovery=False,locked=False):
     if version and not row.title.strip() and not row.content.strip():
         # Retain the version for auditing without queueing an empty model call.
         job=s.get(VersionReading,version.id)
-        if job and job.state in ('baseline','model_queued'):
+        if job and job.state in ('baseline','focus_baseline','model_queued'):
             job.state='metadata_only';job.note='仅有采集元数据，等待可读标题或正文';s.add(job)
     gkg_metadata=bool(discovery and pointer)
     if changed:
@@ -359,7 +359,7 @@ def _upsert(s,document,*,pointer=None,discovery=False,locked=False):
             else:
                 # Discovery headlines only queue extraction after being selected.
                 job=s.get(VersionReading,version.id)
-                if job and job.state in ('baseline','model_queued'):
+                if job and job.state in ('baseline','focus_baseline','model_queued'):
                     job.state='metadata_only';job.note='来源元数据已保存，选题后再进行事件抽取';s.add(job)
     return row,version
 

@@ -10,6 +10,7 @@ from sqlmodel import Session, select
 from sqlalchemy import update, delete
 from ..storage.articles import lock_news
 from .models import GraphPending, RadarEntry, Watch, WatchEvent, WatchReview, EventPlace
+from .focus_event_models import FocusEventGraph
 from .rules import terms, ALIASES
 from ..extraction import graph as extraction_graph
 
@@ -175,7 +176,8 @@ class GraphMirror:
         # Each focus is a separate graph key and can be lost independently.
         with Session(engine) as s:
             from .focus_lifecycle import visible_watch
-            watches=list(s.exec(select(Watch.key).where(visible_watch())))
+            watches=list(s.exec(select(Watch.key).where(visible_watch(),
+                ~Watch.key.in_(select(FocusEventGraph.watch)))))
         if watches:
             with self.client.pipeline(transaction=False) as pipe:
                 for key in watches:pipe.exists(self.prefix+'_focus_'+key)
@@ -380,9 +382,11 @@ class GraphMirror:
         else:
             with Session(engine) as s:
                 from .focus_lifecycle import visible_watch
-                watch=s.exec(select(Watch.key).where(visible_watch(),Watch.key>self._gc_graph_cursor).order_by(Watch.key).limit(1)).first()
+                watch=s.exec(select(Watch.key).where(visible_watch(), ~Watch.key.in_(select(FocusEventGraph.watch)),
+                                                                  Watch.key>self._gc_graph_cursor).order_by(Watch.key).limit(1)).first()
                 if not watch:
-                    watch=s.exec(select(Watch.key).where(visible_watch()).order_by(Watch.key).limit(1)).first()
+                    watch=s.exec(select(Watch.key).where(visible_watch(),
+                        ~Watch.key.in_(select(FocusEventGraph.watch))).order_by(Watch.key).limit(1)).first()
             if watch:
                 graph='focus_'+watch
                 self._gc_graph_cursor=watch
@@ -435,8 +439,9 @@ class GraphMirror:
                 w=s.get(Watch,key) if kind=='watch' else None
                 from .focus_lifecycle import is_deleted
                 archived=bool(w and is_deleted(s,key))
+                converted=bool(w and s.exec(select(FocusEventGraph.watch).where(FocusEventGraph.watch==key)).first())
             self._lease_state.load_ms=(time.perf_counter()-load_started)*1000
-            if kind=='watch' and not archived:
+            if kind=='watch' and not archived and not converted:
                 graph='focus_'+key
                 if not self.client.exists(self.prefix+'_'+graph):
                     self.query(graph,'RETURN 1')
@@ -462,13 +467,13 @@ class GraphMirror:
                 from ..attention.graph import invalidate_focus
                 invalidate_focus(self,key,w.version,deleted=True)
                 graph='focus_'+key
-                if self.client.exists(self.prefix+'_'+graph):
+                if not converted and self.client.exists(self.prefix+'_'+graph):
                     self.query(graph,'MATCH (q:Question {id:$id}) SET q.archived=true',id=key)
             elif w:
                 from ..attention.graph import invalidate_focus
                 invalidate_focus(self,key,w.version)
                 from .graph_focus import step
-                result=step(engine,self,w,row.token)
+                result=step(engine,self,w,row.token,outline=False) if converted else step(engine,self,w,row.token)
                 partial=not result['complete']
                 ack_token=result['token']
             elif kind=='watch':

@@ -24,6 +24,7 @@ from ..extraction import graph as extraction_graph
 
 PHASES = ('header', 'points', 'events', 'point_material', 'reviews', 'point_reviews',
           'questions', 'claims', 'answers', 'reports', 'prune', 'finish', 'complete')
+TRACKING_PHASES = ('header', 'events', 'prune', 'complete')
 
 
 def _integer(name, default, low, high):
@@ -45,7 +46,7 @@ def _key(session, expression):
     return expression
 
 
-def _query(watch, phase):
+def _query(watch, phase, *, outline=True):
     """Return one query and its stable business key; never load all topic text."""
     from .service import current_membership
     from ..extraction.models import FocusPoint, PointReview
@@ -56,7 +57,7 @@ def _query(watch, phase):
     if phase == 'events':
         return select(RadarEntry, WatchEvent).join(WatchEvent, WatchEvent.event == RadarEntry.key).where(
             WatchEvent.watch == watch, WatchEvent.choice != 'exclude', current_membership()).options(
-                load_only(RadarEntry.key, RadarEntry.title, RadarEntry.sources)), WatchEvent.event
+                load_only(RadarEntry.key, RadarEntry.title, RadarEntry.sources) if outline else load_only(RadarEntry.key)), WatchEvent.event
     if phase == 'point_material':
         return select(PointMaterial).join(FocusPoint, FocusPoint.key == PointMaterial.point).join(
             WatchEvent, WatchEvent.event == PointMaterial.event).join(RadarEntry, RadarEntry.key == WatchEvent.event).where(
@@ -75,8 +76,8 @@ def _query(watch, phase):
     return select(model).where(model.case_id.in_(cases)), key
 
 
-def _page(session, watch, phase, cursor, through, size):
-    query, column = _query(watch, phase)
+def _page(session, watch, phase, cursor, through, size, *, outline=True):
+    query, column = _query(watch, phase, outline=outline)
     key = _key(session, column)
     if cursor: query = query.where(key > cursor)
     if through: query = query.where(key <= through)
@@ -84,16 +85,16 @@ def _page(session, watch, phase, cursor, through, size):
         n2d_query_name='desk.graph_focus.page.'+phase)).all()
 
 
-def _upper(session, watch, phase):
-    query, column = _query(watch, phase)
+def _upper(session, watch, phase, *, outline=True):
+    query, column = _query(watch, phase, outline=outline)
     return session.execute(query.with_only_columns(column).order_by(_key(session, column).desc()).limit(1)
         .execution_options(n2d_query_name='desk.graph_focus.highwater.'+phase)).scalar() or ''
 
 
-def _data(phase, item):
+def _data(phase, item, *, outline=True):
     if phase == 'events':
         card, link = item
-        return card.key, [card.title, card.sources, link.reason, link.branch, link.relevance], {}
+        return card.key, ([card.title, card.sources] if outline else []) + [link.reason, link.branch, link.relevance], {}
     fields = {
         'points': ('key', ('parent', 'text')),
         'point_material': ('key', ('point', 'event', 'reason')),
@@ -109,7 +110,7 @@ def _data(phase, item):
     return getattr(item, key), [getattr(item, name) for name in names], locator
 
 
-def _project(mirror, w, phase, item, stamp, *, first=False):
+def _project(mirror, w, phase, item, stamp, *, first=False, outline=True):
     local = lambda cypher, **params: mirror.query('focus_'+w.key, cypher, **params)
     root = lambda cypher, **params: mirror.query('active_global', cypher, **params)
     if phase == 'events':
@@ -117,6 +118,8 @@ def _project(mirror, w, phase, item, stamp, *, first=False):
         root('MATCH (f:Focus {id:$w}) MERGE (e:Event {id:$e}) MERGE (f)-[r:TRACKS]->(e) '
              'SET r.reason=$why,r.branch=$b,r.relevance=$p,r.stamp=$stamp',
              w=w.key, e=card.key, why=link.reason, b=link.branch, p=link.relevance, stamp=stamp)
+        if not outline:
+            return
         sources = json.loads(card.sources)
         local('MATCH (q:Question {id:$w}) MERGE (e:Event {id:$e}) SET e.title=$t,e.stamp=$v '
               'MERGE (q)-[r:HAS_MATERIAL]->(e) SET r.reason=$why '
@@ -171,12 +174,15 @@ def _project(mirror, w, phase, item, stamp, *, first=False):
               case=item.case_id, id=item.report_id, version=item.version, title=item.title)
 
 
-def _remove(mirror, watch, receipt):
+def _remove(mirror, watch, receipt, *, outline=True):
     local = lambda cypher, **params: mirror.query('focus_'+watch, cypher, **params)
     key = receipt.item
     if receipt.kind == 'events':
         mirror.query('active_global', 'MATCH (:Focus {id:$w})-[r:TRACKS]->(:Event {id:$e}) DELETE r', w=watch, e=key)
-        local('MATCH (e:Event {id:$e}) DETACH DELETE e', e=key)
+        if outline:
+            local('MATCH (e:Event {id:$e}) DETACH DELETE e', e=key)
+    elif not outline:
+        return
     elif receipt.kind == 'point_material':
         locator = json.loads(receipt.locator)
         local('MATCH (:OutlinePoint {id:$p})-[r:RELEVANT_MATERIAL]->(:Event {id:$e}) DELETE r',
@@ -192,7 +198,7 @@ def _remove(mirror, watch, receipt):
         local('MATCH (:ResearchQuestion {id:$id})-[r:ANSWERED_BY]->() DELETE r', id=key)
 
 
-def _header(mirror, w, intent):
+def _header(mirror, w, intent, *, outline=True):
     from .rules import terms, ALIASES
     stamp = uuid4().hex
     root = lambda cypher, **params: mirror.query('active_global', cypher, **params)
@@ -202,6 +208,8 @@ def _header(mirror, w, intent):
     root('MATCH (f:Focus {id:$id}) UNWIND $aliases AS a MERGE (n:Entity {id:a}) '
          'MERGE (f)-[r:WATCHES]->(n) SET r.stamp=$stamp', id=w.key, aliases=aliases, stamp=stamp)
     root('MATCH (:Focus {id:$id})-[r:WATCHES]->() WHERE r.stamp<>$stamp DELETE r', id=w.key, stamp=stamp)
+    if not outline:
+        return
     local('MERGE (q:Question {id:$id}) SET q.text=$text,q.scope=$scope,q.archived=false', id=w.key, text=w.question or w.name, scope=w.scope)
     if intent: mirror.intent(local, w, intent, stamp)
 
@@ -255,13 +263,14 @@ def _save(engine, mirror, state, receipts=(), removed=()):
         s.commit()
 
 
-def _next(state):
-    state.phase = PHASES[PHASES.index(state.phase)+1]
+def _next(state, phases):
+    state.phase = phases[phases.index(state.phase)+1]
     state.cursor = state.through_key = ''
 
 
-def step(engine, mirror, w, token):
+def step(engine, mirror, w, token, *, outline=True):
     """Do one bounded phase. Caller owns/relinquishes the graph lease per call."""
+    phases = PHASES if outline else TRACKING_PHASES
     batch = _integer('NEWS2DOUYIN_GRAPH_FOCUS_BATCH_SIZE', 8, 1, 100)
     budget = _integer('NEWS2DOUYIN_GRAPH_FOCUS_BATCH_MS', 500, 10, 10000)/1000
     started = time.perf_counter()
@@ -271,7 +280,7 @@ def step(engine, mirror, w, token):
         if state is None: state = GraphFocusState(namespace=mirror.prefix, watch=w.key)
         else: s.expunge(state)
         marker = s.get(DeskMeta, 'graph_focus_rebuild/'+mirror.prefix)
-        rebuild_epoch = marker.value if marker else ''
+        rebuild_epoch = (marker.value if marker else '') + ('' if outline else '/event-spine')
         if state.rebuild_epoch != rebuild_epoch:
             # Explicit evidence rebuild also inventories extra legacy business
             # nodes; a mere material digest change would miss unknown nodes.
@@ -283,20 +292,20 @@ def step(engine, mirror, w, token):
         if state.scope_version != w.version or state.rebuild_epoch != rebuild_epoch or state.phase == 'complete' or not state.token:
             state.token, state.scope_version, state.generation = token, w.version, uuid4().hex
             state.rebuild_epoch = rebuild_epoch
-            state.phase = 'header' if state.adopted else 'adopt'
+            state.phase = 'header' if state.adopted or not outline else 'adopt'
             state.cursor = state.through_key = ''
             state.scanned = state.changed = state.removed = state.batches = 0
         phase = state.phase
         state.batches += 1
         if phase == 'header':
             from .focus_jobs import definition
-            intent = definition(s, w.key)
+            intent = definition(s, w.key) if outline else None
             digest = _digest([rebuild_epoch, w.name, w.scope, w.question, w.enabled, w.version, intent])
             receipt = s.get(GraphFocusReceipt, (mirror.prefix, w.key, 'header', w.key))
         elif phase in PHASES[1:-3]:
-            if not state.through_key: state.through_key = _upper(s, w.key, phase)
-            items = _page(s, w.key, phase, state.cursor, state.through_key, batch) if state.through_key else []
-            material = [(item, *_data(phase, item)) for item in items]
+            if not state.through_key: state.through_key = _upper(s, w.key, phase, outline=outline)
+            items = _page(s, w.key, phase, state.cursor, state.through_key, batch, outline=outline) if state.through_key else []
+            material = [(item, *_data(phase, item, outline=outline)) for item in items]
             keys = [row[1] for row in material]
             previous_rows = s.exec(select(GraphFocusReceipt).where(GraphFocusReceipt.namespace == mirror.prefix,
                 GraphFocusReceipt.watch == w.key, GraphFocusReceipt.kind == phase,
@@ -323,8 +332,10 @@ def step(engine, mirror, w, token):
             for kind, keys in by_kind.items():
                 if kind == 'header':
                     found = set(keys)
+                elif not outline and kind != 'events':
+                    found = set()
                 else:
-                    query, column = _query(w.key, kind)
+                    query, column = _query(w.key, kind, outline=outline)
                     found = set(s.execute(query.with_only_columns(column).where(column.in_(keys))
                         .execution_options(n2d_query_name='desk.graph_focus.recheck')).scalars())
                 existing.update({(kind, key): key in found for key in keys})
@@ -366,11 +377,11 @@ def step(engine, mirror, w, token):
             state.phase, state.cursor = 'header', ''
     elif phase == 'header':
         if not receipt or receipt.fingerprint != digest:
-            _header(mirror, w, intent)
+            _header(mirror, w, intent, outline=outline)
             state.changed += 1
         receipts.append(GraphFocusReceipt(namespace=mirror.prefix, watch=w.key, kind='header', item=w.key,
             fingerprint=digest, generation=state.generation))
-        _next(state)
+        _next(state, phases)
     elif phase in PHASES[1:-3]:
         processed = 0
         for item, key, digest, locator, previous in prepared:
@@ -378,7 +389,7 @@ def step(engine, mirror, w, token):
                 # If an edge's endpoints changed, remove its prior association.
                 if previous and previous.locator != json.dumps(locator, sort_keys=True) and phase in ('point_material', 'point_reviews'):
                     _remove(mirror, w.key, previous)
-                _project(mirror, w, phase, item, uuid4().hex, first=not previous or not previous.fingerprint)
+                _project(mirror, w, phase, item, uuid4().hex, first=not previous or not previous.fingerprint, outline=outline)
                 state.changed += 1
             receipts.append(GraphFocusReceipt(namespace=mirror.prefix, watch=w.key, kind=phase, item=key,
                 fingerprint=digest, generation=state.generation, locator=json.dumps(locator, sort_keys=True)))
@@ -386,7 +397,7 @@ def step(engine, mirror, w, token):
             state.scanned += 1
             processed += 1
             if time.perf_counter()-started >= budget: break
-        if processed == len(prepared) and len(prepared) < batch: _next(state)
+        if processed == len(prepared) and len(prepared) < batch: _next(state, phases)
     elif phase == 'prune':
         for receipt in obsolete:
             if existing[(receipt.kind, receipt.item)]:
@@ -395,23 +406,23 @@ def step(engine, mirror, w, token):
                 receipt.generation = state.generation
                 receipts.append(receipt)
             else:
-                _remove(mirror, w.key, receipt)
+                _remove(mirror, w.key, receipt, outline=outline)
                 removed.append(receipt)
                 state.removed += 1
             if time.perf_counter()-started >= budget: break
-        if not obsolete: _next(state)
+        if not obsolete: _next(state, phases)
     elif phase == 'finish':
         # Rebind anchors after this pass's Referents exist. Query intent remains
         # separate from factual material and never invents a reported action.
         from .focus_jobs import definition
-        with Session(engine) as s: intent = definition(s, w.key)
+        with Session(engine) as s: intent = definition(s, w.key) if outline else None
         if intent:
             from ..extraction.schema import entity_key, referent
             for entity in intent.get('spec', {}).get('entities', []):
                 ref = referent('actor', entity['name']) or 'name:'+entity.get('type', 'unknown')+':'+entity_key(entity['name'])
                 mirror.query('focus_'+w.key, 'MATCH (i:InterestEntity {id:$id}),(r:Referent {id:$ref}) MERGE (i)-[:MAPS_TO]->(r)',
                              id=w.key+'/'+entity['id'], ref=ref)
-        _next(state)
+        _next(state, phases)
     save_started = time.perf_counter()
     _save(engine, mirror, state, receipts, removed)
     mirror._lease_state.ack_ms = getattr(mirror._lease_state, 'ack_ms', 0.)+(time.perf_counter()-save_started)*1000

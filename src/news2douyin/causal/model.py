@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 from math import isfinite
+import os
 import re
 import time
 from urllib.parse import urlsplit
@@ -96,14 +97,15 @@ def _candidates(values):
         if not isinstance(raw_sources, list):
             raise CausalModelError('归因候选来源格式无效。')
         sources = []
-        for source in raw_sources[:MAX_SOURCES]:
+        for number, source in enumerate(raw_sources[:MAX_SOURCES], start=1):
             if not isinstance(source, dict):
                 raise CausalModelError('归因候选来源格式无效。')
             # URLs are never needed to explain a mechanism. Keeping only the
             # supplied text also prevents the model from manufacturing links
             # or forwarding URL-embedded credentials/tokens to another service.
             sources.append({name: _text(source.get(name), limit) for name, limit in (
-                ('title', 500), ('quote', 3000), ('published_at', 80), ('kind', 80))})
+                ('title', 500), ('quote', 3000), ('published_at', 80), ('modified_at', 80), ('kind', 80))})
+            sources[-1]['id'] = f'S{number}'
         similarity = item.get('similarity')
         output.append(dict(ref=ref, text=_text(item.get('text'), 4000),
             occurred_at=_text(item.get('occurred_at'), 80), published_at=_text(item.get('published_at'), 80),
@@ -119,8 +121,7 @@ def _loads(text):
     return json.loads(text, parse_constant=invalid)
 
 
-def _chat(settings, system, payload, *, tokens):
-    settings = _settings(settings)
+def _encode_request(settings, system, payload, tokens):
     try:
         user = json.dumps(payload, ensure_ascii=False, separators=(',', ':'), allow_nan=False)
         body = dict(model=settings.model, max_completion_tokens=tokens,
@@ -129,6 +130,12 @@ def _chat(settings, system, payload, *, tokens):
         encoded = json.dumps(body, ensure_ascii=False, separators=(',', ':'), allow_nan=False).encode('utf-8')
     except (TypeError, ValueError, UnicodeError, OverflowError):
         raise CausalModelError('归因模型输入无法编码。') from None
+    return encoded
+
+
+def _chat(settings, system, payload, *, tokens):
+    settings = _settings(settings)
+    encoded = _encode_request(settings, system, payload, tokens)
     if len(encoded) > MAX_REQUEST_BYTES:
         raise CausalModelError('归因模型输入超过单次预算，请减少候选或摘录。')
     started = time.monotonic()
@@ -210,12 +217,12 @@ similarity只是召回相似度，不能直接当作因果分。核查行为、�
 候选晚于目标、时间未知、同题转载、只有共现或只有观点时明确局限，不将它们包装成已验证原因。不能用一个候选的证据替另一个候选作证。
 没有支持的候选可以省略或给低分；没有可用支持时返回 {"rankings":[]}，不凑数量。
 每项仅使用输入中完全相同的ref；score为0至1的有限数值，只是有据解释的排序分，不是因果概率。
-reason用简短中文说明可能机制和限制，不新增事实、引文或链接。有sources时，evidence_quote只能逐字摘取该候选某个sources.quote中的一段，不能把归纳性text当作原文；来源摘录不足则省略。
+reason用简短中文说明可能机制和限制，不新增事实、引文或链接。有sources时，evidence_source须为所引来源的id（如S1），evidence_quote只能逐字摘取该来源quote中的一段，不能把归纳性text当作原文；来源摘录不足则省略。
 完全没有sources时才可逐字摘取text，并明确这是候选文本而非原文证据。evidence_quote不可改写或捏造，最长500字符。
 无法提供逐字依据的候选应省略。可选relation仅能为possible_cause、context、contradicts、document_reference；
 possible_cause表示来源支持一个仍待核查的可能前因，context表示背景，contradicts表示反证，document_reference表示文献线索。
 不能判断时省略relation或用context，不因相似度高而标记possible_cause。
-JSON结构是 {"rankings":[{"ref":"原编号","reason":"可能机制及限制","score":0.6,"evidence_quote":"输入中的逐字依据","relation":"context"}]}。'''
+JSON结构是 {"rankings":[{"ref":"原编号","reason":"可能机制及限制","score":0.6,"evidence_source":"S1","evidence_quote":"输入中的逐字依据","relation":"context"}]}。'''
 
 
 def propose(settings, target: str) -> list[str]:
@@ -258,8 +265,49 @@ def propose_hypotheses(settings, target: str, *, lower='', upper='') -> list[str
     return output
 
 
-def rank(settings, target: str, candidates: list[dict], *, hypotheses=()) -> list[dict]:
-    """Rank exact supplied refs; validate a verbatim anchor before returning.
+def _output_tokens(count):
+    return min(6000, 512 + 320 * count)
+
+
+def _rank_batches(settings, common, rows):
+    try:
+        context = int(os.getenv('NEWS2DOUYIN_ATTRIBUTION_CONTEXT_TOKENS', '32768'))
+    except ValueError:
+        context = 0
+    if context < 4096:
+        raise CausalModelError('归因模型上下文配置须为至少 4096 的整数。')
+
+    def fits(batch):
+        # UTF-8 bytes conservatively budget multilingual input without making
+        # a second request to a provider-specific tokenizer. Leave room for the
+        # chat template and the completion requested on this exact batch.
+        tokens = _output_tokens(len(batch))
+        limit = min(MAX_REQUEST_BYTES, context - tokens - 256)
+        return len(_encode_request(settings, _RANK, {**common, 'candidates': batch}, tokens)) <= limit
+
+    batch = []
+    for row in rows:
+        if batch and not fits([*batch, row]):
+            yield batch
+            batch = []
+        if not batch and not fits([row]):
+            # An unusually long event may fill a whole request. Keep all
+            # source identities and exact prefixes so quoted evidence remains verifiable.
+            for limit in (1500, 750, 360, 180, 80):
+                row = {**row, 'text': row['text'][:limit],
+                       'sources': [{**s, 'title': s['title'][:limit], 'quote': s['quote'][:limit]}
+                                   for s in row['sources']], 'excerpts_truncated': True}
+                if fits([row]):
+                    break
+            else:
+                raise CausalModelError('事件描述和假设超出归因模型上下文预算，请缩短描述或核对上下文配置。')
+        batch.append(row)
+    if batch:
+        yield batch
+
+
+def rank(settings, target: str, candidates: list[dict], *, hypotheses=(), before_batch=None, after_batch=None) -> list[dict]:
+    """Send every candidate once and validate evidence against the exact batch.
 
     ``reason`` includes that anchor and a fixed hypothesis label. No generated
     evidence objects/links are exposed. An empty valid result is meaningful;
@@ -269,10 +317,21 @@ def rank(settings, target: str, candidates: list[dict], *, hypotheses=()) -> lis
     prepared = _candidates(candidates)
     if not prepared:
         return []
-    payload = {'target': target, 'candidates': prepared}
+    payload = {'target': target}
     if hypotheses:
         payload['hypotheses'] = list(hypotheses)
-    value = _chat(settings, _RANK, payload, tokens=6000)
+    results = []
+    for batch in _rank_batches(settings, payload, prepared):
+        if before_batch:
+            before_batch()
+        value = _chat(settings, _RANK, {**payload, 'candidates': batch}, tokens=_output_tokens(len(batch)))
+        results.extend(_ranked_rows(value, batch))
+        if after_batch:
+            after_batch(len(batch))
+    return sorted(results, key=lambda row: -row['score'])
+
+
+def _ranked_rows(value, prepared):
     rows = value.get('rankings')
     if not isinstance(rows, list) or len(rows) > len(prepared):
         raise CausalModelError('归因模型候选排序结构无效，请重试。')
@@ -291,11 +350,21 @@ def rank(settings, target: str, candidates: list[dict], *, hypotheses=()) -> lis
                                  or relation not in {'possible_cause', 'context', 'contradicts', 'document_reference'}):
             raise CausalModelError('归因模型关系类型无效，请重试。')
         candidate = by_ref[ref]
-        anchors = ([source['quote'] for source in candidate['sources']]
-                   if candidate['sources'] else [candidate['text']])
-        if (not isinstance(quote, str) or not 4 <= len(quote.strip()) <= 500 or '\x00' in quote or _LINK.search(quote)
-                or not any(quote in text for text in anchors)):
+        sources = candidate['sources']
+        if not isinstance(quote, str) or not 4 <= len(quote.strip()) <= 500 or '\x00' in quote or _LINK.search(quote):
             raise CausalModelError('归因模型解释未提供可逐字核对的候选依据。')
+        source_id = row.get('evidence_source')
+        if sources:
+            matches = [source for source in sources if quote in source['quote']
+                       and (source_id is None or source_id == source['id'])]
+            if len(matches) != 1:
+                raise CausalModelError('归因模型引文须能在一条指定来源中逐字核对。')
+            source_id = matches[0]['id']
+            anchors = [matches[0]['quote']]
+        else:
+            if source_id is not None or quote not in candidate['text']:
+                raise CausalModelError('归因模型解释未提供可逐字核对的候选依据。')
+            anchors = [candidate['text']]
         for quoted in re.findall(r'“([^”]+)”|「([^」]+)」|"([^"\n]+)"', reason):
             fragment = next((part for part in quoted if part), '')
             if len(fragment) >= 4 and not any(fragment in text for text in anchors):
@@ -303,8 +372,10 @@ def rank(settings, target: str, candidates: list[dict], *, hypotheses=()) -> lis
         seen.add(ref)
         label = '来源摘录' if candidate['sources'] else '候选文本（非原文证据）'
         result = dict(ref=ref, reason='候选解释，因果待核：' + reason.strip() + '\n' + label + '：“' + quote + '”', score=float(score))
+        result['evidence_quote'] = quote
+        if source_id is not None:
+            result['evidence_source'] = source_id
         if relation is not None:
             result['relation'] = relation
         output.append(result)
-    # Stable ties retain the model's stated order. Scores never create new refs.
-    return sorted(output, key=lambda row: -row['score'])
+    return output

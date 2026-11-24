@@ -234,23 +234,23 @@ def queue_event(s, w, card, *, recall_extra=None, force=False):
     digest = fingerprint(card)
     key = 'fc_'+stable_id(w.key, w.version, card.key, digest)
     existing = s.get(FocusCandidate, key)
-    if existing:
-        if force or existing.decision == 'manual':
-            existing.status, existing.decision = 'pending', ''
-            existing.attempts, existing.next_attempt = 0, 0
-            existing.reason = '重新匹配'
-            existing.updated = utc_now_iso()
-            s.add(existing)
-            _clear_auto(s, w.key, card.key, key)
+    if existing and existing.status != 'superseded' and not force and existing.decision != 'manual':
         return existing
-    # A changed event supersedes old automatic decisions, while retaining their
-    # content as an audit trail. Only one current candidate per event is active.
+    # Returning to a previous fingerprint reuses its key but needs a new
+    # decision. Invalidate its competitor in the same transaction first.
     s.exec(update(FocusCandidate).where(FocusCandidate.watch == w.key,
         FocusCandidate.event == card.key, FocusCandidate.scope_version == w.version,
-        FocusCandidate.status != 'superseded').values(status='superseded')
+        FocusCandidate.key != key, FocusCandidate.status != 'superseded').values(status='superseded')
         .execution_options(synchronize_session=False))
-    candidate = FocusCandidate(key=key, watch=w.key, event=card.key, scope_version=w.version,
-        event_fingerprint=digest, recall_json=_json(route))
+    candidate = existing or FocusCandidate(key=key, watch=w.key, event=card.key, scope_version=w.version,
+                                            event_fingerprint=digest)
+    candidate.recall_json = _json(route)
+    if existing:
+        candidate.status, candidate.decision, candidate.method = 'pending', '', ''
+        candidate.evidence_json = candidate.questions_json = candidate.source_versions_json = '[]'
+        candidate.attempts, candidate.next_attempt = 0, 0
+        candidate.reason = '重新匹配'
+        candidate.updated = utc_now_iso()
     s.add(candidate)
     # A correction/new scope awaits a fresh judgment. An old automatic member
     # must not continue to appear as if the new evidence had already passed.
@@ -464,7 +464,7 @@ def _judge_step(engine):
                 w = s.get(Watch, watch_key)
                 current = s.get(RadarEntry, event_key)
                 manual = s.get(WatchEvent, (watch_key, event_key))
-                if not row or row.status == 'superseded':
+                if not row or row.status != 'running' or row.attempts != attempts:
                     return True
                 if (not w or not w.enabled or w.version != scope_version or not current
                         or fingerprint(current) != digest or not _versions_unchanged(s, signatures)):

@@ -6,7 +6,7 @@ from fastapi import Depends, HTTPException, Query
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, StringConstraints
 
-from ..causal import agent, service
+from ..causal import agent, rounds, service
 from ..causal.model import CausalModelError, configure
 from ..causal.models import CausalAgentLink
 from ..storage.db import session_scope
@@ -28,6 +28,7 @@ class AgentInput(BaseModel):
 
 
 class ExpansionInput(BaseModel):
+    continue_history: bool = False
     node_key: Annotated[str, StringConstraints(pattern=r'^cn_[0-9a-f]{32}$')]
     automatic: bool = False
 
@@ -104,6 +105,15 @@ def register(app, engine, render):
         except KeyError as exc:
             raise HTTPException(404, exc.args[0]) from None
 
+    @app.get('/radar/causes/{case_key}/revisions/{revision_id}', response_class=HTMLResponse)
+    def previous_results(case_key: str, revision_id: int):
+        try:
+            with session_scope(engine) as session:
+                revision = rounds.read(session, case_key, revision_id)
+        except KeyError as exc:
+            raise HTTPException(404, exc.args[0]) from None
+        return render('causal_revision.html', active='radar', revision=revision)
+
     @app.post('/api/causal/investigations/{case_key}/expand', status_code=202, dependencies=[Depends(same_origin)])
     def expand(case_key: str, payload: ExpansionInput):
         with session_scope(engine) as session:
@@ -112,7 +122,8 @@ def register(app, engine, render):
             _configured()
         try:
             with session_scope(engine) as session:
-                service.expand(session, case_key, payload.node_key, payload.automatic)
+                service.expand(session, case_key, payload.node_key, payload.automatic,
+                               continue_history=payload.continue_history)
                 result = service.view(session, case_key)
         except KeyError as exc:
             raise HTTPException(404, exc.args[0]) from None

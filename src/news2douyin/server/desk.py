@@ -90,6 +90,12 @@ def register_desk(app,engine,render):
         return JSONResponse(focus_people(s, key, person=person, days=days, until=until),
                             headers={'Cache-Control': 'private, no-cache'})
 
+    @app.post('/api/focus/{key}/people/extraction', status_code=202, dependencies=[Depends(same_origin)])
+    def fill_people_extraction(key: str, days: int = Query(30, ge=1, le=365),
+                               until: str = Query('', max_length=10), s=Depends(db)):
+        from ..desk.people_repair import request_missing
+        return task_call(request_missing, s, key, days=days, until=until)
+
     @app.get('/')
     def home(request:Request):
         return RedirectResponse('/focus' if request.cookies.get('n2d_desk')=='focus' else '/radar',302)

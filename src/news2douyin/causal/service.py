@@ -20,10 +20,11 @@ from ..search.dates import timezone_name
 from ..storage.articles import lock_news
 from ..storage.models import Event, EventMoment, EventState, utc_now_iso
 from ..storage.utils import dumps, loads
-from .chronology import eligible, inferred, interval, sqlite_utc_bound
+from . import rounds
+from .chronology import bind_citation, eligible, excerpt_time, inferred, interval, sqlite_utc_bound
 from .models import (CausalAgentLink, CausalAgentNote, CausalArchiveLink, CausalFocus,
                      CausalInvestigation, CausalJob, CausalNode, CausalProgram,
-                     CausalProgramRetrieval, CausalProgramStep)
+                     CausalProgramRetrieval, CausalProgramStep, CausalRetiredVisit)
 
 ACTIVE = ('pending', 'running')
 BEAM_WIDTH = 3
@@ -137,11 +138,31 @@ def _count(session, case_key):
                         .where(CausalNode.case_key == case_key)).one()
 
 
+def program_citation(sources, reason):
+    """Resolve a saved edge's cited source, including pre-0.56 evidence."""
+    marked = [source for source in sources if source.get('cited_quote')]
+    if marked:
+        if len(marked) == 1 and marked[0]['cited_quote'] in marked[0].get('quote', ''):
+            return marked[0]
+        return None
+    # Older explanations include their verbatim anchor after a standard suffix.
+    _, separator, suffix = reason.rpartition('\n来源摘录：“')
+    if separator and suffix.endswith('”') and len(suffix) > 1:
+        quote = suffix[:-1]
+        matches = [source for source in sources if quote in source.get('quote', '')]
+        if len(matches) == 1:
+            return {**matches[0], 'cited_quote': quote}
+        return None
+    return sources[0] if len(sources) == 1 else None
+
+
 def _program_child(node):
-    return (node.time_status == 'earlier'
-            and (interval(node.occurred_at) or interval(node.published_at))
-            and any(source.get('quote') and source.get('kind') != 'local_headline'
-                    for source in loads(node.sources_json, [])))
+    stamp = interval(node.published_at)
+    if node.time_status != 'earlier' or stamp is None:
+        return False
+    cited = program_citation(loads(node.sources_json, []), node.reason)
+    return (cited is not None and bool(cited.get('quote')) and cited.get('kind') != 'local_headline'
+            and interval(excerpt_time(cited)) == stamp)
 
 
 def program_leaf_reason(node, *, steps, node_count):
@@ -154,7 +175,7 @@ def program_leaf_reason(node, *, steps, node_count):
     return '已保留线索，本层优先展开其他候选'
 
 
-def expand(session, case_key, node_key, automatic, *, commit=True):
+def expand(session, case_key, node_key, automatic, *, commit=True, continue_history=False, repair_serial=None):
     lock_news(session, 'causal:' + case_key)
     case = _require(session, case_key)
     if session.get(CausalAgentLink, case_key):
@@ -162,20 +183,35 @@ def expand(session, case_key, node_key, automatic, *, commit=True):
     node = session.get(CausalNode, node_key)
     if node is None or node.case_key != case_key:
         raise KeyError('调查中没有这条线索')
+    if commit:
+        from ..history_archive.models import HistoryJob
+        if session.exec(select(HistoryJob.key).where(HistoryJob.case_key == case_key,
+                        HistoryJob.state.in_(('planning', 'running'))).limit(1)).first():
+            raise CausalConflict('节点补档尚未完成，完成后将自动重查')
     existing = session.get(CausalJob, node_key)
     if existing and existing.state in ACTIVE:
         return
     if session.exec(select(CausalJob.node_key).where(CausalJob.case_key == case_key,
                                                     CausalJob.state.in_(ACTIVE)).limit(1)).first():
         raise CausalConflict('当前调查还在运行，完成后可继续展开')
-    if node.depth >= MAX_DEPTH or _count(session, case_key) >= MAX_TREE_NODES:
+    program = session.get(CausalProgram, case_key)
+    if node.depth >= MAX_DEPTH or (_count(session, case_key) >= MAX_TREE_NODES and not (program and existing)):
         raise CausalConflict('这次调查已达到线索上限，可以从该线索新开一次调查')
-    if session.get(CausalProgram, case_key):
+    stored = session.get(CausalProgramRetrieval, node_key) if program else None
+    report = loads(stored.report_json, {}) if stored else {}
+    if continue_history and not report.get('history', {}).get('scan', {}).get('can_continue'):
+        raise CausalConflict('该节点没有可继续的归档窗口')
+    if program:
         if node.depth and not _program_child(node):
             raise CausalConflict('这条线索缺少可核对的时间或原文依据')
-        if existing is None and session.exec(select(func.count()).select_from(CausalJob)
-                                             .where(CausalJob.case_key == case_key)).one() >= PROGRAM_MAX_STEPS:
+        if existing is None and _visits_used(session, case_key) >= PROGRAM_MAX_STEPS:
             raise CausalConflict('本次调查已达到搜索节点上限')
+        if existing:
+            rounds.snapshot(session, case_key, node_key, view(session, case_key)['nodes'])
+        if stored:
+            report.update(continue_history=continue_history, repair_job_serial=repair_serial)
+            stored.report_json = dumps(report)
+            session.add(stored)
     session.merge(_new_job(case, node, automatic))
     case.updated_at = utc_now_iso()
     if commit:
@@ -227,20 +263,30 @@ def view(session, case_key, *, focus_key=''):
                         .outerjoin(CausalProgramRetrieval, CausalProgramRetrieval.node_key == CausalNode.key)
                         .where(CausalNode.case_key == case_key)
                         .order_by(CausalNode.depth, CausalNode.score.desc(), CausalNode.key)).all()
+    revisions = rounds.latest_revisions(session, case_key) if program_scope else {}
+    visits = _visits_used(session, case_key) if program_scope else 0
+    can_start = len(rows) < MAX_TREE_NODES and visits < PROGRAM_MAX_STEPS
     nodes = []
     for node, job, note, step, report in rows:
         item = node.model_dump(exclude={'case_key', 'ref', 'sources_json'})
+        relation = note.relation if note and node.parent_key else ''
         if program_scope:
+            grounded = not node.depth or _program_child(node)
+            if not grounded and item['time_status'] == 'earlier':
+                item['time_status'] = 'unknown'
+                if relation == 'possible_cause':
+                    relation = 'context'
             item.update(queries=loads(step.queries_json, []) if step else [],
                         candidate_count=step.candidate_count if step else None,
                         retrieval_mode=step.retrieval_mode if step else '',
                         retrieval=loads(report.report_json, {}) if report else {},
-                        archive_request=archive_requests.get(node.key),
-                        expandable=(not node.depth or bool(_program_child(node))) and node.depth < MAX_DEPTH)
+                        archive_request=archive_requests.get(node.key), previous_revision=revisions.get(node.key),
+                        expandable=bool((job or can_start) and grounded
+                                        and node.depth < MAX_DEPTH))
         nodes.append(dict(**item, sources=loads(node.sources_json, []), job_state=job.state if job else '',
                           job_error=job.error if job else '', stop_reason=(step.stop_reason if step else '')
                           or (note.stop_reason if note else ''),
-                          relation=note.relation if note and node.parent_key else ''))
+                          relation=relation))
     context = interval(case.event_at) or interval(case.created_at)
     day = min(context[0], datetime.now(timezone.utc)).astimezone(BEIJING).date()
     previous_day = day - timedelta(days=1) if day.year > 1 else day
@@ -267,13 +313,16 @@ def view(session, case_key, *, focus_key=''):
         completed, failed = states.count('ready'), states.count('failed')
         status = ('running' if completed or failed or 'running' in states else 'pending') if queued else (
             'partial' if failed else 'completed')
+        if not queued and any(request['state'] in ('queued', 'waiting') for request in archive_requests.values()):
+            status = 'awaiting_archive'
         program = dict(date_from=program_scope.date_from, status=status, queued=queued, completed=completed, failed=failed)
         if not queued:
             for item in nodes:
                 if item['depth'] and not item['job_state'] and not item['stop_reason']:
-                    item['stop_reason'] = program_leaf_reason(item, steps=completed + failed, node_count=len(nodes))
+                    item['stop_reason'] = program_leaf_reason(item, steps=visits, node_count=len(nodes))
     return dict(**case.model_dump(), nodes=nodes, focus_key=bound_focus, agent=agent, program=program,
                 working=any(item['job_state'] in ACTIVE for item in nodes)
+                or bool(program and program['status'] == 'awaiting_archive')
                 or bool(agent and agent['status'] in research_service.ACTIVE),
                 coverage=dict(message='可按日期核对 GDELT 归档。补采完成后，在原调查重新查该分支。',
                               archive_path='/admin/daily-radar?day=' + previous_day.isoformat(),
@@ -323,8 +372,17 @@ def renew(engine, claimed, *, hypotheses=None):
         if hypotheses is not None:
             session.merge(CausalProgramStep(node_key=claimed.node_key, case_key=claimed.case_key,
                                            queries_json=dumps(hypotheses)))
-            session.merge(CausalProgramRetrieval(node_key=claimed.node_key,
-                          report_json=dumps({'phase': 'retrieving'})))
+            saved = session.get(CausalProgramRetrieval, claimed.node_key)
+            progress = {'phase': 'retrieving'}
+            if saved:
+                previous = loads(saved.report_json, {})
+                history = previous.get('history', {})
+                if history.get('scan'):
+                    progress['history'] = history
+                for field in ('continue_history', 'repair_job_serial'):
+                    if field in previous:
+                        progress[field] = previous[field]
+            session.merge(CausalProgramRetrieval(node_key=claimed.node_key, report_json=dumps(progress)))
         session.commit()
 
 
@@ -368,34 +426,55 @@ def investigate(engine, claimed):
     if not candidates:
         return []
     by_ref = {item['ref']: item for item in candidates}
-    decisions = rank(settings, target, candidates, hypotheses=queries)
-    results = [{**by_ref[decision['ref']], **decision} for decision in decisions if decision['ref'] in by_ref]
+    decisions = rank(settings, target, candidates, hypotheses=queries,
+                     before_batch=lambda: renew(engine, claimed))
+    results = [bind_citation(by_ref[decision['ref']], decision, anchor, as_of)
+               for decision in decisions if decision['ref'] in by_ref]
     return sorted(results, key=lambda item: (item['time_status'] != 'earlier', -item['score'], item['ref']))[:RESULTS]
+
+
+def _visits_used(session, case_key):
+    live = select(func.count()).select_from(CausalJob).where(CausalJob.case_key == case_key)
+    retired = select(func.count()).select_from(CausalRetiredVisit).where(CausalRetiredVisit.case_key == case_key)
+    return session.exec(live).one() + session.exec(retired).one()
 
 
 def _schedule_program(session, case, depth):
     jobs = select(CausalJob.node_key).where(CausalJob.case_key == case.key)
     if session.exec(jobs.where(CausalJob.state.in_(ACTIVE)).limit(1)).first():
         return
-    remaining = PROGRAM_MAX_STEPS - session.exec(select(func.count()).select_from(
-        jobs.subquery())).one()
+    remaining = PROGRAM_MAX_STEPS - _visits_used(session, case.key)
     if remaining <= 0 or depth + 1 >= MAX_DEPTH or _count(session, case.key) >= MAX_TREE_NODES:
         return
-    scheduled = set(session.exec(select(CausalNode.ref).where(CausalNode.key.in_(jobs))))
-    candidates = session.exec(select(CausalNode).where(
-        CausalNode.case_key == case.key, CausalNode.depth == depth + 1,
-        CausalNode.time_status == 'earlier', CausalNode.key.not_in(jobs))
-        .order_by(CausalNode.score.desc(), CausalNode.key))
-    selected = []
-    for child in candidates:
-        if child.ref not in scheduled and _program_child(child):
-            selected.append(child)
-            scheduled.add(child.ref)
-        if len(selected) == min(remaining, BEAM_WIDTH):
-            break
-    for child in selected:
+    live = session.exec(select(CausalNode.ref, CausalNode.depth, CausalNode.beam_selected)
+                        .where(CausalNode.key.in_(jobs))).all()
+    retired = session.exec(select(CausalRetiredVisit.ref, CausalRetiredVisit.depth, CausalRetiredVisit.beam_selected)
+                           .where(CausalRetiredVisit.case_key == case.key)).all()
+    visited = live + retired
+    slots = min(remaining, BEAM_WIDTH - sum(level == depth + 1 and automatic for _, level, automatic in visited))
+    if slots <= 0:
+        return
+    scheduled = {ref for ref, _, _ in visited}
+    candidates = session.exec(select(CausalNode, CausalAgentNote.relation)
+        .outerjoin(CausalAgentNote, CausalAgentNote.node_key == CausalNode.key)
+        .where(CausalNode.case_key == case.key, CausalNode.depth == depth + 1,
+               CausalNode.time_status == 'earlier', CausalNode.key.not_in(jobs))
+        .order_by(CausalNode.score.desc(), CausalNode.key)).all()
+    eligible = [(child, relation) for child, relation in candidates
+                if child.ref not in scheduled and _program_child(child)]
+    # Reserve one slot for the highest-ranked supported cause. The other slots
+    # still use evidence rank, including counter-evidence and context.
+    cause = next((child for child, relation in eligible if relation == 'possible_cause'), None)
+    ordered = ([cause] if cause else []) + [child for child, _ in eligible]
+    for child in ordered:
+        if child.ref in scheduled:
+            continue
         child.beam_selected = True
         session.add(_new_job(case, child, False))
+        scheduled.add(child.ref)
+        slots -= 1
+        if not slots:
+            break
 
 
 def complete(engine, claimed, results=(), error='', *, queries=(), candidate_count=0,
@@ -404,7 +483,7 @@ def complete(engine, claimed, results=(), error='', *, queries=(), candidate_cou
         lock_news(session, 'causal:' + claimed.case_key)
         job = session.exec(select(CausalJob).where(CausalJob.node_key == claimed.node_key)
                            .with_for_update()).first()
-        if job is None or job.lease != claimed.lease:
+        if job is None or job.lease != claimed.lease or job.state != 'running' or job.due_at <= time():
             return
         case = _require(session, claimed.case_key)
         node = session.get(CausalNode, claimed.node_key)
@@ -415,9 +494,20 @@ def complete(engine, claimed, results=(), error='', *, queries=(), candidate_cou
             select(CausalNode.ref).join(CausalJob, CausalJob.node_key == CausalNode.key)
             .where(CausalNode.case_key == case.key, CausalNode.ref != '', CausalNode.parent_key != node.key)
         )) if not claimed.program else set()
+        if claimed.program and not error:
+            results = list(results)[:RESULTS]
+            selected = {item['ref']: item for item in results}
+            removed = []
+            for ref, child in list(existing.items()):
+                replacement = selected.get(ref)
+                # A changed anchor invalidates the time window of every descendant.
+                if (replacement is None or child.occurred_at != replacement['occurred_at']
+                        or child.published_at != replacement['published_at'] or child.time_status != replacement['time_status']):
+                    removed.append(child.key)
+                    del existing[ref]
+            rounds.retire(session, case.key, removed)
         remaining = MAX_TREE_NODES - _count(session, case.key)
-        if claimed.program:
-            remaining = min(remaining, RESULTS - len(existing))
+        stored = 0
         next_nodes = []
         for item in results:
             ref = item['ref']
@@ -428,6 +518,7 @@ def complete(engine, claimed, results=(), error='', *, queries=(), candidate_cou
                 child = CausalNode(key='cn_' + uuid4().hex, case_key=case.key,
                                    parent_key=node.key, ref=ref, text=item['text'], depth=node.depth + 1)
                 remaining -= 1
+            stored += 1
             child.text, child.event_key = item['text'], item['event_key']
             child.occurred_at, child.published_at = item['occurred_at'], item['published_at']
             child.time_status, child.reason, child.score = item['time_status'], item['reason'], item['score']
@@ -451,7 +542,12 @@ def complete(engine, claimed, results=(), error='', *, queries=(), candidate_cou
             session.merge(CausalProgramStep(node_key=node.key, case_key=case.key, queries_json=dumps(queries),
                                             candidate_count=candidate_count, retrieval_mode=retrieval_mode,
                                             stop_reason=stop_reason or error))
-            session.merge(CausalProgramRetrieval(node_key=node.key, report_json=dumps(retrieval_report or {})))
+            report = dict(retrieval_report or {})
+            if 'selected_count' in report or stored:
+                report['selected_count'] = stored
+            if error and existing:
+                report['previous_results_visible'] = True
+            session.merge(CausalProgramRetrieval(node_key=node.key, report_json=dumps(report)))
             session.flush()
             _schedule_program(session, case, node.depth)
         session.commit()

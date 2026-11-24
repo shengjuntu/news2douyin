@@ -52,6 +52,18 @@ def sqlite_utc_bound(value):
     return value.astimezone(UTC).replace(tzinfo=None).isoformat(timespec='seconds')
 
 
+def excerpt_time(source):
+    """Date by which this version of the cited text was publicly available."""
+    published = source.get('published_at', '')
+    if 'modified_at' not in source:
+        return published
+    revision = source['modified_at']
+    first, latest = interval(published), interval(revision)
+    if not first or not latest or latest[1] < first[0]:
+        return ''
+    return revision if latest[1] >= first[1] else published
+
+
 def eligible(candidate, anchor, as_of):
     latest = min(anchor[1], as_of) if anchor else as_of
     earliest = min(anchor[0], latest) if anchor else latest
@@ -61,7 +73,7 @@ def eligible(candidate, anchor, as_of):
 
     early_sources, uncertain_sources = [], []
     for source in candidate.get('sources', []):
-        stamp = interval(source.get('published_at', ''))
+        stamp = interval(excerpt_time(source))
         if stamp is None:
             uncertain_sources.append(source)
         elif stamp[1] <= earliest and stamp[0] < earliest:
@@ -77,5 +89,25 @@ def eligible(candidate, anchor, as_of):
     )
     sources = [source for _, source in early_sources] + uncertain_sources
     return {**candidate, 'time_status': 'earlier' if timely else 'unknown',
-            'published_at': next((source['published_at'] for source in sources if source.get('published_at')), ''),
+            'published_at': next((stamp for source in sources if (stamp := excerpt_time(source))), ''),
             'sources': sources[:4]}
+
+
+def bind_citation(candidate, decision, anchor, as_of):
+    """Recheck chronology using only the source whose wording supports this edge."""
+    source_id = decision.get('evidence_source')
+    quote = decision.get('evidence_quote')
+    sources = candidate['sources']
+    for number, source in enumerate(sources, start=1):
+        if source_id == f'S{number}' and quote and quote in source['quote']:
+            cited = {**source, 'cited_quote': quote}
+            dated = eligible({**candidate, 'sources': [cited]}, anchor, as_of)
+            earlier = bool(dated and dated['time_status'] == 'earlier' and cited.get('kind') != 'local_headline')
+            break
+    else:
+        raise ValueError('归因决定与原文来源不一致。')
+    relation = decision.get('relation', 'context')
+    return {**candidate, 'reason': decision['reason'], 'score': float(decision['score']),
+            'relation': 'context' if relation == 'possible_cause' and not earlier else relation,
+            'published_at': excerpt_time(cited), 'time_status': 'earlier' if earlier else 'unknown',
+            'sources': [cited, *(other for other in sources if other is not source)]}

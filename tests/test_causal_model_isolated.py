@@ -114,7 +114,7 @@ def test_rank_refs_quotes_and_ordering_are_verified_without_forwarding_urls(wire
     queue.append(Response(completion({'rankings':[ranked('b',score=.4),ranked('a',score=.8)]})))
     result=model.rank(SETTINGS,'货运价格为何上涨？',[candidate('a'),candidate('b')])
     assert [row['ref'] for row in result]==['a','b']
-    assert all(set(row)=={'ref','reason','score'} and 0<=row['score']<=1 for row in result)
+    assert all(set(row)=={'ref','reason','score','evidence_source','evidence_quote'} and 0<=row['score']<=1 for row in result)
     assert '因果待核' in result[0]['reason'] and '港口因工人罢工停止运营' in result[0]['reason']
     request=json.loads(calls[0][1]['data'])
     assert 'private' not in json.dumps(request) and 'do-not-send' not in json.dumps(request)
@@ -194,11 +194,38 @@ def test_transport_errors_are_sanitized(wire,exc):
     assert 'causal-secret' not in str(error.value) and error.value.__suppress_context__
 
 
-def test_large_payload_rejected_before_http_and_sources_are_bounded(wire):
+def test_large_chinese_payload_is_sent_in_bounded_batches_and_all_refs_are_scored(wire, monkeypatch):
+    monkeypatch.setenv('NEWS2DOUYIN_ATTRIBUTION_CONTEXT_TOKENS', '32768')
     queue,calls,_=wire
-    rows=[candidate(str(i),text='中'*4000,sources=[dict(quote='文'*3000)]*4) for i in range(32)]
-    with pytest.raises(model.CausalModelError,match='预算'):model.rank(SETTINGS,'目标',rows)
-    assert not calls
+    rows = [candidate(str(i), text='中'*850, sources=[dict(title='中文'*10, quote='文'*360)]*3)
+            for i in range(32)]
+    queue.extend(Response(completion({'rankings': []})) for _ in rows)
+    judged = []
+    assert model.rank(SETTINGS, '目标', rows, hypotheses=['前因甲', '前因乙'], after_batch=judged.append) == []
+    assert 1 < len(calls) == len(judged)
+    refs = []
+    for _, request, _ in calls:
+        body = json.loads(request['data'])
+        assert len(request['data']) + body['max_completion_tokens'] + 256 <= 32768
+        data = json.loads(body['messages'][1]['content'])
+        assert data['hypotheses'] == ['前因甲', '前因乙']
+        refs.extend(row['ref'] for row in data['candidates'])
+    assert refs == [row['ref'] for row in rows] and sum(judged) == 32
+
+
+def test_single_large_candidate_keeps_all_sources_with_bounded_verbatim_prefixes(wire, monkeypatch):
+    monkeypatch.setenv('NEWS2DOUYIN_ATTRIBUTION_CONTEXT_TOKENS', '32768')
+    queue, calls, _ = wire
+    row = candidate(text='中'*4000, sources=[dict(quote='文'*3000)]*4)
+    queue.append(Response(completion({'rankings': []})))
+    model.rank(SETTINGS, '目标', [row])
+    item = json.loads(json.loads(calls[0][1]['data'])['messages'][1]['content'])['candidates'][0]
+    assert len(item['sources']) == 4 and item['excerpts_truncated']
+    assert all(4 < len(s['quote']) < 3000 and ('文'*3000).startswith(s['quote']) for s in item['sources'])
+
+
+def test_source_count_remains_bounded(wire):
+    queue, calls, _ = wire
     queue.append(Response(completion({'rankings':[]})))
     model.rank(SETTINGS,'目标',[candidate(sources=[dict(quote='说明')]*10)])
     payload=json.loads(json.loads(calls[0][1]['data'])['messages'][1]['content'])

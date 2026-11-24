@@ -14,14 +14,23 @@ from .schema import cluster_key
 
 VERSION = '1.0'
 NEW = 'baseline'
+FOCUS_NEW = 'focus_baseline'
 MODEL = 'model_queued'
 
 
 def _lead_kind(version):
     """Read the provenance of this immutable revision."""
+    return document_lead_kind(_version_document(version.payload_json))
+
+
+def _version_document(payload):
     try:
-        document=json.loads(version.payload_json)
-    except (ValueError,TypeError):return ''
+        return json.loads(payload)
+    except (ValueError, TypeError, RecursionError):
+        return None
+
+
+def document_lead_kind(document):
     if not isinstance(document,dict):return ''
     raw=document.get('raw') or {}
     if not isinstance(raw,dict):raw={}
@@ -34,6 +43,27 @@ def _lead_kind(version):
 
 
 LEAD_LABELS = {'newsnow':'NewsNow榜单／摘要线索', 'candidate':'标题或摘要线索'}
+
+
+def focus_material_note(payload):
+    """Check the same immutable text that the statement reader will inspect."""
+    doc = _version_document(payload)
+    lead = document_lead_kind(doc)
+    if lead:
+        return LEAD_LABELS[lead] + '，等待真实原文'
+    if isinstance(doc, dict):
+        title, body = doc.get('title') or '', doc.get('content') or ''
+        raw = doc.get('raw')
+        raw_kind = raw.get('material_kind') if isinstance(raw, dict) else None
+        if isinstance(title, str) and isinstance(body, str):
+            if body[:12000].strip():
+                return ''
+            if (doc.get('material_kind') == 'discovery_metadata' or raw_kind == 'discovery_metadata'
+                    or doc.get('provider') in ('gkg', 'gdelt')):
+                return 'GDELT 发现线索，等待真实原文'
+            if title[:1200].strip():
+                return ''
+    return '版本没有可供抽取的原文'
 
 
 def initialize(engine,*,backfill=True,checkpoint=False):
@@ -95,7 +125,7 @@ def schedule_model(session, version):
     job = session.exec(select(VersionReading).where(VersionReading.version_id==version.id).with_for_update()).first()
     if not job:
         job = VersionReading(version_id=version.id,state=NEW)
-    if job.state == NEW or (job.state=='rule_running'):
+    if job.state in (NEW, FOCUS_NEW, 'rule_running'):
         job.note = 'model_after_baseline'
     elif job.state != 'model_running':
         job.state = MODEL
@@ -104,24 +134,38 @@ def schedule_model(session, version):
     return job.state
 
 
-def pick(engine, model):
+def pick(engine, model, *, regular_first=False):
     now = time.time()
     queued = MODEL if model else NEW
     running = 'model_running' if model else 'rule_running'
-    query = select(VersionReading).where(or_(VersionReading.state==queued,
+    queue = select(VersionReading).order_by(VersionReading.version_id).limit(1)
+    regular = queue.where(or_(VersionReading.state==queued,
         (VersionReading.state==running) & (VersionReading.until < now),
-        (VersionReading.state==('model_wait' if model else 'rule_wait')) & (VersionReading.until < now))).order_by(VersionReading.version_id).limit(1)
+        (VersionReading.state==('model_wait' if model else 'rule_wait')) & (VersionReading.until < now)))
+    preferred = queue.where(VersionReading.state == FOCUS_NEW)
+
+    def next_reading(session):
+        def first(statement):
+            if engine.dialect.name == 'postgresql':
+                statement = statement.with_for_update(skip_locked=True)
+            return session.exec(statement).first()
+
+        if model:
+            return first(regular)
+        queues = (regular, preferred) if regular_first else (preferred, regular)
+        for statement in queues:
+            row = first(statement)
+            if row is not None:
+                return row
+        return None
+
     with Session(engine, expire_on_commit=False) as s:
-        if engine.dialect.name=='postgresql':
-            # Row claims are committed before any model call; other workers skip them.
-            query=query.with_for_update(skip_locked=True)
-        else:
-            candidate=s.exec(query).first()
-            if candidate is None:return None
-            ident=candidate.version_id
+        job = next_reading(s)
+        if engine.dialect.name != 'postgresql' and job is not None:
+            ident = job.version_id
             s.rollback()
-            lock_news(s,'extract-version/'+str(ident))
-        job = s.exec(query).first()
+            lock_news(s, 'extract-version/'+str(ident))
+            job = next_reading(s)
         if not job:
             return None
         version = s.get(ArticleVersion,job.version_id)
@@ -129,9 +173,13 @@ def pick(engine, model):
             s.delete(job)
             s.commit()
             return None
-        lead = _lead_kind(version)
-        if lead:
-            job.state,job.note,job.until,job.lease='metadata_only',LEAD_LABELS[lead]+'，等待真实原文',0.0,''
+        if job.state == FOCUS_NEW:
+            note = focus_material_note(version.payload_json)
+        else:
+            lead = _lead_kind(version)
+            note = LEAD_LABELS[lead] + '，等待真实原文' if lead else ''
+        if note:
+            job.state,job.note,job.until,job.lease='metadata_only',note,0.0,''
             s.add(job);s.commit()
             return None
         job.state, job.lease, job.until = running, uuid4().hex, now+180
@@ -149,8 +197,8 @@ def touch_events(s, article):
         enqueue_event(s,key)
 
 
-def step(engine, model=False):
-    chosen = pick(engine, model)
+def step(engine, model=False, *, regular_first=False):
+    chosen = pick(engine, model, regular_first=regular_first)
     if not chosen:
         return False
     version, lease = chosen

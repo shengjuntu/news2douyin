@@ -84,3 +84,8 @@ news2douyin-review score review
 ```bash
 python tools/benchmark_daily_radar.py --stage archive --rows 500000 --watches 100 --locale en_US.utf8
 ```
+
+
+### 焦点归集与日报截止时间
+
+评分和卡片中的焦点说明共用成员判断。自动归集需要有该版焦点在本期截止前的有效依据，人工归集按关联记录的时间判断。阅读已出版日报时使用该期保存的卡片与来源。主动重算历史日期时只采用能核对的关系，旧库缺少完整的规则版本生效区间，无法据此精确回放每个落选事件当年的归属。

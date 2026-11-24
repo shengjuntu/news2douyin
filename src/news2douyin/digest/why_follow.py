@@ -4,12 +4,13 @@ import json
 
 from sqlmodel import select
 
-from ..desk.focus_lifecycle import visible_watch
+from .sources import edition_memberships
 from ..desk.focus_models import FocusCandidate
 from ..desk.models import Watch, WatchEvent
 from ..extraction.models import FocusPoint
 from ..knowledge.models import PointMaterial
 from ..selection.source_content import source_url
+from ..storage.sql import time_value
 
 
 def _materials(card):
@@ -59,11 +60,7 @@ def _member_details(session, events, end):
     memberships = {}
     for pos in range(0, len(events), 100):
         keys = events[pos:pos + 100]
-        query = (select(WatchEvent.event, Watch.name, Watch.key)
-                 .join(Watch, Watch.key == WatchEvent.watch)
-                 .where(WatchEvent.event.in_(keys), WatchEvent.first_seen != '', WatchEvent.first_seen < end,
-                        WatchEvent.choice != 'exclude', Watch.enabled.is_(True), visible_watch()))
-        for event, name, key in session.exec(query):
+        for event, name, key in session.exec(edition_memberships(keys, end)):
             memberships[event, name] = dict(watch_key=key, event=event)
 
         query = (select(PointMaterial.event, Watch.name, FocusPoint.text, FocusCandidate.questions_json)
@@ -73,10 +70,10 @@ def _member_details(session, events, end):
                  .join(WatchEvent, (WatchEvent.watch == Watch.key) & (WatchEvent.event == PointMaterial.event))
                  .join(FocusCandidate, (FocusCandidate.watch == Watch.key) & (FocusCandidate.event == PointMaterial.event)
                        & (FocusCandidate.scope_version == Watch.version))
-                 .where(PointMaterial.event.in_(keys), FocusPoint.created != '', FocusPoint.created < end,
+                 .where(PointMaterial.event.in_(keys), time_value(FocusPoint.created) < time_value(end),
                         WatchEvent.choice == 'auto', WatchEvent.branch == FocusPoint.text,
                         FocusCandidate.status == 'done', FocusCandidate.decision.in_(('core', 'background')),
-                        FocusCandidate.updated != '', FocusCandidate.updated < end)
+                        time_value(FocusCandidate.updated) < time_value(end))
                  .order_by(FocusCandidate.updated.desc(), FocusCandidate.key))
         for event, name, question, encoded in session.exec(query):
             entry = memberships.get((event, name))

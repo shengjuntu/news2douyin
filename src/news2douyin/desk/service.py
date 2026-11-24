@@ -332,7 +332,7 @@ def memberships(s,event_key):
     return memberships_many(s,[event_key])[event_key]
 
 
-def current_membership():
+def current_membership(*, accepted_before=None):
     """Hide obsolete automatic decisions immediately without a bulk DELETE.
 
     Legacy rules and manual choices remain visible. A description-based
@@ -349,10 +349,14 @@ def current_membership():
         FocusTrash.deleted_at=='',FocusTrash.restored_version==Watch.version,
         FocusTrash.previous_scope_version==FocusCandidate.scope_version,
         Watch.enabled==False).correlate(Watch,FocusCandidate).exists()
+    cutoff = []
+    if accepted_before is not None:
+        from ..storage.sql import time_value
+        cutoff = [time_value(FocusCandidate.updated) < time_value(accepted_before)]
     accepted=select(FocusCandidate.key).join(Watch,Watch.key==FocusCandidate.watch).where(
         FocusCandidate.watch==WatchEvent.watch,FocusCandidate.event==WatchEvent.event,
         or_(FocusCandidate.scope_version==Watch.version,restored),FocusCandidate.status=='done',
-        FocusCandidate.decision.in_(('core','background'))).correlate(WatchEvent).exists()
+        FocusCandidate.decision.in_(('core','background')), *cutoff).correlate(WatchEvent).exists()
     return or_(WatchEvent.choice!='auto',~natural,accepted)
 
 

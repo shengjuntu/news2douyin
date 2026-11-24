@@ -25,7 +25,10 @@
   {% elif row.source_title %}<span>{{ row.source_title }}</span>{% endif %}
 {%- endmacro %}
 
+{% from 'people_coverage.html' import people_coverage %}
 <link rel="stylesheet" href="/research-assets/focus-people.css?v=0.49.0">
+<link rel="stylesheet" href="/research-assets/people-coverage.css?v=0.56.1">
+<script type="module" src="/research-assets/people-coverage.js?v=0.56.1"></script>
 <section class="focus-materials focus-people" aria-labelledby="focus-people-title">
   <div class="focus-section-head"><h2 id="focus-people-title">人物活动</h2></div>
   <form class="desk-row focus-people-filter" action="/focus/{{ w.key|urlencode }}" method="get">
@@ -52,6 +55,7 @@
   {% if window.date_from and window.date_to %}
   <p class="desk-meta focus-people-window">材料收录日期（北京时间） <time>{{ window.date_from }}</time> 至 <time>{{ window.date_to }}</time>{% if window.truncated %} · 仅显示本次读取范围{% endif %}</p>
   {% endif %}
+  {{ people_coverage(w.key, span, end, window, show=not person_items) }}
   {% if panel.selection_missing %}
   <p class="desk-meta">所选人物在这个时间范围内暂无已收录活动。</p>
   {% endif %}

@@ -252,9 +252,9 @@ def _directory_synced(path: Path):
             os.close(fd)
 
 
-def _read_published(path: Path, identity: dict, *, verify_digest=True):
+def _read_published(path: Path, identity: dict, *, verify_digest=True, stop=None):
     metadata = json.loads((path / 'manifest.json').read_text(encoding='utf-8'))
-    if any(metadata.get(key) != value for key, value in identity.items()):
+    if not isinstance(metadata, dict) or any(metadata.get(key) != value for key, value in identity.items()):
         raise ConversionError('existing archive publication has conflicting source identity')
     parquet = path / 'data.parquet'
     invalid = int(metadata['invalid_rows'])
@@ -263,8 +263,8 @@ def _read_published(path: Path, identity: dict, *, verify_digest=True):
             (bad_rows is not None and (not bad_rows.is_file() or bad_rows.stat().st_size != metadata.get('bad_row_bytes')))):
         raise ConversionError('existing archive publication is incomplete')
     if verify_digest and (
-        _source_hash(parquet) != metadata.get('parquet_sha256')
-        or (bad_rows is not None and _source_hash(bad_rows) != metadata.get('bad_row_sha256'))
+        _source_hash(parquet, stop) != metadata.get('parquet_sha256')
+        or (bad_rows is not None and _source_hash(bad_rows, stop) != metadata.get('bad_row_sha256'))
     ):
         raise ConversionError('existing archive output hash mismatch')
     return PublishedGroup(path, parquet, bad_rows, metadata, int(metadata['rows']), int(metadata['valid_rows']), invalid)
@@ -303,7 +303,7 @@ def convert_group(archive_root: Path, dataset: str, version: int, group: str, so
     partition.mkdir(parents=True, exist_ok=True)
     target = partition / f'batch-{group_id}'
     if target.exists():
-        return _read_published(target, identity)
+        return _read_published(target, identity, stop=stop)
     _stopping(stop)
     root_work = Path(archive_root) / '.conversion'
     root_work.mkdir(parents=True, exist_ok=True)
@@ -339,7 +339,7 @@ def convert_group(archive_root: Path, dataset: str, version: int, group: str, so
         except OSError:
             if not target.is_dir():
                 raise
-            return _read_published(target, identity)
+            return _read_published(target, identity, stop=stop)
         _directory_synced(partition)
         return _read_published(target, identity, verify_digest=False)
     finally:

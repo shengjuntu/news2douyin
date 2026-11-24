@@ -406,7 +406,7 @@ def run_collection(session: Session, profile_name: str, *, storage_root: str | P
             if provider=='newsnow' and (not existing or existing.provider=='newsnow'):
                 from ..extraction.models import VersionReading
                 reading=session.get(VersionReading,version.id)
-                if reading and reading.state=='baseline':
+                if reading and reading.state in ('baseline','focus_baseline'):
                     reading.state='metadata_only';reading.note='NewsNow标题/摘要线索，选题后先读取原文'
                     session.add(reading)
             session.add(CollectedObservation(observation_key=f'{scope_id}:{index}', scope_id=scope_id,

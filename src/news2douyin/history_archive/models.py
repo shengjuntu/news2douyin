@@ -72,3 +72,14 @@ class HistoryPart(SQLModel, table=True):
 class HistoryPublication(SQLModel, table=True):
     path: str = Field(primary_key=True)
     group_key: str = Field(index=True)
+
+
+class HistoryVolume(SQLModel, table=True):
+    key: str = Field(default='archive', primary_key=True)
+    token: str
+
+
+class HistoryPublicationCheck(SQLModel, table=True):
+    path: str = Field(primary_key=True)
+    file_signature: str
+    invalid_rows: int

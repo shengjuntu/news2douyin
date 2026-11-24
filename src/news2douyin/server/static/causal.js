@@ -19,7 +19,7 @@
   const focusKey = config.focus_key || '';
   const panel = el('causal-panel');
   const stateLabels = {pending:'排队中', running:'查找中', ready:'已查找', failed:'查找失败'};
-  const programLabels = {pending:'等待查找', running:'逐层查找中', completed:'查找完成', partial:'部分完成'};
+  const programLabels = {pending:'等待查找', running:'逐层查找中', awaiting_archive:'等待补档后重查', completed:'查找完成', partial:'部分完成'};
   const timeLabels = {earlier:'有更早公开证据', unknown:'先后未明', root:'待查事件'};
   const agentLabels = {
     draft:'待开始', queued:'排队中', preparing:'正在准备环境', starting:'正在提交',
@@ -174,6 +174,8 @@
         row.append(node('span', source.title));
       }
       if (source.published_at) row.append(node('small', ' · 发布 ' + source.published_at, 'muted'));
+      if (source.modified_at) row.append(node('small', ' · 更新 ' + source.modified_at, 'muted'));
+      if (source.cited_quote) row.append(node('small', ' · 本项引文来源', 'muted'));
       if (source.quote) row.append(node('blockquote', source.quote));
       if (row.childNodes.length) list.append(row);
     }
@@ -202,6 +204,9 @@
       const facts = countFacts([['召回记录', local.recall_count], ['候选入池', local.pool_count], ['通过初筛', local.eligible_count],
         ['有更早原文证据', local.dated_evidence_count], ['比对历史事件向量', local.vector_scanned_count],
         ['仅由向量找到', local.vector_only_count], ['参与向量排序', local.vector_ranked_count]]);
+      if (Number.isInteger(local.vector_scan_ms) && local.vector_scan_ms >= 0) {
+        facts.push('向量检索 ' + (local.vector_scan_ms / 1000).toFixed(2) + ' 秒');
+      }
       if (facts.length) list.append(node('li', ['本地检索', ...facts].join(' · ')));
       if (local.embedding_state === 'unconfigured' || local.embedding_state === 'disabled') {
         list.append(node('li', local.embedding_state === 'disabled' ? '向量检索已关闭，使用关键词检索' : '向量检索未配置，使用关键词检索'));
@@ -210,20 +215,39 @@
     if (history && history.status !== 'skipped') {
       const window = [history.date_from, history.date_to].filter(Boolean).join(' 至 ');
       const facts = countFacts([['线索', history.lead_count], ['已尝试核查', history.attempted_count],
-        ['已读取页面', history.fetched_count],
+        ['已读取页面', history.fetched_count], ['上轮原文参与复核', history.previous_candidate_count || undefined],
         ['已核实日期和出处', history.verified_count], ['纳入候选', history.eligible_count],
         ['参与向量排序', history.ranked_count]]);
       const coverage = Object.entries(history.coverage || {}).flatMap(([kind, value]) => {
         const status = archiveCoverageLabels[archiveCoverageState(value)];
         return historyKinds[kind] && status ? [historyKinds[kind] + ' ' + status] : [];
       });
-      const notes = [window && window + '（UTC）', history.window_limited && '仅查此时间窗',
+      const notes = [window && window + '（UTC）', history.window_limited && !history.windows && '仅查此时间窗',
         history.coverage_incomplete && !coverage.length && '归档覆盖不完整',
         history.verification_limited && '还有线索未核查', historyErrorLabels[history.error_code], ...facts].filter(Boolean);
       notes.push(...coverage);
       if (notes.length) list.append(node('li', ['GDELT 补查', ...notes].join(' · ')));
+      for (const step of history.windows || []) {
+        const status = step.status === 'leads' ? '命中 ' + step.lead_count + ' 条线索' :
+          historyLabels[step.status] || '';
+        list.append(node('li', [step.date_from + ' 至 ' + step.date_to + '（UTC）', status].filter(Boolean).join(' · ')));
+      }
+      if (history.scan?.can_continue) {
+        list.append(node('li', '可继续扫描更早的未查窗口。'));
+      }
+      for (const source of history.retrospective_sources || []) {
+        const url = originalUrl(source.url);
+        if (!url) continue;
+        const entry = node('li');
+        entry.append(node('span', source.reason === 'updated_after_cutoff' ? '事后更新 · ' : '版本日期待核 · '),
+          link(url, source.title || '查看原文'));
+        if (source.modified_at) entry.append(node('small', ' · 更新 ' + source.modified_at, 'muted'));
+        list.append(entry);
+      }
     }
-    const ranking = countFacts([['交给模型判断', report?.ranked_count], ['保留为分支', report?.selected_count]]);
+    const ranking = countFacts([['待送审候选', report?.prepared_count],
+      [Number.isInteger(report?.prepared_count) ? '模型已完成判断' : '交给模型判断', report?.ranked_count],
+      ['保留为分支', report?.selected_count]]);
     if (ranking.length) list.append(node('li', ranking.join(' · ')));
     if (!list.childNodes.length && !item.queries?.length) return node('p', label, 'causal-node-meta');
     const details = disclosure(label, 'query:' + item.key, open);
@@ -256,26 +280,30 @@
     if (pendingArchive(item)) return;
     const history = item.retrieval?.history;
     const stage = status?.state;
-    const fallback = ['failed', 'partial'].includes(stage) ? status : history;
-    if (!fallback?.date_from || !fallback.date_to) return;
+    const windows = history?.windows?.length ? history.windows : (history ? [history] : []);
     const covered = ['covered', 'ready', 'unavailable', 'not_expected'];
-    const mainReady = history?.coverage && ['events', 'gkg'].every(kind =>
-      covered.includes(archiveCoverageState(history.coverage[kind])));
-    const needsMentions = mainReady && ['gap', 'partial', 'unknown'].includes(
-      archiveCoverageState(history.coverage.mentions)
-    ) && ['no_results', 'unverified', 'verified', 'archive_gap'].includes(history.status);
-    const needsArchive = (history?.status === 'archive_gap' || history?.coverage_incomplete) && !mainReady;
-    if (!needsArchive && !needsMentions && !['failed', 'partial'].includes(stage)) return;
-    const mentions = fallback === status ? Boolean(status.mentions) : Boolean(needsMentions);
-    const label = stage === 'failed' ? '重试补档' : mentions ? '补更多报道' : '补这个时间窗';
-    const button = node('button', label, 'ghost');
-    button.type = 'button';
-    button.dataset.archiveNode = item.key;
-    button.dataset.dateFrom = fallback.date_from;
-    button.dataset.dateTo = fallback.date_to;
-    button.dataset.mentions = String(mentions);
-    button.setAttribute('aria-label', label + '：' + item.text.slice(0, 100));
-    actions.append(button);
+    for (const window of windows) {
+      if (!window.date_from || !window.date_to || window.status === 'error') continue;
+      const mainReady = window.coverage && ['events', 'gkg'].every(kind =>
+        covered.includes(archiveCoverageState(window.coverage[kind])));
+      const needsMentions = mainReady && ['gap', 'partial', 'unknown'].includes(
+        archiveCoverageState(window.coverage.mentions));
+      const needsArchive = (window.status === 'archive_gap' || window.coverage_incomplete) && !mainReady;
+      const retry = status && ['failed', 'partial'].includes(stage) &&
+        window.date_from <= status.date_from && status.date_to <= window.date_to;
+      if (!needsArchive && !needsMentions && !retry) continue;
+      const target = retry ? status : window;
+      const mentions = retry ? status.mentions : needsMentions;
+      const label = retry && stage === 'failed' ? '重试补档' : mentions ? '补更多报道' : '补这个时间窗';
+      const button = node('button', windows.length > 1 ? label + '（' + target.date_from + '）' : label, 'ghost');
+      button.type = 'button';
+      button.dataset.archiveNode = item.key;
+      button.dataset.dateFrom = target.date_from;
+      button.dataset.dateTo = target.date_to;
+      button.dataset.mentions = String(Boolean(mentions));
+      button.setAttribute('aria-label', label + '：' + target.date_from + ' 至 ' + target.date_to + ' · ' + item.text.slice(0, 100));
+      actions.append(button);
+    }
   }
 
   function renderTree({nodes:items, key:caseKey, agent, program, working}) {
@@ -316,19 +344,27 @@
         const actions = node('div', undefined, 'row causal-node-actions');
         if (item.event_key) actions.append(link(withBack('/events/' + encodeURIComponent(item.event_key), caseKey), '查看整理事件'));
         if (stateLabels[item.job_state]) actions.append(node('span', stateLabels[item.job_state]));
-        const programRetry = !working && item.expandable && !branches.length &&
-          (item.time_status === 'root' || ['ready', 'failed'].includes(item.job_state));
+        const programRetry = !working && item.expandable;
+        if (item.previous_revision) {
+          actions.append(link('/radar/causes/' + encodeURIComponent(caseKey) + '/revisions/' + item.previous_revision,
+            '查看上轮记录'));
+        }
         if (program && !agent) addArchiveAction(actions, item);
         if (!agent && !pendingArchive(item) && (!program || programRetry) && !['pending', 'running'].includes(item.job_state)) {
-          const label = {failed:'重试查找', ready:'重新查找'}[item.job_state] || (program ? '重新查找' : '沿此线索查找');
-          const button = node('button', label, 'ghost');
-          button.type = 'button';
-          button.dataset.expand = item.key;
-          button.setAttribute('aria-label', label + '：' + item.text.slice(0, 100));
-          actions.append(button);
+          const label = {failed:'重试查找', ready:'重新查找'}[item.job_state] || '沿此线索查找';
+          const labels = item.retrieval?.history?.scan?.can_continue ? ['继续查更早归档', label] : [label];
+          for (const action of labels) {
+            const button = node('button', action, 'ghost');
+            button.type = 'button';
+            button.dataset.expand = item.key;
+            if (action !== label) button.dataset.continueHistory = 'true';
+            button.setAttribute('aria-label', action + '：' + item.text.slice(0, 100));
+            actions.append(button);
+          }
         }
         if (actions.childNodes.length) card.append(actions);
         if (item.archive_request?.error) card.append(node('p', item.archive_request.error, 'small causal-node-error'));
+        if (item.retrieval?.previous_results_visible) card.append(node('p', '本轮查找失败，保留上轮候选。', 'small muted'));
         if (item.job_error) card.append(node('p', item.job_error, 'small causal-node-error'));
 
         if (item.stop_reason && !['pending', 'running'].includes(item.job_state)) {
@@ -560,11 +596,12 @@
     openPanel();
   });
   if (focusKey && panel) document.addEventListener('n2d:causal-root', event => {
-    const {eventKey, title} = event.detail || {};
-    if (typeof eventKey !== 'string' || !eventKey || typeof title !== 'string') return;
+    const {eventKey = '', title, eventDate = ''} = event.detail || {};
+    if (typeof eventKey !== 'string' || typeof title !== 'string') return;
+    if (!eventKey && !/^\d{4}-\d{2}-\d{2}$/.test(eventDate)) return;
     setRoot(eventKey);
     el('causal-text').value = title.slice(0, 2000);
-    el('causal-at').value = '';
+    el('causal-at').value = eventDate;
     openPanel();
   });
   tree.addEventListener('click', event => {
@@ -576,7 +613,7 @@
     const button = event.target.closest('button[data-expand]');
     if (button && current) {
       changeCase(apiRoot + '/' + encodeURIComponent(current.key) + '/expand',
-        {node_key:button.dataset.expand, automatic:false}, false);
+        {node_key:button.dataset.expand, automatic:false, continue_history:button.dataset.continueHistory === 'true'}, false);
     }
   });
 

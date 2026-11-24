@@ -15,11 +15,13 @@ from ..desk.rules import ALIASES
 from ..research.sources import safe_fetch
 from ..selection.source_content import source_url
 from ..selection.source_fetch import _decode, _description, _headline, _PreviewReader
-from .chronology import interval
+from .chronology import excerpt_time, interval
+from .history_windows import date_hints, merge_visited, next_window, read_visited
 
 DAYS_ENV = 'NEWS2DOUYIN_CAUSAL_HISTORY_LOOKBACK_DAYS'
 ARCHIVE_START = date(1979, 1, 1)
 DEFAULT_LOOKBACK = 90
+WINDOWS_PER_STEP = 3
 MAX_LEADS = 48
 MAX_FETCHES = 12
 FETCH_SECONDS = 6
@@ -30,6 +32,7 @@ _GENERIC = frozenset(('possible', 'potential', 'cause', 'before', 'after', 'even
                       'mechanism', 'possible cause', 'report', 'history', 'timeline'))
 _PUBLISHER_MARKERS = ('article:published_time', 'datepublished', 'parsely-pub-date',
                       'sailthru.date', 'citation_publication_date')
+_MODIFICATION_MARKERS = ('article:modified_time', 'og:updated_time', 'datemodified', 'dcterms.modified')
 _ARTICLE_TYPES = frozenset(('Article', 'NewsArticle', 'ReportageNewsArticle',
                            'AnalysisNewsArticle', 'BackgroundNewsArticle',
                            'OpinionNewsArticle', 'ReviewNewsArticle', 'BlogPosting',
@@ -86,6 +89,7 @@ class _PublisherReader(_PreviewReader):
     def __init__(self):
         super().__init__()
         self.explicit_dates = []
+        self.modification_dates = []
         self.structured = []
         self._script = None
         self._script_chars = 0
@@ -94,11 +98,15 @@ class _PublisherReader(_PreviewReader):
         super().handle_starttag(tag, attrs)
         attrs = dict(attrs)
         marker = (attrs.get('property') or attrs.get('name') or attrs.get('itemprop') or '').lower()
-        if len(self.explicit_dates) < 24:
-            if tag == 'meta' and marker in _PUBLISHER_MARKERS:
-                self.explicit_dates.append(attrs.get('content'))
-            elif tag == 'time' and marker == 'datepublished' and self.article_depth and not self._skipped():
+        if tag == 'meta' and marker in _PUBLISHER_MARKERS and len(self.explicit_dates) < 24:
+            self.explicit_dates.append(attrs.get('content'))
+        if tag == 'meta' and marker in _MODIFICATION_MARKERS and len(self.modification_dates) < 24:
+            self.modification_dates.append(attrs.get('content'))
+        if tag == 'time' and self.article_depth and not self._skipped():
+            if marker == 'datepublished' and len(self.explicit_dates) < 24:
                 self.explicit_dates.append(attrs.get('datetime'))
+            if marker == 'datemodified' and len(self.modification_dates) < 24:
+                self.modification_dates.append(attrs.get('datetime'))
         if tag == 'script' and (attrs.get('type') or '').lower() == 'application/ld+json' and len(self.structured) < 12:
             self._script, self._script_chars = [], 0
 
@@ -115,8 +123,8 @@ class _PublisherReader(_PreviewReader):
             self._script = None
         super().handle_endtag(tag)
 
-    def date_literals(self, headline):
-        yield from self.explicit_dates
+    def date_literals(self, headline, field='datePublished'):
+        yield from self.explicit_dates if field == 'datePublished' else self.modification_dates
         entries = []
         for payload in self.structured:
             try:
@@ -134,7 +142,7 @@ class _PublisherReader(_PreviewReader):
                 types = types[:10] if isinstance(types, list) else [types]
                 if any(isinstance(kind, str) and kind.rsplit('/', 1)[-1] in _ARTICLE_TYPES for kind in types):
                     entries.append(item)
-        matching = {item['datePublished'] for item in entries if isinstance(item.get('datePublished'), str)
+        matching = {item[field] for item in entries if isinstance(item.get(field), str)
                     and ((_headline(item.get('headline'), self.meta.get('og:site_name', '')).casefold()
                           == headline.casefold() and headline)
                          or (len(entries) == 1 and not item.get('headline')))}
@@ -199,11 +207,18 @@ def _publisher_excerpt(url, keywords, timeout):
     # Select a genuine visible paragraph; metadata descriptions are not used.
     _, quote = max(quotes, key=lambda item: (item[0], sum(term in item[1].casefold() for term in keywords)),
                    default=(False, ''))
-    return dict(url=final, title=title, quote=quote, published_at=published, kind='publisher_history')
+    source = dict(url=final, title=title, quote=quote, published_at=published, kind='publisher_history')
+    modifications = list(reader.date_literals(title, 'dateModified'))
+    if modifications:
+        # A live article can contain paragraphs added long after first publication.
+        # Conflicting or malformed revision dates leave that version unverified.
+        source['modified_at'] = (_consistent_publication(modifications)
+                                 if all(_publication(raw) for raw in modifications) else '')
+    return source
 
 
 def search_history(queries, lower, upper, *, event_text='', checkpoint=None,
-                   engine=None, storage_root=None):
+                   engine=None, storage_root=None, previous=None, repair=None):
     """Read published DuckDB groups, retaining only dated publisher excerpts."""
     result = HistoryResult(diagnostics=dict(
         status='unconfigured', provider='gdelt_archive', date_from='', date_to='',
@@ -225,38 +240,74 @@ def search_history(queries, lower, upper, *, event_text='', checkpoint=None,
         report['status'] = 'out_of_range'
         return result
     end = ceiling.date() + timedelta(days=ceiling.time() != time.min)
-    start = max(floor.date(), ARCHIVE_START, end - timedelta(days=min(lookback, end.toordinal() - 1)))
-    if start >= end:
+    earliest = max(floor.date(), ARCHIVE_START)
+    if earliest >= end:
         report['status'] = 'out_of_range'
         return result
-    report.update(date_from=start.isoformat(), date_to=(end - timedelta(days=1)).isoformat(),
-                  window_limited=start > floor.date())
     keywords = _keywords(queries, event_text)
     if not keywords:
         report['status'] = 'no_keywords'
         return result
-    if checkpoint is not None:
-        checkpoint()
-    try:
-        lookup = find_leads(engine, storage_root, start, end, keywords, MAX_LEADS, cutoff=ceiling)
-    except (OSError, RuntimeError):
-        report.update(status='error', error_code='archive_query_failed')
+    scope = [lower, upper, keywords]
+    prior = (previous or {}).get('scan', {})
+    if prior.get('scope') != scope:
+        prior = {}
+    visited = read_visited(prior, earliest, end) if prior.get('can_continue') or repair else []
+    ranges = [*date_hints(queries, earliest, end), (earliest, end)]
+    # A completed archive job has to re-read the *repaired* range even if a
+    # wider enclosing window has already been visited in this investigation.
+    forced = None
+    repair_serial = prior.get('repair_serial')
+    if repair and repair['serial'] != repair_serial:
+        lo, hi = max(earliest, repair['from']), min(end, repair['to'] + timedelta(days=1))
+        if lo < hi:
+            forced = (lo, hi)
+    windows = []
+    rows = []
+    chosen = None
+    for attempt in range(WINDOWS_PER_STEP):
+        window = forced if attempt == 0 and forced else next_window(ranges, visited, lookback)
+        if window is None:
+            break
+        start, stop = window
+        if checkpoint is not None:
+            checkpoint()
+        try:
+            cutoff = min(ceiling, datetime.combine(stop, time.min, timezone.utc))
+            lookup = find_leads(engine, storage_root, start, stop, keywords, MAX_LEADS, cutoff=cutoff)
+        except Exception as exc:
+            import duckdb
+            if not isinstance(exc, (OSError, RuntimeError, duckdb.Error)):
+                raise
+            windows.append(dict(date_from=start.isoformat(), date_to=(stop-timedelta(days=1)).isoformat(), status='error'))
+            report.update(status='error', error_code='archive_query_failed')
+            break
+        if checkpoint is not None:
+            checkpoint()
+        rows = lookup.rows
+        incomplete = any(value['state'] in ('gap', 'partial') for kind, value in lookup.coverage.items()
+                         if kind in ('events', 'gkg'))
+        checked = dict(date_from=start.isoformat(), date_to=(stop-timedelta(days=1)).isoformat(),
+                       coverage=lookup.coverage, coverage_incomplete=incomplete, lead_count=len(rows),
+                       status='leads' if rows else 'archive_gap' if incomplete else 'no_results')
+        windows.append(checked)
+        visited = merge_visited([*visited, window])
+        if attempt == 0 and forced:
+            repair_serial = repair['serial']
+        # The summary date range/coverage is one real, actionable window.
+        if chosen is None or (incomplete and not chosen['coverage_incomplete']):
+            chosen = checked
+        if rows:
+            chosen = checked
+            break
+    more = next_window(ranges, visited, lookback) is not None
+    report.update(windows=windows, window_limited=more, scan=dict(scope=scope, can_continue=more,
+                  visited=[[lo.isoformat(), hi.isoformat()] for lo, hi in visited], repair_serial=repair_serial))
+    if chosen is not None:
+        for field in ('date_from', 'date_to', 'coverage', 'coverage_incomplete'):
+            report[field] = chosen[field]
+    if report['status'] == 'error':
         return result
-    except Exception as exc:
-        # Preserve a short operator-facing code without exposing local paths.
-        import duckdb
-        if not isinstance(exc, duckdb.Error):
-            raise
-        report.update(status='error', error_code='archive_query_failed')
-        return result
-    rows = lookup.rows
-    report['coverage'] = lookup.coverage
-    report['coverage_incomplete'] = any(
-        coverage['state'] in ('gap', 'partial') for kind, coverage in lookup.coverage.items()
-        if kind in ('events', 'gkg')
-    )
-    if checkpoint is not None:
-        checkpoint()
     leads = {}
     for row in rows:
         url = source_url(row.get('url'))
@@ -291,6 +342,13 @@ def search_history(queries, lower, upper, *, event_text='', checkpoint=None,
         if not evidence['title'] or not evidence['quote']:
             report['missing_excerpt_count'] += 1
             continue
+        if 'modified_at' in evidence:
+            version_stamp = interval(excerpt_time(evidence))
+            if not version_stamp or version_stamp[0] >= ceiling or version_stamp[1] > ceiling:
+                report.setdefault('retrospective_sources', []).append({
+                    **evidence, 'kind': 'publisher_retrospective',
+                    'reason': 'updated_after_cutoff' if version_stamp else 'unknown_revision_date'})
+                continue
         key = canonicalize_url(evidence['url'])
         if key in seen:
             continue

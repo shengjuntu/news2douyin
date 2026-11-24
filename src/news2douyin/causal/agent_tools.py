@@ -15,7 +15,7 @@ from ..selection.source_content import source_url
 from ..storage.models import utc_now_iso
 from ..storage.utils import dumps, loads
 from . import service as causal
-from .chronology import CHINESE_DATE, LITERAL, eligible, interval, sqlite_utc_bound
+from .chronology import CHINESE_DATE, LITERAL, eligible, excerpt_time, interval, sqlite_utc_bound
 from .models import (CausalAgentLink, CausalAgentNote, CausalAgentQuery, CausalJob, CausalNode,
                      CausalProgramRetrieval, CausalProgramStep)
 from .retrieval import retrieve
@@ -191,13 +191,21 @@ def _get(engine, args):
         completed_steps = sum(bool(job and job.state in {'ready', 'failed'}) for _, _, _, job, _ in rows)
         for node, note, step, job, report in rows:
             sources = loads(node.sources_json, [])
-            evidence = _program_evidence(research_case, sources, source_index) if analysis else _claim_evidence(sources)[:1]
+            if analysis:
+                citation = causal.program_citation(sources, node.reason)
+                evidence = _program_evidence(research_case, [citation] if citation else [], source_index)
+            else:
+                evidence = _claim_evidence(sources)[:1]
             value = dict(key=node.key, parent_key=node.parent_key, ref=node.ref, text=node.text[:800],
                               occurred_at=node.occurred_at, published_at=node.published_at, depth=node.depth,
                               time_status=node.time_status, relation=note.relation if note else '',
                               expandable=False if analysis else _expandable(node, note), evidence=evidence,
                               stop_reason=(step.stop_reason if step else '') or (note.stop_reason if note else ''))
             if analysis:
+                if node.parent_key and value['time_status'] == 'earlier' and not causal._program_child(node):
+                    value['time_status'] = 'unknown'
+                    if value['relation'] == 'possible_cause':
+                        value['relation'] = 'context'
                 value.update(queries=loads(step.queries_json, []) if step else [],
                     candidate_count=step.candidate_count if step else None,
                     retrieval_mode=step.retrieval_mode if step else '',
@@ -205,6 +213,7 @@ def _get(engine, args):
                     job_state=job.state if job else '', job_error=job.error if job else '',
                     source_refs=[dict(url=source.get('url', ''), title=source.get('title', ''),
                         kind=source.get('kind', ''), published_at=source.get('published_at', ''),
+                        modified_at=source.get('modified_at', ''), cited_quote=source.get('cited_quote', ''),
                         quote=source.get('quote', '')[:1500]) for source in sources if isinstance(source, dict)][:8],
                     notice='已有树中的线索与原摘录；evidence 为空时不能作为已核对的事实证据。')
                 if node.depth and not job and not value['stop_reason']:
@@ -350,7 +359,8 @@ def _retrospective(candidate, relation, anchor, upper, lower, cutoff):
 
 
 def _local_quote(source, *, program=False):
-    quote = max((line.strip() for line in source['quote'].splitlines() if '\x00' not in line),
+    text = (source.get('cited_quote') or source['quote']) if program else source['quote']
+    quote = max((line.strip() for line in text.splitlines() if '\x00' not in line),
                 key=len, default='')
     # add_source uses paragraphs of at most 1500 characters; analysis citations
     # must remain a real continuous slice of the first registered paragraph.
@@ -366,7 +376,7 @@ def _register_local_excerpt(session, research_case, run, ref, source, *, program
     quote = _local_quote(source, program=bool(program_case_key))
     if not quote:
         return source
-    published = source['published_at']
+    published = excerpt_time(source) if program_case_key else source['published_at']
     provenance = dict(content_kind='excerpt', source_kind=source['kind'], run_id=run.run_id,
                       candidate_ref=ref, published_at=published)
     if source.get('search_id'):
@@ -374,6 +384,8 @@ def _register_local_excerpt(session, research_case, run, ref, source, *, program
     if program_case_key:
         provenance['causal_case_key'] = program_case_key
         provenance['registration'] = 'existing_program_tree_excerpt'
+        if source.get('modified_at'):
+            provenance.update(first_published_at=source['published_at'], modified_at=source['modified_at'])
     try:
         row = research.add_source(
             session, research_case, title=source['title'], url=source['url'], text=quote,
@@ -392,13 +404,11 @@ def register_program_sources(session, link, research_case, run):
     invented. Eligible publisher and local excerpts enter the case; headlines
     and event metadata remain non-citable leads.
     """
-    rows = session.exec(select(CausalNode.ref, CausalNode.sources_json).where(
+    rows = session.exec(select(CausalNode.ref, CausalNode.reason, CausalNode.sources_json).where(
         CausalNode.case_key == link.case_key).order_by(CausalNode.depth, CausalNode.key).limit(causal.MAX_TREE_NODES))
-    for ref, sources_json in rows:
-        for source in loads(sources_json, [])[:8]:
-            if not isinstance(source, dict) or any(not isinstance(source.get(field), str)
-                for field in ('kind', 'url', 'quote', 'title', 'published_at')):
-                continue
+    for ref, reason, sources_json in rows:
+        source = causal.program_citation(loads(sources_json, []), reason)
+        if source and all(isinstance(source.get(field), str) for field in ('kind', 'url', 'quote', 'title', 'published_at')):
             _register_local_excerpt(session, research_case, run, ref, source, program_case_key=link.case_key)
 
 
@@ -413,9 +423,17 @@ def _program_evidence(research_case, sources, source_index):
         registered = source_index.get(source_id)
         if registered is None and source.get('kind') in _PROGRAM_EXCERPT_KINDS and isinstance(source.get('quote'), str):
             quote = _local_quote(source, program=True)
-            content_hash = hashlib.sha256(quote.encode()).hexdigest()
-            source_id = 'src_' + research.digest([research_case.case_id, source.get('url', ''), 'causal_excerpt', content_hash])[:24]
-            registered, paragraph_id = source_index.get(source_id), 'P1'
+            # Runs submitted before 0.56 registered the wider excerpt. An
+            # existing source remains citable if it contains this exact quote.
+            legacy_quote = _local_quote(source)[:1500]
+            for content in dict.fromkeys((quote, legacy_quote)):
+                content_hash = hashlib.sha256(content.encode()).hexdigest()
+                source_id = 'src_' + research.digest(
+                    [research_case.case_id, source.get('url', ''), 'causal_excerpt', content_hash])[:24]
+                registered = source_index.get(source_id)
+                if registered is not None:
+                    paragraph_id = 'P1'
+                    break
         if registered is None or registered.kind in {'search_snippet', 'event_metadata'} or not quote:
             continue
         paragraph = next((row.get('text', '') for row in loads(registered.paragraphs_json, [])

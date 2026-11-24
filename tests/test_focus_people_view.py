@@ -210,3 +210,58 @@ def test_bad_window_or_person_is_rejected_without_projecting(people_db):
         for changes in ({'days': 31}, {'days': True}, {'until': '2026-02-30'}, {'person': 'x'*161}):
             with pytest.raises(ValueError):
                 people_view.page(session, 'watched', **changes)
+
+
+def test_window_finds_older_linked_extraction_behind_recent_unextracted_events(people_db):
+    from news2douyin.desk.people_graph import people_graph
+
+    with Session(people_db) as session:
+        focus(session)
+        add(session, 'grounded', seen='2026-11-01T01:00:00Z')
+        for index in range(120):
+            key = f'without-{index}'
+            session.add(RadarEntry(key=key, title=key, seen='2026-11-20T00:00:00Z',
+                priority=1, band='', reason='', evidence='', headings='', material='', sources='[]', geography='[]'))
+            session.add(WatchEvent(watch='watched', event=key, choice='include'))
+        session.commit()
+        for days in (30, 365):
+            graph = people_graph(session, 'watched', days=days, until=UNTIL)
+            assert graph['state'] == 'ready' and graph['window']['events_truncated']
+            assert {n['title'] for n in graph['nodes']} == {'Alice', 'Acme'}
+
+
+def test_timeline_latest_action_matches_graph_for_mixed_utc_offsets(people_db):
+    from news2douyin.desk.people_graph import people_graph
+
+    with Session(people_db) as session:
+        focus(session)
+        add(session, 'first', action_date='', published='2026-11-20T09:00:00+08:00')
+        add(session, 'last', action_date='', published='2026-11-20T05:00:00Z')
+        session.commit()
+        graph = people_graph(session, 'watched', until=UNTIL)
+        selected = people_view.page(session, 'watched', until=UNTIL)['selected']
+    person = next(n for n in graph['nodes'] if n['title'] == selected['name'])
+    assert selected['latest_at'] == selected['activities'][0]['time'] == person['activities'][0]['time']
+    assert selected['activities'][0]['event_key'] == selected['organizations'][0]['event_key'] == 'last'
+
+
+def test_postgres_evidence_reads_keep_exception_handlers_out_of_parallel_workers(postgres_url):
+    # Both parse helpers catch invalid legacy values using a PL/pgSQL
+    # subtransaction; PostgreSQL forbids entering it in a parallel operation.
+    from sqlalchemy import text
+    db = make_engine(postgres_url)
+    try:
+        init_db(db)
+        with db.connect() as connection:
+            flags = connection.execute(text("""
+                SELECT oid::regproc::text, proparallel FROM pg_proc
+                WHERE oid IN ('n2d_timestamp_or_null(text)'::regprocedure,
+                              'n2d_jsonb_or_null(text)'::regprocedure)
+            """)).all()
+            assert len(flags) == 2
+            assert all(flag == 'u' for _, flag in flags)
+            assert connection.execute(text("""
+                SELECT n2d_timestamp_or_null('not a date'), n2d_jsonb_or_null('malformed')
+            """)).one() == (None, None)
+    finally:
+        db.dispose()

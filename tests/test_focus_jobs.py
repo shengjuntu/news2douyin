@@ -303,3 +303,33 @@ def test_history_origin_does_not_broaden_recall_or_replace_direct_origin(engine,
         assert same.key==candidate_id and not json.loads(same.recall_json).get('historical')
         c.title=c.headings=c.material='An unrelated local festival';c.sources='[]';s.add(c);s.commit()
         assert jobs.queue_event(s,w,c,recall_extra={'historical':True}) is None
+
+
+def test_restored_event_fingerprint_reactivates_its_prior_automatic_candidate(engine, monkeypatch):
+    key = watch(engine, monkeypatch)
+    event = card(engine)
+    first = candidate(engine, key, event)
+    monkeypatch.setattr(intent, 'judge', lambda *args: dict(
+        decision='core', method='model', reason='材料支持', evidence=[], questions=[]))
+    assert jobs._judge_step(engine)
+    with Session(engine) as s:
+        w = s.get(Watch, key)
+        current = s.get(RadarEntry, event)
+        title = current.title
+        assert s.get(WatchEvent, (key, event)).choice == 'auto'
+        current.title = 'Trump revises the military aid policy'
+        s.add(current)
+        newer = jobs.queue_event(s, w, current).key
+        s.commit()
+        assert s.get(WatchEvent, (key, event)) is None
+        current.title = title
+        s.add(current)
+        returned = jobs.queue_event(s, w, current)
+        assert returned.key == first and returned.status == 'pending'
+        assert returned.attempts == 0 and returned.decision == ''
+        s.commit()
+        assert s.get(FocusCandidate, newer).status == 'superseded'
+    assert jobs._judge_step(engine)
+    with Session(engine) as s:
+        assert s.get(FocusCandidate, first).decision == 'core'
+        assert s.get(WatchEvent, (key, event)).choice == 'auto'
