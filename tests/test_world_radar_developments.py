@@ -131,3 +131,20 @@ def test_current_source_version_is_pinned_and_merged_event_is_excluded(radar_db)
     assert cards[0]['source_title'] == '矿山暂停生产'
     assert cards[0]['source_path'] == '/articles/latest?revision=1'
     assert cards[0]['country'] == ''
+
+
+def test_story_timeline_keeps_actions_and_counts_shared_source_once():
+    from news2douyin.world_radar.stories import group_stories
+
+    def action(key, title, date, event=''):
+        return dict(key=key, title=title, occurred_on=date, observed_at=date, event_key=event,
+                    sources=[dict(url='https://wire.test/ports')])
+
+    rows = [action('a', '关闭港口', '2026-11-23', 'port'),
+            action('b', '恢复通行', '2026-11-25', 'port'),
+            action('c', '另一个港口恢复通行', '2026-11-25'),
+            action('d', 'Proposal on Regulation (EU) 2024/1234', '2026-11-23'),
+            action('e', 'Regulation (EU) 2024/1234 takes effect', '2026-11-25')]
+    stories = group_stories(rows)
+    assert [s['keys'] for s in stories] == [['b', 'a'], ['c'], ['e', 'd']]
+    assert stories[0]['count'] == 2 and stories[0]['reports'] == 1

@@ -6,7 +6,7 @@
   const tabs = Array.from(document.querySelectorAll('[data-world-view]'));
   const panel = select('world-list');
   const status = select('world-status');
-  const headings = { events: '事件进展', signals: '报道升温', market: '商品研究线索' };
+  const headings = { events: '有新进展的议题', signals: '报道升温', market: '商品研究线索' };
   const riskStates = {
     unchecked: '未核对归档', pending: '待分析', missing: '缺归档', partial: '覆盖不足',
     live: '盘中累计', complete: '已结算', disabled: '汇总未启用', error: '暂不可读取',
@@ -25,6 +25,13 @@
   };
   const clock = new Intl.DateTimeFormat('zh-CN', {
     timeZone: 'Asia/Shanghai', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  });
+  const mapToggle = select('world-toggle-map');
+  mapToggle.addEventListener('click', () => {
+    const map = select('world-map');
+    map.hidden = !map.hidden;
+    mapToggle.setAttribute('aria-expanded', String(!map.hidden));
+    mapToggle.textContent = map.hidden ? '展开地图' : '收起地图';
   });
   const pins = new Map();
   let snapshot = null;
@@ -154,6 +161,39 @@
     return item;
   }
 
+  function storyCard(story, byKey) {
+    const box = element('details', '', 'world-event');
+    const summary = element('summary');
+    summary.append(element('strong', story.title), element('p',
+      story.count + ' 项进展 · ' + story.reports + ' 篇可查报道', 'world-event-meta'));
+    box.append(summary);
+    for (const key of story.keys) {
+      const row = byKey.get(key);
+      if (!row) continue;
+      const entry = element('section', '', 'world-progress');
+      entry.dataset.worldEvent = key;
+      entry.tabIndex = -1;
+      entry.append(element('p', [timeLabel(row), positionLabel(row), row.category_label,
+        row.stage, row.status === 'coded' ? 'GDELT 自动编码' : ''].filter(Boolean).join(' · '), 'world-event-meta'));
+      entry.append(link(row.title, row.event_path) || element('strong', row.title));
+      const sources = element('details');
+      sources.append(element('summary', '查看报道与证据'));
+      for (const source of row.sources) {
+        const line = element('p');
+        line.append(link(source.title || '原文', source.url, true) || element('span', source.title));
+        const saved = source.path !== source.url && link(' 收录版本', source.path);
+        if (saved) line.append(saved);
+        sources.append(line);
+        if (source.excerpt) sources.append(element('blockquote', source.excerpt));
+      }
+      entry.append(sources);
+      const research = link('研究市场影响', row.research_path);
+      if (research) entry.append(research);
+      box.append(entry);
+    }
+    return box;
+  }
+
   function hotspotCard(row) {
     const item = element('div', '', 'world-hotspot');
     const title = link(row.title, row.focus_url);
@@ -226,10 +266,12 @@
   }
 
   function selectCard(dataName, id) {
-    for (const item of panel.children) {
+    for (const item of panel.querySelectorAll('[data-world-event], [data-world-scope], :scope > *')) {
       const match = item.dataset[dataName] === id;
       item.classList.toggle('is-selected', match);
       if (match) {
+        const parent = item.closest('details');
+        if (parent) parent.open = true;
         item.scrollIntoView({ block: 'nearest' });
         item.focus({ preventScroll: true });
       }
@@ -353,7 +395,11 @@
     }
     if (snapshot && !loadError) {
       if (snapshot.time_basis === 'current_records' && day.value < bootstrap.today) status.textContent += ' · 按日期回看现存资料';
-      for (const row of rows) panel.append(mode === 'signals' ? signalCard(row) : card(row, mode === 'market'));
+      if (mode === 'events' && snapshot.events.stories) {
+        const byKey = new Map(rows.map(row => [row.key, row]));
+        status.textContent = snapshot.events.stories.length + ' 个议题 · ' + status.textContent;
+        for (const story of snapshot.events.stories) panel.append(storyCard(story, byKey));
+      } else for (const row of rows) panel.append(mode === 'signals' ? signalCard(row) : card(row, mode === 'market'));
       if (!rows.length) panel.append(element('p', '当前筛选范围暂无可显示记录。', 'world-empty'));
     }
     const hotspots = (snapshot?.hotspots?.items || []).slice(0, 8);

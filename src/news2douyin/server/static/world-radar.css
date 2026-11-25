@@ -83,3 +83,5 @@
   .world-filters label { flex: 1 1 120px; }
   .world-filters select, .world-filters input { width: 100%; }
 }
+.world-progress {margin: .75rem 0 .75rem .4rem; padding-left: 1rem; border-left: 2px solid currentColor} .world-progress details {margin: .5rem 0} .world-event > summary {cursor:pointer}
+#world-toggle-map {display:none} @media(max-width:760px){#world-toggle-map {display:inline-block;margin-bottom:.5rem}} #world-map[hidden], #world-map[hidden] + .world-legend {display:none} @media(min-width:761px){#world-map[hidden]{display:block} #world-map[hidden] + .world-legend{display:flex}}

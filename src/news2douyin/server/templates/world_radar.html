@@ -2,7 +2,7 @@
 {% block title %}世界态势 · news2douyin{% endblock %}
 {% block graph_libraries %}<script src="/research-assets/vendor/d3.min.js" defer></script>{% endblock %}
 {% block content %}
-<link rel="stylesheet" href="/research-assets/world-radar.css?v=0.59.0">
+<link rel="stylesheet" href="/research-assets/world-radar.css?v=0.60.0">
 {% with radar_tab='world' %}{% include 'radar_view_tabs.html' %}{% endwith %}
 <div class="world-radar" id="world-radar">
   <div class="world-header">
@@ -24,6 +24,7 @@
   </form>
   <div class="world-overview">
     <div class="world-map-panel">
+      <button type="button" id="world-toggle-map" aria-controls="world-map" aria-expanded="true">收起地图</button>
       <div id="world-map" class="world-map">
         <svg role="group" viewBox="0 0 604 260" aria-label="世界态势地图">
           <defs><pattern id="world-uncertain" patternUnits="userSpaceOnUse" width="4" height="4" patternTransform="rotate(45)">
@@ -51,5 +52,5 @@
   <noscript><p>请启用 JavaScript 查看地图。也可直接打开<a href="/radar?source=local">已整理事件</a>或<a href="/radar/georisk">地缘报道详情</a>。</p></noscript>
 </div>
 <script type="application/json" id="world-bootstrap">{{ {'today':world_day,'filters':world_filters|default({}),'categories':world_categories|default({}),'countries':world_countries|default({})}|tojson }}</script>
-<script src="/research-assets/world-radar.js?v=0.59.0" defer></script>
+<script src="/research-assets/world-radar.js?v=0.60.0" defer></script>
 {% endblock %}

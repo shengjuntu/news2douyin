@@ -258,7 +258,7 @@ def register_research_routes(app, engine, storage_root):
             version = params.get('protocolVersion')
             result = {'protocolVersion': version if version in supported else '2025-03-26',
                       'capabilities': {'tools': {'listChanged': False}},
-                      'serverInfo': {'name': 'news2douyin-research', 'version': '0.59.0'}}
+                      'serverInfo': {'name': 'news2douyin-research', 'version': '0.60.0'}}
         elif method == 'ping':
             result = {}
         elif method == 'tools/list':

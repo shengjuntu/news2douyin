@@ -13,6 +13,7 @@ from ..georisk.service import dashboard
 from ..storage.db import session_scope
 from ..world_radar.events import CATEGORIES, developments
 from ..world_radar.market import leads
+from ..world_radar.stories import group_stories
 from .georisk import analysis_status
 
 PATH = '/radar/world'
@@ -137,6 +138,7 @@ def register(app, engine, render):
         back = PATH + '?' + urlencode({key: value for key, value in filters.items() if value})
         for result in (events, market):
             _add_links(result, back)
+        events['stories'] = group_stories(events['items'])
         return {**filters, 'start_day': first.isoformat(), 'window_end': end.isoformat(), 'timezone': str(BEIJING),
                 'time_basis': 'current_records',
                 'countries': countries(), 'categories': CATEGORIES,

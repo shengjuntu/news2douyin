@@ -107,7 +107,7 @@ def _card(*, key, title, source, source_kind, observed, occurred='', country='',
         observed_at=observed, occurred_on=occurred, country=country, place=place,
         latitude=point[0] if point else None, longitude=point[1] if point else None,
         precision='location' if point else 'country' if country else 'unknown',
-        source_url=source['url'], source_title=source['title'], source_path=source['path'],
+        sources=[source], source_url=source['url'], source_title=source['title'], source_path=source['path'],
         source_kind=source_kind, event_path=path, event_key=event_key, candidate_key=candidate_key,
         moment_key=moment_key, status=status, geography_basis=geography_basis,
     )
@@ -149,7 +149,7 @@ def _single_country(places, refs=None):
 
 def _reviewed_source(evidence):
     if not isinstance(evidence, list):
-        return None, set()
+        return [], set()
     sources, refs = [], set()
     for item in evidence:
         if not isinstance(item, dict) or not item.get('excerpt'):
@@ -161,7 +161,7 @@ def _reviewed_source(evidence):
         if source:
             sources.append(source)
             refs.add((key, revision))
-    return (sources[0] if sources else None), refs
+    return sources, refs
 
 
 def _saved_report_queries(before):
@@ -211,17 +211,18 @@ def _local_cards(session, start, end, country):
     cards, with_moments = [], set()
     for moment, observed_at in agenda[:MOMENT_LIMIT]:
         evidence = loads(moment.sources_json, [])
-        source, refs = _reviewed_source(evidence)
+        sources, refs = _reviewed_source(evidence)
         day = reviewed_day([dict(reviewed=True, time_kind='occurred', certainty='exact',
                    date_start=moment.date_start, date_end=moment.date_end, sources=evidence)])
-        if not source or not day or not usable_title(moment.title):
+        if not sources or not day or not usable_title(moment.title):
             continue
         iso = _single_country(places[moment.event_key], refs)
         if country and iso != country:
             continue
-        cards.append(_card(key=moment.moment_key, title=moment.title, source=source, source_kind='local',
+        cards.append(_card(key=moment.moment_key, title=moment.title, source=sources[0], source_kind='local',
                    observed=observed_at, occurred=day, country=iso, event_key=moment.event_key,
                    moment_key=moment.moment_key, status='reviewed', geography_basis='reviewed_action' if iso else ''))
+        cards[-1]['sources'] = sources
         with_moments.add(moment.event_key)
 
     selected = {key: (observed, title) for key, observed, title in rows[:LOCAL_LIMIT]
@@ -229,15 +230,17 @@ def _local_cards(session, start, end, country):
     reports = {}
     for key, article, revision, url, title, excerpt in _bounded_children(
             session, list(selected), _saved_report_queries(high), name='world_radar.event_reports'):
-        if key not in reports and usable_title(title) and (source := _source(url, title, excerpt, article, revision)):
-            reports[key] = source
-    for key, source in reports.items():
+        if usable_title(title) and (source := _source(url, title, excerpt, article, revision)):
+            reports.setdefault(key, []).append(source)
+    for key, sources in reports.items():
+        source = sources[0]
         observed, title = selected[key]
         iso = _single_country(places[key])
         if not country or country == iso:
             cards.append(_card(key='local:' + key, title=title if usable_title(title) else source['title'],
                          source=source, source_kind='local', observed=observed, country=iso, event_key=key,
                          status='curated', geography_basis='reviewed_action' if iso else ''))
+            cards[-1]['sources'] = sources
     return cards, len(agenda) > MOMENT_LIMIT or len(rows) > LOCAL_LIMIT
 
 
@@ -265,7 +268,7 @@ def _official_cards(session, start, end, country):
     selected = candidates(events, mention_sources(session, [row.event_id for row in events]), _address)
     urls = list(dict.fromkeys(lead['url'] for leads in selected.values() for lead in leads))
     previews = resolve_previews(session, urls)
-    final, seen = [], set()
+    final, indexed = [], {}
     for row in events:
         card = {}
         # The only time label on an official card comes from GDELT's record.
@@ -278,16 +281,35 @@ def _official_cards(session, start, end, country):
         if not source:
             continue
         iso = row.action_country_iso2 if row.action_country_iso2 in countries() else ''
-        signature = (canonicalize_url(source['url']), row.event_date, iso, row.action_place.casefold(),
-                     row.event_base_code or row.event_code, row.actor1_name.casefold(), row.actor2_name.casefold())
-        if signature in seen:
-            continue
-        seen.add(signature)
+        headline = normalize_title(source['title'])
+        actors = (row.actor1_name.casefold(), row.actor2_name.casefold())
+        anchor = headline if all(actors) and iso and row.event_code and len(headline) >= 24 else canonicalize_url(source['url'])
+        signature = (anchor, row.event_date, iso, row.action_place.casefold(), row.event_code or row.event_base_code, actors)
         key = f'gdelt:{row.event_id}'
         final.append(_card(key=key, title=source['title'], source=source, source_kind='gdelt', observed=row.last_seen,
                      occurred=row.event_date, country=iso, place=text(row.action_place, 120) if iso else '',
                      point=_official_point(row, iso), cameo=row.event_root_code, candidate_key=key,
                      status='coded', geography_basis='gdelt_action_geo' if iso else ''))
+        reports = []
+        for preview in card['reports']:
+            if usable_title(preview.get('title')):
+                report = _source(preview.get('source_url'), preview['title'], preview.get('excerpt'),
+                                 preview.get('article_key', ''))
+                if report:
+                    reports.append(report)
+        current = final[-1]
+        current['sources'] = reports or [source]
+        if signature in indexed:
+            previous = indexed[signature]
+            known = {canonicalize_url(report['url']) for report in previous['sources']}
+            for report in current['sources']:
+                address = canonicalize_url(report['url'])
+                if address not in known:
+                    previous['sources'].append(report)
+                    known.add(address)
+            final.pop()
+        else:
+            indexed[signature] = current
     return final, len(rows) > OFFICIAL_LIMIT
 
 
