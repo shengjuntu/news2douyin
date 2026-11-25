@@ -16,6 +16,7 @@ from .feeds import kind_for
 from .official_models import OfficialEvent, OfficialFocusUpdate, OfficialMention
 from ..storage.models import utc_now_iso
 from ..storage.articles import lock_news
+from ..semantic.vector_inputs import remember_official_revision
 
 
 def mention_key(event_id, document):
@@ -36,17 +37,20 @@ def _event(session, raw, meta):
     row=session.get(OfficialEvent,key)
     fields={name:meta.get(name) for name in OfficialEvent.model_fields
             if name in meta and name not in ('feed','stamp','row_index','first_seen','last_seen','ingested_at')}
+    receipt = raw.get('observed_at') or utc_now_iso()
+    if row is not None:
+        remember_official_revision(session, key, row.ingested_at, receipt)
     if row is None:
         latest=session.exec(select(func.max(OfficialMention.last_seen)).where(OfficialMention.event_id==key)).one()
         fields.update(_ref(raw),first_seen=meta['added_at'],last_seen=max(meta['added_at'],latest or ''),
-                      ingested_at=raw.get('observed_at') or utc_now_iso())
+                      ingested_at=receipt)
         session.add(OfficialEvent(**fields))
     elif _reference_order(raw)>(row.stamp,row.feed,row.row_index):
         for field,value in fields.items():setattr(row,field,value)
         row.feed,row.stamp,row.row_index=raw['feed'],raw['stamp'],int(raw['row_index'])
         row.first_seen=min(row.first_seen or meta['added_at'],meta['added_at'])
         row.last_seen=max(row.last_seen,meta['added_at'])
-        row.ingested_at=raw.get('observed_at') or utc_now_iso()
+        row.ingested_at=receipt
         session.add(row)
     return key
 

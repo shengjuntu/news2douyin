@@ -214,7 +214,7 @@ def register(app, engine, render):
                 path = item.get('path', '')
                 item['archive_path'] = path if isinstance(path, str) and path.startswith('/articles/') and '\\' not in path else ''
         back = safe_back(back)
-        if back.partition('?')[0] != PATH:
+        if back.partition('?')[0] not in (PATH, PATH + '/semantic'):
             back = PATH
         return render('world_story.html', active='radar', story=data, page=page, geo=countries(), back=back,
                       prev_url='?' + urlencode({'page': page - 1, 'back': back}),

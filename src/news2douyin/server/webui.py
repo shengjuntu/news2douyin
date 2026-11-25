@@ -340,6 +340,8 @@ def register_webui_routes(app: FastAPI, engine, scheduler, storage_root: str) ->
     register_georisk(app, engine, render)
     from .world_radar import register as register_world_radar
     register_world_radar(app, engine, render)
+    from .semantic_map import register as register_semantic_map
+    register_semantic_map(app, engine, render)
     from .world_relations import register as register_world_relations
     register_world_relations(app, engine, render)
     from .video_candidates import register as register_video_candidates

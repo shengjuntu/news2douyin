@@ -44,7 +44,7 @@ class ProgramStepFailure(model.CausalModelError):
 
 
 def _snapshot(engine, claimed):
-    from .models import CausalProgram
+    from .models import CausalProgram, CausalProgressRoot
 
     with Session(engine) as session:
         plan = session.get(CausalProgram, claimed.case_key)
@@ -58,6 +58,9 @@ def _snapshot(engine, claimed):
             raise ProgramStepFailure('程序调查日期范围无效，未进行检索。')
         target, lower, upper = node.text, floor[0], created[0]
         anchor, excluded, visited = None, set(), set()
+        binding = session.get(CausalProgressRoot, case.key)
+        if binding:
+            excluded.add('action:' + binding.action_id)
         current = node
         while current:
             if current.key in visited or len(visited) > service.MAX_DEPTH:

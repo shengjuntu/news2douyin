@@ -92,3 +92,4 @@
 .world-story h2 small { color: var(--world-meta); font-size: .8rem; font-weight: normal; }
 .world-story article { background: var(--world-panel); }
 .world-story blockquote { overflow-wrap: anywhere; margin-inline-start: 1rem; }
+.world-switch .semantic-map-link {align-self:center; padding:7px 12px; color:#97d9d2}

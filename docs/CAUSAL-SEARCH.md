@@ -71,3 +71,7 @@ Agent 可按父事件生成检索词，在日期窗口内检索本地候选，�
 - `POST /api/causal/investigations/{key}/agent` 将已经结束的程序搜索交给 RunDesk 解读，请求体传 `{}`。旧调查也可使用这一接口继续追查，按需传 `{"date_from":"YYYY-MM-DD"}`。
 - `POST /api/causal/investigations/{key}/expand` 提交 `{"node_key":"..."}`，沿所选节点继续查。提交已查过的节点可重新生成假设、更新线索。传入 `"continue_history": true` 可沿用原假设继续前一轮的历史查询。
 - `POST /api/causal/investigations/{key}/archive` 提交 `{"day":"YYYY-MM-DD"}`，发起现有的日度补采任务，任务状态显示在该调查里。
+
+## 复用具体进展向量
+
+后台已编码的去重行动可参与前因召回。程序用每条前因假设查询同配置的向量，检查时间窗与合格的原文依据；同一行动的多个来源可分别核对。日图重排时不触发归因模型。[向量索引和日图](SEMANTIC-MAP.md)

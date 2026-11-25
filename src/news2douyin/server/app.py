@@ -119,10 +119,16 @@ def create_app(*, db_url: str | None = None, storage_root: str = 'runs_v7') -> F
             app.state.digest_worker.start()
         with startup.phase('workers.world_index'):
             app.state.world_indexer.start()
+        with startup.phase('workers.action_vectors'):
+            app.state.action_vectors.start()
+        with startup.phase('workers.semantic_map'):
+            app.state.semantic_map_worker.start()
         startup.ready()
         try:
             yield
         finally:
+            app.state.semantic_map_worker.stop()
+            app.state.action_vectors.stop()
             app.state.world_indexer.stop()
             app.state.history_archive.stop()
             app.state.digest_worker.stop()
@@ -189,6 +195,10 @@ def create_app(*, db_url: str | None = None, storage_root: str = 'runs_v7') -> F
         app.state.intake_projection=ProjectionWorker(engine,storage_root)
     from ..world_radar.index_worker import WorldIndexWorker
     app.state.world_indexer = WorldIndexWorker(engine)
+    from ..semantic.vectors import ActionVectorWorker
+    from ..semantic.daily import SemanticMapWorker
+    app.state.action_vectors = ActionVectorWorker(engine)
+    app.state.semantic_map_worker = SemanticMapWorker(engine)
     from ..georisk.runtime import GeoriskWorker
     app.state.georisk = GeoriskWorker(engine, storage_root)
     from .research import register_research_routes

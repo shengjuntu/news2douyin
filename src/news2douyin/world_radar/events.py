@@ -18,7 +18,7 @@ from ..events.service import reviewed_day, timestamp
 from ..hotspots.sources import _bounded_children
 from ..intake.official_models import OfficialEvent
 from ..selection.event_content import attach, candidates, mention_sources
-from ..selection.service import _country_words
+from ..selection.service import CAMEO_LABELS, _country_words
 from ..selection.source_content import resolve_previews, source_url, text, usable_title
 from ..storage.models import Article, ArticleEventLink, ArticleVersion, Event, EventMoment, EventState
 from ..storage.queries import all_rows
@@ -308,6 +308,11 @@ def _official_materials(session, events, *, dedup=False):
                 if report:
                     reports.append(report)
         current = final[-1]
+        action = CAMEO_LABELS.get(row.event_root_code, '')
+        current['action_context'] = ' '.join(filter(None, (
+            text(row.actor1_name, 120), action, text(row.actor2_name, 120),
+            text(row.action_place, 120), row.event_code,
+        )))
         current['action_signature'] = sha256(json.dumps(signature, ensure_ascii=False,
                                                         separators=(',', ':')).encode()).hexdigest()
         current['sources'] = reports or [source]

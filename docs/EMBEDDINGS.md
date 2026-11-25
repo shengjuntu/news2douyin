@@ -32,3 +32,7 @@ python -m news2douyin.llm.client.embedding --check
 同页可以输入描述检索相似事件。它按日期和同一套模型配置过滤，最多在最近的 5,000 条合格向量中计算余弦相似度。结果链接到已整理事件。第一次启用时可选近期范围补算，验证可搜后再扩大日期。更换向量模型、地址、维度或同名权重时，按需要重新补算相应日期。权重在模型 ID 不变时可以通过增加 `NEWS2DOUYIN_EVENT_EMBEDDING_MODEL_REVISION` 区分。
 
 向量保存在 PostgreSQL 事务库。部署已经启用 `vector` 扩展时，检索优先使用 pgvector 计算余弦距离。普通 PostgreSQL 和 SQLite 也支持有界的相似度计算。正式 Compose 可选设 `NEWS2DOUYIN_POSTGRES_IMAGE=pgvector/pgvector:pg17-bookworm`。换镜像时保留同主版本和原数据卷，并在目标数据库执行 `CREATE EXTENSION IF NOT EXISTS vector;`。[pgvector 安装说明](https://github.com/pgvector/pgvector#docker)
+
+## 具体进展的共享向量
+
+世界态势按去重的行动编号生成进展向量，独立于上述已整理事件索引。日图与程序溯源共用进展向量。历史补算、覆盖状态和模型版本说明见[每日语义地图](SEMANTIC-MAP.md)。

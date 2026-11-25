@@ -1,7 +1,7 @@
 """Bounded retrieval of local, source-attributed leads for an investigation."""
 from collections import defaultdict
 from contextlib import closing
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
 from itertools import zip_longest
 from math import fsum, hypot, isfinite
@@ -36,7 +36,7 @@ from ..storage.models import Article, ArticleEventLink, Event, EventMoment, Even
 from ..storage.sql import json_text, time_value
 from ..storage.utils import loads
 from .chronology import eligible, excerpt_time, interval
-from . import vector_recall
+from . import action_recall, vector_recall
 
 MAX_QUERIES = 3
 MAX_TERMS = 12
@@ -327,6 +327,7 @@ class TreePool:
     local: dict
     client: EmbeddingClient | None
     query_vectors: list[list[float]]
+    action_vectors: dict = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -451,14 +452,17 @@ def _tree_pool(session, terms, indexed, lower, upper, exclude, *, recall_article
 
 
 def _unique_tree_candidates(items, exclude):
-    urls = {canonicalize_url(item['sources'][0]['url']) for item in items if item['event_key'] and item['sources']}
+    def distinct_action(item):
+        return item['event_key'] or item['ref'].startswith('action:')
+
+    urls = {canonicalize_url(item['sources'][0]['url']) for item in items if distinct_action(item) and item['sources']}
     found, refs, identical = [], set(exclude), set()
     for item in items:
         if item['ref'] in refs or not item['sources']:
             continue
         uri = canonicalize_url(item['sources'][0]['url'])
         fingerprint = (unicodedata.normalize('NFKC', ' '.join(item['text'].split())).casefold(), uri)
-        if fingerprint in identical or (not item['event_key'] and uri in urls):
+        if fingerprint in identical or (not distinct_action(item) and uri in urls):
             continue
         refs.add(item['ref'])
         urls.add(uri)
@@ -532,7 +536,7 @@ def collect_tree_pool(engine, queries: list[str], *, lower: str, upper: str,
     terms = _tree_terms(queries, event_text)
     local = dict(status='unknown', recall_count=0, pool_count=0, eligible_count=0,
                  dated_evidence_count=0, vector_ranked_count=0, keyword_indexed=False)
-    candidates, query_vectors, client = [], [], None
+    candidates, query_vectors, client, action_vectors = [], [], None, {}
     if queries and lower < upper:
         floor, ceiling = _tree_point(lower), _tree_point(upper)
         with Session(engine) as session:
@@ -585,22 +589,30 @@ def collect_tree_pool(engine, queries: list[str], *, lower: str, upper: str,
 
             started = perf_counter()
             hits, scanned = vector_recall.nearest(engine, profile(client), query_vectors[:len(queries)],
-                                                  floor, ceiling, exclude, checkpoint, verify=verify)
+                                                  floor, ceiling, exclude, checkpoint, verify=verify, scores=True)
+            action_hits, actions, action_vectors, action_scanned = action_recall.nearest(
+                engine, profile(client), query_vectors[:len(queries)], terms, floor, ceiling, exclude, checkpoint)
+            local['action_vector_scanned_count'] = action_scanned
             local['vector_scan_ms'] = round((perf_counter() - started) * 1000)
-            selected_keys = {key for group in hits for key in group}
+            selected_keys = {key for group in hits for key, _ in group}
             with Session(engine) as session:
                 by_key.update(materialize(session, selected_keys))
-            hits = [[key for key in group if key in by_key] for group in hits]
+            by_key.update(actions)
+            # Both indices share a model profile and unit-norm cosine scores.
+            hits = [[key for key, _ in sorted((*a, *e), key=lambda hit: (-hit[1], hit[0])) if key in by_key]
+                    for a, e in zip(action_hits, hits)]
             vector_keys = list(dict.fromkeys(key for group in hits for key in group))
             candidates = _unique_tree_candidates([*(by_key[key] for key in vector_keys), *candidates], exclude)
             retained = {item['ref'] for item in candidates}
             lexical = {item['ref'] for item in pool}
             additions = len((set(vector_keys) & retained) - lexical)
-            local.update(vector_scanned_count=scanned, vector_only_count=additions,
+            local['action_vector_hits'] = [[key for key, _ in group if key in retained] for group in action_hits]
+            local.update(vector_scanned_count=scanned + action_scanned, vector_only_count=additions,
                          recall_count=count + additions, pool_count=min(TREE_POOL_LIMIT, len(pool) + additions),
-                         hypothesis_hits=[[key for key in group if key in retained] for group in hits])
+                         hypothesis_hits=[[key for key in group if key in retained][:vector_recall.HITS_PER_HYPOTHESIS]
+                                          for group in hits])
         local.update(eligible_count=len(candidates), dated_evidence_count=sum(map(has_dated_source, candidates)))
-    return TreePool(queries, terms, event_text, lower, upper, set(exclude), candidates, local, client, query_vectors)
+    return TreePool(queries, terms, event_text, lower, upper, set(exclude), candidates, local, client, query_vectors, action_vectors)
 
 
 def _history_candidate(item, floor, ceiling):
@@ -679,7 +691,7 @@ def rank_tree_pool(engine, pool: TreePool, *, historical=(), checkpoint=None) ->
     if not candidates:
         return TreeRanking([], local)
     client, query_vectors = pool.client, pool.query_vectors
-    vectors, computed = {}, set()
+    vectors, computed = dict(pool.action_vectors), set()
     if client is not None:
         dimensions = len(query_vectors[0])
         keys = [item['event_key'] for item in candidates if item['event_key']]
@@ -695,7 +707,7 @@ def rank_tree_pool(engine, pool: TreePool, *, historical=(), checkpoint=None) ->
                     if len(value) == dimensions:vectors[key] = value
                 except EmbeddingError:
                     continue
-        missing = [item for item in candidates if item['event_key'] not in vectors]
+        missing = [item for item in candidates if item['ref'] not in vectors and item['event_key'] not in vectors]
         for start in range(0,len(missing),TREE_EMBED_BATCH):
             part = missing[start:start+TREE_EMBED_BATCH]
             texts = [('\n'.join([item['text'], *(source['quote'] for source in item['sources'])]))[:1800] for item in part]

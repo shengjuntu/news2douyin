@@ -203,7 +203,7 @@
     if (local) {
       const facts = countFacts([['召回记录', local.recall_count], ['候选入池', local.pool_count], ['通过初筛', local.eligible_count],
         ['有更早原文证据', local.dated_evidence_count], ['比对历史事件向量', local.vector_scanned_count],
-        ['仅由向量找到', local.vector_only_count], ['参与向量排序', local.vector_ranked_count]]);
+        ['其中已索引行动向量', local.action_vector_scanned_count], ['仅由向量找到', local.vector_only_count], ['参与向量排序', local.vector_ranked_count]]);
       if (Number.isInteger(local.vector_scan_ms) && local.vector_scan_ms >= 0) {
         facts.push('向量检索 ' + (local.vector_scan_ms / 1000).toFixed(2) + ' 秒');
       }

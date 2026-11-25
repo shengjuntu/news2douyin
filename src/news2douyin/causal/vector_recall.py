@@ -83,7 +83,7 @@ def _merge_neighbors(best, scored, verify, session, checkpoint):
             del known[HITS_PER_HYPOTHESIS:]
 
 
-def nearest(engine, profile, vectors, floor, ceiling, excluded, checkpoint=None, *, verify=None):
+def nearest(engine, profile, vectors, floor, ceiling, excluded, checkpoint=None, *, verify=None, scores=False):
     """Exact cosine neighbors of each unit query among earlier, ready events."""
     best = [[] for _ in vectors]
     scanned = 0
@@ -114,4 +114,6 @@ def nearest(engine, profile, vectors, floor, ceiling, excluded, checkpoint=None,
                     if score > 0:
                         group.append((-score, key))
             _merge_neighbors(best, scored, verify, session, checkpoint)
+    if scores:
+        return [[(key, -negative) for negative, key in group] for group in best], scanned
     return [[key for _, key in group] for group in best], scanned
