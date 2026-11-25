@@ -117,10 +117,13 @@ def create_app(*, db_url: str | None = None, storage_root: str = 'runs_v7') -> F
             app.state.ngram_worker.start()
         with startup.phase('workers.daily_radar'):
             app.state.digest_worker.start()
+        with startup.phase('workers.world_index'):
+            app.state.world_indexer.start()
         startup.ready()
         try:
             yield
         finally:
+            app.state.world_indexer.stop()
             app.state.history_archive.stop()
             app.state.digest_worker.stop()
             app.state.ngram_worker.stop()
@@ -184,6 +187,8 @@ def create_app(*, db_url: str | None = None, storage_root: str = 'runs_v7') -> F
     with startup.phase('application.intake'):
         app.state.intake=IntakeWorker(engine,storage_root)
         app.state.intake_projection=ProjectionWorker(engine,storage_root)
+    from ..world_radar.index_worker import WorldIndexWorker
+    app.state.world_indexer = WorldIndexWorker(engine)
     from ..georisk.runtime import GeoriskWorker
     app.state.georisk = GeoriskWorker(engine, storage_root)
     from .research import register_research_routes

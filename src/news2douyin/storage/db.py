@@ -131,9 +131,11 @@ def load_models() -> None:
     from ..attention import models as attention_models
     from ..digest import models as digest_models
     from ..candidates import models as candidate_models
+    from ..world_radar import checkpoints as world_index_checkpoints
     from ..georisk import models as georisk_models
     from ..event_embeddings import models as event_embedding_models
     from ..causal import models as causal_models
+    from ..world_radar import models as story_models
     from ..history_archive import models as history_archive_models
 
 

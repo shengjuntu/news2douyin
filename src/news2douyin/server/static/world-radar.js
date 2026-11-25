@@ -38,6 +38,7 @@
   let shapes = null;
   let request = null;
   let active = '';
+  let storyPage = 1;
   let loadError = '';
 
   function element(tag, text = '', className = '') {
@@ -92,6 +93,8 @@
     } else {
       signal.value = '';
     }
+    const pageNumber = Number(values.page);
+    storyPage = Number.isSafeInteger(pageNumber) && pageNumber > 0 && pageNumber <= 10000000 ? pageNumber : 1;
     layer.value = Object.hasOwn(headings, values.layer) ? values.layer : 'events';
   }
 
@@ -163,9 +166,10 @@
 
   function storyCard(story, byKey) {
     const box = element('details', '', 'world-event');
+    if (story.id) box.dataset.storyId = story.id;
     const summary = element('summary');
     summary.append(element('strong', story.title), element('p',
-      story.count + ' 项进展 · ' + story.reports + ' 篇可查报道', 'world-event-meta'));
+      (story.id ? '窗口内 ' : '') + story.count + ' 项进展 · ' + story.reports + ' 篇可查报道', 'world-event-meta'));
     box.append(summary);
     for (const key of story.keys) {
       const row = byKey.get(key);
@@ -177,7 +181,8 @@
         row.stage, row.status === 'coded' ? 'GDELT 自动编码' : ''].filter(Boolean).join(' · '), 'world-event-meta'));
       entry.append(link(row.title, row.event_path) || element('strong', row.title));
       const sources = element('details');
-      sources.append(element('summary', '查看报道与证据'));
+      sources.append(element('summary', story.id && row.sources_truncated
+        ? '查看报道与证据 · 最多显示 16 条原文版本' : '查看报道与证据'));
       for (const source of row.sources) {
         const line = element('p');
         line.append(link(source.title || '原文', source.url, true) || element('span', source.title));
@@ -191,7 +196,19 @@
       if (research) entry.append(research);
       box.append(entry);
     }
+    if (story.path) {
+      const timeline = link('完整时间线', story.path);
+      if (timeline) box.append(timeline);
+    }
     return box;
+  }
+
+  function indexStatus(info) {
+    const labels = { disabled: '后台索引已停用', pending: '等待后台整理', indexing: '后台正在整理',
+      scanned: '最近一轮回扫完成', error: '后台索引遇错' };
+    const meta = [labels[info.state] || '索引状态待核'];
+    if (info.scanned > 0) meta.push('全库本轮已扫 ' + info.scanned + ' 条记录，其中 ' + info.indexed + ' 条产生进展');
+    return meta.join(' · ');
   }
 
   function hotspotCard(row) {
@@ -301,6 +318,9 @@
       market: [['market', '待核线索地点'], ['country', '仅确定国家']],
       signals: [['spike', '异常升温'], ['country', '有日度数据'], ['unknown', '覆盖或分析不足'], ['unmapped', '无地区汇总']],
     };
+    if (layer.value === 'events' && snapshot?.indexed && !snapshot.preview) {
+      modes.events = [['point', '本页议题最近进展'], ['country', '本页议题所在国家']];
+    }
     select('world-legend').replaceChildren(...modes[layer.value].map(([id, label]) => element('span', label, 'world-legend-item ' + id)));
   }
 
@@ -313,6 +333,12 @@
     pins.clear();
     if (!shapes) return;
     const countOnly = new Map();
+    const storyCountries = new Map();
+    if (layer.value === 'events' && snapshot?.indexed && !snapshot.preview) {
+      for (const story of snapshot.indexed.items) {
+        for (const code of story.countries) storyCountries.set(code, (storyCountries.get(code) || 0) + 1);
+      }
+    }
     const signals = new Map();
     const mode = layer.value;
     for (const row of rows) {
@@ -342,9 +368,11 @@
         details.textContent = name + ' · ' + currentSignal.label;
         keyboardAction(polygon, name + '，查看' + currentSignal.label + '报道数据', () => selectCard('worldSignal', currentSignal.scope));
       }
-      if (mode !== 'signals' && countOnly.has(code)) {
+      if (mode !== 'signals' && (storyCountries.has(code) || countOnly.has(code))) {
         polygon.classList.add('is-counted');
-        details.textContent = name + ' · ' + countOnly.get(code) + ' 条，地点仅确定到国家';
+        details.textContent = storyCountries.has(code)
+          ? name + ' · 本页 ' + storyCountries.get(code) + ' 个议题'
+          : name + ' · ' + countOnly.get(code) + ' 条，地点仅确定到国家';
         keyboardAction(polygon, details.textContent, () => {
           country.value = code;
           submitFilters();
@@ -383,6 +411,8 @@
       document.querySelector('[data-world-facet="' + name + '"]').hidden = !visible;
     }
     panel.replaceChildren();
+    const pager = select('world-pager');
+    pager.hidden = true;
     if (loadError || !snapshot) {
       status.textContent = loadError || '正在读取' + headings[mode] + '…';
     } else if (mode === 'signals') {
@@ -394,12 +424,25 @@
       status.textContent = rows.length + ' 条' + (unknown ? ' · ' + unknown + ' 条地点待核' : '') + more;
     }
     if (snapshot && !loadError) {
-      if (snapshot.time_basis === 'current_records' && day.value < bootstrap.today) status.textContent += ' · 按日期回看现存资料';
-      if (mode === 'events' && snapshot.events.stories) {
+      if (mode === 'events' && snapshot.indexed && !snapshot.preview) {
+        const data = snapshot.indexed;
+        const pages = Math.ceil(data.total / data.limit);
+        status.textContent = '窗口内已整理 ' + data.total + ' 个议题 · ' + indexStatus(snapshot.coverage);
+        for (const story of data.items) {
+          const latest = story.latest;
+          panel.append(storyCard({ ...story, keys: [latest.key] }, new Map([[latest.key, latest]])));
+        }
+        pager.hidden = pages <= 1 && storyPage === 1;
+        select('world-page').textContent = '第 ' + storyPage + ' / ' + Math.max(1, pages) + ' 页';
+        select('world-prev').disabled = storyPage <= 1;
+        select('world-next').disabled = storyPage >= pages;
+      } else if (mode === 'events' && snapshot.events.stories) {
         const byKey = new Map(rows.map(row => [row.key, row]));
         status.textContent = snapshot.events.stories.length + ' 个议题 · ' + status.textContent;
+        if (snapshot.preview) status.textContent = '窗口样本 · ' + status.textContent + ' · ' + indexStatus(snapshot.coverage);
         for (const story of snapshot.events.stories) panel.append(storyCard(story, byKey));
       } else for (const row of rows) panel.append(mode === 'signals' ? signalCard(row) : card(row, mode === 'market'));
+      if (snapshot.time_basis === 'current_records' && day.value < bootstrap.today) status.textContent += ' · 按日期回看现存资料';
       if (!rows.length) panel.append(element('p', '当前筛选范围暂无可显示记录。', 'world-empty'));
     }
     const hotspots = (snapshot?.hotspots?.items || []).slice(0, 8);
@@ -411,6 +454,7 @@
   function parameters() {
     const next = new URLSearchParams();
     for (const [key, value] of new FormData(form)) if (value) next.set(key, value);
+    if (layer.value === 'events' && storyPage > 1) next.set('page', String(storyPage));
     return next;
   }
 
@@ -426,7 +470,15 @@
     const query = parameters();
     if (layer.value === 'signals') query.delete('category');
     try {
-      const response = await fetch('/api/radar/world?' + query, { signal: pending.signal });
+      let endpoint = '/api/radar/world';
+      if (layer.value === 'events') {
+        endpoint += '/stories';
+        query.delete('layer');
+        query.delete('signal');
+      } else {
+        query.set('single', 'true');
+      }
+      const response = await fetch(endpoint + '?' + query, { signal: pending.signal });
       if (pending !== request) return;
       if (!response.ok) throw new Error('暂时无法读取世界态势，请重试。');
       const data = await response.json();
@@ -447,10 +499,14 @@
     }
   }
 
-  function submitFilters() {
+  function submitFilters(nextPage = 1) {
+    storyPage = nextPage;
     history.pushState(null, '', '/radar/world?' + parameters());
     load();
   }
+
+  select('world-prev').addEventListener('click', () => submitFilters(storyPage - 1));
+  select('world-next').addEventListener('click', () => submitFilters(storyPage + 1));
 
   options(country, Object.entries(bootstrap.countries).sort((left, right) => left[1].localeCompare(right[1], 'zh-CN')), '全球');
   options(category, Object.entries(bootstrap.categories), '全部类别');

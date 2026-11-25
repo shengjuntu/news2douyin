@@ -29,7 +29,7 @@ from news2douyin.topics.models import TopicSource
 
 def main():
     version=importlib.metadata.version('news2douyin')
-    assert version=='0.59.0'
+    assert version=='0.61.0'
     assert Path(news2douyin.__file__).resolve().parent!=Path(__file__).resolve().parents[1]/'src/news2douyin'
     assert len(FEEDS)==6
     resources=importlib.resources.files('news2douyin')

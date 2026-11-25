@@ -1,6 +1,8 @@
 """A bounded view of reviewed developments and readable official event leads."""
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
+from hashlib import sha256
+import json
 from math import isfinite
 import re
 from urllib.parse import quote, urlencode
@@ -206,10 +208,14 @@ def _local_cards(session, start, end, country):
     rows = all_rows(session, working.where(Event.last_seen_at >= low, Event.last_seen_at < high)
                     .order_by(Event.last_seen_at.desc(), Event.event_key).limit(LOCAL_LIMIT + 1),
                     name='world_radar.events')
-    places = _places(session, {row[0] for row in rows[:LOCAL_LIMIT]} |
-                             {row[0].event_key for row in agenda[:MOMENT_LIMIT]})
+    cards = _local_materials(session, agenda[:MOMENT_LIMIT], rows[:LOCAL_LIMIT], high, country, start, end)
+    return cards, len(agenda) > MOMENT_LIMIT or len(rows) > LOCAL_LIMIT
+
+
+def _local_materials(session, agenda, rows, high, country='', start=None, end=None):
+    places = _places(session, {row[0] for row in rows} | {row[0].event_key for row in agenda})
     cards, with_moments = [], set()
-    for moment, observed_at in agenda[:MOMENT_LIMIT]:
+    for moment, observed_at in agenda:
         evidence = loads(moment.sources_json, [])
         sources, refs = _reviewed_source(evidence)
         day = reviewed_day([dict(reviewed=True, time_kind='occurred', certainty='exact',
@@ -225,8 +231,8 @@ def _local_cards(session, start, end, country):
         cards[-1]['sources'] = sources
         with_moments.add(moment.event_key)
 
-    selected = {key: (observed, title) for key, observed, title in rows[:LOCAL_LIMIT]
-                if key not in with_moments and (when := timestamp(observed)) and start <= when < end}
+    selected = {key: (observed, title) for key, observed, title in rows
+                if key not in with_moments and (when := timestamp(observed)) and (start is None or start <= when < end)}
     reports = {}
     for key, article, revision, url, title, excerpt in _bounded_children(
             session, list(selected), _saved_report_queries(high), name='world_radar.event_reports'):
@@ -241,7 +247,7 @@ def _local_cards(session, start, end, country):
                          source=source, source_kind='local', observed=observed, country=iso, event_key=key,
                          status='curated', geography_basis='reviewed_action' if iso else ''))
             cards[-1]['sources'] = sources
-    return cards, len(agenda) > MOMENT_LIMIT or len(rows) > LOCAL_LIMIT
+    return cards
 
 
 def _official_point(row, iso):
@@ -265,6 +271,10 @@ def _official_cards(session, start, end, country):
     rows = all_rows(session, query.order_by(OfficialEvent.last_seen.desc(), OfficialEvent.event_id.desc())
                     .limit(OFFICIAL_LIMIT + 1), name='world_radar.official')
     events = [row for row in rows[:OFFICIAL_LIMIT] if (when := timestamp(row.last_seen)) and start <= when < end]
+    return _official_materials(session, events, dedup=True), len(rows) > OFFICIAL_LIMIT
+
+
+def _official_materials(session, events, *, dedup=False):
     selected = candidates(events, mention_sources(session, [row.event_id for row in events]), _address)
     urls = list(dict.fromkeys(lead['url'] for leads in selected.values() for lead in leads))
     previews = resolve_previews(session, urls)
@@ -298,8 +308,10 @@ def _official_cards(session, start, end, country):
                 if report:
                     reports.append(report)
         current = final[-1]
+        current['action_signature'] = sha256(json.dumps(signature, ensure_ascii=False,
+                                                        separators=(',', ':')).encode()).hexdigest()
         current['sources'] = reports or [source]
-        if signature in indexed:
+        if dedup and signature in indexed:
             previous = indexed[signature]
             known = {canonicalize_url(report['url']) for report in previous['sources']}
             for report in current['sources']:
@@ -310,7 +322,7 @@ def _official_cards(session, start, end, country):
             final.pop()
         else:
             indexed[signature] = current
-    return final, len(rows) > OFFICIAL_LIMIT
+    return final
 
 
 def _balanced(items, limit):

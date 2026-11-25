@@ -25,7 +25,7 @@ def safe_back(raw):
     if not raw or '\\' in raw or any(ord(c)<32 for c in raw):return '/radar'
     try: u=urlsplit(raw)
     except ValueError:return '/radar'
-    if u.scheme or u.netloc or not re.fullmatch(r'/(radar(?:/world|/georisk|/hotspots(?:/risk)?|/causes)?|focus(?:/w_[0-9a-f]{32})?|graphs)',u.path):return '/radar'
+    if u.scheme or u.netloc or not re.fullmatch(r'/(radar(?:/world(?:/stories/ws_[0-9a-f]{32})?|/georisk|/hotspots(?:/risk)?|/causes)?|focus(?:/w_[0-9a-f]{32})?|graphs)',u.path):return '/radar'
     return u.path+('?' + u.query if u.query else '')
 
 
