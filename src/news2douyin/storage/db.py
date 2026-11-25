@@ -136,6 +136,7 @@ def load_models() -> None:
     from ..event_embeddings import models as event_embedding_models
     from ..causal import models as causal_models
     from ..world_radar import models as story_models
+    from ..world_radar import relation_models as world_relation_models
     from ..history_archive import models as history_archive_models
 
 

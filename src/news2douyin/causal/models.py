@@ -126,3 +126,9 @@ class CausalAgentNote(SQLModel, table=True):
     case_key: str = Field(index=True)
     stop_reason: str = ''
     relation: str = ''
+
+
+class CausalProgressRoot(SQLModel, table=True):
+    """Identity of a timeline action explicitly used to start a search."""
+    case_key: str = Field(primary_key=True, foreign_key='causalinvestigation.key')
+    action_id: str = Field(index=True)

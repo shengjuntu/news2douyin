@@ -16,6 +16,7 @@ from ..world_radar.events import CATEGORIES, developments
 from ..world_radar.index import list_stories, story_detail
 from ..world_radar.index_worker import coverage
 from ..world_radar.market import leads
+from ..world_radar.relation_counts import attach_counts
 from ..world_radar.stories import group_stories
 from .desk import safe_back
 from .georisk import analysis_status
@@ -188,6 +189,8 @@ def register(app, engine, render):
         size = 40
         with session_scope(engine) as session:
             data = story_detail(session, story_id, limit=size, offset=(page - 1) * size)
+            if data:
+                attach_counts(session, data['items'])
         if data is None:
             raise HTTPException(404, '没有找到这个议题。')
         if page > 1 and not data['items']:

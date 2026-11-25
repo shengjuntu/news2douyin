@@ -566,7 +566,7 @@
     const isProgram = values.get('runner') === 'program';
     changeCase(apiRoot, {
       text, event_at:String(values.get('event_at') || '').trim(),
-      event_key:values.get('event_key') || '', automatic:isProgram || (!focusKey && values.has('automatic')),
+      progress_key:values.get('progress_key') || '', event_key:values.get('event_key') || '', automatic:isProgram || (!focusKey && values.has('automatic')),
       focus_key:focusKey, runner:isProgram ? 'program' : 'local', date_from:isProgram ? (values.get('date_from') || '') : ''
     }, true);
   });
@@ -574,7 +574,7 @@
     const program = form.elements.runner.value === 'program';
     el('causal-date-options').hidden = !program;
     form.elements.date_from.disabled = !program;
-    el('causal-at-label').textContent = program ? '事件时间' : '事件时间（可选）';
+    el('causal-at-label').textContent = config.progress_source === 'gdelt' ? 'GDELT 编码日期' : (program ? '事件时间' : '事件时间（可选）');
   }
   if (form.elements.runner) {
     form.elements.runner.addEventListener('change', updateRunnerForm);

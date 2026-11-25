@@ -3,16 +3,18 @@
 <div class="causal-page">
   {% if not causal_focus_key %}<h1>查找前因</h1>{% endif %}
   <form id="causal-form" class="card causal-form" method="post" action="/api/causal/investigations">
+    {% if seed.progress_key %}<a href="/radar/world/stories/{{ seed.story_id|urlencode }}">返回议题时间线</a>{% endif %}
+    <input type="hidden" name="progress_key" value="{{ seed.progress_key|default('') }}">
     <label for="causal-text">事件描述</label>
-    <textarea id="causal-text" name="text" rows="4" required maxlength="2000" placeholder="想查找哪件事的前因？">{{ seed.text|default('') }}</textarea>
+    <textarea id="causal-text" name="text" {% if seed.progress_key %}readonly{% endif %}rows="4" required maxlength="2000" placeholder="想查找哪件事的前因？">{{ seed.text|default('') }}</textarea>
     <input type="hidden" name="event_key" value="{{ seed.event_key|default('') }}">
     <div class="row" id="causal-root" {% if not (seed.event_key|default('')) %}hidden{% endif %}>
       <a id="causal-root-link" href="/events/{{ seed.event_key|default('')|urlencode }}" class="small">查看关联事件</a>
-      <button id="causal-root-clear" class="ghost" type="button">改用自由描述</button>
+      <button id="causal-root-clear" {% if seed.progress_key %}hidden{% endif %}class="ghost" type="button">改用自由描述</button>
     </div>
-    <details class="causal-options"{% if causal_focus_key %} open{% endif %}>
+    <details class="causal-options"{% if causal_focus_key or seed.progress_key %} open{% endif %}>
       <summary>时间与查找方式</summary>
-      {% if causal_focus_key %}
+      {% if causal_focus_key or seed.progress_key %}
       <div class="row">
         <label for="causal-runner">查找方式</label>
         <select id="causal-runner" name="runner">
@@ -22,11 +24,11 @@
       </div>
       {% endif %}
       <div class="row">
-        <label for="causal-at" id="causal-at-label">{{ '事件时间' if causal_focus_key else '事件时间（可选）' }}</label>
-        <input id="causal-at" name="event_at" maxlength="48" value="{{ seed.event_at|default('') }}" placeholder="如 2026-11-19">
+        <label for="causal-at" id="causal-at-label">{{ 'GDELT 编码日期' if seed.progress_key and seed.source_kind == 'gdelt' else '事件时间' if causal_focus_key or seed.progress_key else '事件时间（可选）' }}</label>
+        <input id="causal-at" name="event_at" {% if seed.progress_key and seed.event_at %}readonly{% endif %}maxlength="48" value="{{ seed.event_at|default('') }}" placeholder="如 2026-11-19">
         <span class="muted small">日期或 ISO 时间，默认系统时区</span>
       </div>
-      {% if causal_focus_key %}
+      {% if causal_focus_key or seed.progress_key %}
       <div class="row" id="causal-date-options">
         <label for="causal-date-from">最早查找日期（可选）</label>
         <input id="causal-date-from" name="date_from" type="date">
@@ -88,5 +90,5 @@
   </details>
 </div>
 <script type="application/json" id="causal-config">{{ {'task_key': task_key|default(''), 'page_root': causal_page_root|default('/radar/causes'),
-    'focus_key': causal_focus_key|default('')}|tojson }}</script>
-<script src="/research-assets/causal.js?v=0.57.0" defer></script>
+    'progress_source': seed.source_kind|default(''), 'focus_key': causal_focus_key|default('')}|tojson }}</script>
+<script src="/research-assets/causal.js?v=0.62.0" defer></script>

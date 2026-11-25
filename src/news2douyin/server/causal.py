@@ -1,5 +1,6 @@
 """Web and machine entry points for the same investigation queue."""
 from datetime import date
+from urllib.parse import urlencode
 from typing import Annotated, Literal
 
 from fastapi import Depends, HTTPException, Query
@@ -18,6 +19,7 @@ class InvestigationInput(BaseModel):
     event_at: Annotated[str, StringConstraints(strip_whitespace=True, max_length=48)] = ''
     event_key: Annotated[str, StringConstraints(strip_whitespace=True, max_length=160)] = ''
     focus_key: Annotated[str, StringConstraints(strip_whitespace=True, max_length=100)] = ''
+    progress_key: Annotated[str, StringConstraints(strip_whitespace=True, max_length=256)] = ''
     automatic: bool = False
     runner: Literal['local', 'program', 'agent'] = 'local'
     date_from: Annotated[str, StringConstraints(strip_whitespace=True, max_length=10)] = ''
@@ -52,13 +54,19 @@ def _reply(payload, status=200):
 def register(app, engine, render):
     @app.get('/radar/causes', response_class=HTMLResponse)
     def page(event_key: Annotated[str, Query(max_length=160)] = '',
+             progress_key: Annotated[str, Query(max_length=256)] = '',
              investigation: Annotated[str, Query(max_length=35)] = ''):
         try:
             with session_scope(engine) as session:
-                initial = service.seed(session, event_key) if event_key else {}
+                if progress_key:
+                    from ..world_radar.relation_candidates import progress_seed
+                    initial = progress_seed(session, progress_key)
+                else:
+                    initial = service.seed(session, event_key) if event_key else {}
         except KeyError:
-            raise HTTPException(404, '未找到当前有效的整理事件') from None
-        return render('causal.html', active='radar', seed=initial, task_key=investigation)
+            raise HTTPException(404, '未找到当前有效的事件或进展') from None
+        page_root = '/radar/causes' + ('?' + urlencode({'progress_key': progress_key}) if progress_key else '')
+        return render('causal.html', active='radar', seed=initial, task_key=investigation, causal_page_root=page_root)
 
     @app.get('/api/causal/investigations')
     def investigations(focus_key: Annotated[str, Query(max_length=100)] = ''):
@@ -79,7 +87,7 @@ def register(app, engine, render):
             with session_scope(engine) as session:
                 key = service.create(session, payload.text, payload.event_at, payload.event_key,
                                      payload.automatic, focus_key=payload.focus_key, queue_local=local,
-                                     program=payload.runner == 'program', date_from=payload.date_from)
+                                     program=payload.runner == 'program', date_from=payload.date_from, progress_key=payload.progress_key)
                 if local:
                     result = service.view(session, key)
                 else:

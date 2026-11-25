@@ -92,7 +92,7 @@ def _program_date(root_at, date_from, now):
 
 
 def create(session, text, event_at, event_key, automatic, *, focus_key='', queue_local=True,
-           program=False, date_from=''):
+           program=False, date_from='', progress_key=''):
     if focus_key:
         lock_news(session, 'watch:' + focus_key)
         require_active(session, focus_key)
@@ -102,17 +102,27 @@ def create(session, text, event_at, event_key, automatic, *, focus_key='', queue
                                           WatchEvent.choice != 'exclude', current_membership())
         ).first():
             raise ValueError('该事件不在当前焦点，请从图谱重新选择')
+    if progress_key:
+        from ..world_radar.relation_candidates import progress_seed
+        target = progress_seed(session, progress_key)
+        if (event_key != target['event_key'] or text.strip() != target['text']
+                or target['event_at'] and event_at != target['event_at']):
+            raise ValueError('进展内容已变更，请重新打开进展后查找')
     event, reviewed_at = _event(session, event_key)
     now = datetime.now(timezone.utc)
     if event_at and interval(event_at) is None:
         raise ValueError('请输入有效日期或 ISO 时间')
-    known = event_at or reviewed_at or inferred(text, now)
+    known = event_at if progress_key else (event_at or reviewed_at or inferred(text, now))
     if program:
         date_from = _program_date(known, date_from, now)
     case = CausalInvestigation(key='ci_' + uuid4().hex, text=text, event_at=known, event_key=event_key)
     root = CausalNode(key='cn_' + uuid4().hex, case_key=case.key, text=text, event_key=event_key,
-                      ref=event.event_key if event else '', occurred_at=known, time_status='root')
+                      ref=event.event_key if event else progress_key, occurred_at=known, time_status='root')
     session.add(case)
+    if progress_key:
+        from .models import CausalProgressRoot
+        session.flush()
+        session.add(CausalProgressRoot(case_key=case.key, action_id=target['action_id']))
     if focus_key:
         session.add(CausalFocus(case_key=case.key, focus_key=focus_key))
     if program:
