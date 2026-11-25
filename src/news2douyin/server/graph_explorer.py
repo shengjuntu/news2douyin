@@ -1,4 +1,4 @@
-"""Global activity graph and GDELT focus graph pages."""
+"""Global activity graph and focus graph pages."""
 from typing import Literal
 from urllib.parse import urlencode
 

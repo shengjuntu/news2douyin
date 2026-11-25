@@ -13,7 +13,7 @@ import math
 import os
 import re
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from threading import Event as StopEvent, Thread
 from typing import Any
 from urllib.parse import urlsplit
@@ -403,6 +403,10 @@ def project_step(engine,storage_root,limit=None,*,time_budget_ms=None,now=None,o
     limit=max(1,min(int(limit),500))
     budget=max(1,float(time_budget_ms)) if time_budget_ms is not None else _setting('NEWS2DOUYIN_GKG_PROJECTION_BUDGET_MS',250,1)
     lanes=('gkg','events','mentions')
+    # A historical repair can insert a much older stamp into this ledger.
+    # Reserve one in four GKG turns for older batches when both windows have work.
+    recent_from=(datetime.fromtimestamp(now,timezone.utc)-timedelta(days=7)).strftime('%Y%m%d%H%M%S')
+    gkg_turn_key='gkg-window'
     with Session(engine) as s:
         turn=s.get(IntakeProjectionTurn,'global')
         previous=turn.kind if turn and turn.kind in lanes else 'mentions'
@@ -411,11 +415,24 @@ def project_step(engine,storage_root,limit=None,*,time_budget_ms=None,now=None,o
         blocked=select(IntakeProjectionFailure.key).where(
             IntakeProjectionFailure.key==IntakeBatch.key,
             IntakeProjectionFailure.state=='blocked',IntakeProjectionFailure.retry_after>now).correlate(IntakeBatch).exists()
+        next_gkg_turn=None
         for lane in lanes[start:]+lanes[:start]:
             feeds=[feed for feed,spec in FEEDS.items() if spec['kind']==lane]
-            batch=s.exec(select(IntakeBatch).where(IntakeBatch.state=='archived',IntakeBatch.feed.in_(feeds),
+            pending=select(IntakeBatch).where(IntakeBatch.state=='archived',IntakeBatch.feed.in_(feeds),
                 IntakeBatch.projected_offset<IntakeBatch.rows,~blocked).order_by(IntakeBatch.stamp,IntakeBatch.feed).limit(1)
-                .execution_options(n2d_query_name='intake.projection.pick.'+lane)).first()
+            if lane=='gkg':
+                saved=s.get(IntakeProjectionTurn,gkg_turn_key)
+                recent_turns={'recent-1':1,'recent-2':2,'recent-3':3}.get(saved.kind,0) if saved else 0
+                recent=IntakeBatch.stamp>=recent_from
+                windows=((~recent,False),(recent,True)) if recent_turns==3 else ((recent,True),(~recent,False))
+                for condition,is_recent in windows:
+                    batch=s.exec(pending.where(condition).execution_options(
+                        n2d_query_name='intake.projection.pick.gkg.'+('recent' if is_recent else 'history'))).first()
+                    if batch:
+                        next_gkg_turn='recent-'+str(min(3,recent_turns+1)) if is_recent else 'history'
+                        break
+            else:
+                batch=s.exec(pending.execution_options(n2d_query_name='intake.projection.pick.'+lane)).first()
             if batch:break
         if not batch:return False
         key,feed,stamp,offset,total=batch.key,batch.feed,batch.stamp,batch.projected_offset,batch.rows
@@ -537,6 +554,8 @@ def project_step(engine,storage_root,limit=None,*,time_budget_ms=None,now=None,o
                 if batch.projected_offset>=target or batch.projected_offset>=total:
                     failure.state='resolved';failure.resolved_at=utc_now_iso();failure.retry_after=0;s.add(failure)
             s.add(batch);s.merge(IntakeProjectionTurn(key='global',kind=kind_for(feed)))
+            if next_gkg_turn:
+                s.merge(IntakeProjectionTurn(key=gkg_turn_key,kind=next_gkg_turn))
             phase='commit';row_index=None;tick=perf_counter();s.commit()
         chunk['phase_ms']['commit']=round((perf_counter()-tick)*1000,3)
         chunk['elapsed_ms']=round((perf_counter()-began)*1000,3)

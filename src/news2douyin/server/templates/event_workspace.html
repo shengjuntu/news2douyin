@@ -8,6 +8,7 @@
 {% include 'graph_status.html' %}
 {% if content_tasks %}<details class="card"><summary>相关选题与作品</summary>{% for t in content_tasks %}<p><a href="/workbench/{{ t.key }}">{{ t.title }}</a> · {{ t.phase }}</p>{% endfor %}</details>{% endif %}
 <details class="card work-actions"><summary>相关事件图</summary><div data-knowledge-graph data-event="{{ view.event_key }}"></div></details>
+{% include 'event_product_review.html' %}
 {% if market or windows %}
 <details class="card" id="event-market-panel">
 <summary>同期市场数据</summary>
@@ -87,7 +88,7 @@
 let view={{ view|tojson }},momentKey=null,momentVersion=0,metadataVersion=0,target=null,researchView=null,libraryOffset=0;
 const el=id=>document.getElementById(id),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const kinds={occurred:'发生日期',reported:'报道日期',unknown:'时间未知'},certainty={exact:'来源明确记载',approximate:'大致时间',disputed:'时间有争议',unknown:'未确定'};
-const actions={create:'创建事件',edit:'编辑标题与摘要',add_sources:'加入报道',remove_source:'移除报道',add_moment:'添加进展',edit_moment:'修改进展',delete_moment:'删除进展',add_relation:'关联事件',remove_relation:'移除关联',merge_out:'并入其他事件',merge_in:'接收合并',split_out:'拆出事件',split_in:'从原事件拆出',import_research:'收录检索结果'};
+const actions={verify_product:'核对商品关联',revoke_product:'撤销商品关联',create:'创建事件',edit:'编辑标题与摘要',add_sources:'加入报道',remove_source:'移除报道',add_moment:'添加进展',edit_moment:'修改进展',delete_moment:'删除进展',add_relation:'关联事件',remove_relation:'移除关联',merge_out:'并入其他事件',merge_in:'接收合并',split_out:'拆出事件',split_in:'从原事件拆出',import_research:'收录检索结果'};
 const base='/api/events/'+encodeURIComponent(view.event_key);
 function safeUrl(value){try{const u=new URL(value);return ['https:','http:'].includes(u.protocol)&&!u.username&&!u.password?u.href:'';}catch{return '';}}
 function sourceLink(s){return '/articles/'+encodeURIComponent(s.article_key)+'?revision='+s.revision;}
@@ -98,6 +99,7 @@ function updated(data){view=data;message('已保存');render();}
 function tab(name){if(!['moments','sources','research','relations','activity'].includes(name))name='moments';document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===name)));document.querySelectorAll('[role=tabpanel]').forEach(p=>p.hidden=p.id!=='pane-'+name);history.replaceState(null,'','#'+name);}
 document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>tab(b.dataset.tab));
 function render(){
+ el('event-products').dispatchEvent(new Event('workspacechange'));
  el('event-title').textContent=view.title;el('event-summary').textContent=view.summary||'暂无摘要，可编辑补充。';el('event-counts').textContent=`报道 ${view.counts.article_count} · 未标为副本 ${view.counts.independent_article_count} · 来源域名 ${view.counts.source_domain_count} · 进展 ${view.moments.length}`;
  const archived=!!view.merged_into;for(const id of ['edit-event','new-moment','build-form','research-form','event-search-form','library-form','add-relation','merge-event','split-event'])el(id).hidden=archived;
  el('build-form').querySelector('button').disabled=!view.sources.length;
@@ -133,4 +135,5 @@ el('research-form').onsubmit=async e=>{e.preventDefault();el('run-research').dis
 function renderResearch(){const r=researchView;el('research-message').textContent=r.error|| (r.status==='running'?'请求仍未完成；若服务曾重启，请重新发起检索。':`已取得 ${r.results.length} 条候选；上游匹配数量 ${r.available}。${r.results.length?'勾选后收录，已有新闻保留当前版本。':'可放宽关键词、日期、国家或语言后重试。'}`);el('research-results').innerHTML=r.results.map((a,i)=>`<div class="research-item"><label><input class="research-pick" type="checkbox" value="${i}" ${r.imported[i]?'disabled':''}> ${esc(a.title)}</label> ${r.imported[i]?'<span class="badge">已收录</span>':''}<p class="small muted">${esc(a.source.domain)} · ${esc(a.published_at||'发布时间未知')} ${a.research_meta?.content_kind==='summary'?'· 仅摘要':''}${a.research_meta?.content_truncated?'· 正文已截断':''}</p><details><summary>查看候选正文与来源</summary><p class="moment-text">${esc(a.content)}</p>${safeUrl(a.url)?'<a href="'+esc(safeUrl(a.url))+'" target="_blank" rel="noopener noreferrer">打开原文 ↗</a>':''}</details></div>`).join('')+(r.results.length&&!view.merged_into?'<button id="import-research" style="margin:16px 0">将所选报道加入事件</button>':'');if(el('import-research'))el('import-research').onclick=async()=>{el('import-research').disabled=true;try{const indexes=[...document.querySelectorAll('.research-pick:checked')].map(c=>Number(c.value));if(!indexes.length)throw Error('请先勾选候选报道');updated(await mutate('/research/'+r.research_key+'/import','POST',{indexes}));researchView=await api(base+'/research/'+r.research_key);renderResearch();el('research-message').textContent='所选报道已收录，可到报道资料和发展脉络继续整理。';}catch(e){el('research-message').textContent=e.message;if(el('import-research'))el('import-research').disabled=false;}};}
 render();tab(location.hash.slice(1));
 </script>
+<script src="/research-assets/product-evidence.js" defer></script>
 <script src="/research-assets/knowledge.js" defer></script>{% endblock %}

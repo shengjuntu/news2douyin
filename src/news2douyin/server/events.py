@@ -1,7 +1,9 @@
-from fastapi import Response
+from fastapi import Depends, HTTPException, Path, Response
 from sqlmodel import Session
 
-from ..events import workbench as work, research
+from ..events import workbench as work, research, product_evidence
+from ..events.product_evidence import ProductEvidenceEdit
+from .research import same_origin
 from ..events.schemas import (VersionPayload,EventCreate,EventEdit,SourceEdit,MomentEdit,
                               MergeEdit,SplitEdit,RelationEdit,ResearchQuery,ResearchImport)
 from ..storage.utils import dumps
@@ -18,6 +20,20 @@ def register_event_routes(app,engine):
 
     @app.get('/api/events/{key}/workspace')
     def workspace(key:str): return call(work.workspace,key)
+
+    @app.get('/api/events/{key}/product-evidence')
+    def product_card(key: str, as_of: str | None = None):
+        if as_of is not None:
+            raise HTTPException(422, '商品证据卡当前仅支持最新整理状态')
+        return call(product_evidence.card, key)
+
+    @app.post('/api/events/{key}/product-evidence', dependencies=[Depends(same_origin)])
+    def verify_product(key: str, payload: ProductEvidenceEdit):
+        return call(product_evidence.add, key, payload.model_dump())
+
+    @app.delete('/api/events/{key}/product-evidence/{link_id}', dependencies=[Depends(same_origin)])
+    def revoke_product(key: str, payload: VersionPayload, link_id: int = Path(ge=1, le=2**63-1)):
+        return call(product_evidence.revoke, key, link_id, payload.expected_version)
 
     @app.put('/api/events/{key}/workspace')
     def edit(key:str,payload:EventEdit): return call(work.edit_event,key,payload.model_dump())

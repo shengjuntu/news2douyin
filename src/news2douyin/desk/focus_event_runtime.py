@@ -1,6 +1,7 @@
-"""Queue and publish an official-event graph without exposing partial rebuilds."""
+"""Queue and publish a focus evidence graph without exposing partial rebuilds."""
 
 from collections import defaultdict
+from itertools import zip_longest
 import json
 import re
 import time
@@ -23,16 +24,24 @@ REFRESH = 30 * 60
 INDEX = 'ix_officialmention_focus_document_prefix'
 _GRAPH = re.compile(r'events_focus_[A-Za-z0-9_-]{1,100}_[a-f0-9]{32}')
 _WATCH = re.compile(r'[A-Za-z0-9_-]{1,100}')
-_LABELS = ('SourceEvent', 'GdeltActor', 'GdeltPlace', 'GdeltDocument', 'Person', 'Organization')
-_EDGES = ('CODED_ACTOR1', 'CODED_ACTOR2', 'CODED_ACTION_AT', 'MENTIONED_IN', 'GKG_MENTIONS')
+_LABELS = ('Event', 'SourceEvent', 'Article', 'ArticleLead', 'GdeltActor', 'GdeltPlace',
+           'GdeltDocument', 'Person', 'Organization')
+_EDGES = ('CITES', 'HAS_OFFICIAL_SOURCE', 'EXTRACTED_MENTION', 'CODED_ACTOR1', 'CODED_ACTOR2',
+          'CODED_ACTION_AT', 'MENTIONED_IN', 'GKG_MENTIONS')
 _PROPERTIES = {
+    'Event': ('seen', 'material_date', 'basis'),
+    'Article': ('provider', 'source_url', 'domain', 'published_at', 'language'),
+    'ArticleLead': ('provider', 'language', 'seen', 'basis', 'candidate'),
+    'HAS_OFFICIAL_SOURCE': ('basis',),
+    'EXTRACTED_MENTION': ('revision', 'quote', 'evidence_path', 'review', 'status'),
     'SourceEvent': ('external_id', 'event_date', 'code', 'country', 'quad_class', 'goldstein', 'basis', 'observed', 'feed', 'batch', 'row'),
     'GdeltActor': ('country',), 'GdeltPlace': ('country', 'latitude', 'longitude'),
-    'GdeltDocument': ('identifier', 'domain', 'gkg_record', 'feed', 'batch', 'row'),
+    'GdeltDocument': ('identifier', 'provider', 'domain', 'gkg_record', 'feed', 'batch', 'row',
+                      'gkg_source', 'archive_sha256', 'raw_sha256'),
     'Person': ('identity',), 'Organization': ('identity',),
     'MENTIONED_IN': ('mention_key', 'feed', 'batch', 'row', 'seen', 'sentence', 'confidence',
                      'first_seen', 'first_feed', 'first_batch', 'first_row'),
-    'GKG_MENTIONS': ('gkg_record', 'feed', 'batch', 'row'),
+    'GKG_MENTIONS': ('gkg_record', 'feed', 'batch', 'row', 'gkg_source', 'archive_sha256', 'raw_sha256'),
 }
 _INDEX_LOCK = 67451157019
 
@@ -270,7 +279,7 @@ def has_work(engine, mirror):
                     .where(FocusEventGraph.retiring != '').limit(1)).first())
 
 
-def step(engine, mirror):
+def step(engine, mirror, *, storage_root=None):
     if not has_work(engine, mirror):
         return False
     with acquire(engine, 'focus-event-graph', seconds=1800) as lease:
@@ -290,7 +299,8 @@ def step(engine, mirror):
                 _index(engine)
             lease.touch()
             with Session(engine) as session:
-                snapshot = build(session, watch, row.days, row.until)
+                options = {'storage_root': storage_root} if storage_root is not None else {}
+                snapshot = build(session, watch, row.days, row.until, **options)
                 encoded = json.dumps(snapshot, ensure_ascii=False, separators=(',', ':'))
                 same = scheduled and bool(session.exec(select(FocusEventGraph.watch).where(
                     FocusEventGraph.watch == key, FocusEventGraph.token == row.token,
@@ -339,25 +349,33 @@ def read(session, key, *, lens, limit):
     snapshot = json.loads(row.snapshot) if row and row.snapshot and row.published_version == watch.version else {}
     nodes, edges = snapshot.get('nodes', []), snapshot.get('edges', [])
     selected_nodes, selected_edges, clipped = _select(nodes, edges, lens, limit)
+    archive = snapshot.get('gkg_archive', {})
     truncated = bool(snapshot.get('truncated') or clipped)
     if snapshot and not nodes:
-        empty = '这个时间范围没有可关联的 GDELT 官方事件。'
+        empty = '所选日期暂无已归集事件或相关报道线索。'
     elif snapshot and lens == 'people' and not selected_nodes:
-        empty = '当前报道尚未匹配到含人物或机构的 GKG 记录。'
+        if archive.get('state') == 'timed_out':
+            empty = '原始 GKG 归档查询超时。可稍后重建，或在「全部」查看事件和报道。'
+        elif archive.get('state') == 'unavailable':
+            empty = '原始 GKG 归档暂不可读，现有报道暂无可展示的人物或机构证据。'
+        elif archive.get('state') == 'checked' and not archive['matched_urls']:
+            empty = '所查 GKG 归档无匹配报道。可在「全部」查看事件和报道。'
+        else:
+            empty = '当前报道暂无可展示的人物或机构证据。可在「全部」查看事件和报道。'
     else:
         empty = ''
     return dict(view='focus', focus={'key': key, 'name': watch.name}, backend='official_focus',
                 **status, graph=row.graph_name if snapshot and row else '', node_limit=limit,
                 window={key: snapshot[key] for key in ('date_from', 'date_to') if key in snapshot},
                 counts=snapshot.get('counts', {}), truncated=truncated, nodes=selected_nodes, edges=selected_edges,
-                empty_reason=empty)
+                gkg_archive=archive, empty_reason=empty)
 
 
 def _select(nodes, edges, lens, limit):
     if lens == 'people':
-        statements = [r for r in edges if r['kind'] == 'GKG_MENTIONS']
+        statements = [r for r in edges if r['kind'] in ('GKG_MENTIONS', 'EXTRACTED_MENTION')]
         reports = {r['source'] for r in statements}
-        links = [r for r in edges if r['kind'] == 'MENTIONED_IN' and r['target'] in reports]
+        links = [r for r in edges if r['kind'] in ('MENTIONED_IN', 'CITES') and r['target'] in reports]
         included = {i for link in statements + links for i in (link['source'], link['target'])}
         nodes = [node for node in nodes if node['id'] in included]
         edges = links + statements
@@ -365,9 +383,14 @@ def _select(nodes, edges, lens, limit):
     outgoing = defaultdict(list)
     for edge in edges:
         outgoing[edge['source']].append(edge['target'])
-    roots = [node['id'] for node in nodes if node['kind'] == 'SourceEvent']
+    priority = defaultdict(list)
+    for node in nodes:
+        priority[node['kind']].append(node['id'])
+    roots = [key for pair in zip_longest(priority['Event'], priority['SourceEvent']) for key in pair if key]
+    leads = priority['ArticleLead']
+    lead_slots = min(len(leads), max(1, limit // 12)) if roots else min(len(leads), limit)
     slots = min(len(roots), max(1, limit // 4))
-    seen = dict.fromkeys(roots[:slots])
+    seen = dict.fromkeys(roots[:slots] + leads[:lead_slots])
     level = list(seen)
     while level and len(seen) < limit:
         next_level = []
@@ -385,7 +408,7 @@ def _select(nodes, edges, lens, limit):
                             break
             rows = more
         level = next_level
-    for ident in roots[slots:]:
+    for ident in roots[slots:] + leads[lead_slots:]:
         if len(seen) == limit:
             break
         seen[ident] = None

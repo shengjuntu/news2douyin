@@ -4,9 +4,10 @@ from sqlalchemy import func, or_
 from sqlmodel import select
 
 from ..candidates.promotion import attach_articles, stage_event
-from ..research.materials import is_lead
+from ..research.materials import is_lead, original_body
+from ..selection.source_content import source_url
 from ..storage.models import (Article, ArticleVersion, ArticleEventLink, Event, EventState,
-    EventMoment, EventActivity, EventAssignment, EventRelation, EventResearch, utc_now_iso)
+    EventMoment, EventActivity, EventAssignment, EventRelation, EventResearch, EventProductEvidence, utc_now_iso)
 from ..storage.articles import lock_news, latest_version, record_version
 from ..storage.utils import loads, dumps
 from ..tasks.control import TaskConflict
@@ -118,6 +119,10 @@ def active_moments(session, key):
 
 def remove_source(session, key, article_key, expected):
     state = lock_event(session, key, expected)
+    if session.exec(select(EventProductEvidence.id).where(
+            EventProductEvidence.event_key == key, EventProductEvidence.article_key == article_key,
+            EventProductEvidence.revoked_at.is_(None)).limit(1)).first() is not None:
+        raise TaskConflict('这篇报道有已核对的商品引用，请先撤销商品关联')
     references = [m.title for m in active_moments(session,key) if article_key in {s['article_key'] for s in loads(m.sources_json,[])}]
     if references:
         raise TaskConflict('这篇报道正被脉络节点引用，请先修改或删除节点：' + '、'.join(references[:5]))
@@ -219,6 +224,19 @@ def unrelate(session,key,relation_key,expected):
     return finish(session,key,state)
 
 
+def _move_product_evidence(session, key, target, articles=None):
+    query = select(EventProductEvidence).where(
+        EventProductEvidence.event_key == key, EventProductEvidence.revoked_at.is_(None))
+    if articles is not None:
+        query = query.where(EventProductEvidence.article_key.in_(articles))
+    moved = []
+    for row in session.exec(query):
+        row.event_key = target
+        session.add(row)
+        moved.append(row.id)
+    return moved
+
+
 def merge(session,key,data):
     target=data['target_event_key']
     if key==target: raise ValueError('不能合并到自身')
@@ -247,6 +265,7 @@ def merge(session,key,data):
     state.merged_into=target
     state.source_notes_json='{}'
     payload={'from_event':key,'to_event':target,'articles':sorted(keys),'moments':moments,'source_notes':origin_notes,'note':data['note']}
+    payload['product_evidence_ids'] = _move_product_evidence(session, key, target)
     operation=uuid4().hex
     audit(session,key,'merge_out',payload,operation)
     audit(session,target,'merge_in',payload,operation)
@@ -287,6 +306,7 @@ def split(session,key,data):
         session.delete(link)
     for a in chosen: _repair_assignment(session,a,key,target)
     payload={'from_event':key,'to_event':target,'articles':sorted(chosen),'moments':[m.moment_key for m in moving],'note':data.get('note','')}
+    payload['product_evidence_ids'] = _move_product_evidence(session, key, target, chosen)
     operation=uuid4().hex
     audit(session,key,'split_out',payload,operation)
     audit(session,target,'split_in',payload,operation)
@@ -314,7 +334,8 @@ def workspace(session,key):
         sources.append(dict(article_key=a.article_key,title=doc.get('title',''),url=doc.get('url',''),source_domain=doc.get('source_domain',''),
             published_at=doc.get('published_at',''),excerpt=(doc.get('content') or origin.get('excerpt',''))[:800],
             revision=v.revision if v else None, content_hash=v.content_hash if v else '',is_duplicate=a.is_duplicate,
-            origin=origin, requires_original_text=is_lead(doc)))
+            origin=origin, requires_original_text=is_lead(doc),
+            can_verify_product=bool(v and original_body(doc) and source_url(doc.get('url')) and '\\' not in doc['url'])))
     moments=[moment_data(m) for m in active_moments(session,key)]
     moments.sort(key=lambda m:(not bool(m['date_start']),m['date_start'],m['created_at'],m['moment_key']))
     for moment in moments:
@@ -343,6 +364,9 @@ def export_evidence(session,key):
     view=workspace(session,key)
     references={(s['article_key'],s['revision']) for s in view['sources'] if s['revision']}
     references.update((s['article_key'],s['revision']) for m in view['moments'] for s in m['sources'])
+    from .product_evidence import active_for_event
+    view['product_evidence'] = [row.model_dump(exclude={'revoked_at'}) for row in active_for_event(session, key)]
+    references.update((row['article_key'], row['revision']) for row in view['product_evidence'])
     snapshots=[]
     research_keys=set()
     for article_key,revision in sorted(references):

@@ -345,8 +345,11 @@ def register_webui_routes(app: FastAPI, engine, scheduler, storage_root: str) ->
     from .graph_explorer import register as register_graph_explorer
     register_graph_explorer(app,engine,render)
 
+    from .product_pages import register_product_pages, trade_view_public_url
+    register_product_pages(app, engine, render)
+
     @app.get('/events/{event_key}', response_class=HTMLResponse)
-    def page_event_detail(event_key: str, back: str = '/radar'):
+    def page_event_detail(event_key: str, back: str = '/radar', products: bool = False):
         from ..events.workbench import workspace
         from .interop import event_market_context, trade_view_settings
         from .event_window import anchor_options
@@ -388,6 +391,7 @@ def register_webui_routes(app: FastAPI, engine, scheduler, storage_root: str) ->
         back=safe_back(back)
         return render('event_workspace.html', active='focus' if back.startswith('/focus') else 'radar',
                       view=view, scripts=scripts, timezone=timezone_name(),related=related,watches=watches,content_tasks=content_tasks,knowledge=knowledge,market=market,windows=windows,
+                      trade_view_public_url=trade_view_public_url(), products_open=products,
                       back=back,action_labels=LABELS,reports=reports,source_groups=source_groups,places=places,layers=layers,marks=marks,countries=country_labels())
 
     @app.get('/report/{run_id}')

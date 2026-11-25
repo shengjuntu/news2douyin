@@ -90,7 +90,7 @@ def _document_subjects(persons, organizations):
     subjects = {}
     for kind, encoded in (('person',persons), ('organization',organizations)):
         try:
-            values = json.loads(encoded or '[]')
+            values = encoded if isinstance(encoded,list) else json.loads(encoded or '[]')
         except (TypeError, ValueError):
             continue
         if not isinstance(values, list):
@@ -106,13 +106,17 @@ def _document_subjects(persons, organizations):
 
 
 def _gkg(session, documents):
-    """Resolve at most DOCUMENT_LIMIT indexed URL identities, then verify exact identifiers.
+    return gkg_for_identifiers(session, (m.doc_identifier for m in documents))
+
+
+def gkg_for_identifiers(session, identifiers):
+    """Resolve bounded indexed URL identities, then verify exact identifiers.
 
     Imported canonical identities may merge URLs. Legacy snapshots establish a
     link only when they still record the same GKG record ID and original URI.
     Unresolved identifiers remain fully valid GDELT Mentions evidence.
     """
-    wanted = {m.doc_identifier for m in documents if m.doc_identifier.startswith(('https://','http://'))}
+    wanted = {url for url in identifiers if url.startswith(('https://','http://'))}
     if not wanted:
         return {}
     identities = set()

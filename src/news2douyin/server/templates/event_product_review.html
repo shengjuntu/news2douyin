@@ -1,0 +1,14 @@
+<details class="card" id="event-products" data-market-url="{{ trade_view_public_url }}"{% if products_open %} open{% endif %}>
+  <summary>商品与原文证据</summary>
+  <div id="product-links"></div>
+  <p id="product-feedback" role="status" class="small-help"></p>
+  <form id="product-review" class="desk-form" hidden>
+    <label>商品 ID <input name="product_id" required pattern="[a-z0-9][a-z0-9_\-]{0,63}" maxlength="64" placeholder="如 copper"></label>
+    <label>证据报道 <select name="source" required></select></label>
+    <div id="product-source-links" class="desk-row"></div>
+    <blockquote id="product-source-preview" class="evidence-quote" hidden></blockquote>
+    <label>支持关联的原文 <textarea name="excerpt" rows="2" required maxlength="2000" placeholder="从所选版本复制一段连续原文"></textarea></label>
+    <button type="submit">核对并关联商品</button>
+  </form>
+  <p id="product-no-sources" class="muted" hidden>请在「报道资料」中加入有原文和版本的报道。</p>
+</details>

@@ -45,7 +45,7 @@ def register(app,engine,render):
                 FocusEventGraph.graph_name, FocusEventGraph.published_version)
                 .outerjoin(FocusEventGraph, FocusEventGraph.watch == Watch.key).order_by(Watch.name)):
             if version and name and watch.version == built_version:
-                graphs.append(dict(name=prefix+'_'+name, label=watch.name+' · GDELT 事件图'))
+                graphs.append(dict(name=prefix+'_'+name, label=watch.name+' · 焦点事件图'))
             elif version is None:
                 graphs.append(dict(name=prefix+'_focus_'+watch.key,
                     label=watch.name+(' · 已删除焦点的存档图' if is_deleted(s,watch.key) else ' · 旧研究图')))

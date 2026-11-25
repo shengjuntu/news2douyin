@@ -17,6 +17,7 @@ const KINDS = {
   attention_topic: ['热榜话题', '#ff9c77', [.99, .61, .47, 1]],
   attention_source_item: ['热榜条目', '#91a9f8', [.57, .66, .97, 1]],
   article: ['报道', '#91a9f8', [.57, .66, .97, 1]],
+  article_lead: ['报道线索', '#91a9f8', [.57, .66, .97, 1]],
   report: ['报道', '#91a9f8', [.57, .66, .97, 1]],
   source: ['来源', '#91a9f8', [.57, .66, .97, 1]],
   evidence: ['证据', '#9ace9a', [.60, .81, .60, 1]],
@@ -38,6 +39,7 @@ const RELATIONS = {
   action_at: '发生地', answered_by: '由此回答', asks: '提出问题', checked_by: '由此核查', cites: '引用',
   candidate_focus: '可能关联焦点', candidate_match: '候选匹配', coded_action_at: '编码发生地',
   coded_actor1: '编码行动方', coded_actor2: '编码对象方', gkg_mentions: 'GKG 提及',
+  has_official_source: '采用的官方事件来源', extracted_mention: '原文陈述提及',
   defined_by: '由此定义', describes: '描述', found: '发现', has_anchor: '包含关注对象', has_argument: '有论据',
   has_evidence: '有证据', has_match_key: '对应匹配键', has_material: '收录材料', has_pattern: '应用条件',
   has_source: '有来源', has_subquestion: '包含子问题', impacts: '影响地区', maps_to: '映射到',
@@ -52,7 +54,10 @@ const DETAIL_NAMES = {
   scope: '关注范围', seen: '最近观测', status: '状态', type: '类型', weight: '关联权重',
   external_id: 'GlobalEventID', event_date: '官方事件日期', country: '国家或地区', basis: '焦点匹配依据',
   feed: '数据流', batch: '原始批次', row: '原始行号', identifier: '文档标识', gkg_record: 'GKG 记录',
+  gkg_source: 'GKG 来源', archive_sha256: '归档 SHA-256', raw_sha256: '原始行 SHA-256',
   mention_key: 'Mentions 索引键', confidence: 'GDELT 提及置信度', sentence: '句号',
+  provider: '采集来源', candidate: '采集候选编号', source_url: '报道网址', published_at: '报道发布时间',
+  language: '语种', material_date: '最近材料日期', review: '陈述核对状态',
   observed: 'GDELT 首次收录', first_seen: '首次提及', first_feed: '首次数据流',
   first_batch: '首次批次', first_row: '首次原始行号',
   latitude: '纬度', longitude: '经度', quad_class: 'CAMEO 四分类', goldstein: 'Goldstein 分值',
@@ -108,6 +113,10 @@ function safeLink(value) {
   }
 }
 
+const PROVIDERS = {worldnewsapi: 'World News API', newsapi: 'NewsAPI', newsnow: 'NewsNow',
+  gdelt: 'GDELT', gkg: 'GDELT GKG', unknown: '来源未标记'}
+const REVIEWS = {pending: '待核对', accepted: '已采用', rejected: '已驳回'}
+
 function showDetails(parent, details) {
   if (typeof details === 'string') {
     if (details) parent.append(element('p', details, 'graph-explorer-node-description'))
@@ -117,8 +126,20 @@ function showDetails(parent, details) {
   const rows = element('dl', '', 'graph-explorer-data')
   for (const [key, value] of Object.entries(details)) {
     const label = Object.hasOwn(DETAIL_NAMES, key) ? DETAIL_NAMES[key] : key
-    if (!['string', 'number'].includes(typeof value) || value === '') continue
-    rows.append(element('dt', label), element('dd', String(value)))
+    if (!['string', 'number'].includes(typeof value) || value === '' || key === 'evidence_path') continue
+    let display = value
+    if (key === 'provider' && Object.hasOwn(PROVIDERS, value)) display = PROVIDERS[value]
+    if (key === 'review' && Object.hasOwn(REVIEWS, value)) display = REVIEWS[value]
+    const cell = element('dd', String(display))
+    const source = key === 'source_url' && safeLink(value)
+    if (source) {
+      const link = element('a', '打开报道原网址 ↗')
+      link.href = source.href
+      link.target = '_blank'
+      link.rel = 'noopener noreferrer'
+      cell.replaceChildren(link)
+    }
+    rows.append(element('dt', label), cell)
   }
   if (rows.childElementCount) parent.append(rows)
 }
@@ -293,7 +314,15 @@ function installGraph(root) {
     title.tabIndex = -1
     details.append(title, element('p', edge.label, 'graph-explorer-related-title'))
     const count = edge.evidenceCount || edge.evidence.length
-    if (focusGraph) showDetails(details, edge.details)
+    if (focusGraph) {
+      showDetails(details, edge.details)
+      const cite = safeLink(edge.details?.evidence_path)
+      if (cite?.origin === window.location.origin && cite.pathname.startsWith('/articles/')) {
+        const source = element('a', '查看对应版本的原文陈述')
+        source.href = cite.href
+        details.append(source)
+      }
+    }
     else details.append(element('h4', '关系证据'))
     if (edge.evidence.length) {
       if (count > edge.evidence.length) details.append(element('small', `显示 ${edge.evidence.length} / ${count} 条`))
@@ -652,12 +681,20 @@ function installGraph(root) {
       const counts = `${nodes.length} 个节点 · ${edges.length} 条关系`
       const fromGraph = data.backend === 'falkordb'
       const scopeCounts = data.counts || {}
+      const localCount = scopeCounts.local_events || 0
+      const officialCount = scopeCounts.official_events ?? scopeCounts.events ?? 0
+      const graphCounts = [`系统事件 ${localCount}`, `GDELT 事件 ${officialCount}`,
+        `报道 ${scopeCounts.reports || 0}`, scopeCounts.report_leads ? `报道线索 ${scopeCounts.report_leads}` : '']
       summary.textContent = focusGraph
-        ? `${counts} · 本次构建 ${scopeCounts.events || 0} 个事件、${scopeCounts.reports || 0} 篇报道、${scopeCounts.gkg_reports || 0} 篇关联 GKG`
+        ? [counts, ...graphCounts].filter(Boolean).join(' · ')
         : `${counts} · ${fromGraph ? 'FalkorDB' : '关系库快照'}`
       const scope = data.window
+      const archive = data.gkg_archive
       metadataNotice = focusGraph ? [
-        scope?.date_from && scope.date_to ? `图谱事件日期 ${scope.date_from} 至 ${scope.date_to}。` : '',
+        scope?.date_from && scope.date_to ? `图谱日期范围 ${scope.date_from} 至 ${scope.date_to}。` : '',
+        archive?.used_urls ? `${archive.used_urls} 篇报道已由原始 GKG 归档补查。` : '',
+        archive?.state === 'checked' && !nodes.length && archive?.date_from
+          ? `GKG 归档核对 ${archive.date_from} 至 ${archive.date_to}（UTC）。` : '',
         data.truncated ? '当前显示部分事件或证据。' : '',
       ].filter(Boolean).join(' ') : [
         Object.hasOwn(READ_REASONS, data.reason) ? READ_REASONS[data.reason] : '',

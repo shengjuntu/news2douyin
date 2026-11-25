@@ -1,4 +1,4 @@
-"""Build one bounded, sourced property graph from GDELT 2.0 evidence."""
+"""Build a bounded property graph from the current focus and GDELT evidence."""
 
 from collections import defaultdict
 from datetime import date, timedelta
@@ -13,11 +13,13 @@ from ..search.dates import calendar_day
 from ..selection.service import CAMEO_LABELS
 from ..selection.source_content import source_url
 from ..storage.models import Article, ArticleEventLink, EventState
+from .focus_gkg import archive_subjects
+from .focus_local_events import add_local_events, add_report_leads
 from .focus_models import FocusLead
 from .focus_read import _membership
 from .graph_explorer import _node
 from .models import RadarEntry
-from .official_graph import _gkg, _key
+from .official_graph import _key, gkg_for_identifiers
 
 EVENTS = 240
 MEMBERS = 480
@@ -71,7 +73,7 @@ def _members(session, watch, start, end):
                   RadarEntry.seen.desc(), RadarEntry.key).limit(MEMBERS + 1)).all()
     keys = rows[:MEMBERS]
     if not keys:
-        return {}, set(), False
+        return {}, set(), {}, False
     records = session.exec(select(ArticleEventLink.event_key, Article.article_key, Article.url)
         .join(Article, Article.article_key == ArticleEventLink.article_key)
         .where(ArticleEventLink.event_key.in_(keys))
@@ -80,7 +82,7 @@ def _members(session, watch, start, end):
     event_notes = {event: _notes(value) for event, value in session.exec(
         select(EventState.event_key, func.substr(EventState.source_notes_json, 1, NOTES_LIMIT + 1))
         .where(EventState.event_key.in_(keys)))}
-    origins, urls = {}, set()
+    origins, urls, local_official = {}, set(), defaultdict(set)
     for event, article, url in records[:SOURCES]:
         if len(url or '') <= 2048 and source_url(url):
             urls.add(url)
@@ -90,11 +92,12 @@ def _members(session, watch, start, end):
             ident = _event_id(ref.get('event_id'))
             if ident:
                 origins[ident] = 'provenance'
-    return origins, urls, len(rows) > MEMBERS or len(records) > SOURCES
+                local_official[event].add(ident)
+    return origins, urls, local_official, len(rows) > MEMBERS or len(records) > SOURCES
 
 
 def _roots(session, watch, start, end):
-    origins, urls, capped = _members(session, watch, start, end)
+    origins, urls, local_official, capped = _members(session, watch, start, end)
     dates = (OfficialEvent.event_date >= start, OfficialEvent.event_date <= end)
     leads = session.exec(select(FocusLead.candidate, FocusLead.decision)
         .join(OfficialEvent, OfficialEvent.event_id == func.substr(FocusLead.candidate, 7)).where(
@@ -132,7 +135,7 @@ def _roots(session, watch, start, end):
             OfficialEvent.event_id).limit(EVENTS + 1 - len(official))).all()
         origins.update((item.event_id, 'shared_document') for item in shared)
     roots = (official + shared)[:EVENTS]
-    return roots, origins, capped or len(leads) > LEADS or len(official) + len(shared) > EVENTS
+    return roots, origins, local_official, capped or len(leads) > LEADS or len(official) + len(shared) > EVENTS
 
 
 def _documents(session, events):
@@ -153,15 +156,12 @@ def _documents(session, events):
     return result
 
 
-def build(session, watch, days, until):
+def build(session, watch, days, until, *, storage_root=None):
     start, end = bounds(days, until)
-    roots, origins, capped = _roots(session, watch, start, end)
+    roots, origins, local_official, capped = _roots(session, watch, start, end)
     documents = _documents(session, roots)
     metadata = {}
     unique = {m.doc_identifier: m for rows in documents.values() for m in rows[:DOCUMENTS]}
-    identifiers = list(unique.values())
-    for i in range(0, len(identifiers), 128):
-        metadata.update(_gkg(session, identifiers[i:i + 128]))
     nodes, edges = {}, {}
 
     def node(kind, key, title, url='', **properties):
@@ -173,6 +173,38 @@ def build(session, watch, days, until):
         key = _key(source, kind, target)
         edges.setdefault(key, dict(id=key, source=source, target=target, kind=kind, directed=True,
                                    details={k: v for k, v in properties.items() if v is not None and v != ''}))
+
+    local_by_url, local_capped = add_local_events(session, watch, start, end, node, edge,
+        local_official, {event.event_id for event in roots})
+    identifiers = sorted(set(unique) | set(local_by_url))
+    for i in range(0, len(identifiers), 128):
+        metadata.update(gkg_for_identifiers(session, identifiers[i:i + 128]))
+    missing_subjects = {url for url in identifiers if source_url(url)
+                        and (url not in metadata or not metadata[url][1])}
+    archived, references, coverage = archive_subjects(
+        storage_root, missing_subjects, unique.values(), start, end)
+    archive_refs = {}
+    for url, item in archived.items():
+        if url not in metadata or item[1]:
+            metadata[url] = item
+            archive_refs[url] = references[url]
+    if coverage:
+        coverage['used_urls'] = len(archive_refs)
+    capped |= local_capped
+
+    def add_gkg(doc, identifier):
+        info, subjects = metadata.get(identifier, ((None,) * 5, []))
+        record, feed, batch, row, more = info
+        for subject_key, kind, name in subjects:
+            entity = node('Person' if kind == 'person' else 'Organization', subject_key, name,
+                          identity='GKG 名称，身份待核')
+            edge(doc, entity, 'GKG_MENTIONS', gkg_record=record, feed=feed, batch=batch, row=row,
+                 **archive_refs.get(identifier, {}))
+        return bool(more)
+
+    for identifier, articles in sorted(local_by_url.items()):
+        for article in sorted(articles):
+            capped |= add_gkg(article, identifier)
 
     for event in roots:
         code = CAMEO_LABELS.get(event.event_root_code, event.event_code or '行动')
@@ -197,24 +229,35 @@ def build(session, watch, days, until):
         capped |= len(rows) > DOCUMENTS
         for mention in rows[:DOCUMENTS]:
             identifier = mention.doc_identifier
-            record, feed, batch, row, more = metadata.get(identifier, ((None,) * 5, []))[0]
+            record, feed, batch, row, _ = metadata.get(identifier, ((None,) * 5, []))[0]
             url = source_url(identifier) or ''
             title = (mention.source_name or mention.domain or (urlsplit(url).hostname if url else None)
                      or identifier[:180])
-            doc = node('GdeltDocument', _key(identifier), title, url, identifier=identifier[:1000],
-                       domain=mention.domain, gkg_record=record, feed=feed, batch=batch, row=row)
+            known = local_by_url.get(identifier)
+            if known and len(known) == 1:
+                doc = next(iter(known))
+            else:
+                doc = node('GdeltDocument', _key(identifier), title, url, identifier=identifier[:1000],
+                           provider='gdelt', domain=mention.domain, gkg_record=record, feed=feed, batch=batch, row=row,
+                           **archive_refs.get(identifier, {}))
             edge(event_node, doc, 'MENTIONED_IN', mention_key=mention.key, feed=mention.last_feed,
                  batch=mention.last_stamp, row=mention.last_row_index, seen=mention.last_seen,
                  sentence=mention.sentence_id, confidence=mention.confidence,
                  first_seen=mention.first_seen, first_feed=mention.first_feed,
                  first_batch=mention.first_stamp, first_row=mention.first_row_index)
-            capped |= bool(more)
-            for subject_key, kind, name in metadata.get(identifier, (None, []))[1]:
-                entity = node('Person' if kind == 'person' else 'Organization', subject_key, name,
-                              identity='GKG 名称，身份待核')
-                edge(doc, entity, 'GKG_MENTIONS', gkg_record=record, feed=feed, batch=batch, row=row)
-    counts = dict(events=len(roots), reports=len(unique), gkg_reports=len(metadata),
-                  people=sum(n['kind'] == 'Person' for n in nodes.values()),
-                  organizations=sum(n['kind'] == 'Organization' for n in nodes.values()))
+            capped |= add_gkg(doc, identifier)
+    capped |= add_report_leads(session, watch, start, end, set(local_by_url) | set(unique), node)
+    nodes_by_type = defaultdict(list)
+    for item in nodes.values():
+        nodes_by_type[item['kind']].append(item)
+    providers = defaultdict(int)
+    for item in nodes_by_type['Article'] + nodes_by_type['GdeltDocument'] + nodes_by_type['ArticleLead']:
+        providers[item['details']['provider']] += 1
+    counts = dict(events=len(roots) + len(nodes_by_type['Event']), official_events=len(roots),
+                  local_events=len(nodes_by_type['Event']),
+                  reports=len(nodes_by_type['Article']) + len(nodes_by_type['GdeltDocument']),
+                  report_leads=len(nodes_by_type['ArticleLead']), gkg_reports=len(metadata),
+                  people=len(nodes_by_type['Person']), organizations=len(nodes_by_type['Organization']),
+                  providers=dict(sorted(providers.items())))
     return dict(nodes=list(nodes.values()), edges=list(edges.values()), counts=counts, truncated=capped,
-                date_from=start, date_to=end)
+                date_from=start, date_to=end, gkg_archive=coverage)

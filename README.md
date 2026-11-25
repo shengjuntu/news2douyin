@@ -1,4 +1,6 @@
-# news2douyin 0.57.0 · 事件雷达和选题工作台
+# news2douyin 0.58.0 · 事件雷达和选题工作台
+
+在已整理事件详情展开「商品与原文证据」，可为一段原文确认商品编号，或按商品查回已核对的事件。以铜为例，两个系统共用商品编号 `copper`。[商品证据与互通配置](docs/TRADE-VIEW-INTEROP.md)
 
 可独立部署 TradeView，与本服务交换只读数据。配置后，事件页可以查看市场日线与事件窗口，TradeView 可以按日期查已整理事件及其报道来源。[互通配置与 API](docs/TRADE-VIEW-INTEROP.md)
 
@@ -76,8 +78,10 @@ v0.33 使用三个连续日期的公开 GKG 归档复核了选题质量和转载
 Python 3.10+。先停止原服务，备份原数据库、运行目录与配置，然后在原环境安装：
 
 ```bash
-python -m pip install --upgrade "./release-0.57.0/news2douyin-0.57.0-py3-none-any.whl[research,ngrams]"
+python -m pip install --upgrade "./release-0.58.0/news2douyin-0.58.0-py3-none-any.whl[research,ngrams]"
 ```
+
+从 0.57.0 或 0.57.1 升级后，在对应焦点上重建一次。所选日期内已采集的 World News API 等报道，也可以在匹配焦点后作为报道线索进入图谱。
 
 从 0.56.1 升级可沿用现有数据库和归档。升级后进入「图谱 → 焦点图」，选一个日期范围并点「重建焦点图」。首次按报道反查官方事件时，后台会为 Mentions 建立精确检索所需的索引。
 
@@ -168,6 +172,8 @@ pytest -q
 DOC与完整GKG流共同读取 `NEWS2DOUYIN_GDELT_CONNECT_TIMEOUT=30`、`NEWS2DOUYIN_GDELT_READ_TIMEOUT=90`（秒），保留现场超时修复。GKG遇429遵守Retry-After并保留断点。
 
 其他应用可调用 `POST /api/intake/documents`，使用 `Authorization: Bearer <NEWS2DOUYIN_INTAKE_TOKEN>`。未配置令牌时该入口不可用。标准文档封套保留来源编号、观察时间、发布时间、内容及元数据；新正文形成新版本。官方渠道名保留，第三方应用应使用自己的provider编号。这个入口不会隐式抓取远程网页。
+
+GKG 投影优先处理过去七天内的已归档批次，旧批次仍会获得处理轮次。焦点图重建时，若报道在 PostgreSQL 缺少 GKG 人物或机构证据，会在后台按原始 URL 核对 DuckDB 原档。归档核对以所选报道的观测批次为参考，最多七个 UTC 日，找不到匹配时保留已知报道和事件。点击「重建焦点图」即可刷新，已有投影断点沿用。
 
 离线测试或只查看旧数据可设置 `NEWS2DOUYIN_GKG_STREAM_ENABLED=0`；独立暂停文章投影可设置 `NEWS2DOUYIN_GKG_PROJECTION_ENABLED=0`。生产默认两者为1。
 

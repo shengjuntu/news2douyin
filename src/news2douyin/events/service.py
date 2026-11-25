@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone, timedelta
+from datetime import date, datetime, timezone, timedelta
 from difflib import SequenceMatcher
 import re
 from uuid import uuid4
@@ -16,6 +16,23 @@ WINDOW_DAYS = 3
 CANDIDATE_LIMIT = 250
 GENERIC = {'market', 'stocks', 'shares', 'rise', 'fall', 'news', 'update', 'report',
            'reports', 'company', 'new', 'today', 'announces', 'announced'}
+
+
+def reviewed_day(moments):
+    """Use only one unambiguous, evidence-backed day from the curated timeline."""
+    reviewed = [m for m in moments if m['reviewed'] and m['time_kind'] == 'occurred']
+    if len(reviewed) != 1:
+        return None
+    moment = reviewed[0]
+    start = moment['date_start']
+    if moment['certainty'] != 'exact' or not start or moment['date_end'] not in ('', start):
+        return None
+    try:
+        if date.fromisoformat(start).isoformat() == start and moment['sources']:
+            return start
+    except ValueError:
+        pass
+    return None
 
 
 def timestamp(value):

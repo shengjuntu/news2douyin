@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% block title %}{{ page.product_id }} · 商品关联事件{% endblock %}
+{% block content %}
+<div class="desk-row">
+  <h1>{{ page.product_id }} · 商品关联事件</h1>
+  {% if trade_view_public_url %}<a href="{{ trade_view_public_url }}/console?product_id={{ page.product_id|urlencode }}#commodities">在 TradeView 查看商品</a>{% endif %}
+</div>
+{% for row in page['items'] %}
+<article class="card desk-gap">
+  <h2><a href="{{ row.event_path }}?products=1">{{ row.event_title }}</a></h2>
+  <blockquote>{{ row.excerpt }}</blockquote>
+  <div class="desk-row">
+    <a href="/articles/{{ row.article_key|urlencode }}?revision={{ row.revision }}">{{ row.source_title }} · r{{ row.revision }}</a>
+    <a href="{{ row.source_url }}" target="_blank" rel="noopener noreferrer">打开原文 ↗</a>
+  </div>
+  <p class="desk-meta">报道发布 {{ row.published_at or '未知' }} · 版本收录 {{ row.observed_at or '未知' }} · 人工核对 {{ row.verified_at }}</p>
+</article>
+{% else %}<p>尚无此商品的已核对事件。</p>{% endfor %}
+{% if page.next_before_id %}<a href="?before_id={{ page.next_before_id }}">下一页</a>{% endif %}
+{% if request_before %}<a href="/commodities/{{ page.product_id|urlencode }}/events">回到最新记录</a>{% endif %}
+{% endblock %}

@@ -198,7 +198,7 @@ def _linked_sources(session, keys, terms, clock_bounds):
         # Prioritize usable dated source material. A later page is read if the
         # first eight linked articles don't provide three different originals.
         page = page.join(Article, Article.article_key == ArticleEventLink.article_key).order_by(
-            case((Article.published_at.between(start, stop), 0), else_=1), Article.is_duplicate)
+            case((_window(Article.published_at, start, stop), 0), else_=1), Article.is_duplicate)
         links.append(select(page.order_by(ArticleEventLink.article_key).limit(8).subquery()))
     joined = union_all(*links).subquery() if len(links) > 1 else links[0].subquery()
     sources = defaultdict(list)

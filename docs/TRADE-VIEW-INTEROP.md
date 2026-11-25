@@ -8,9 +8,16 @@
 | --- | --- |
 | `NEWS2DOUYIN_INTEROP_API_KEY` | 事件接口密钥。与 TradeView 中的 `TRADE_VIEW_NEWS2DOUYIN_API_KEY` 一致 |
 | `NEWS2DOUYIN_TRADE_VIEW_BASE_URL` | News2Douyin 进程可达的 TradeView 服务根地址，例如 `http://trade-view:8000` |
+| `NEWS2DOUYIN_TRADE_VIEW_PUBLIC_URL` | 可选，供读者从已核对的商品打开 TradeView「商品观察」的公开根地址 |
 | `NEWS2DOUYIN_TRADE_VIEW_API_KEY` | TradeView 的 `TRADE_VIEW_API_KEY`。由 News2Douyin 服务器保存和发送 |
 
 两个方向可以独立配置。要让 TradeView 查询事件，在 TradeView 设置 `TRADE_VIEW_NEWS2DOUYIN_BASE_URL` 为它可访问的 News2Douyin 服务根地址。
+
+## 核对商品与原文
+
+打开已整理事件详情，在「商品与原文证据」选定报道版本并核对引文，为这条材料确认商品编号。例如铜用 `copper`。同一编号的已核关联可在 `/commodities/copper/events` 查看。这个页面的范围取决于人工核对的覆盖程度。要把新商品接到市场行情，在 TradeView 为同一个编号登记对应的原生序列。
+
+程序可用现有互通密钥请求 `GET /api/v1/interop/product-evidence?product_id=copper`。返回当前有效关联。引文固定到原文版本，资料的公开时间、系统收录和人工确认各有各的时间含义。
 
 配置市场地址和密钥后，任何能访问 News2Douyin 事件界面的用户都可按需查询 TradeView 日线。若界面通过互联网提供，请将界面和行情代理放在同一访问控制之后。容器内的 `127.0.0.1` 指向当前容器。跨主机时请使用 HTTPS 或可信私网。
 

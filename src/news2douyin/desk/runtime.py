@@ -86,7 +86,7 @@ class DeskWorker:
 
     def focus_event_graph_loop(self):
         from .focus_event_runtime import step
-        self.focus_loop(lambda engine: step(engine, self.graph), idle=5)
+        self.focus_loop(lambda engine: step(engine, self.graph, storage_root=self.storage_root), idle=5)
 
     def focus_build_loop(self):
         from .focus_jobs import build_step

@@ -272,3 +272,20 @@ def test_short_busy_delay_does_not_change_idle_or_failure_backoff(monkeypatch):
     monkeypatch.setattr(worker,'step',lambda:next(outcomes))
     worker.loop()
     assert worker.stop_event.delays==[.05,3]
+
+
+def test_recent_gkg_gets_three_turns_then_historical_repair_can_advance(setup):
+    from datetime import datetime, timezone
+
+    engine, storage = setup
+    now = datetime(2026, 11, 24, tzinfo=timezone.utc).timestamp()
+    old, recent = '20220223043000', '20261123120000'
+    old_key = archive(engine, storage, [line(old, i) for i in range(2)], stamp=old)
+    recent_key = archive(engine, storage, [line(recent, i) for i in range(10, 15)], stamp=recent)
+    progress = []
+    for _ in range(5):
+        assert project_step(engine, storage, limit=1, now=now, observer=progress.append)
+    assert [item['key'] for item in progress] == [recent_key] * 3 + [old_key, recent_key]
+    with Session(engine) as session:
+        assert session.get(IntakeBatch, old_key).projected_offset == 1
+        assert session.get(IntakeBatch, recent_key).projected_offset == 4

@@ -159,7 +159,7 @@ def _label(label, status):
     return prefix + label
 
 
-def evidence_from_sources(sources, checked_versions):
+def evidence_from_sources(sources, checked_versions, *, require_person=True):
     """Resolve checked sources to entities, actions and attributed relations.
 
     ``checked_versions`` is the SQL view's authoritative current revision map:
@@ -220,7 +220,7 @@ def evidence_from_sources(sources, checked_versions):
                     field=argument.get('field',raw.get('field','')),start=argument.get('start'),end=argument.get('end'),
                     participation=role in _ACTING,role_link='PARTICIPATES_IN' if role in _ACTING else
                         'TARGET_OF' if role=='target' else 'MENTIONED_IN')))
-            if not any(entity['kind']=='Person' for entity,_ in prepared):
+            if require_person and not any(entity['kind']=='Person' for entity,_ in prepared):
                 # A revision may belong to more than one event in this focus.
                 mention_id = _text(raw.get('id'), 160)
                 without_person.add((article, revision, mention_id or quote))
@@ -237,7 +237,8 @@ def evidence_from_sources(sources, checked_versions):
                 elif argument['text'] not in entities[key]['aliases'] and len(entities[key]['aliases'])<24:
                     entities[key]['aliases'].append(argument['text'])
                 included.append(argument)
-            if not any(entities[x['entity_key']]['kind']=='Person' for x in included):continue
+            if not included or require_person and not any(entities[x['entity_key']]['kind']=='Person' for x in included):
+                continue
             status = raw.get('status') if isinstance(raw.get('status'),str) and raw['status'] in _STATUSES else 'uncertain'
             event = source.get('event_key', source.get('event',''))
             mention_id = _text(raw.get('id'),160)

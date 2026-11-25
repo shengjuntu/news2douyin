@@ -22,8 +22,12 @@ BATCH_SIZE = 256
 def date_envelope(floor, ceiling):
     # Stored dates can have a zone offset or only day precision. Keep adjacent
     # days in the indexed SQL range and check exact instants before scoring.
-    return (date.fromordinal(max(1, floor.date().toordinal() - 1)).isoformat(),
-            date.fromordinal(min(date.max.toordinal(), ceiling.date().toordinal() + 1)).isoformat() + '~')
+    first = max(1, floor.date().toordinal() - 1)
+    stop = ceiling.date().toordinal() + 2
+    # Use the next date prefix as an exclusive text bound. Punctuation sorts
+    # differently across PostgreSQL collations, including after an ISO date.
+    exclusive = date.fromordinal(stop).isoformat() if stop <= date.max.toordinal() else '9999-12-32'
+    return date.fromordinal(first).isoformat(), exclusive
 
 
 def _dated_keys(session, profile, floor, ceiling, excluded, checkpoint):

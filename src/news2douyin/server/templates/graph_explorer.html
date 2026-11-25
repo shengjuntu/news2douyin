@@ -25,7 +25,7 @@
       {% endif %}
       {% if lens == 'people' %}<input type="hidden" name="lens" value="people">{% endif %}
       {% if mode == 'focus' %}
-      <label for="graph-days">事件日期</label>
+      <label for="graph-days">建图范围</label>
       <select name="days" id="graph-days">
         {% for value in day_options %}<option value="{{ value }}"{% if value == days %} selected{% endif %}>{{ value }} 天</option>{% endfor %}
       </select>
@@ -75,7 +75,7 @@
     </section>
   </div>
   <noscript><p>请启用 JavaScript 查看节点和关系。</p></noscript>
-  <script type="module" src="/research-assets/graph-explorer.js?v=0.57.0"></script>
+  <script type="module" src="/research-assets/graph-explorer.js?v=0.57.3"></script>
   {% else %}
   <p>还没有可查看的焦点图。<a href="/focus?new=1">新建焦点</a></p>
   {% endif %}

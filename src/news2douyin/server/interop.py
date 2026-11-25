@@ -13,7 +13,8 @@ import requests
 from sqlalchemy import func, or_
 from sqlmodel import select
 
-from ..events.service import timestamp
+from ..events.product_evidence import ProductID, for_product
+from ..events.service import reviewed_day, timestamp
 from ..search.dates import date_range
 from ..selection.source_content import source_url
 from ..storage.db import session_scope
@@ -46,23 +47,6 @@ def require_news_key(x_api_key: Annotated[str | None, Header()] = None):
         raise HTTPException(503, '事件互通接口尚未配置')
     if not compare_digest((x_api_key or '').encode(), expected.encode()):
         raise HTTPException(401, '缺少有效的 X-API-Key')
-
-
-def reviewed_day(moments):
-    """Use only one unambiguous, evidence-backed day from the curated timeline."""
-    reviewed = [m for m in moments if m['reviewed'] and m['time_kind'] == 'occurred']
-    if len(reviewed) != 1:
-        return None
-    moment = reviewed[0]
-    start = moment['date_start']
-    if moment['certainty'] != 'exact' or not start or moment['date_end'] not in ('', start):
-        return None
-    try:
-        if date.fromisoformat(start).isoformat() == start and moment['sources']:
-            return start
-    except ValueError:
-        pass
-    return None
 
 
 def list_events(session, lower, upper, q, limit):
@@ -237,6 +221,18 @@ def event_market_context(view, first_seen_at):
 def register(app, engine):
     from .event_window import register as register_window
     register_window(app)
+
+    @app.get('/api/v1/interop/product-evidence', dependencies=[Depends(require_news_key)])
+    def product_evidence(response: Response, product_id: ProductID,
+                         limit: int = Query(50, ge=1, le=100),
+                         before_id: int | None = Query(None, gt=0, le=2**63-1),
+                         as_of: str | None = None):
+        if as_of is not None:
+            raise HTTPException(422, '商品证据卡当前仅支持最新整理状态')
+        with session_scope(engine) as session:
+            data = for_product(session, product_id, limit=limit, before_id=before_id)
+        response.headers['Cache-Control'] = 'no-store'
+        return dict(ok=True, data=data)
 
     @app.get('/api/v1/interop/news-events', dependencies=[Depends(require_news_key)])
     def news_events(response: Response, start: DateQuery, end: DateQuery,

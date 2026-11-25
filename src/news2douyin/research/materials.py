@@ -56,6 +56,34 @@ def is_lead(document):
     return source_document(document).get('source_kind') in LEAD_KINDS
 
 
+def original_body(document):
+    """Text that can support a verified quote, including legacy collected full articles."""
+    if not isinstance(document, dict) or is_lead(document):
+        return ''
+    body = document.get('content')
+    if not isinstance(body, str) or not body.strip():
+        return ''
+    raw = document.get('raw')
+    raw = raw if isinstance(raw, dict) else {}
+    explicit_text = False
+    for meta in (document, raw, raw.get('research_meta'), raw.get('metadata')):
+        if not isinstance(meta, dict):
+            continue
+        kind = meta.get('content_kind')
+        if (meta.get('requires_original_text') or meta.get('content_truncated')
+                or meta.get('material_kind') == 'discovery_metadata'
+                or meta.get('source_kind') in LEAD_KINDS
+                or kind in ('metadata', 'excerpt', 'summary', 'source_excerpt',
+                            'title_only', 'reconstructed_excerpt', 'reconstruction')):
+            return ''
+        explicit_text |= kind == 'text'
+    if (document.get('provider') in ('gdelt', 'gkg', 'gdelt_gkg', 'gdelt_events', 'gdelt_event')
+            and not explicit_text):
+        # Legacy discovery snapshots may carry generated descriptions as body text.
+        return ''
+    return body
+
+
 def source_label(source):
     if source.get('material_kind') == RECONSTRUCTION_KIND:return 'GDELT 片段重建，待核对出版方原文'
     if source.get('source_kind') == 'event_metadata':return '事件线索快照，尚无原文'

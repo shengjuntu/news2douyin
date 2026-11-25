@@ -391,6 +391,27 @@ class EventRelation(SQLModel, table=True):
     created_at: str = Field(default_factory=utc_now_iso)
 
 
+class EventProductEvidence(SQLModel, table=True):
+    """A human-reviewed citation, pinned to the source revision read by the editor."""
+    __table_args__ = (
+        Index('ix_eventproductevidence_event', 'event_key', 'revoked_at', 'id'),
+        Index('ix_eventproductevidence_product', 'product_id', 'revoked_at', 'id'),
+    )
+    id: Optional[int] = Field(default=None, primary_key=True)
+    event_key: str
+    product_id: str = Field(max_length=64)
+    article_key: str
+    revision: int
+    content_hash: str
+    excerpt: str
+    source_title: str
+    source_url: str
+    published_at: Optional[str] = None
+    observed_at: Optional[str] = None
+    verified_at: str = Field(default_factory=utc_now_iso)
+    revoked_at: Optional[str] = None
+
+
 class EventActivity(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     event_key: str = Field(index=True)
