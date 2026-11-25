@@ -2,7 +2,7 @@
 <link rel="stylesheet" href="/research-assets/attention.css">
 {% with radar_tab='attention' %}{% include 'radar_view_tabs.html' %}{% endwith %}
 <div class="radar-heading"><h1>中文平台关注</h1></div>
-<div id="attention-status" class="attention-status" role="status"><span>正在读取处理状态…</span><a href="/intake">采集中心</a></div>
+<div id="attention-status" class="attention-status" role="status"><span>正在读取 NewsNow 采集和议题处理状态…</span><a href="/runs">采集记录</a><a href="/profiles">定向采集策略</a></div>
 <form id="attention-filter" class="card attention-filters" method="get" action="/radar">
 <input type="hidden" name="source" value="attention"><input type="hidden" name="order" value="{{ filters.order or 'attention' }}"><input type="hidden" name="limit" value="{{ limit }}">
 <label class="attention-query">议题关键词<input name="q" value="{{ filters.q or '' }}" maxlength="200" placeholder="人物、地点或具体进展"></label>
@@ -27,7 +27,7 @@
 <div class="attention-card-notes small" data-attention-notes="{{ topic.key }}">{% if observed.failed %}<p>部分来源失败，缺失观测为未知。</p>{% endif %}{% if observed.cached %}<p>含缓存或重复快照，不视为新升温。</p>{% endif %}{% if observed.missing %}<p>部分来源本次未返回此议题，变化未知。</p>{% endif %}{% if observed.stale and not (observed.failed and observed.cached and observed.missing) %}<p>含超过计分有效期的旧观测，请查看时间依据。</p>{% endif %}</div></div>
 <div class="attention-topic-actions">{% if topic.selected_task|default('') %}<a class="action-link" href="/workbench/{{ topic.selected_task|urlencode }}/selection">继续选题 →</a><button class="ghost attention-secondary" type="button" data-attention-select="{{ topic.key }}">另起一个角度</button>{% else %}<button type="button" data-attention-select="{{ topic.key }}">形成选题</button>{% endif %}<a href="/organize?candidate={{ ('newsnow:' ~ topic.key)|urlencode }}">整理事件</a><button class="ghost" type="button" data-attention-open="{{ topic.key }}">来源、趋势与关联</button></div>
 </article>
-{% else %}<div class="card attention-empty"><h2>{% if unavailable_watch|default(none) %}请先调整焦点范围{% else %}当前范围没有可显示的议题{% endif %}</h2><div class="row"><a href="/radar?source=attention&period=all">查看全部时间</a><a href="/intake">检查采集</a></div></div>{% endfor %}
+{% else %}<div class="card attention-empty"><h2>{% if unavailable_watch|default(none) %}请先调整焦点范围{% else %}当前范围没有可显示的议题{% endif %}</h2><div class="row"><a href="/radar?source=attention&period=all">查看全部时间</a><a href="/runs" data-attention-collection-link>查看采集记录</a></div></div>{% endfor %}
 </section>
 <nav class="attention-pagination" aria-label="议题分页">{% if offset %}<a href="/radar?{{ dict(query,offset=[0,offset-limit]|max)|urlencode }}">← 上一页</a>{% else %}<span class="muted">上一页</span>{% endif %}<strong>第 {{ offset//limit+1 }} 页</strong>{% if data.has_more|default(false) %}<a href="/radar?{{ dict(query,offset=offset+limit)|urlencode }}">下一页 →</a>{% else %}<span class="muted">已到末页</span>{% endif %}</nav>
 <dialog id="attention-detail-dialog" class="attention-detail-dialog" aria-labelledby="attention-detail-title"><div class="attention-detail-header"><h2 id="attention-detail-title">议题详情</h2><button id="attention-detail-close" class="ghost" type="button" aria-label="关闭议题详情">关闭</button></div><div id="attention-detail-content" class="attention-detail-content" aria-live="polite"></div></dialog>

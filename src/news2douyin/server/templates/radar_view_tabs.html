@@ -1,6 +1,20 @@
-<nav class="radar-view-tabs" aria-label="雷达材料视图">
+<nav class="radar-view-tabs" aria-label="雷达视图">
   {% set daily_url = '/radar?day=' ~ issue.day if radar_tab == 'video' and issue is defined else '/radar' %}
-  {% for key, url, label in [('daily',daily_url,'每日精选'),('hotspots','/radar/hotspots','热点'),('georisk','/radar/georisk','地缘风险'),('gdelt','/radar?source=gdelt','全球事件线索'),('local','/radar?source=local','已整理事件'),('attention','/radar?source=attention','中文平台关注'),('candidates','/candidates','采集候选')] %}
+  {% set primary = [('world','/radar/world','世界态势'),('daily',daily_url,'每日精选'),('gdelt','/radar?source=gdelt','全球事件线索'),('local','/radar?source=local','已整理事件'),('attention','/radar?source=attention','中文平台关注')] %}
+  {% if radar_tab in ['hotspots','georisk'] %}
+    {% set primary = primary + [('hotspots','/radar/hotspots','热点'),('georisk','/radar/georisk','地缘风险')] %}
+  {% endif %}
+  {% for key, url, label in primary %}
   <a href="{{ url }}"{% if radar_tab == key %} class="on" aria-current="page"{% endif %}>{{ label }}</a>
   {% endfor %}
+  <details class="desk-menu"{% if radar_tab == 'candidates' %} open{% endif %}>
+    <summary>来源与回查</summary>
+    <div>
+      <a href="/candidates"{% if radar_tab == 'candidates' %} class="on" aria-current="page"{% endif %}>采集候选</a>
+      {% if radar_tab not in ['hotspots','georisk'] %}
+      <a href="/radar/hotspots">热点历史入口</a>
+      <a href="/radar/georisk">地缘报道日线</a>
+      {% endif %}
+    </div>
+  </details>
 </nav>

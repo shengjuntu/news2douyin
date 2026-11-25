@@ -117,3 +117,49 @@ def test_deleted_watch_does_not_look_like_an_empty_verified_result():
         unavailable_watch={'clear_url':'/radar?source=attention'})
     assert '所选焦点已删除或不可用' in page
     assert '请先调整焦点范围' in page
+
+
+def test_attention_empty_state_links_to_collection_history_and_profiles():
+    page = render(data={'items': [], 'has_more': False})
+    assert 'href="/runs" data-attention-collection-link' in page
+    assert 'href="/profiles">定向采集策略' in page
+    assert '正在读取 NewsNow 采集和议题处理状态' in page
+
+
+def test_recent_collection_reports_failed_batch_separately_from_last_success():
+    from sqlmodel import Session, create_engine
+
+    from news2douyin.server.attention import recent_collection
+    from news2douyin.storage.models import RunRecord
+
+    engine = create_engine('sqlite://')
+    RunRecord.__table__.create(engine)
+    earlier = '2026-11-12T12:01:00Z'
+    latest = '2026-11-14T12:02:00Z'
+
+    def stats(*sources):
+        return json.dumps({'provider': 'newsnow', 'newsnow': {'sources': sources}})
+
+    with Session(engine) as session:
+        session.add(RunRecord(run_key='earlier', profile_name='newsnow_cn',
+                              finished_at=earlier, trigger_type='scheduled',
+                              stats_json=stats({'status': 'success', 'observed_at': earlier})))
+        failed = RunRecord(run_key='failure', profile_name='newsnow_cn',
+                           finished_at=latest, status='failed',
+                           stats_json=stats({'status': 'failed', 'observed_at': latest},
+                                            {'status': 'empty', 'observed_at': latest},
+                                            {'status': 'not_attempted'}))
+        session.add(failed)
+        session.flush()
+        failed_id = failed.id
+        session.add(RunRecord(run_key='trial', profile_name='newsnow_cn',
+                              trigger_type='profile_test', finished_at=latest,
+                              stats_json=stats({'status': 'success', 'observed_at': latest})))
+        session.add(RunRecord(run_key='other', profile_name='other',
+                              finished_at=latest, stats_json='{"provider":"worldnewsapi"}'))
+        session.commit()
+        result = recent_collection(session)
+
+    assert result['run_id'] == failed_id
+    assert result['last_successful_read'] == earlier
+    assert result['source_counts'] == {'success': 0, 'empty': 1, 'failed': 1, 'not_attempted': 1}

@@ -33,7 +33,7 @@ from news2douyin.intake.fetch_diagnostics import snapshot,save
 
 
 def main():
-    assert importlib.metadata.version('news2douyin')=='0.58.0'
+    assert importlib.metadata.version('news2douyin')=='0.59.0'
     cli=subprocess.run([sys.executable,'-I','-m','news2douyin.intake.fetch_diagnostics','--help'],capture_output=True,text=True)
     assert cli.returncode==0 and '--feed' in cli.stdout,cli.stderr or cli.stdout
     with tempfile.TemporaryDirectory(prefix='n2d-stability-wheel-') as temporary:
@@ -93,7 +93,7 @@ def main():
             assert client.get('/research-assets/intake.js').status_code==200
             assert client.get('/articles').status_code==200
         finally:client.close();engine.dispose()
-    print(json.dumps(dict(status='passed',version='0.58.0',checks=[
+    print(json.dumps(dict(status='passed',version='0.59.0',checks=[
         'packaged_new_modules_and_assets','diagnostic_cli_entrypoint','legacy_text_index_migration_idempotent','canonical_index_preserved',
         'missing_archive_cursor_not_advanced','independent_batch_progress','persistent_blocked_state',
         'durable_fetch_diagnostics','intake_get_no_lake_or_network','no_receipt_or_reading_count',

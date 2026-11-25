@@ -5,8 +5,8 @@ import json
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from fastapi import Request, HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse, Response
+from fastapi import Form, Query, Request, HTTPException
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from sqlmodel import Session, select
 from starlette.concurrency import run_in_threadpool
@@ -72,16 +72,48 @@ def register_research_routes(app, engine, storage_root):
 
     @app.get('/research', response_class=HTMLResponse)
     def research_page(article_key: str = '', event_key: str = ''):
-        from fastapi.responses import RedirectResponse
         from urllib.parse import urlencode
         if article_key or event_key:
             return RedirectResponse('/workbench/new?'+urlencode(dict(article=article_key,event=event_key)),303)
         return RedirectResponse('/workbench?view=history',303)
 
+    @app.get('/research/market-impact', response_class=HTMLResponse)
+    def market_impact_page(event_key: str = Query('', max_length=160),
+                           candidate_key: str = Query('', max_length=240),
+                           moment_key: str = Query('', max_length=160)):
+        from ..research.market_impact import context
+
+        with Session(engine) as s:
+            selection = call(context, s, storage_root, event_key=event_key,
+                             candidate_key=candidate_key, moment_key=moment_key)
+        return page('market_impact.html', selection=selection)
+
+    @app.post('/research/market-impact')
+    def start_market_impact(request: Request, receipt: str = Form(..., pattern=r'^[a-f0-9]{64}$'),
+                            event_key: str = Form('', max_length=160),
+                            candidate_key: str = Form('', max_length=240),
+                            moment_key: str = Form('', max_length=160)):
+        from ..research.market_impact import context, create_case
+
+        same_origin(request)
+        with Session(engine) as s:
+            selection = call(context, s, storage_root, event_key=event_key,
+                             candidate_key=candidate_key, moment_key=moment_key)
+        if selection['receipt'] != receipt:
+            raise HTTPException(409, '选中的报道或事件已更新，请返回研究入口核对，再发起研究')
+        case = call(create_case, engine, selection)
+        case_id = case['case_id']
+        request_run = 'rrun_' + svc.digest(['market-impact', case_id])[:24]
+        try:
+            if not any(run['run_id'] == request_run for run in case['runs']):
+                runtime.enqueue(case_id, request_run_id=request_run)
+        except ValueError as exc:
+            return page('market_impact.html', selection=selection, error=str(exc), case_id=case_id)
+        return RedirectResponse('/research/' + case_id, 303)
+
     @app.get('/research/{case_id}', response_class=HTMLResponse)
     def research_case(case_id: str):
         from .workbench import owner
-        from fastapi.responses import RedirectResponse
         with Session(engine, expire_on_commit=False) as s:
             case = call(svc.require_case, s, case_id)
             task=owner(s,'case',case_id)
@@ -226,7 +258,7 @@ def register_research_routes(app, engine, storage_root):
             version = params.get('protocolVersion')
             result = {'protocolVersion': version if version in supported else '2025-03-26',
                       'capabilities': {'tools': {'listChanged': False}},
-                      'serverInfo': {'name': 'news2douyin-research', 'version': '0.58.0'}}
+                      'serverInfo': {'name': 'news2douyin-research', 'version': '0.59.0'}}
         elif method == 'ping':
             result = {}
         elif method == 'tools/list':

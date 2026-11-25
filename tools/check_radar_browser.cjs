@@ -26,6 +26,7 @@ const assert=require('node:assert/strict');
  await page.locator('[data-ng-action="expand"]').click();await page.locator('dialog.ng-dialog[open]').waitFor();assert(await page.locator('dialog.ng-dialog [data-ng-action=expand]').isDisabled());
  await page.screenshot({path:out+'/network-expanded.png',fullPage:true});
  await page.keyboard.press('Escape');assert.equal(await page.locator('dialog.ng-dialog[open]').count(),0);
+ await page.locator('[data-radar-country-tools] summary').click();
  await page.locator('[data-radar-view="countries"]').click();await page.locator('[data-country-chart] svg').waitFor();
  await page.locator('.ng-list summary',{hasText:'国家关系'}).click();await page.locator('[data-country-relation]').first().click();
  assert.match(await page.locator('.country-selection').innerText(),/原文 r1/);

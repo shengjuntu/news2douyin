@@ -6,6 +6,47 @@ from .research import same_origin
 from .tasks import task_call
 from .gdelt_events import SelectCandidate,display_time
 from ..attention import service
+from ..storage.models import RunRecord
+from ..storage.utils import loads
+
+
+RECENT_RUN_LIMIT = 100
+SOURCE_STATES = ('success', 'empty', 'failed', 'not_attempted')
+
+
+def recent_collection(session):
+    """Read stored diagnostics without making a request to NewsNow."""
+    rows = session.exec(
+        select(RunRecord.id, RunRecord.stats_json)
+        .where(RunRecord.trigger_type != 'profile_test', RunRecord.finished_at.is_not(None))
+        .order_by(RunRecord.id.desc()).limit(RECENT_RUN_LIMIT)
+        .execution_options(n2d_query_name='attention.recent_collection')
+    )
+    result = dict(run_id=None, source_counts=None, last_successful_read='', recent_run_limit=RECENT_RUN_LIMIT)
+    for run_id, encoded in rows:
+        stats = loads(encoded, {})
+        if not isinstance(stats, dict):
+            continue
+        report = stats.get('newsnow')
+        if not report and stats.get('provider') != 'newsnow':
+            continue
+        sources = report.get('sources') if isinstance(report, dict) else None
+        counts = None
+        if isinstance(sources, list) and sources:
+            counts = dict.fromkeys(SOURCE_STATES, 0)
+            for row in sources:
+                if not isinstance(row, dict):
+                    continue
+                state = row.get('status')
+                if not isinstance(state, str) or state not in counts:
+                    continue
+                counts[state] += 1
+                stamp = row.get('observed_at')
+                if state == 'success' and isinstance(stamp, str):
+                    result['last_successful_read'] = max(result['last_successful_read'], stamp)
+        if result['run_id'] is None:
+            result.update(run_id=run_id, source_counts=counts)
+    return result
 
 
 class ReviewMatch(BaseModel):
@@ -46,7 +87,9 @@ def register(app,engine):
         return task_call(service.set_match,s,key,payload.status)
 
     @app.get('/api/attention/status')
-    def status(s=Depends(db)): return task_call(service.status,s,app.state.attention)
+    def status(s=Depends(db)):
+        data = task_call(service.status, s, app.state.attention)
+        return dict(data, collection=recent_collection(s))
 
     @app.post('/api/attention/rescan',dependencies=[Depends(same_origin)])
     def rescan():

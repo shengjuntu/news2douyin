@@ -53,9 +53,24 @@
     try {
       const data = await request('/api/attention/status');
       host.replaceChildren(); host.classList.toggle('warning', data.enabled === false || Boolean(data.error));
-      host.append(node('span', data.enabled === false ? '议题处理未启用' : (stateNames[data.state] || '议题处理状态已读取')));
+      const collection = object(data.collection);
+      const counts = object(collection.source_counts);
+      const runId = Number.isSafeInteger(collection.run_id) && collection.run_id > 0 ? collection.run_id : null;
+      const runUrl = runId ? '/runs/' + runId : '/runs';
+      const runLabel = runId ? '本轮 NewsNow 详情' : '采集记录';
+      const detail = document.querySelector('[data-attention-collection-link]');
+      if (detail) { detail.href = runUrl; detail.textContent = runLabel; }
+      if (numeric(counts.success)) {
+        host.append(node('span', `本轮有条目 ${counts.success} · 空榜 ${counts.empty} · 失败 ${counts.failed} · 未尝试 ${counts.not_attempted}`));
+        if (counts.failed || counts.not_attempted) host.classList.add('warning');
+      } else {
+        const opening = runId ? '最近一轮没有逐源结果' : '近期采集记录中没有已完成的 NewsNow 运行';
+        host.append(node('span', opening));
+      }
+      if (collection.last_successful_read) host.append(node('span', '最近读到条目 ' + time(collection.last_successful_read)));
+      host.append(node('span', '议题处理 · ' + (data.enabled === false ? '未启用' : (stateNames[data.state] || '状态已读取'))));
       if (numeric(data.backlog)) host.append(node('span', '待处理批次 ' + data.backlog + (data.backlog_limited ? '+' : '')));
-      if (data.last_processed) host.append(node('span', '最近处理 ' + time(data.last_processed)));
+      if (data.last_processed) host.append(node('span', '最近处理快照 ' + time(data.last_processed)));
       if (data.error) host.append(node('span', String(data.error), 'desk-error'));
       if (list(data.backfill_error).length) {
         host.classList.add('warning');
@@ -66,9 +81,9 @@
           catch (error) { host.append(node('span', error.message, 'desk-error')); control.disabled = false; }
         }));
       }
-      host.append(link('采集中心', '/intake'), button('刷新状态', loadStatus));
+      host.append(link(runLabel, runUrl), link('定向采集策略', '/profiles'), button('刷新状态', loadStatus));
     } catch (error) {
-      host.classList.add('warning'); host.replaceChildren(node('span', '处理状态暂不可用：' + error.message), button('重试', loadStatus), link('采集中心', '/intake'));
+      host.classList.add('warning'); host.replaceChildren(node('span', '状态暂不可用 · ' + error.message), button('重试', loadStatus), link('采集记录', '/runs'), link('定向采集策略', '/profiles'));
     }
   }
   const platformName = platform => object(page.source_names)[platform.platform] || platform.platform || platform.source_id || '来源未标识';

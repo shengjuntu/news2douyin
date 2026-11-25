@@ -40,7 +40,7 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
-    assert importlib.metadata.version('news2douyin')=='0.58.0'
+    assert importlib.metadata.version('news2douyin')=='0.59.0'
     server=ThreadingHTTPServer(('127.0.0.1',0),Handler)
     thread=Thread(target=server.serve_forever,daemon=True);thread.start()
     try:
@@ -93,7 +93,7 @@ def main():
                 assert sources and all(row['requires_original_text'] and row['attention_topic']==topic for row in sources)
             finally:client.close();app.state.engine.dispose()
     finally:server.shutdown();server.server_close();thread.join(timeout=3)
-    print(json.dumps(dict(status='passed',version='0.58.0',checks=[
+    print(json.dumps(dict(status='passed',version='0.59.0',checks=[
         'packaged_provider_and_templates','real_local_http_json','configured_sources',
         'durable_collection_worker','article_identity_and_version_dedup','metadata_without_event',
         'unknown_publication_time','content_addressed_snapshots','small_frozen_checkpoints',

@@ -237,6 +237,9 @@ def create_case(engine, payload, *, preparation=None, frozen_sources=None, fixed
                 provenance.update(provider='gdelt_web_ngrams', source_kind='search_snippet',
                                   reconstruction=doc['reconstruction'], official_event_id=doc.get('official_event_id',''),
                                   material_kind=doc.get('material_kind',''), requires_original_text=True)
+            if budget_override and budget_override.get('market_impact'):
+                provenance.update(content_hash=doc.get('content_hash', ''), source_ref=doc.get('source_ref', {}),
+                                  market_impact=budget_override['market_impact'])
             add_source(s, case, title=article.title, url=article.url, text=evidence_text,
                        kind=source_kind, published_at=article.published_at, provenance=provenance)
         if prior_watch:

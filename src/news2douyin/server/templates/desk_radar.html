@@ -17,10 +17,24 @@
 {% if indexing %}<p class="desk-alert">正在建立索引，尚有 {{ indexing }} 个事件待处理。稍后刷新。</p>{% endif %}
 <div class="radar-statline"><span><strong data-radar-stat="total">{{ radar_count(total) }}</strong>当前范围事件</span><span><strong data-radar-stat="analyzed">{{ radar_count(radar_stats.analyzed) }}</strong>已有图分析</span><span><strong data-radar-stat="source_count">{{ radar_count(radar_stats.source_count) }}</strong>来源报道</span><span data-radar-historical {% if not historical or not items %}hidden{% endif %}>近 7 天没有命中，当前展示历史资料</span></div>
 <div class="desk-row radar-facet-status"><span class="radar-note" data-radar-facet-status role="status" aria-live="polite">精确统计中…</span><button type="button" class="ghost" data-radar-facet-retry disabled>统计中…</button></div>
-<nav class="radar-view-tabs" aria-label="雷达视图">{% for key,label in [('list','事件列表'),('network','事件网络'),('countries','国家圆形图')] %}<a href="?{{ dict(params,view=key)|urlencode }}" data-radar-view="{{ key }}" class="{{ 'on' if params.view==key }}">{{ label }}</a>{% endfor %}</nav>
+<nav class="radar-view-tabs" aria-label="雷达视图">
+  {% for key,label in [('list','事件列表'),('network','事件网络')] %}<a href="?{{ dict(params,view=key)|urlencode }}" data-radar-view="{{ key }}" class="{{ 'on' if params.view==key }}">{{ label }}</a>{% endfor %}
+  <details class="desk-menu" data-radar-country-tools{% if params.view=='countries' %} open{% endif %}>
+    <summary>证据工具</summary>
+    <div><a href="?{{ dict(params,view='countries')|urlencode }}" data-radar-view="countries" class="{{ 'on' if params.view=='countries' }}">国家行动圆图</a></div>
+  </details>
+</nav>
 <p class="radar-note" data-radar-scope>采集来源表示数据如何入库，报道媒体表示原始发布者。一个事件可以包含多个采集来源。</p><p data-radar-load class="radar-note" role="status" aria-live="polite"></p>
 <section class="radar-panel" data-radar-panel="network" {% if params.view!='network' %}hidden{% endif %}><div class="card"><h2>事件关系网络</h2><p class="radar-note">点击连线查看关联依据。</p><div data-radar-network></div></div></section>
-<section class="radar-panel" data-radar-panel="countries" {% if params.view!='countries' %}hidden{% endif %}><div class="card"><h2>国家圆形关系图</h2><p class="radar-note">仅绘制原文明确的国家角色。</p><div class="radar-demo-controls"><button type="button" class="ghost" data-radar-demo>查看虚构示意图</button></div><div class="radar-demo-banner" data-radar-demo-banner hidden>虚构示意数据，不计入雷达。</div><div data-radar-countries></div></div></section>
+<section class="radar-panel" data-radar-panel="countries" {% if params.view!='countries' %}hidden{% endif %}>
+  <div class="card">
+    <h2>国家行动圆图</h2>
+    <p class="radar-note">点连线可核对报道中的国家角色。一次多边会晤可产生多条共同参与连线。线宽表示当前取样内的不同事件数。</p>
+    <div class="radar-demo-controls"><button type="button" class="ghost" data-radar-demo>查看虚构示意图</button></div>
+    <div class="radar-demo-banner" data-radar-demo-banner hidden>虚构示意数据，不计入雷达。</div>
+    <div data-radar-countries></div>
+  </div>
+</section>
 <section class="radar-panel" data-radar-panel="list" {% if params.view!='list' %}hidden{% endif %}>
 {% for e in items %}<article class="radar-event" data-radar-event="{{ e.key }}"><div class="desk-row"><span class="badge">{{ metrics[e.key].band if metrics.get(e.key) else e.band }}</span><a class="desk-title" href="/events/{{ e.key|urlencode }}?back={{ back|urlencode }}">{{ e.title }}</a></div>
 <div class="radar-provenance">{% for group in sources_by_event.get(e.key,[]) %}<span class="radar-source-tag">{{ group.label }} <span>{{ group.count }} 篇</span></span>{% else %}<span class="radar-source-tag">来源待确认</span>{% endfor %}</div>

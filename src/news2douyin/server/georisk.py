@@ -66,19 +66,19 @@ def focus_seed(session, risk):
     return title[:80], '持续跟踪「' + title[:200] + '」的后续进展。'
 
 
-def register(app, engine, render):
-    def analysis_status(data):
-        worker = app.state.georisk
-        if not data['enabled']:
-            return 'disabled'
-        if worker.status_error or worker.last_error:
-            return 'error'
-        if not worker.lake.path.is_file():
-            return 'archive_absent'
-        if not any(item['archived_batches'] is not None for item in data['items']):
-            return 'unchecked'
-        return 'ready'
+def analysis_status(worker, data):
+    if not data['enabled']:
+        return 'disabled'
+    if worker.status_error or worker.last_error:
+        return 'error'
+    if not worker.lake.path.is_file():
+        return 'archive_absent'
+    if not any(item['archived_batches'] is not None for item in data['items']):
+        return 'unchecked'
+    return 'ready'
 
+
+def register(app, engine, render):
     def read(scope, category, days, end_day, day):
         with session_scope(engine) as session:
             data = read_dashboard(session, scope, category, days, end_day)
@@ -97,7 +97,7 @@ def register(app, engine, render):
                                                 PATH + '?' + query)
                 focus_url = '/focus?' + urlencode({'new': 1, 'risk': f"{scope}/{category}/{selected['day']}"})
                 selected = {**selected, 'evidence': evidence, 'events': events, 'focus_url': focus_url if evidence else None}
-            return {**data, 'selected': selected, 'analysis_status': analysis_status(data)}
+            return {**data, 'selected': selected, 'analysis_status': analysis_status(app.state.georisk, data)}
 
     @app.get('/api/radar/georisk')
     def risk_api(scope: Annotated[str, Query(max_length=32)] = 'global',

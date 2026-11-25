@@ -1,4 +1,6 @@
-# news2douyin 0.58.0 · 事件雷达和选题工作台
+# news2douyin 0.59.0 · 事件雷达和选题工作台
+
+点击「事件雷达」进入[世界态势](docs/WORLD-RADAR.md)。用地图和列表看具体进展、地缘报道异常及商品研究线索。每日精选可从同一导航按天打开。
 
 在已整理事件详情展开「商品与原文证据」，可为一段原文确认商品编号，或按商品查回已核对的事件。以铜为例，两个系统共用商品编号 `copper`。[商品证据与互通配置](docs/TRADE-VIEW-INTEROP.md)
 
@@ -78,7 +80,7 @@ v0.33 使用三个连续日期的公开 GKG 归档复核了选题质量和转载
 Python 3.10+。先停止原服务，备份原数据库、运行目录与配置，然后在原环境安装：
 
 ```bash
-python -m pip install --upgrade "./release-0.58.0/news2douyin-0.58.0-py3-none-any.whl[research,ngrams]"
+python -m pip install --upgrade "./release-0.59.0/news2douyin-0.59.0-py3-none-any.whl[research,ngrams]"
 ```
 
 从 0.57.0 或 0.57.1 升级后，在对应焦点上重建一次。所选日期内已采集的 World News API 等报道，也可以在匹配焦点后作为报道线索进入图谱。

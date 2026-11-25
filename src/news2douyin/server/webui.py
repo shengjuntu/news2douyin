@@ -338,6 +338,8 @@ def register_webui_routes(app: FastAPI, engine, scheduler, storage_root: str) ->
     register_hotspots(app,engine,render)
     from .georisk import register as register_georisk
     register_georisk(app, engine, render)
+    from .world_radar import register as register_world_radar
+    register_world_radar(app, engine, render)
     from .video_candidates import register as register_video_candidates
     register_video_candidates(app,engine,render)
     from .graph_browser import register as register_graph_browser
@@ -351,10 +353,12 @@ def register_webui_routes(app: FastAPI, engine, scheduler, storage_root: str) ->
     @app.get('/events/{event_key}', response_class=HTMLResponse)
     def page_event_detail(event_key: str, back: str = '/radar', products: bool = False):
         from ..events.workbench import workspace
+        from ..research.market_impact import related as market_studies
         from .interop import event_market_context, trade_view_settings
         from .event_window import anchor_options
         with session_scope(engine) as session:
             view = task_call(workspace, session, event_key)
+            related_market = market_studies(session, event_key)
             market = None
             windows = []
             if trade_view_settings() and not view['merged_into']:
@@ -391,7 +395,7 @@ def register_webui_routes(app: FastAPI, engine, scheduler, storage_root: str) ->
         back=safe_back(back)
         return render('event_workspace.html', active='focus' if back.startswith('/focus') else 'radar',
                       view=view, scripts=scripts, timezone=timezone_name(),related=related,watches=watches,content_tasks=content_tasks,knowledge=knowledge,market=market,windows=windows,
-                      trade_view_public_url=trade_view_public_url(), products_open=products,
+                      trade_view_public_url=trade_view_public_url(), products_open=products, related_market=related_market,
                       back=back,action_labels=LABELS,reports=reports,source_groups=source_groups,places=places,layers=layers,marks=marks,countries=country_labels())
 
     @app.get('/report/{run_id}')

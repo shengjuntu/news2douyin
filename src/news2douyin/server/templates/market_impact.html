@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block title %}研究市场影响 · news2douyin{% endblock %}
+{% block content %}
+<p class="row"><a href="/radar/world?layer=market">← 商品研究线索</a><a href="{{ selection.path }}">查看研究起点</a></p>
+<section class="card">
+  <h1>研究市场影响</h1>
+  <h2 dir="auto">{{ selection.title }}</h2>
+  <p>RunDesk 会先核对事件与传导线索，再查 TradeView 的可用序列。研究报告会保留原文、市场观测和待核问题。</p>
+  {% if selection.hypothesis %}
+  <p>{{ selection.hypothesis.channel }} · {{ selection.hypothesis.product_label or '商品待核' }}</p>
+  <p>{{ selection.hypothesis.rationale }} {{ selection.hypothesis.next_check }}</p>
+  {% endif %}
+  <h3>起点材料</h3>
+  <ul>
+  {% for source in selection.documents %}
+    <li><a href="{{ source.url }}" rel="noopener noreferrer" target="_blank" dir="auto">{{ source.title }}</a>
+      {% if source.revision %} · 版本 r{{ source.revision }}{% endif %}
+    </li>
+  {% endfor %}
+  </ul>
+  {% if error %}
+  <p class="desk-error" role="alert">{{ error }}</p>
+  <p class="row"><a href="/research/settings">研究设置</a>{% if case_id %}<a href="/research/{{ case_id }}">打开已保存的课题</a>{% endif %}</p>
+  {% endif %}
+  <form method="post" action="/research/market-impact">
+    <input type="hidden" name="receipt" value="{{ selection.receipt }}">
+    <input type="hidden" name="event_key" value="{{ selection.event_key }}">
+    <input type="hidden" name="candidate_key" value="{{ selection.candidate_key }}">
+    <input type="hidden" name="moment_key" value="{{ selection.moment_key }}">
+    <button type="submit">发起 RunDesk 研究</button>
+  </form>
+</section>
+{% endblock %}

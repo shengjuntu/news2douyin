@@ -65,9 +65,9 @@ button:disabled { opacity:.45; cursor:not-allowed; }
 </head>
 <body>
 <header>
-  <div class="logo">news2douyin<span class="dot">·</span>0.58.0</div>
+  <div class="logo">news2douyin<span class="dot">·</span>0.59.0</div>
   {% if standalone %}<span class="muted">资源 / 国家与地区</span>{% else %}<nav>
-    <a href="/radar" class="{{ 'on' if active=='radar' }}">事件雷达</a>
+    <a href="/radar/world" class="{{ 'on' if active=='radar' }}">事件雷达</a>
     <a href="/focus" class="{{ 'on' if active=='focus' }}">焦点</a>
     <a href="/graphs" class="{{ 'on' if active=='graphs' }}">图谱</a>
     <a href="/workbench" class="{{ 'on' if active=='workbench' }}">内容工作台</a>
@@ -79,6 +79,6 @@ button:disabled { opacity:.45; cursor:not-allowed; }
 {% if work is defined %}{% include 'work_header.html' %}{% endif %}
 {% block content %}{% endblock %}
 </main>
-<footer>news2douyin 0.58.0{% if not standalone %} · <a href="/docs">API</a>{% endif %}</footer>
+<footer>news2douyin 0.59.0{% if not standalone %} · <a href="/docs">API</a>{% endif %}</footer>
 </body>
 </html>

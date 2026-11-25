@@ -13,7 +13,7 @@ from news2douyin.storage.models import utc_now_iso
 
 
 def main():
-    assert version('news2douyin') == '0.58.0'
+    assert version('news2douyin') == '0.59.0'
     with tempfile.TemporaryDirectory() as temp:
         root = Path(temp)
         app = create_app(db_url=f'sqlite:///{root}/db', storage_root=temp)

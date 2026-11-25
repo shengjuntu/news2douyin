@@ -4,6 +4,7 @@
 {% block content %}
 {% with radar_tab='candidates' %}{% include 'radar_view_tabs.html' %}{% endwith %}
 <h1>采集候选</h1>
+<p class="muted">按来源查回采集报道。每日精选和焦点会自动筛选；需要补证时可把相关报道加入事件。</p>
 <form class="inline" method="get">
   <label>关键词 <input name="q" value="{{ q }}" maxlength="200" type="search"></label>
   <label>信源 <input name="provider" value="{{ provider }}" maxlength="80" placeholder="worldnewsapi"></label>

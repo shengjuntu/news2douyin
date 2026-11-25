@@ -6,7 +6,7 @@ from sqlmodel import Session, select, or_
 from ..storage.models import Article
 from .models import ResearchSource, ResearchToolCall, ResearchEnvironment
 from . import service as svc
-from . import sources
+from . import market_data, sources
 from .materials import article_document
 from .config import require_search_route
 from ..topics.tools import tool_list as topic_tool_list
@@ -29,6 +29,10 @@ DEFINITIONS = [
      {'ticket': S, 'results': {'type': 'array', 'items': schema({'title': S, 'url': S, 'snippet': S}, ['title', 'url'])}, 'error': S}, ['ticket', 'results']),
     ('research_read_source', '读取 source_id 对应原文，或抓取公网 URL 的网页/PDF并保存不可变快照。返回可引用段落。',
      {'source_id': S, 'url': S, 'article_key': S, 'offset': {'type': 'integer', 'minimum': 0}}, []),
+    (market_data.SERIES_TOOL, '检索已配置 TradeView 的原生商品序列。仅用于市场影响研究。',
+     {'product_id': S, 'q': S}, []),
+    (market_data.OBSERVATIONS_TOOL, '最多查询90日的 TradeView 原生观测并保存为课题可引用快照。使用统计日期及最新修订值。',
+     {'series_id': S, 'start': S, 'end': S}, ['series_id', 'start', 'end']),
     ('research_save_question', '新增或更新研究问题；answered 必须关联判断，证据不足用 gap。',
      {'key': S, 'text': S, 'status': {'type': 'string', 'enum': ['open', 'researching', 'answered', 'gap']}, 'answer': S, 'claim_ids': ARRAY}, ['key', 'text']),
     ('research_save_claim', '保存待审核判断和精确原文摘录。不得把搜索摘要或其他课题资料当作证据。',
@@ -101,6 +105,7 @@ class ResearchTools:
         if name == 'research_record_search':
             return self.record_search(args)
         run_id = args['run_id']
+        market_query = market_data.query(name, args) if name in market_data.TOOLS else None
         fresh_read = name == 'research_get_case' or (name == 'research_read_source' and args.get('source_id'))
         original_id = svc.digest([name, args])
         if name == 'research_search':
@@ -150,10 +155,18 @@ class ResearchTools:
                 if run.read_count >= config['max_reads']:
                     raise ValueError('正文读取预算已用尽，请整理现有证据')
                 run.read_count += 1
+            elif market_query:
+                if not config.get('market_impact'):
+                    raise ValueError('商品数据工具仅供市场影响研究使用')
+                prior = s.exec(select(ResearchToolCall.call_id).where(
+                    ResearchToolCall.run_id == run_id, ResearchToolCall.tool.in_(market_data.TOOLS)).limit(8)).all()
+                if len(prior) >= 8:
+                    raise ValueError('本轮已达到8次商品查询上限，请整理已有观测')
             s.add(run)
             s.add(ResearchToolCall(call_id=call_id, run_id=run_id, tool=name))
             label = {'research_search': ('申请外部检索：' if args.get('scope') == 'web' else '本地检索：') + args.get('query', ''), 'research_read_source': '读取资料正文',
-                     'research_save_question': '更新研究问题', 'research_save_claim': '保存证据判断', 'research_save_report': '保存研究报告'}[name]
+                     'research_save_question': '更新研究问题', 'research_save_claim': '保存证据判断', 'research_save_report': '保存研究报告',
+                     market_data.SERIES_TOOL: '查询商品序列', market_data.OBSERVATIONS_TOOL: '读取商品观测'}[name]
             svc.activity(s, case.case_id, 'tool_started', label, run_id)
             s.commit()
         try:
@@ -167,6 +180,8 @@ class ResearchTools:
                                            'HTTP 400 只能说明请求被拒绝，不能据此推断额度耗尽；按具体错误修正参数，有剩余预算时可申请新的查询票据。'}
             elif name == 'research_read_source' and args.get('url'):
                 fetched = sources.read_document(args['url'])
+            elif market_query:
+                fetched = market_data.fetch(*market_query)
             with Session(self.engine, expire_on_commit=False) as s:
                 svc.locked(s)
                 case, run = svc.active_run(s, run_id, enforce_time=name != 'research_save_report')
@@ -195,6 +210,11 @@ class ResearchTools:
                     result = svc.save_question(s, case, args)
                 elif name == 'research_save_claim':
                     result = svc.save_claim(s, case, run, args)
+                elif market_query:
+                    result = fetched
+                    if name == market_data.OBSERVATIONS_TOOL:
+                        row = svc.add_source(s, case, **market_data.citation(result, market_query[1]))
+                        result = {**result, 'snapshot': self.page(row)}
                 else:
                     result = svc.save_report(s, case, run, args)
                 call = s.get(ResearchToolCall, call_id)

@@ -8,6 +8,17 @@
 {% include 'graph_status.html' %}
 {% if content_tasks %}<details class="card"><summary>相关选题与作品</summary>{% for t in content_tasks %}<p><a href="/workbench/{{ t.key }}">{{ t.title }}</a> · {{ t.phase }}</p>{% endfor %}</details>{% endif %}
 <details class="card work-actions"><summary>相关事件图</summary><div data-knowledge-graph data-event="{{ view.event_key }}"></div></details>
+{% if view.sources or related_market %}
+<section class="card desk-gap" aria-label="市场研究">
+  <div class="row">
+    {% if view.sources and not view.merged_into %}<a href="/research/market-impact?event_key={{ view.event_key|urlencode }}">研究市场影响</a>{% endif %}
+    {% if related_market %}<details><summary>市场研究记录</summary>
+      <ul>{% for study in related_market %}<li><a href="/research/{{ study.case_id }}">{{ study.title }}</a>
+      {% if study.report_id %} · <a href="/api/research/cases/{{ study.case_id }}/reports/{{ study.report_id }}/download">下载报告</a>{% endif %}</li>{% endfor %}</ul>
+    </details>{% endif %}
+  </div>
+</section>
+{% endif %}
 {% include 'event_product_review.html' %}
 {% if market or windows %}
 <details class="card" id="event-market-panel">

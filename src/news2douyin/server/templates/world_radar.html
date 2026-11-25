@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+{% block title %}世界态势 · news2douyin{% endblock %}
+{% block graph_libraries %}<script src="/research-assets/vendor/d3.min.js" defer></script>{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="/research-assets/world-radar.css?v=0.59.0">
+{% with radar_tab='world' %}{% include 'radar_view_tabs.html' %}{% endwith %}
+<div class="world-radar" id="world-radar">
+  <div class="world-header">
+    <h1>世界态势</h1>
+    <div class="world-switch" role="group" aria-label="地图视图">
+      <button type="button" data-world-view="events" aria-pressed="true">事件进展</button>
+      <button type="button" data-world-view="signals" aria-pressed="false">报道升温</button>
+      <button type="button" data-world-view="market" aria-pressed="false">商品研究线索</button>
+    </div>
+  </div>
+  <form id="world-filters" class="world-filters" action="/radar/world">
+    <input type="hidden" name="layer" value="events">
+    <label>截至日期<input type="date" name="day" value="{{ world_filters.day|default(world_day) }}" min="1979-01-01" max="{{ world_day }}" required></label>
+    <label data-world-facet="window">观察窗口<select name="days"><option value="1">当天</option><option value="3" selected>近 3 天</option><option value="7">近 7 天</option></select></label>
+    <label data-world-facet="category">类别<select name="category"><option value="">全部类别</option></select></label>
+    <label>国家或地区<select name="country"><option value="">全球</option></select></label>
+    <label data-world-facet="signal" hidden>报道主题<select name="signal"><option value="">默认主题</option></select></label>
+    <button type="submit" class="ghost">应用</button>
+  </form>
+  <div class="world-overview">
+    <div class="world-map-panel">
+      <div id="world-map" class="world-map">
+        <svg role="group" viewBox="0 0 604 260" aria-label="世界态势地图">
+          <defs><pattern id="world-uncertain" patternUnits="userSpaceOnUse" width="4" height="4" patternTransform="rotate(45)">
+            <rect width="4" height="4" fill="#273c4b"/>
+            <path d="M0 0 V4" stroke="#52687a" stroke-width="1"/>
+          </pattern></defs>
+          <g id="world-regions"></g>
+          <g id="world-points"></g>
+        </svg>
+        <p id="world-map-error" class="world-map-error" role="status" hidden></p>
+      </div>
+      <div class="world-legend"><div id="world-legend" aria-label="地图图例"></div><span>底图 Natural Earth · @d3-maps/atlas</span></div>
+      <section class="world-ongoing" id="world-ongoing" hidden aria-labelledby="world-ongoing-heading">
+        <h2 id="world-ongoing-heading">持续关注</h2><div id="world-hotspots"></div>
+      </section>
+    </div>
+    <section class="world-stream" aria-labelledby="world-list-heading">
+      <div class="world-stream-head">
+        <h2 id="world-list-heading">事件进展</h2>
+        <p id="world-status" role="status" aria-live="polite">正在读取事件进展…</p>
+      </div>
+      <div id="world-list"></div>
+    </section>
+  </div>
+  <noscript><p>请启用 JavaScript 查看地图。也可直接打开<a href="/radar?source=local">已整理事件</a>或<a href="/radar/georisk">地缘报道详情</a>。</p></noscript>
+</div>
+<script type="application/json" id="world-bootstrap">{{ {'today':world_day,'filters':world_filters|default({}),'categories':world_categories|default({}),'countries':world_countries|default({})}|tojson }}</script>
+<script src="/research-assets/world-radar.js?v=0.59.0" defer></script>
+{% endblock %}
