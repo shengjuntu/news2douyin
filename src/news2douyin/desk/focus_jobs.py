@@ -508,7 +508,8 @@ def _judge_step(engine):
                     today = utc_now_iso()[:10]
                     if (decision == 'core' and w.enabled and w.auto_research
                             and w.last_auto_day != today and current.priority >= 2
-                            and current.seen >= w.created and not route.get('historical')):
+                            and current.seen >= w.created and not route.get('historical')
+                            and not desk.has_continuous_research(s, w.key)):
                         desk.make_review(s, w, event_key, 'signal-'+today)
                         w.last_auto_day = today
                         w.next_review = desk.iso_after(w.review_days)

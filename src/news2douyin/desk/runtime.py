@@ -52,7 +52,8 @@ class DeskWorker:
     def start(self):
         self.stop_event.clear()
         targets=[self.index_loop,self.read_loop,self.model_loop,self.graph_loop,
-                 self.focus_build_loop,self.focus_history_loop,self.focus_judge_loop,self.focus_event_graph_loop]
+                 self.focus_build_loop,self.focus_history_loop,self.focus_judge_loop,self.focus_event_graph_loop,
+                 self.focus_watch_loop,self.focus_bot_loop]
         if self.storage_root is not None:
             targets.append(self.focus_lead_loop)
         for target in targets:
@@ -87,6 +88,16 @@ class DeskWorker:
     def focus_event_graph_loop(self):
         from .focus_event_runtime import step
         self.focus_loop(lambda engine: step(engine, self.graph, storage_root=self.storage_root), idle=5)
+
+    def focus_watch_loop(self):
+        from ..scheduler.focus_watch import WatchScheduler
+        scheduler = WatchScheduler(self.engine, self.research)
+        self.focus_loop(lambda engine: scheduler.tick(), idle=15)
+
+    def focus_bot_loop(self):
+        from ..scheduler.focus_bot import HostedWatchScheduler
+        scheduler = HostedWatchScheduler(self.engine, self.research)
+        self.focus_loop(lambda engine: scheduler.tick(), idle=15)
 
     def focus_build_loop(self):
         from .focus_jobs import build_step
@@ -182,13 +193,18 @@ class DeskWorker:
                 self.stop_event.wait(retry_delay(failures) if conflict(exc) else min(30,5*failures))
 
     def review_step(self):
+        from .focus_bot_owner import host_owns
+        from .focus_watch_models import FocusWatchConfig
         now=utc_now_iso()
         with Session(self.engine,expire_on_commit=False) as s:
-            due=s.exec(select(Watch.key).where(Watch.enabled==True,Watch.auto_research==True,Watch.next_review<=now).limit(1)).first()
+            continuous = select(FocusWatchConfig.watch).where(
+                FocusWatchConfig.watch == Watch.key, FocusWatchConfig.enabled.is_(True)).exists()
+            due=s.exec(select(Watch.key).where(Watch.enabled==True, Watch.auto_research==True,
+                Watch.next_review<=now, ~continuous, ~host_owns(Watch.key)).order_by(Watch.next_review, Watch.key).limit(1)).first()
             if due:
                 lock_news(s,'watch:'+due)
                 w=s.get(Watch,due)
-                if w.enabled and w.auto_research and w.next_review<=now:
+                if w.enabled and w.auto_research and w.next_review<=now and not desk.has_continuous_research(s, due):
                     evt=s.exec(select(RadarEntry.key).join(WatchEvent,WatchEvent.event==RadarEntry.key)
                         .where(WatchEvent.watch==due,WatchEvent.choice!='exclude',desk.current_membership(),~WatchEvent.reason.startswith('背景'))
                         .order_by(RadarEntry.seen.desc(),RadarEntry.key).limit(1)).first()
@@ -237,6 +253,12 @@ class DeskWorker:
             from .focus_lifecycle import is_deleted
             if not w or is_deleted(s,item.watch) or (item.automatic and (not w.enabled or not w.auto_research or w.version!=item.scope_version)):
                 item.status='cancelled';item.message='焦点设置已更新';s.add(item);s.commit();return
+            if item.automatic and desk.has_continuous_research(s, item.watch):
+                item.status = 'cancelled'
+                item.message = '此焦点已启用持续研究'
+                s.add(item)
+                s.commit()
+                return
             keys=[]
             frozen=None
             plan=None

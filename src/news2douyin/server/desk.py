@@ -68,6 +68,8 @@ def register_desk(app,engine,render):
     register_extraction(app,db)
     from .focus_init import register as register_focus_init
     register_focus_init(app,engine)
+    from .focus_watch import register as register_focus_watch
+    register_focus_watch(app, db, render)
     from .gdelt_events import register as register_gdelt_events
     register_gdelt_events(app,engine,render)
     def remember(response,view):
@@ -167,7 +169,8 @@ def register_desk(app,engine,render):
               video_key:str=Query('',max_length=160),hotspot:str=Query('',max_length=128),risk:str=Query('',max_length=76),
               day:str=Query('',max_length=10),
               date_basis:Literal['observed','occurred']='observed',
-              view:Literal['events','leads','archive','people']='events',
+              view:Literal['events','leads','archive','people','research']='events',
+              before:int | None=Query(None,ge=1,le=2**63-1),
               person:str=Query('',max_length=160),people_days:int=Query(30,ge=1,le=365),
               people_until:str=Query('',max_length=10),s=Depends(db)):
         from ..desk.focus_lifecycle import visible_watch, trash_items
@@ -212,6 +215,8 @@ def register_desk(app,engine,render):
         w=task_call(desk.get_watch,s,key) if key else None
         events=bool(w and view=='events')
         archive=bool(w and view=='archive')
+        from ..desk.focus_watch import get_state as get_continuous_state
+        continuous = task_call(get_continuous_state, s, key, before=before) if w and view == 'research' else None
         people_data=focus_people(s,w,person=person,days=people_days,until=people_until) if w and view=='people' else None
         leads,more_leads=recent(s,w,offset=lead_offset) if w and view=='leads' else ([],False)
         total,items=desk.focus_entries(s,key,offset,order=order,branch=branch,day=day,date_basis=date_basis) if events else (0,[])
@@ -256,13 +261,13 @@ def register_desk(app,engine,render):
         response = render('desk_focus.html',active='focus',w=w,data=w.model_dump() if w else {},watches=watches,
             trashed=trash_items(s),trash_open=request.query_params.get('trash')=='1',
             intent_definition=focus_definition(s,key) if w else None,
-            tracking=focus_status(s,key) if w else {},
+            tracking=focus_status(s,key) if w and view != 'research' else {},
             total=total,items=items,offset=offset,reviews=reviews,presets=PRESETS,seed=seed,
             leads=leads,lead_offset=lead_offset,more_leads=more_leads,
             changes=changes,point_material=point_material,content_tasks=related(s,watch=key) if archive else [],
             order=order,branch=branch,branches=branches,tags=tags,questions=questions,summaries=summaries,
             candidate_dates=focus_timeline(s,key) if archive else [],action_labels=LABELS,points=outline.points(s,key) if archive else [],point_history=outline.history(s,key) if archive else [],
-            timeline=moments,excluded=excluded,paging=paging,focus_view=view,day=day,date_basis=date_basis,people=people_data,
+            timeline=moments,excluded=excluded,paging=paging,focus_view=view,continuous=continuous,day=day,date_basis=date_basis,people=people_data,
             seed_title=seed_event.event_title if seed_event else '',seed_text=seed_text,
             seed_name=seed_name,seed_terms=seed_terms,
             draft_scope=f'hotspot/{hotspot}' if hotspot else f'risk/{risk}' if risk else f'{video_day}/{video_key}' if video_key else seed,

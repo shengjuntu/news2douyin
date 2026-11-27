@@ -114,6 +114,7 @@ def load_models() -> None:
     from ..topics import models as topic_models
     from ..desk import models as desk_models
     from ..desk import focus_models
+    from ..desk import focus_watch_models
     from ..desk import graph_maintenance_models
     from ..desk import graph_focus_models
     from ..desk import focus_event_models

@@ -54,6 +54,8 @@ def remove(session, key, version):
     lease = session.get(GraphLease, 'watch-lifecycle/'+key)
     if lease and lease.owner and lease.until > time.time():
         raise TaskConflict('该焦点正在提交研究任务，请稍后重试移入回收站')
+    from .focus_watch import pause_removed
+    pause_removed(session, key)
     now = utc_now_iso()
     tombstone = tombstone or FocusTrash(watch=key, name=watch.name)
     baseline = tombstone.previous_scope_version if tombstone.restored_version == watch.version else watch.version

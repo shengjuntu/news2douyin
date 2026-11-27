@@ -6,8 +6,8 @@ from sqlmodel import Session, select, or_
 from ..storage.models import Article
 from .models import ResearchSource, ResearchToolCall, ResearchEnvironment
 from . import service as svc
-from . import market_data, sources
-from .materials import article_document
+from . import market_data, sources, watch
+from .materials import article_document, original_body, raw_metadata
 from .config import require_search_route
 from ..topics.tools import tool_list as topic_tool_list
 
@@ -41,6 +41,11 @@ DEFINITIONS = [
     ('research_save_report', '保存不可变报告版本。每节关联实际支持它的 claim_ids；未查清事项写入 gaps。',
      {'title': S, 'sections': {'type': 'array', 'items': SECTION}, 'gaps': ARRAY,
       'completeness': {'type': 'string', 'enum': ['complete', 'partial']}}, ['title', 'sections', 'gaps', 'completeness']),
+    (watch.RESULT_TOOL, '持续专题研究专用。保存有原文依据的判断变化，或明确记录没有实质变化，同时安排待查问题。',
+     {'changed': {'type': 'boolean'}, 'judgment': S, 'claim_ids': ARRAY, 'next_question': S, 'next_check_at': S,
+      'questions': {'type': 'array', 'maxItems': 16, 'items': schema(
+          {'question': S, 'dueAt': S, 'priority': {'type': 'integer', 'minimum': 0, 'maximum': 10}}, ['question'])}},
+     ['changed', 'judgment', 'claim_ids']),
     ('research_save_short_script', '仅用于 short_script 轻量任务：按指定语言保存可编辑短稿和素材报告。每段引用本课题已有 claim_ids；图片只能选择已读原文 provenance.image_candidates 中的 URL，最多4张。配图失败保留线索，不冒充已授权。可在时间用尽后交付现有证据。重复内容复用结果，不能覆盖已交付稿件。',
      {'title': S, 'segments': {'type': 'array', 'items': schema({'kind': {'type': 'string', 'enum': ['fact', 'analysis']},
         'text': S, 'claim_ids': ARRAY, 'visual': S, 'assets': S}, ['text', 'claim_ids'])},
@@ -99,6 +104,8 @@ class ResearchTools:
         with Session(self.engine) as session:
             if session.exec(select(TopicMessage).where(TopicMessage.run_id == args['run_id'])).first():
                 raise ValueError('选题会话只使用 topic_* 库内工具；请在工作台发起补材或深入研究')
+        if name == watch.RESULT_TOOL:
+            return watch.save_result(self.engine, args)
         if name == 'research_save_short_script':
             from ..editorial.short_scripts import save_draft
             return save_draft(self.engine, self.settings, args)
@@ -202,6 +209,11 @@ class ResearchTools:
                         provenance={'article_key':article.article_key}
                         if lead:provenance.update(source_kind='newsnow_metadata', provider='newsnow',
                             newsnow=document.get('newsnow',{}), content_kind=document.get('content_kind',''),requires_original_text=True)
+                        if config.get('focus_watch'):
+                            body = original_body({**document, 'raw': raw_metadata(article)}).strip()
+                            if not body or body == article.title.strip():
+                                lead = True
+                                provenance['requires_original_text'] = True
                         fetched = dict(title=article.title, url=article.url, text=article.content or article.title,
                                        published_at=article.published_at, kind='search_snippet' if lead else 'news_snapshot', provenance=provenance)
                     row = svc.add_source(s, case, **fetched)

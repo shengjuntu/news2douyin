@@ -1,5 +1,6 @@
 """Runtime-only configuration. Secrets never appear in public settings responses."""
 import json
+from contextlib import nullcontext
 import os
 import secrets
 import threading
@@ -100,7 +101,7 @@ class SettingsStore:
         data['search_mode'] = 'codex-mcp'
         return data
 
-    def update(self, payload):
+    def update(self, payload, *, guard=None):
         with self.setup_lock, self.lock:
             data = self.get()
             incoming = SettingsInput.model_validate(payload).model_dump()
@@ -126,12 +127,13 @@ class SettingsStore:
             for key in ('rundesk_token', 'search_api_key'):
                 if not incoming[key] and not (changed_host if key == 'rundesk_token' else changed_provider):
                     incoming[key] = data[key]
-            if changed_host:
-                data.update(instance_id='', workspace_id='', skill_path='', codex_home='', setup_requests={}, managed_by_rundesk=False, environment_id='', docker_initialized_environments=[])
-            data.update(incoming)
-            data['setup_message'] = '设置已保存，请配置或检查研究助手'
-            self.write(data)
-            return self.public()
+            with guard(data, incoming) if guard else nullcontext():
+                if changed_host:
+                    data.update(instance_id='', workspace_id='', skill_path='', codex_home='', setup_requests={}, managed_by_rundesk=False, environment_id='', docker_initialized_environments=[])
+                data.update(incoming)
+                data['setup_message'] = '设置已保存，请配置或检查研究助手'
+                self.write(data)
+                return self.public()
 
 
 class StrategyInput(BaseModel):

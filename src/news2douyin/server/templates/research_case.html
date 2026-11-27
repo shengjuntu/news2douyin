@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}研究工作台 · news2douyin{% endblock %}
 {% block content %}
-{% if watch %}<p><a href="/focus/{{ watch.key }}">← 返回焦点「{{ watch.name }}」</a></p>{% endif %}
+{% if watch %}<p><a href="/focus/{{ watch.key|urlencode }}{% if continuous_case %}?view=research{% endif %}">← 返回焦点「{{ watch.name }}」{% if continuous_case %}的持续研究{% endif %}</a></p>{% endif %}
 {% if plan %}<details class="card"><summary>本轮取证快照</summary>{% include 'survey_evidence.html' %}</details>{% endif %}
 {% if event_key %}<p><a href="/events/{{ event_key|urlencode }}{% if watch %}?back=/focus/{{ watch.key }}{% endif %}">查看关联事件与原始报道</a></p>{% endif %}
 <style>

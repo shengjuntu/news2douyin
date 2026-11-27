@@ -388,7 +388,106 @@
     try { await request(base + '/tracking/retry', {}); renderTracking(await request(base + '/tracking', undefined, 'GET')); status(msg, '已提交后台重试。'); }
     catch (err) { status(msg, err.message, true); } finally { button.disabled = false; }
   });
-  if (watch.key) { renderTracking(cfg.tracking || {}); pollTracking(); }
+  const researchForm = document.getElementById('continuous-form');
+  if (researchForm) {
+    const endpoint = base + '/continuous-research';
+    const output = document.getElementById('continuous-results');
+    const panelUrl = output.dataset.before ? endpoint + '?before=' + encodeURIComponent(output.dataset.before) : endpoint;
+    const notice = document.getElementById('continuous-message');
+    let timer, fetching = false, sending = false, lastPanel = '';
+    const schedule = () => {
+      clearTimeout(timer);
+      if (!disposed && !document.hidden) {
+        const busy = output.querySelector('[data-watch-busy="true"]');
+        timer = setTimeout(refresh, busy ? 6000 : 60000);
+      }
+    };
+    async function refresh() {
+      if (disposed || fetching || sending || document.hidden) return;
+      // Keep the reader's current evidence open while they inspect it.
+      if (output.querySelector('details[open]') || output.contains(document.activeElement)) {
+        schedule();
+        return;
+      }
+      fetching = true;
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
+      try {
+        const response = await fetch(panelUrl, {
+          headers: {Accept: 'text/html'}, cache: 'no-store', signal: controller.signal
+        });
+        if (!response.ok) throw new Error('暂时无法刷新持续研究进度。');
+        const panel = await response.text();
+        if (!disposed && !sending && panel !== lastPanel &&
+            !output.querySelector('details[open]') && !output.contains(document.activeElement)) {
+          output.innerHTML = panel;
+          lastPanel = panel;
+        }
+        if (notice.dataset.refreshError) {
+          status(notice, '');
+          delete notice.dataset.refreshError;
+        }
+      } catch (_) {
+        if (!disposed && !sending) {
+          status(notice, '暂时无法刷新持续研究进度，将自动重试。', true);
+          notice.dataset.refreshError = 'true';
+        }
+      } finally {
+        fetching = false;
+        clearTimeout(timeout);
+        schedule();
+      }
+    }
+    async function send(button, url, body, method) {
+      if (sending || button.disabled) return;
+      sending = true;
+      clearTimeout(timer);
+      button.disabled = true;
+      delete notice.dataset.refreshError;
+      status(notice, '正在提交…');
+      try {
+        await request(url, body, method);
+        location.reload();
+      } catch (error) {
+        status(notice, error.message, true);
+        button.disabled = false;
+        sending = false;
+        schedule();
+      }
+    }
+    researchForm.addEventListener('submit', event => {
+      event.preventDefault();
+      const goal = document.getElementById('continuous-goal-text').value.trim();
+      if (!goal) {
+        status(notice, '请写下需要持续查证的问题。', true);
+        return;
+      }
+      const enabled = document.getElementById('continuous-enabled')?.checked ?? true;
+      const owner = document.getElementById('continuous-owner').value;
+      send(researchForm.querySelector('[type="submit"]'), endpoint, {goal, enabled, owner}, 'PUT');
+    });
+    output.addEventListener('click', event => {
+      const button = event.target.closest('#continuous-run');
+      if (!button) return;
+      const goal = document.getElementById('continuous-goal-text');
+      const enabled = document.getElementById('continuous-enabled');
+      const owner = document.getElementById('continuous-owner');
+      const savedOwner = Array.from(owner.options).find(option => option.defaultSelected);
+      if (goal.value !== goal.defaultValue || (enabled && enabled.checked !== enabled.defaultChecked) ||
+          (savedOwner && owner.value !== savedOwner.value)) {
+        status(notice, '请先保存修改的研究设置，再立即复查。', true);
+        return;
+      }
+      send(button, endpoint + '/run', undefined, 'POST');
+    });
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) clearTimeout(timer);
+      else if (!disposed) refresh();
+    });
+    window.addEventListener('pagehide', () => clearTimeout(timer), {once: true});
+    schedule();
+  }
+  if (document.getElementById('focus-tracking')) { renderTracking(cfg.tracking || {}); pollTracking(); }
   if (definition?.spec) focusSpecGraph(document.querySelector('[data-intent-graph="saved"]'), definition.spec);
   try {
     const saved = JSON.parse(sessionStorage.getItem(cacheKey) || 'null');

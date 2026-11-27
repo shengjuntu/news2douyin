@@ -30,3 +30,17 @@
 .focus-filters input[type="date"] { box-sizing: border-box; max-width: 100%; }
 .focus-agent dt { color: #a8becb; font-size: 13px; }
 .focus-agent dd { margin: 4px 0 12px; overflow-wrap: anywhere; }
+
+.focus-watch { margin: 24px 0; }
+.focus-watch .desk-form textarea { width: 100%; min-height: 5em; max-width: none; box-sizing: border-box; }
+.focus-watch-status { margin-top: 18px; padding: 16px 18px; }
+.focus-watch-status p, .focus-watch .focus-materials > p, .focus-watch-source p, .focus-watch-history p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.7;
+}
+.focus-watch .focus-materials h3 { margin: 20px 0 6px; }
+.focus-watch-sources { margin: 8px 0 16px; }
+.focus-watch-sources summary { cursor: pointer; }
+.focus-watch-source { border-left: 2px solid #486c7b; margin: 12px 0; padding: 3px 12px; overflow-wrap: anywhere; }
+.focus-watch-source blockquote { margin: 6px 0; white-space: pre-wrap; line-height: 1.7; color: #bccfd8; }

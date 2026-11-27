@@ -10,7 +10,7 @@ from . import service as svc
 from .models import ResearchRun, ResearchReport, ResearchActivity, ResearchSubmission, ResearchEnvironment, ShortScriptBrief
 from .rundesk import RunDeskClient, RemoteError, submit_once, require_v1, prepare_runtime, validate_runtime, local_runtime_status, validate_causal_session_binding
 from .config import require_search_route
-from . import causal_dispatch
+from . import causal_dispatch, watch
 
 
 class ResearchRuntime:
@@ -100,6 +100,9 @@ class ResearchRuntime:
         with Session(self.engine, expire_on_commit=False) as s:
             svc.locked(s)
             case = svc.require_case(s, case_id)
+            watch_case = json.loads(case.strategy_json).get('focus_watch')
+            if watch_case:
+                watch.require_current(s, case_id, watch_case, request_run_id)
             causal = causal_dispatch.link_for(s, case_id)
             if bool(causal) != bool(causal_snapshot):
                 raise ValueError('研究与因果调查的关联已变化，请刷新后重试。')
@@ -168,6 +171,8 @@ class ResearchRuntime:
                        'HTTP 400 表示请求被拒绝，不能凭状态码判断凭据或额度耗尽；查看具体错误，'
                        '在剩余预算内修正检索词重新申请票据。只在研究预算明确耗尽、时间用尽或检索确实不可用时保存 partial。'
                        '不要将旧轮次的搜索失败当作本轮 Exa 已失败。原文必须用 research_read_source 保存为课题证据，搜索摘要不能作为事实依据。')
+            if watch_case:
+                prompt = ('本轮持续专题研究 run_id=' + row.run_id + '，case_id=' + case.case_id + '。' + watch.INSTRUCTION)
             if short:
                 from ..editorial.short_scripts import prompt as short_prompt
                 prompt += short_prompt(json.loads(short.options_json))
@@ -196,7 +201,7 @@ class ResearchRuntime:
                 session_key=prefix+'-session', turn_key=prefix+'-turn',
                 session_payload=svc.dump({'workspaceId':row.workspace_id,'instanceId':row.instance_id,'title':case.title[:120],'model':'',
                                          'source':source}),
-                turn_payload=svc.dump({'text':prompt,'files':[],'skills':([] if causal or topic or config.get('managed_by_rundesk') else [{'name':'news-research','path':config['skill_path']}])})))
+                turn_payload=svc.dump({'text':prompt,'files':[],'skills':([] if causal or topic or watch_case or config.get('managed_by_rundesk') else [{'name':'news-research','path':config['skill_path']}])})))
             s.add(ResearchEnvironment(run_id=row.run_id, mode=config.get('runtime_mode', 'local'),
                                       search_provider=config['search_provider'], search_backend=config.get('search_backend', 'exa')))
             if handoff:
@@ -246,12 +251,16 @@ class ResearchRuntime:
                 return
             from ..topics import service as topics
             library_only = topics.by_case(s,run.case_id) is not None
+            watch_case = json.loads(svc.require_case(s, run.case_id).strategy_json).get('focus_watch')
             causal = causal_dispatch.link_for(s, run.case_id)
             analysis_only = bool(causal and causal_dispatch.analysis_only(s, run_id))
             if run.status=='queued': run.started_at=svc.utc_now_iso()
             run.status='starting'; run.dispatch_done=False; s.add(run); s.commit()
         config=self.settings.get()
         try:
+            if watch_case and not submission.turn_attempted:
+                with Session(self.engine) as s:
+                    watch.require_current(s, run.case_id, watch_case, run_id)
             if submission.backend_url!=config['rundesk_url']:
                 raise ValueError('研究环境与保存的提交不一致，请恢复原连接后确认')
             if causal:
@@ -274,6 +283,8 @@ class ResearchRuntime:
                     status = local_runtime_status(client, config, library_only=library_only, causal=bool(causal), analysis_only=analysis_only)
                     if not status['ready']:
                         raise ValueError(status['message'])
+                    if watch_case and watch.RESULT_TOOL not in status['tools']:
+                        raise ValueError('未发现持续研究结果工具，请在 RunDesk 刷新研究 MCP 工具列表')
             if plan and plan.mode == 'docker' and not submission.turn_attempted:
                 if 'application-runtime' not in meta.get('capabilities', []):
                     raise ValueError('一键 Docker 研究需要 RunDesk 0.47.0 或更新版本')
@@ -290,6 +301,8 @@ class ResearchRuntime:
                 fixed = {**config, 'search_provider': plan.search_provider, 'search_backend': plan.search_backend}
                 prepared = prepare_runtime(client, fixed)
                 env = validate_runtime(prepared, fixed, library_only=library_only, causal=bool(causal), analysis_only=analysis_only)
+                if watch_case and watch.RESULT_TOOL not in prepared['servers'].get('news2douyin-research', []):
+                    raise ValueError('未发现持续研究结果工具，请在 RunDesk 刷新研究 MCP 工具列表')
                 with Session(self.engine, expire_on_commit=False) as s:
                     svc.locked(s); current = s.get(ResearchRun, run_id)
                     if current.status == 'stopping' or current.status not in svc.ACTIVE: return
@@ -328,8 +341,22 @@ class ResearchRuntime:
             with Session(self.engine,expire_on_commit=False) as s:
                 svc.locked(s); current=s.get(ResearchRun,run_id)
                 if current.status=='stopping': return
-                op=s.get(ResearchSubmission,run_id); op.turn_attempted=True; s.add(op); s.commit()
-            remote=submit_once(client,submission.turn_key,'/sessions/'+quote(run.session_id,safe='')+'/turns',json.loads(submission.turn_payload))
+                op = s.get(ResearchSubmission, run_id)
+                allow_turn = True
+                if watch_case:
+                    try:
+                        watch.require_current(s, run.case_id, watch_case, run_id)
+                    except ValueError:
+                        if not op.turn_attempted:
+                            raise
+                        # An earlier attempt can be reconciled after a pause,
+                        # but a missing receipt must never trigger a new POST.
+                        allow_turn = False
+                op.turn_attempted = True
+                s.add(op)
+                s.commit()
+            remote=submit_once(client,submission.turn_key,'/sessions/'+quote(run.session_id,safe='')+'/turns',
+                               json.loads(submission.turn_payload), allow_send=allow_turn)
             self.accept_turn(run_id,remote)
         except Exception as exc:
             uncertain=isinstance(exc,RemoteError) and (exc.uncertain or exc.status==0 or exc.status>=500)
@@ -428,6 +455,12 @@ class ResearchRuntime:
                     current.status = 'failed'; current.error = 'Codex 执行失败；已保存的资料仍可继续使用，请查看 RunDesk 执行轨迹'
                 elif status == 'interrupted':
                     current.status = 'paused'
+                elif json.loads(case.strategy_json).get('focus_watch'):
+                    if watch.saved_result(s, run_id) is None:
+                        current.status = 'partial'
+                        current.error = '本轮已结束但未保存专题增量结果，原专题判断保留'
+                    else:
+                        current.status = 'completed'
                 else:
                     from ..topics.models import TopicMessage
                     topic_message=s.exec(select(TopicMessage).where(TopicMessage.run_id==run_id)).first()

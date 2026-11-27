@@ -1,5 +1,6 @@
 """Research UI/API and stateless MCP Streamable HTTP endpoint."""
 import os
+from contextlib import contextmanager
 import hmac
 import json
 from pathlib import Path
@@ -122,11 +123,16 @@ def register_research_routes(app, engine, storage_root):
             from ..extraction.models import SurveyPacket
             packet = s.get(SurveyPacket,case_id)
             plan = json.loads(packet.data) if packet else None
-            watch = s.exec(select(Watch).join(WatchReview, WatchReview.watch == Watch.key)
-                           .where(WatchReview.case_key == case_id)).first()
+            continuous_key = (json.loads(case.strategy_json).get('focus_watch') or {}).get('watch')
+            if continuous_key:
+                watch = s.get(Watch, continuous_key)
+            else:
+                watch = s.exec(select(Watch).join(WatchReview, WatchReview.watch == Watch.key)
+                               .where(WatchReview.case_key == case_id)).first()
             from ..desk.focus_lifecycle import is_deleted
             if watch and is_deleted(s,watch.key):watch=None
-        return page('research_case.html', case_id=case_id, watch=watch, event_key=case.event_key, plan=plan)
+        return page('research_case.html', case_id=case_id, watch=watch, continuous_case=bool(continuous_key),
+                    event_key=case.event_key, plan=plan)
 
     @app.get('/api/research/settings')
     def read_settings():
@@ -137,13 +143,34 @@ def register_research_routes(app, engine, storage_root):
             if s.exec(select(ResearchRun).where(ResearchRun.status.in_(svc.ACTIVE))).first():
                 raise ValueError('有活动研究任务，请先停止后再修改研究环境')
 
+    @contextmanager
+    def guard_environment(previous, incoming):
+        from ..desk.focus_watch_models import FocusBotBinding
+        from ..storage.articles import lock_news
+        with Session(engine) as session:
+            lock_news(session, 'research-host-binding')
+            bound = session.exec(select(FocusBotBinding.watch).where(FocusBotBinding.owned.is_(True),
+                                  FocusBotBinding.host_url != incoming['rundesk_url']).limit(1)).first()
+            if bound:
+                raise ValueError('请先将焦点 ' + bound + ' 的持续研究交回本地，等候 RunDesk 确认后再更换地址。'
+                                 '若焦点在回收站中，请先恢复。')
+            changed = {k for k, value in incoming.items() if previous.get(k) != value}
+            if changed != {'rundesk_token'}:
+                if session.exec(select(ResearchRun.run_id).where(ResearchRun.status.in_(svc.ACTIVE)).limit(1)).first():
+                    raise ValueError('有活动研究任务，请先停止后再修改研究环境')
+            yield
+            session.commit()
+
     @app.put('/api/research/settings')
     async def update_settings(request: Request):
         same_origin(request)
         payload = await body(request)
-        call(ensure_idle)
+        if not payload.get('callback_url') and set(payload) <= {'rundesk_url', 'rundesk_token'} and payload.get('rundesk_token'):
+            current = settings.get()
+            payload.setdefault('rundesk_url', current['rundesk_url'])
+            payload['callback_url'] = current['callback_url']
         payload['callback_url'] = payload.get('callback_url') or os.getenv('NEWS2DOUYIN_PUBLIC_URL') or str(request.base_url).rstrip('/')
-        return await run_in_threadpool(call, settings.update, payload)
+        return await run_in_threadpool(call, settings.update, payload, guard=guard_environment)
 
     @app.post('/api/research/setup')
     def setup_research(request: Request):
@@ -258,7 +285,7 @@ def register_research_routes(app, engine, storage_root):
             version = params.get('protocolVersion')
             result = {'protocolVersion': version if version in supported else '2025-03-26',
                       'capabilities': {'tools': {'listChanged': False}},
-                      'serverInfo': {'name': 'news2douyin-research', 'version': '0.63.0'}}
+                      'serverInfo': {'name': 'news2douyin-research', 'version': '0.65.0'}}
         elif method == 'ping':
             result = {}
         elif method == 'tools/list':

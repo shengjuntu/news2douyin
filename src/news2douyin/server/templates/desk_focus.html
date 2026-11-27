@@ -47,8 +47,10 @@
       <a href="/focus/{{ w.key|urlencode }}"{% if view=='events' %} aria-current="page"{% endif %}>事件</a>
       <a href="/graphs?view=focus&amp;focus={{ w.key|urlencode }}&amp;lens=people{% if view=='people' and people %}&amp;days={{ people.days }}&amp;until={{ people.until|urlencode }}{% endif %}">人物与组织</a>
       <a href="?view=leads"{% if view=='leads' %} aria-current="page"{% endif %}>候选报道</a>
+      <a href="?view=research"{% if view=='research' %} aria-current="page"{% endif %}>持续研究</a>
       <a href="?view=archive"{% if view=='archive' %} aria-current="page"{% endif %}>档案</a>
     </nav>
+    {% if view != 'research' %}
     <section class="card focus-tracking" id="focus-tracking" aria-label="跟踪进度">
       <div class="focus-tracking-line">
         <strong id="tracking-title">正在读取跟踪进度…</strong>
@@ -62,6 +64,7 @@
         <button type="button" class="ghost" id="tracking-retry">重试筛选</button>
       </details>
     </section>
+    {% endif %}
     {% if changes %}
     <section class="focus-changes">
       <div class="desk-row"><strong>未读进展</strong><button class="ghost" type="button" id="mark-seen">标记已读</button></div>
@@ -154,7 +157,9 @@
     <p id="focus-msg" class="desk-error" role="status" aria-live="polite"></p>
 
     {% if w %}
-    {% if view=='leads' %}
+    {% if view=='research' %}
+    {% include 'focus_watch.html' %}
+    {% elif view=='leads' %}
     <section class="focus-materials" id="focus-leads" aria-label="候选报道">
       <div class="focus-section-head"><h2>候选报道</h2></div>
       {% for lead in leads %}

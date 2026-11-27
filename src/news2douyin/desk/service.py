@@ -204,7 +204,8 @@ def update_event(s,key,watches):
             today=utc_now_iso()[:10]
             if (w.enabled and w.auto_research and w.last_auto_day!=today and after
                     and after.choice!='exclude' and not after.reason.startswith('背景')
-                    and card.priority>=2 and card.seen>=w.created and card.sources!=old_sources):
+                    and card.priority>=2 and card.seen>=w.created and card.sources!=old_sources
+                    and not has_continuous_research(s, w.key)):
                 make_review(s,w,key,'signal-'+today)
                 w.last_auto_day=today;w.next_review=iso_after(w.review_days);s.add(w)
     enqueue_graph(s,'event/'+key)
@@ -392,6 +393,13 @@ def focus_entries(s,key,offset=0,limit=30,*,order='recent',branch='',day='',date
     rows=page_rows(s,stmt.order_by(RadarEntry.seen.desc(),RadarEntry.key),
         offset=offset,limit=limit,name='desk.focus_entries.page')
     return total,[(card,reason) for card,reason in rows]
+
+
+def has_continuous_research(session, key):
+    from .focus_bot_owner import hosted
+    from .focus_watch_models import FocusWatchConfig
+    config = session.get(FocusWatchConfig, key)
+    return bool(config and config.enabled) or hosted(session, key)
 
 
 def make_review(s,w,event_key,trigger,cutoff=''):
